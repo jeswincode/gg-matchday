@@ -60,3 +60,44 @@ body::after {
     animation: none;
   }
 }
+
+/* =========================================================
+   V2.1 — BACKGROUND ATMOSPHERE ONLY
+   No layout, component, navigation, data, or functionality changes.
+========================================================= */
+
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(
+      900px 520px at 50% 8%,
+      rgba(46, 63, 96, 0.18),
+      rgba(46, 63, 96, 0) 72%
+    ),
+    linear-gradient(
+      180deg,
+      #0b0f17 0%,
+      #080a0f 48%,
+      #070910 100%
+    );
+}
+
+html[data-theme="golden"] body {
+  background:
+    radial-gradient(
+      900px 520px at 50% 8%,
+      rgba(190, 148, 55, 0.13),
+      rgba(190, 148, 55, 0) 72%
+    ),
+    linear-gradient(
+      180deg,
+      #17120c 0%,
+      #100d0a 48%,
+      #0b0907 100%
+    );
+}
+
+/* Keep the existing white stars, but give Gold mode a barely-warm tint. */
+html[data-theme="golden"] body::before,
+html[data-theme="golden"] body::after {
+  filter: sepia(0.12) saturate(0.78) brightness(1.03);
+}
