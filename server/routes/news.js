@@ -1,8 +1,9 @@
+import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
+import { limitAI } from "../services/editorial.js";
 import express from "express";
 
 import News from "../models/News.js";
 import Match from "../models/Match.js";
-import Player from "../models/Player.js";
 
 import {
   generateMatchNews,
@@ -136,6 +137,7 @@ router.get(
 
 router.post(
   "/generate/:matchId",
+  requireAuth, requireEditor, limitAI,
   async (
     req,
     res
@@ -272,6 +274,7 @@ router.post(
 
 router.get(
   "/debug/gemini",
+  requireAuth, requireAdmin, limitAI,
   async (
     req,
     res
@@ -356,327 +359,9 @@ router.get(
 // PLAYER REVIEW
 // ==================================================
 
-router.post(
-  "/player/:playerId",
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const player =
-        await Player.findById(
-          req.params.playerId
-        );
-
-      if (!player) {
-        return res
-          .status(
-            404
-          )
-          .json({
-            message:
-              "Player not found.",
-          });
-      }
-
-      const matches =
-        await Match.find({
-          "participants.player":
-            player._id,
-        })
-          .populate(
-            "participants.player",
-            "name"
-          )
-          .populate(
-            "events.player",
-            "name"
-          )
-          .sort({
-            date:
-              -1,
-          });
-
-      let matchesPlayed =
-        0;
-
-      let wins =
-        0;
-
-      let draws =
-        0;
-
-      let losses =
-        0;
-
-      let goals =
-        0;
-
-      let assists =
-        0;
-
-      for (const match of matches) {
-        const participant =
-          (
-            match.participants ||
-            []
-          ).find(
-            (item) =>
-              String(
-                item.player?._id ||
-                  item.player
-              ) ===
-              String(
-                player._id
-              )
-          );
-
-        if (!participant) {
-          continue;
-        }
-
-        matchesPlayed +=
-          1;
-
-        const ownScore =
-          participant.team ===
-          "A"
-            ? Number(
-                match.teamA?.score ||
-                  0
-              )
-            : Number(
-                match.teamB?.score ||
-                  0
-              );
-
-        const opponentScore =
-          participant.team ===
-          "A"
-            ? Number(
-                match.teamB?.score ||
-                  0
-              )
-            : Number(
-                match.teamA?.score ||
-                  0
-              );
-
-        if (
-          ownScore >
-          opponentScore
-        ) {
-          wins += 1;
-        } else if (
-          ownScore <
-          opponentScore
-        ) {
-          losses += 1;
-        } else {
-          draws += 1;
-        }
-
-        for (
-          const event of
-            match.events || []
-        ) {
-          const eventPlayerId =
-            String(
-              event.player?._id ||
-                event.player
-            );
-
-          if (
-            eventPlayerId !==
-            String(
-              player._id
-            )
-          ) {
-            continue;
-          }
-
-          if (
-            event.type ===
-            "goal"
-          ) {
-            goals +=
-              1;
-          }
-
-          if (
-            event.type ===
-            "assist"
-          ) {
-            assists +=
-              1;
-          }
-        }
-      }
-
-      const rating =
-        matchesPlayed >
-        0
-          ? Number(
-              (
-                (
-                  goals +
-                  assists +
-                  wins -
-                  losses
-                ) /
-                matchesPlayed
-              ).toFixed(
-                2
-              )
-            )
-          : 0;
-
-      let review =
-        matchesPlayed >
-        0
-          ? `${player.name} has recorded ${goals} goals and ${assists} assists across ${matchesPlayed} matches, with ${wins} wins, ${draws} draws and ${losses} losses.`
-          : `${player.name} has no recorded matches yet.`;
-
-      let generatedBy =
-        "fallback";
-
-      let aiError =
-        null;
-
-      if (
-        process.env
-          .GEMINI_API_KEY
-      ) {
-        try {
-          const ai =
-            new (
-              (
-                await import(
-                  "@google/genai"
-                )
-              ).GoogleGenAI
-            )({
-              apiKey:
-                process.env
-                  .GEMINI_API_KEY,
-            });
-
-          const interaction =
-            await ai.interactions.create(
-              {
-                model:
-                  process.env
-                    .GEMINI_MODEL ||
-                  "gemini-3.8-flash",
-
-                input: `
-Write a short football player review.
-
-Use ONLY these verified statistics.
-
-Player: ${player.name}
-Matches: ${matchesPlayed}
-Wins: ${wins}
-Draws: ${draws}
-Losses: ${losses}
-Goals: ${goals}
-Assists: ${assists}
-Rating: ${rating}
-
-Rules:
-- Do not invent statistics.
-- Do not invent position.
-- Do not invent playing style.
-- Do not invent achievements.
-- 45-80 words.
-`,
-              }
-            );
-
-          if (
-            interaction.output_text
-          ) {
-            review =
-              interaction
-                .output_text
-                .trim();
-
-            generatedBy =
-              "gemini";
-          }
-        } catch (error) {
-          aiError =
-            error.message;
-
-          console.error(
-            "Player review Gemini error:",
-            error
-          );
-        }
-      } else {
-        aiError =
-          "GEMINI_API_KEY is missing";
-      }
-
-      res.json({
-        player: {
-          id:
-            player._id,
-
-          name:
-            player.name,
-
-          profileImage:
-            player.profileImage ||
-            "",
-        },
-
-        stats: {
-          matches:
-            matchesPlayed,
-
-          wins,
-
-          draws,
-
-          losses,
-
-          goals,
-
-          assists,
-
-          points:
-            rating,
-        },
-
-        review,
-
-        generatedBy,
-
-        aiError,
-      });
-    } catch (error) {
-      console.error(
-        "Player review error:",
-        error
-      );
-
-      res.status(
-        500
-      ).json({
-        message:
-          "Failed to generate player review.",
-      });
-    }
-  }
-);
-
-// ==================================================
-// DELETE NEWS
-// ==================================================
-
 router.delete(
   "/:id",
+  requireAuth, requireEditor,
   async (
     req,
     res

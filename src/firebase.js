@@ -33,13 +33,5 @@ const firebaseConfig = {
       .VITE_FIREBASE_APP_ID,
 };
 
-const app =
-  initializeApp(
-    firebaseConfig
-  );
-
-export const auth =
-  getAuth(app);
-
-export const googleProvider =
-  new GoogleAuthProvider();
+export const auth = firebaseConfig.apiKey && firebaseConfig.projectId ? getAuth(initializeApp(firebaseConfig)) : null;
+export const googleProvider = new GoogleAuthProvider();

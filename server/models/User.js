@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const userSchema =
   new mongoose.Schema(
     {
+      chatMonth: { type: String, default: "" },
       firebaseUid: {
         type: String,
         required: true,

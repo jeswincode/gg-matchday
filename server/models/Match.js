@@ -8,6 +8,7 @@ const participantSchema = new mongoose.Schema(
       required: true,
     },
 
+    rating: { type: Number, min: 0, max: 10, default: null },
     team: {
       type: String,
       enum: ["A", "B"],
@@ -43,6 +44,9 @@ const matchEventSchema = new mongoose.Schema(
 
 const matchSchema = new mongoose.Schema(
   {
+    votingClosed: { type: Boolean, default: false },
+    voteVersion: { type: Number, default: 0 },
+    motmWinner: { type: mongoose.Schema.Types.ObjectId, ref: "Player", default: null },
     date: {
       type: Date,
       required: true,
@@ -100,5 +104,6 @@ const matchSchema = new mongoose.Schema(
 );
 
 matchSchema.index({ date: -1 });
+matchSchema.index({ "participants.player": 1, date: -1 });
 
 export default mongoose.model("Match", matchSchema);

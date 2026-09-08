@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 
 const playerSchema = new mongoose.Schema(
   {
+    preferredPositions: { type: [String], default: [] },
+    clasicoSide: { type: String, enum: ["", "Messi", "Ronaldo"], default: "" },
     name: {
       type: String,
       required: true,

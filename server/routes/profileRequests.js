@@ -1,3 +1,4 @@
+import { validatePreferences } from "../services/validation.js";
 import express from "express";
 import mongoose from "mongoose";
 
@@ -26,7 +27,7 @@ function sanitizeChanges(input, player) {
     return {};
   }
 
-  const changes = {};
+  const changes = validatePreferences(input, player);
 
   for (const field of ALLOWED_FIELDS) {
     if (!Object.prototype.hasOwnProperty.call(input, field)) {
@@ -147,13 +148,7 @@ router.post(
   requireAuth,
   async (req, res) => {
     try {
-      if (req.user.role !== "viewer") {
-        return res.status(400).json({
-          message:
-            "Profile approval requests are for viewer accounts. Editors and admins can update profiles directly.",
-        });
-      }
-
+      if (!req.user.playerProfile || String(req.user.playerProfile) !== String(req.body.playerId)) return res.status(403).json({message:"You may only request changes to your own linked player."});
       const { playerId } = req.body;
 
       if (!playerId || !mongoose.isValidObjectId(playerId)) {
@@ -334,7 +329,7 @@ router.post(
         });
       }
 
-      for (const [field, value] of Object.entries(request.changes || {})) {
+      for (const [field, value] of Object.entries(sanitizeChanges(request.changes || {}, player))) {
         player[field] = value;
       }
 

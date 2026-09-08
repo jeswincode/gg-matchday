@@ -74,16 +74,13 @@ function buildFallbackNews(match) {
   const topScorer =
     scorers[0] || null;
 
-  let headline =
-    `${match.name || "Football Match"} finishes ${scoreA}-${scoreB}`;
+  let headline;
 
-  let summary =
-    `${teamA} and ${teamB} played out another match in the football journal.`;
+  let summary;
 
-  let body =
-    `${teamA} finished with ${scoreA} while ${teamB} finished with ${scoreB}.`;
+  let body;
 
-  let icon = "⚽";
+  let icon;
 
   if (
     topScorer &&
@@ -301,6 +298,7 @@ ${JSON.stringify(
         {
           model:
             MODEL,
+          store: false,
 
           input:
             prompt,

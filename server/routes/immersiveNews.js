@@ -1,3 +1,5 @@
+import { requireAuth } from "../middleware/auth.js";
+import { limitAI } from "../services/editorial.js";
 import dotenv from "dotenv";
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
@@ -54,7 +56,7 @@ function factsFor(match) {
   };
 }
 
-router.get("/:matchId", async (req, res) => {
+router.get("/:matchId", requireAuth, limitAI, async (req, res) => {
   try {
     if (!API_KEY) {
       return res.status(503).json({
@@ -121,7 +123,7 @@ ${JSON.stringify(facts, null, 2)}
 `;
 
     const interaction = await ai.interactions.create({
-      model: MODEL,
+      model: MODEL, store: false,
       input: prompt,
       response_format: {
         type: "text",

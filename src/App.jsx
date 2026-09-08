@@ -1,3 +1,14 @@
+import {lazy, Suspense, useCallback} from 'react';
+import Squad from './components/Squad';
+import LeaderboardView from './components/Leaderboard';
+import ProfileInsights from './components/ProfileInsights';
+import Clasico from './components/Clasico';
+import LikeButton from './components/LikeButton';
+import {api, invalidate} from './lib/api';
+const Awards = lazy(()=>import('./components/Awards'));
+const MatchDetail = lazy(()=>import('./components/MatchDetail'));
+const HallOfFame = lazy(()=>import('./components/HallOfFame'));
+const Chat = lazy(()=>import('./components/Chat'));
 import {
   useEffect,
   useMemo,
@@ -54,20 +65,6 @@ function formatDate(value) {
   );
 }
 
-function formatShortDate(value) {
-  if (!value) return "—";
-
-  return new Date(
-    value
-  ).toLocaleDateString(
-    undefined,
-    {
-      day: "numeric",
-      month: "short",
-    }
-  );
-}
-
 function localDateString(
   date = new Date()
 ) {
@@ -86,6 +83,25 @@ function localDateString(
 }
 
 function App() {
+  const [recordSection,setRecordSection]=useState('record');
+  const [ratings,setRatings]=useState({});
+  const [legacyUnrated,setLegacyUnrated]=useState([]);
+  const [modal,setModal]=useState(null);
+  const [detailId,setDetailId]=useState(null);
+  const [refreshKey,setRefreshKey]=useState(0);
+  const [galleryNext,setGalleryNext]=useState(null);
+  const [galleryMatch,setGalleryMatch]=useState('');
+  const [galleryPlayers,setGalleryPlayers]=useState([]);
+  const [overview,setOverview]=useState(null);
+  const [archivePage,setArchivePage]=useState(1);
+  const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
+  const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
+  useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
+  useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
+  useEffect(()=>{api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey]);
+  function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
+  function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
+
   // =========================================================
   // NAVIGATION
   // =========================================================
@@ -112,7 +128,7 @@ function App() {
   const [
     authLoading,
     setAuthLoading,
-  ] = useState(true);
+  ] = useState(Boolean(auth));
 
   const [
     message,
@@ -164,7 +180,7 @@ function App() {
   ] = useState(true);
 
   const [
-    leaderboardLoading,
+    ,
     setLeaderboardLoading,
   ] = useState(false);
 
@@ -225,16 +241,6 @@ function App() {
     dateOfBirth: "",
     bio: "",
   });
-
-  const [
-    playerStats,
-    setPlayerStats,
-  ] = useState(null);
-
-  const [
-    playerStatsLoading,
-    setPlayerStatsLoading,
-  ] = useState(false);
 
   const [
     playerReview,
@@ -317,7 +323,7 @@ function App() {
 
   const [
     leaderboardPeriod,
-    setLeaderboardPeriod,
+    ,
   ] = useState("all");
 
   // =========================================================
@@ -325,12 +331,12 @@ function App() {
   // =========================================================
 
   const [
-    playerOfYear,
+    ,
     setPlayerOfYear,
   ] = useState(null);
 
   const [
-    playerOfMonth,
+    ,
     setPlayerOfMonth,
   ] = useState(null);
 
@@ -431,6 +437,7 @@ function App() {
   // =========================================================
 
   useEffect(() => {
+    if (!auth) return;
     const unsubscribe =
       onAuthStateChanged(
         auth,
@@ -547,13 +554,13 @@ function App() {
     }
   }
 
-  async function loadMatches() {
+  async function loadMatches(page = 1) {
     try {
       setLoadingMatches(true);
 
       const response =
         await fetch(
-          `${API_URL}/matches`
+          `${API_URL}/matches?page=${page}&limit=50`
         );
 
       if (!response.ok) {
@@ -574,7 +581,8 @@ function App() {
             )
           : [];
 
-      setMatches(ordered);
+      setMatches(current => page===1?ordered:[...current,...ordered]);
+      setArchivePage(page);
     } catch (error) {
       console.error(error);
       setMessage(
@@ -616,13 +624,13 @@ function App() {
     }
   }
 
-  async function loadGallery() {
+  async function loadGallery(page = 1) {
     try {
       setGalleryLoading(true);
 
       const response =
         await fetch(
-          `${API_URL}/gallery`
+          `${API_URL}/gallery?page=${page}`
         );
 
       if (!response.ok) {
@@ -634,11 +642,8 @@ function App() {
       const data =
         await response.json();
 
-      setGallery(
-        Array.isArray(data)
-          ? data
-          : []
-      );
+      setGallery(current => page === 1 ? (data.items || []) : [...current,...(data.items || [])]);
+      setGalleryNext(data.nextPage);
     } catch (error) {
       console.error(error);
       setGallery([]);
@@ -770,7 +775,7 @@ function App() {
     options = {}
   ) {
     if (
-      !auth.currentUser
+      !auth?.currentUser
     ) {
       throw new Error(
         "Authentication required."
@@ -778,7 +783,7 @@ function App() {
     }
 
     const token =
-      await auth.currentUser.getIdToken();
+      await auth?.currentUser.getIdToken();
 
     return fetch(
       url,
@@ -801,6 +806,7 @@ function App() {
   // =========================================================
 
   async function signIn() {
+    if (!auth) { setMessage("Sign-in is not configured for this environment yet."); return; }
     try {
       setMessage("");
 
@@ -1054,7 +1060,7 @@ function App() {
         null
       );
 
-      setPlayerStats(null);
+
 
       setPlayerReview(null);
 
@@ -1131,45 +1137,7 @@ function App() {
         "",
     });
 
-    loadPlayerStats(
-      player._id
-    );
-  }
 
-  async function loadPlayerStats(
-    playerId
-  ) {
-    try {
-      setPlayerStatsLoading(
-        true
-      );
-
-      const response =
-        await fetch(
-          `${API_URL}/stats/player/${playerId}`
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          "Could not load player stats."
-        );
-      }
-
-      const data =
-        await response.json();
-
-      setPlayerStats(
-        data
-      );
-    } catch (error) {
-      console.error(error);
-
-      setPlayerStats(null);
-    } finally {
-      setPlayerStatsLoading(
-        false
-      );
-    }
   }
 
   async function loadPlayerReview(
@@ -1181,7 +1149,7 @@ function App() {
       );
 
       const response =
-        await fetch(
+        await authenticatedFetch(
           `${API_URL}/news/player/${playerId}`,
           {
             method:
@@ -1277,9 +1245,7 @@ function App() {
         false
       );
 
-      await loadPlayerStats(
-        data._id
-      );
+      invalidate();
 
       setMessage(
         "Player profile updated."
@@ -1313,6 +1279,7 @@ function App() {
     setTeams({});
     setGoals({});
     setAssists({});
+    setRatings({});setLegacyUnrated([]);
   }
 
   function setPlayerTeam(
@@ -1377,6 +1344,9 @@ function App() {
       return;
     }
 
+    setRecordSection("record");
+    setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??""])));
+    setLegacyUnrated((match.participants||[]).filter(p=>p.rating==null).map(p=>String(p.player?._id||p.player)));
     const nextTeams =
       {};
 
@@ -1717,7 +1687,7 @@ function App() {
             (player) => ({
               player:
                 player._id,
-
+              rating: ratings[String(player._id)] === "" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),
               team:
                 teams[
                   String(
@@ -1769,8 +1739,10 @@ function App() {
         );
       }
 
+      invalidate();
       resetMatchForm();
 
+      invalidate();
       await Promise.all([
         loadMatches(),
         loadLeaderboard(
@@ -1841,6 +1813,7 @@ function App() {
         resetMatchForm();
       }
 
+      invalidate();
       await Promise.all([
         loadMatches(),
         loadLeaderboard(
@@ -1850,6 +1823,7 @@ function App() {
         loadNews(),
       ]);
 
+      loadCalendar(calendarYear,calendarMonth);
       setMessage(
         "Match deleted."
       );
@@ -1882,13 +1856,13 @@ function App() {
       return;
     }
 
+    if (!/^image\/(jpeg|png|webp|avif)$/.test(galleryFile.type) || galleryFile.size > 8*1024*1024) { setMessage("Choose a JPEG, PNG, WebP or AVIF image under 8 MB."); return; }
     const cloudName =
       import.meta.env
         .VITE_CLOUDINARY_CLOUD_NAME;
 
     const uploadPreset =
-      import.meta.env
-        .VITE_CLOUDINARY_UPLOAD_PRESET;
+      import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "gg-matchday-gallery";
 
     if (
       !cloudName ||
@@ -1975,6 +1949,7 @@ function App() {
         );
       }
 
+      setGalleryMatch("");setGalleryPlayers([]);invalidate();
       setGalleryFile(null);
       setGalleryCaption("");
 
@@ -2145,9 +2120,11 @@ function App() {
         TABS.ADMIN &&
       isAdmin
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize remote administrative data on tab entry.
       loadEditorRequests();
       loadActiveEditors();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- These loaders use the current Firebase account and stable state setters; entering Admin refreshes them.
   }, [
     activeTab,
     isAdmin,
@@ -2294,62 +2271,6 @@ function App() {
   // =========================================================
   // RANKINGS
   // =========================================================
-
-  const goldenBootRanking =
-    useMemo(
-      () =>
-        [...leaderboard]
-          .filter(
-            (player) =>
-              toNumber(
-                player.goals
-              ) > 0
-          )
-          .sort(
-            (a, b) =>
-              toNumber(
-                b.goals
-              ) -
-                toNumber(
-                  a.goals
-                ) ||
-              toNumber(
-                b.assists
-              ) -
-                toNumber(
-                  a.assists
-                )
-          ),
-      [leaderboard]
-    );
-
-  const assistRanking =
-    useMemo(
-      () =>
-        [...leaderboard]
-          .filter(
-            (player) =>
-              toNumber(
-                player.assists
-              ) > 0
-          )
-          .sort(
-            (a, b) =>
-              toNumber(
-                b.assists
-              ) -
-                toNumber(
-                  a.assists
-                ) ||
-              toNumber(
-                b.goals
-              ) -
-                toNumber(
-                  a.goals
-                )
-          ),
-      [leaderboard]
-    );
 
   // =========================================================
   // CALENDAR
@@ -2630,6 +2551,7 @@ function App() {
           <span />
           LIVE
         </div>
+        <div className="gg-header-actions"><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Golden Gooner']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2801,6 +2723,7 @@ function App() {
               every part of your football story in one
               place.
             </p>
+          <button className="gg-hall-entry secondary-button" onClick={()=>setModal('hall')}>★ Hall of Fame →</button>
           </section>
 
           <section className="home-feature-card">
@@ -2898,21 +2821,21 @@ function App() {
             <HomeStat
               label="MATCHES"
               value={
-                matches.length
+                overview?.matches ?? matches.length
               }
             />
 
             <HomeStat
               label="GOALS"
               value={
-                totalAllTimeGoals
+                overview?.goals ?? totalAllTimeGoals
               }
             />
 
             <HomeStat
               label="PHOTOS"
               value={
-                gallery.length
+                overview?.photos ?? gallery.length
               }
             />
 
@@ -2999,6 +2922,7 @@ function App() {
                               article.createdAt
                             )}
                           </small>
+                        <LikeButton type="news" id={article._id} isSignedIn={isSignedIn}/>
                         </div>
                       </article>
                     )
@@ -3162,913 +3086,27 @@ function App() {
           RECORD
       ===================================================== */}
 
-      {activeTab ===
-        TABS.RECORD && (
-        <section className="tab-content">
-
-          {!isEditor ? (
-            <AccessDenied
-              title="Editor access required"
-              description="Only approved editors can record or modify GG Matchday data."
-              signIn={
-                !isSignedIn
-                  ? signIn
-                  : null
-              }
-              request={
-                isSignedIn &&
-                !hasPendingRequest
-                  ? requestEditorAccess
-                  : null
-              }
-              pending={
-                hasPendingRequest
-              }
-            />
-          ) : (
-            <>
-
-              <div className="page-title">
-
-                <p className="eyebrow">
-                  {
-                    editingMatchId
-                      ? "EDIT MATCH"
-                      : "MATCH DAY"
-                  }
-                </p>
-
-                <h2>
-                  {
-                    editingMatchId
-                      ? "Edit Match"
-                      : "Record a Match"
-                  }
-                </h2>
-
-                <p>
-                  Players can belong to either side in
-                  every match.
-                </p>
-
-              </div>
-
-              <section className="card">
-
-                <form
-                  onSubmit={
-                    saveMatch
-                  }
-                >
-
-                  <div className="form-grid">
-
-                    <label>
-                      <span>
-                        Date
-                      </span>
-
-                      <input
-                        type="date"
-                        value={
-                          date
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setDate(
-                            event.target.value
-                          )
-                        }
-                      />
-                    </label>
-
-                    <label>
-                      <span>
-                        Match Name
-                      </span>
-
-                      <input
-                        value={
-                          matchName
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setMatchName(
-                            event.target.value
-                          )
-                        }
-                        placeholder="Sunday Football"
-                      />
-                    </label>
-
-                  </div>
-
-                  <div className="match-score-header">
-
-                    <div className="side-block">
-
-                      <span>
-                        Side 1
-                      </span>
-
-                      <input
-                        value={
-                          teamALabel
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setTeamALabel(
-                            event.target.value
-                          )
-                        }
-                      />
-
-                      <strong>
-                        {
-                          teamAScore
-                        }
-                      </strong>
-
-                    </div>
-
-                    <div className="versus">
-                      :
-                    </div>
-
-                    <div className="side-block">
-
-                      <span>
-                        Side 2
-                      </span>
-
-                      <input
-                        value={
-                          teamBLabel
-                        }
-                        onChange={(
-                          event
-                        ) =>
-                          setTeamBLabel(
-                            event.target.value
-                          )
-                        }
-                      />
-
-                      <strong>
-                        {
-                          teamBScore
-                        }
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="neutral-status">
-                    {
-                      teamAScore ===
-                      teamBScore
-                        ? "DRAW"
-                        : "FINAL SCORE"
-                    }
-                  </div>
-
-                  <div className="subsection">
-
-                    <div className="section-heading compact">
-
-                      <div>
-                        <p className="eyebrow">
-                          PARTICIPANTS
-                        </p>
-
-                        <h3>
-                          Assign Players
-                        </h3>
-                      </div>
-
-                      <span className="muted">
-                        {
-                          assignedPlayers.length
-                        }
-                        /
-                        {
-                          players.length
-                        }
-                      </span>
-
-                    </div>
-
-                    <div className="assignment-list">
-
-                      {players.map(
-                        (
-                          player
-                        ) => {
-
-                          const id =
-                            String(
-                              player._id
-                            );
-
-                          return (
-                            <div
-                              className="assignment-row"
-                              key={
-                                player._id
-                              }
-                            >
-
-                              <div className="assignment-player">
-                                <strong>
-                                  {
-                                    player.name
-                                  }
-                                </strong>
-
-                                <small>
-                                  {teams[
-                                    id
-                                  ] ===
-                                  "A"
-                                    ? teamALabel
-                                    : teams[
-                                        id
-                                      ] ===
-                                      "B"
-                                    ? teamBLabel
-                                    : "Not participating"}
-                                </small>
-                              </div>
-
-                              <div className="team-switch">
-
-                                <button
-                                  type="button"
-                                  className={
-                                    teams[
-                                      id
-                                    ] ===
-                                    "A"
-                                      ? "active"
-                                      : ""
-                                  }
-                                  onClick={() =>
-                                    setPlayerTeam(
-                                      id,
-                                      "A"
-                                    )
-                                  }
-                                >
-                                  1
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className={
-                                    teams[
-                                      id
-                                    ] ===
-                                    "B"
-                                      ? "active"
-                                      : ""
-                                  }
-                                  onClick={() =>
-                                    setPlayerTeam(
-                                      id,
-                                      "B"
-                                    )
-                                  }
-                                >
-                                  2
-                                </button>
-
-                              </div>
-
-                            </div>
-                          );
-                        }
-                      )}
-
-                    </div>
-
-                  </div>
-
-                  <GoalSection
-                    label={
-                      teamALabel
-                    }
-                    players={
-                      teamAPlayers
-                    }
-                    goals={
-                      goals
-                    }
-                    setGoals={
-                      setGoals
-                    }
-                    changeCount={
-                      changeCount
-                    }
-                  />
-
-                  <GoalSection
-                    label={
-                      teamBLabel
-                    }
-                    players={
-                      teamBPlayers
-                    }
-                    goals={
-                      goals
-                    }
-                    setGoals={
-                      setGoals
-                    }
-                    changeCount={
-                      changeCount
-                    }
-                  />
-
-                  <div className="subsection">
-
-                    <div className="section-heading compact">
-
-                      <div>
-                        <p className="eyebrow">
-                          ASSISTS
-                        </p>
-
-                        <h3>
-                          Playmakers
-                        </h3>
-                      </div>
-
-                      <strong className="section-total">
-                        {
-                          totalAssists
-                        }
-                      </strong>
-
-                    </div>
-
-                    <div className="event-list">
-
-                      {assignedPlayers.map(
-                        (
-                          player
-                        ) => {
-
-                          const id =
-                            String(
-                              player._id
-                            );
-
-                          return (
-                            <CounterRow
-                              key={
-                                player._id
-                              }
-                              name={
-                                player.name
-                              }
-                              value={
-                                assists[id] ||
-                                0
-                              }
-                              onMinus={() =>
-                                changeCount(
-                                  setAssists,
-                                  id,
-                                  -1
-                                )
-                              }
-                              onPlus={() =>
-                                changeCount(
-                                  setAssists,
-                                  id,
-                                  1
-                                )
-                              }
-                            />
-                          );
-                        }
-                      )}
-
-                    </div>
-
-                  </div>
-
-                  <div className="match-total">
-
-                    <div>
-                      <span>
-                        {
-                          teamALabel
-                        }
-                      </span>
-
-                      <strong>
-                        {
-                          teamAScore
-                        }
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        {
-                          teamBLabel
-                        }
-                      </span>
-
-                      <strong>
-                        {
-                          teamBScore
-                        }
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        GOALS
-                      </span>
-
-                      <strong>
-                        {
-                          totalGoals
-                        }
-                      </strong>
-                    </div>
-
-                    <div>
-                      <span>
-                        ASSISTS
-                      </span>
-
-                      <strong>
-                        {
-                          totalAssists
-                        }
-                      </strong>
-                    </div>
-
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="save-button"
-                    disabled={
-                      savingMatch
-                    }
-                  >
-                    {
-                      savingMatch
-                        ? "Saving..."
-                        : editingMatchId
-                        ? "Update Match"
-                        : "Save Match"
-                    }
-                  </button>
-
-                </form>
-
-              </section>
-
-              <section className="card quick-gallery-card">
-
-                <div>
-                  <p className="eyebrow">
-                    MATCHDAY MEDIA
-                  </p>
-
-                  <h3>
-                    Add photos
-                  </h3>
-
-                  <p>
-                    Jump into Gallery to add the
-                    moments from this match.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    setActiveTab(
-                      TABS.GALLERY
-                    )
-                  }
-                >
-                  📷 Open Gallery
-                </button>
-
-              </section>
-
-              <section className="section-block">
-
-                <div className="section-heading">
-
-                  <div>
-                    <p className="eyebrow">
-                      HISTORY
-                    </p>
-
-                    <h2>
-                      Recent Matches
-                    </h2>
-                  </div>
-
-                  <span className="muted">
-                    {
-                      matches.length
-                    }
-                  </span>
-
-                </div>
-
-                {loadingMatches ? (
-                  <div className="loading-panel">
-                    Loading matches...
-                  </div>
-                ) : (
-                  <div className="match-list">
-
-                    {matches
-                      .slice(
-                        0,
-                        8
-                      )
-                      .map(
-                        (
-                          match
-                        ) => (
-                          <MatchHistoryCard
-                            key={
-                              match._id
-                            }
-                            match={
-                              match
-                            }
-                            canEdit={
-                              isEditor
-                            }
-                            onEdit={() =>
-                              startEditingMatch(
-                                match
-                              )
-                            }
-                            onDelete={() =>
-                              deleteMatch(
-                                match._id
-                              )
-                            }
-                          />
-                        )
-                      )}
-
-                  </div>
-                )}
-
-              </section>
-
-            </>
-          )}
-
-        </section>
-      )}
+      {activeTab === TABS.RECORD && <section className="tab-content">
+        <div className="gg-secondary-tabs" role="tablist" aria-label="Record sections"><button role="tab" aria-selected={recordSection==='record'} onClick={()=>setRecordSection('record')}>Match Record</button><button role="tab" aria-selected={recordSection==='clasico'} onClick={()=>setRecordSection('clasico')}>El Clásico</button></div>
+        {recordSection==='clasico'?<Clasico onPlayer={showPlayer} onMatch={showMatch} refreshKey={refreshKey} isSignedIn={isSignedIn}/>:<>
+        <div className="page-title"><p className="eyebrow">MATCH DAY</p><h2>{isEditor?(editingMatchId?'Edit Match':'Record a Match'):'Match Record'}</h2><p>{isEditor?'Assign sides, record performances, and let the match tell the story.':'Explore the GG Matchday archive.'}</p></div>
+        {isEditor&&<section className="card"><form onSubmit={saveMatch}>
+          <div className="form-grid"><label>Date<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label><label>Match name<input value={matchName} maxLength={160} onChange={e=>setMatchName(e.target.value)} placeholder="Sunday Football"/></label></div>
+          <div className="match-score-header"><div className="side-block"><span>Side 1</span><input value={teamALabel} maxLength={80} onChange={e=>setTeamALabel(e.target.value)}/><strong key={teamAScore}>{teamAScore}</strong></div><span className="versus">:</span><div className="side-block"><span>Side 2</span><input value={teamBLabel} maxLength={80} onChange={e=>setTeamBLabel(e.target.value)}/><strong key={teamBScore}>{teamBScore}</strong></div></div>
+          <div className="subsection"><div className="section-heading"><h3>Player performances</h3><span className="muted">{assignedPlayers.length} participating</span></div><div className="gg-performance-head"><span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Rating</span></div>
+          {players.map(player=>{const id=String(player._id),assigned=Boolean(teams[id]);return <div className={`gg-performance-row ${assigned?'assigned':''}`} key={id}><div><strong>{player.name}</strong><small>{teams[id]==='A'?teamALabel:teams[id]==='B'?teamBLabel:'Not participating'}</small></div><div className="team-switch">{['A','B'].map((team,i)=><button key={team} type="button" aria-label={`${player.name} Side ${i+1}`} aria-pressed={teams[id]===team} className={teams[id]===team?'active':''} onClick={()=>setPlayerTeam(id,team)}>{i+1}</button>)}</div>{[[goals,setGoals,'Goals'],[assists,setAssists,'Assists']].map(([values,setter,label])=><div className="counter" key={label}><button type="button" disabled={!assigned||!values[id]} aria-label={`Remove ${label.toLowerCase()} for ${player.name}`} onClick={()=>changeCount(setter,id,-1)}>−</button><strong key={values[id]}>{assigned?values[id]||0:0}</strong><button type="button" disabled={!assigned} aria-label={`Add ${label.toLowerCase()} for ${player.name}`} onClick={()=>changeCount(setter,id,1)}>+</button></div>)}<label className="gg-rating-input"><span className="sr-only">Rating for {player.name}</span><input type="number" min="0" max="10" step="0.1" placeholder={legacyUnrated.includes(id)?'Unrated':'0–10'} disabled={!assigned} required={assigned&&!legacyUnrated.includes(id)} value={ratings[id]??''} onChange={e=>setRatings(old=>({...old,[id]:e.target.value}))}/></label></div>;})}</div>
+          <div className="match-total"><span>{totalGoals} goals</span><span>{totalAssists} assists</span></div><button type="submit" className="save-button" disabled={savingMatch}>{savingMatch?'Saving…':editingMatchId?'Update Match':'Save Match'}</button>{editingMatchId&&<button type="button" className="secondary-button" onClick={resetMatchForm}>Cancel edit</button>}
+        </form></section>}
+        <section className="card quick-gallery-card"><h3>Matchday media</h3><button className="secondary-button" onClick={()=>setActiveTab(TABS.GALLERY)}>Open Gallery →</button></section>
+        <section className="section-block"><div className="section-heading"><h2>Recent Matches</h2><span className="muted">{overview?.matches??matches.length} recorded</span></div>{loadingMatches?<div className="loading-panel">Loading matches…</div>:!matches.length?<div className="empty-state">No matches recorded yet.</div>:<div className="match-list">{matches.map(match=><MatchHistoryCard key={match._id} match={match} canEdit={isEditor} onOpen={()=>showMatch(match._id)} onEdit={()=>startEditingMatch(match)} onDelete={()=>deleteMatch(match._id)}/>)}</div>}{matches.length<(overview?.matches||0)&&<button className="secondary-button" onClick={()=>loadMatches(archivePage+1)}>Load more matches</button>}</section>
+        </>}
+      </section>}
 
       {/* =====================================================
           LEADERBOARD
       ===================================================== */}
 
-      {activeTab ===
-        TABS.LEADERBOARD && (
-        <section className="tab-content">
-
-          <div className="page-title">
-
-            <p className="eyebrow">
-              GG RANKINGS
-            </p>
-
-            <h2>
-              Leaderboard
-            </h2>
-
-            <p>
-              Official GG Matchday player rankings.
-            </p>
-
-          </div>
-
-          <div className="period-switch">
-
-            {[
-              [
-                "all",
-                "All Time",
-              ],
-              [
-                "month",
-                "This Month",
-              ],
-              [
-                "year",
-                "This Year",
-              ],
-            ].map(
-              ([
-                value,
-                label,
-              ]) => (
-                <button
-                  key={
-                    value
-                  }
-                  type="button"
-                  className={
-                    leaderboardPeriod ===
-                    value
-                      ? "active"
-                      : ""
-                  }
-                  onClick={() => {
-                    setLeaderboardPeriod(
-                      value
-                    );
-
-                    loadLeaderboard(
-                      value
-                    );
-                  }}
-                >
-                  {
-                    label
-                  }
-                </button>
-              )
-            )}
-
-          </div>
-
-          {leaderboardLoading ? (
-            <div className="loading-panel">
-              Calculating rankings...
-            </div>
-          ) : (
-            <>
-
-              <section className="card leaderboard-card">
-
-                <div className="section-heading">
-
-                  <div>
-                    <p className="eyebrow">
-                      OVERALL
-                    </p>
-
-                    <h3>
-                      Player Rankings
-                    </h3>
-                  </div>
-
-                </div>
-
-                {leaderboard.length ===
-                0 ? (
-                  <div className="empty-state">
-                    <span>
-                      🏆
-                    </span>
-
-                    <h3>
-                      No stats yet
-                    </h3>
-
-                    <p>
-                      Record a match to start the
-                      rankings.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="table-scroll">
-
-                    <div className="leaderboard-head">
-                      <span>#</span>
-                      <span>Player</span>
-                      <span>M</span>
-                      <span>W</span>
-                      <span>D</span>
-                      <span>L</span>
-                      <span>G</span>
-                      <span>A</span>
-                      <span>Rating</span>
-                    </div>
-
-                    {leaderboard.map(
-                      (
-                        player
-                      ) => (
-                        <button
-                          type="button"
-                          className="leaderboard-row"
-                          key={
-                            player.playerId
-                          }
-                          onClick={() => {
-
-                            const found =
-                              players.find(
-                                (
-                                  item
-                                ) =>
-                                  sameId(
-                                    item._id,
-                                    player.playerId
-                                  )
-                              );
-
-                            if (
-                              found
-                            ) {
-                              openPlayerProfile(
-                                found
-                              );
-
-                              setActiveTab(
-                                TABS.PLAYERS
-                              );
-                            }
-
-                          }}
-                        >
-
-                          <strong>
-                            {player.rank <=
-                            3
-                              ? [
-                                  "🥇",
-                                  "🥈",
-                                  "🥉",
-                                ][
-                                  player.rank -
-                                    1
-                                ]
-                              : player.rank}
-                          </strong>
-
-                          <strong>
-                            {
-                              player.name
-                            }
-                          </strong>
-
-                          <span>
-                            {
-                              player.matches
-                            }
-                          </span>
-
-                          <span>
-                            {
-                              player.wins
-                            }
-                          </span>
-
-                          <span>
-                            {
-                              player.draws
-                            }
-                          </span>
-
-                          <span>
-                            {
-                              player.losses
-                            }
-                          </span>
-
-                          <span>
-                            {
-                              player.goals
-                            }
-                          </span>
-
-                          <span>
-                            {
-                              player.assists
-                            }
-                          </span>
-
-                          <strong>
-                            {Number(
-                              player.points ||
-                              0
-                            ).toFixed(
-                              2
-                            )}
-                          </strong>
-
-                        </button>
-                      )
-                    )}
-
-                  </div>
-                )}
-
-              </section>
-
-              <RankingSection
-                eyebrow="GOALSCORERS"
-                title="🥇 Golden Boot"
-                ranking={
-                  goldenBootRanking
-                }
-                statKey="goals"
-                statLabel="G"
-                secondary="assists"
-                players={
-                  players
-                }
-                openPlayerProfile={
-                  openPlayerProfile
-                }
-                setActiveTab={
-                  setActiveTab
-                }
-              />
-
-              <RankingSection
-                eyebrow="PLAYMAKERS"
-                title="🅰️ Assist Leaders"
-                ranking={
-                  assistRanking
-                }
-                statKey="assists"
-                statLabel="A"
-                secondary="goals"
-                players={
-                  players
-                }
-                openPlayerProfile={
-                  openPlayerProfile
-                }
-                setActiveTab={
-                  setActiveTab
-                }
-              />
-
-              <section className="award-grid">
-
-                <AwardCard
-                  icon="🏅"
-                  label="PLAYER OF THE YEAR"
-                  title={
-                    playerOfYear?.name ||
-                    "No winner yet"
-                  }
-                  value={
-                    playerOfYear
-                      ? Number(
-                          playerOfYear.points ||
-                            0
-                        ).toFixed(
-                          2
-                        )
-                      : null
-                  }
-                />
-
-                <AwardCard
-                  icon="⭐"
-                  label="PLAYER OF THE MONTH"
-                  title={
-                    playerOfMonth?.name ||
-                    "No winner yet"
-                  }
-                  value={
-                    playerOfMonth
-                      ? Number(
-                          playerOfMonth.points ||
-                            0
-                        ).toFixed(
-                          2
-                        )
-                      : null
-                  }
-                />
-
-              </section>
-
-            </>
-          )}
-
-        </section>
-      )}
+      {activeTab === TABS.LEADERBOARD && <LeaderboardView onPlayer={showPlayer} onAwards={()=>setModal('awards')} refreshKey={refreshKey}/>}
 
       {/* =====================================================
           CALENDAR
@@ -4319,7 +3357,7 @@ function App() {
                   (
                     match
                   ) => (
-                    <MatchHistoryCard
+                    <MatchHistoryCard onOpen={()=>showMatch(match._id)}
                       key={
                         match._id
                       }
@@ -4448,6 +3486,7 @@ function App() {
                 </section>
               )}
 
+              <Squad players={players} statistics={leaderboard} onPlayer={showPlayer}/>
               <section className="section-block">
 
                 <div className="section-heading">
@@ -4566,7 +3605,7 @@ function App() {
                 className="back-button"
                 onClick={() => {
                   setSelectedPlayer(null);
-                  setPlayerStats(null);
+            
                   setPlayerReview(null);
                 }}
               >
@@ -4950,85 +3989,7 @@ function App() {
 
                   </div>
 
-                  <section className="card">
-
-                    <div className="section-heading">
-
-                      <div>
-                        <p className="eyebrow">
-                          PERFORMANCE
-                        </p>
-
-                        <h3>
-                          Career Stats
-                        </h3>
-                      </div>
-
-                    </div>
-
-                    {playerStatsLoading ? (
-                      <div className="loading-panel">
-                        Calculating stats...
-                      </div>
-                    ) : playerStats?.stats ? (
-                      <div className="profile-stat-grid">
-
-                        <ProfileStat
-                          label="Matches"
-                          value={
-                            playerStats.stats.matches ??
-                            0
-                          }
-                        />
-
-                        <ProfileStat
-                          label="Wins"
-                          value={
-                            playerStats.stats.wins ??
-                            0
-                          }
-                        />
-
-                        <ProfileStat
-                          label="Draws"
-                          value={
-                            playerStats.stats.draws ??
-                            0
-                          }
-                        />
-
-                        <ProfileStat
-                          label="Losses"
-                          value={
-                            playerStats.stats.losses ??
-                            0
-                          }
-                        />
-
-                        <ProfileStat
-                          label="Goals"
-                          value={
-                            playerStats.stats.goals ??
-                            0
-                          }
-                        />
-
-                        <ProfileStat
-                          label="Assists"
-                          value={
-                            playerStats.stats.assists ??
-                            0
-                          }
-                        />
-
-                      </div>
-                    ) : (
-                      <p className="muted">
-                        No statistics available yet.
-                      </p>
-                    )}
-
-                  </section>
+                  <ProfileInsights playerId={selectedPlayer._id} onMatch={showMatch} refreshKey={refreshKey}/>
 
                   <section className="card">
 
@@ -5202,6 +4163,8 @@ function App() {
                 maxLength={160}
               />
 
+              <label>Match (optional)<select value={galleryMatch} onChange={e=>setGalleryMatch(e.target.value)}><option value="">No match association</option>{matches.map(m=><option key={m._id} value={m._id}>{m.name} · {formatDate(m.date)}</option>)}</select></label>
+              <fieldset className="gg-associations"><legend>Players (optional)</legend>{players.map(p=><label key={p._id}><input type="checkbox" checked={galleryPlayers.includes(p._id)} onChange={e=>setGalleryPlayers(old=>e.target.checked?[...old,p._id]:old.filter(id=>id!==p._id))}/>{p.name}</label>)}</fieldset>
               <button
                 type="button"
                 className="save-button"
@@ -5320,6 +4283,9 @@ function App() {
                         }
                       </small>
 
+                      <LikeButton type="gallery" id={photo._id} isSignedIn={isSignedIn}/>
+                      {photo.matchId&&<button className="gg-player-link" onClick={()=>showMatch(photo.matchId._id)}>Match: {photo.matchId.name}</button>}
+                      {(photo.playerIds||[]).map(player=><button key={player._id} className="gg-player-link" onClick={()=>showPlayer(player._id)}>{player.name}</button>)}
                       {isAdmin && (
                         <button
                           type="button"
@@ -5343,6 +4309,7 @@ function App() {
             </div>
           )}
 
+          {galleryNext&&<button className="secondary-button" onClick={()=>loadGallery(galleryNext)} disabled={galleryLoading}>Load more photos</button>}
         </section>
       )}
 
@@ -5724,35 +4691,7 @@ function App() {
           }
         />
 
-        {isEditor ? (
-          <NavButton
-            active={
-              activeTab ===
-              TABS.RECORD
-            }
-            icon="＋"
-            label="Record"
-            onClick={() =>
-              setActiveTab(
-                TABS.RECORD
-              )
-            }
-          />
-        ) : (
-          <NavButton
-            active={
-              activeTab ===
-              TABS.GALLERY
-            }
-            icon="📷"
-            label="Gallery"
-            onClick={() =>
-              setActiveTab(
-                TABS.GALLERY
-              )
-            }
-          />
-        )}
+        <NavButton active={activeTab===TABS.RECORD} icon="＋" label="Record" onClick={()=>setActiveTab(TABS.RECORD)}/>
 
         <NavButton
           active={
@@ -5798,6 +4737,12 @@ function App() {
 
       </nav>
 
+      <Suspense fallback={<div className="loading-panel">Opening…</div>}>
+      {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer}/>}
+      {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer}/>}
+      {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
+      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
+      </Suspense>
     </main>
   );
 }
@@ -5860,461 +4805,9 @@ function HomeStat({
   );
 }
 
-function CounterRow({
-  name,
-  value,
-  onMinus,
-  onPlus,
-}) {
-  return (
-    <div className="stat-entry">
-
-      <strong>
-        {name}
-      </strong>
-
-      <div className="counter">
-
-        <button
-          type="button"
-          onClick={
-            onMinus
-          }
-        >
-          −
-        </button>
-
-        <strong>
-          {value}
-        </strong>
-
-        <button
-          type="button"
-          onClick={
-            onPlus
-          }
-        >
-          +
-        </button>
-
-      </div>
-
-    </div>
-  );
-}
-
-function GoalSection({
-  label,
-  players,
-  goals,
-  setGoals,
-  changeCount,
-}) {
-  const total =
-    players.reduce(
-      (
-        result,
-        player
-      ) =>
-        result +
-        (
-          goals[
-            String(
-              player._id
-            )
-          ] ||
-          0
-        ),
-      0
-    );
-
-  return (
-    <div className="subsection">
-
-      <div className="section-heading compact">
-
-        <div>
-          <p className="eyebrow">
-            GOALS
-          </p>
-
-          <h3>
-            {label}
-          </h3>
-        </div>
-
-        <strong>
-          {total}
-        </strong>
-
-      </div>
-
-      {players.length ===
-      0 ? (
-        <p className="muted">
-          No players on this side.
-        </p>
-      ) : (
-        <div className="event-list">
-
-          {players.map(
-            (
-              player
-            ) => {
-
-              const id =
-                String(
-                  player._id
-                );
-
-              return (
-                <CounterRow
-                  key={
-                    player._id
-                  }
-                  name={
-                    player.name
-                  }
-                  value={
-                    goals[id] ||
-                    0
-                  }
-                  onMinus={() =>
-                    changeCount(
-                      setGoals,
-                      id,
-                      -1
-                    )
-                  }
-                  onPlus={() =>
-                    changeCount(
-                      setGoals,
-                      id,
-                      1
-                    )
-                  }
-                />
-              );
-            }
-          )}
-
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-function MatchHistoryCard({
-  match,
-  canEdit,
-  onEdit,
-  onDelete,
-}) {
-  const scoreA =
-    toNumber(
-      match.teamA?.score
-    );
-
-  const scoreB =
-    toNumber(
-      match.teamB?.score
-    );
-
-  const result =
-    scoreA === scoreB
-      ? "DRAW"
-      : "FINAL";
-
-  return (
-    <article className="match-card">
-
-      <div className="match-main">
-
-        <div>
-          <p className="match-date">
-            {
-              formatDate(
-                match.date
-              )
-            }
-          </p>
-
-          <h3>
-            {
-              match.name
-            }
-          </h3>
-        </div>
-
-        <div className="match-score">
-
-          <strong>
-            {scoreA} -{" "}
-            {scoreB}
-          </strong>
-
-          <span>
-            {
-              result
-            }
-          </span>
-
-        </div>
-
-      </div>
-
-      <div className="match-labels">
-
-        <span>
-          {
-            match.teamA
-              ?.label
-          }
-        </span>
-
-        <span>
-          {
-            match.teamB
-              ?.label
-          }
-        </span>
-
-      </div>
-
-      {canEdit && (
-        <div className="match-actions">
-
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={
-              onEdit
-            }
-          >
-            Edit
-          </button>
-
-          <button
-            type="button"
-            className="danger-button"
-            onClick={
-              onDelete
-            }
-          >
-            Delete
-          </button>
-
-        </div>
-      )}
-
-    </article>
-  );
-}
-
-function RankingSection({
-  eyebrow,
-  title,
-  ranking,
-  statKey,
-  statLabel,
-  secondary,
-  players,
-  openPlayerProfile,
-  setActiveTab,
-}) {
-  return (
-    <section className="leaderboard-award-section">
-
-      <div className="section-heading">
-
-        <div>
-          <p className="eyebrow">
-            {eyebrow}
-          </p>
-
-          <h2>
-            {title}
-          </h2>
-        </div>
-
-      </div>
-
-      {ranking.length ===
-      0 ? (
-        <div className="empty-state">
-
-          <span>
-            ⚽
-          </span>
-
-          <h3>
-            No statistics yet
-          </h3>
-
-        </div>
-      ) : (
-        <div className="ranking-list">
-
-          {ranking
-            .slice(
-              0,
-              10
-            )
-            .map(
-              (
-                player,
-                index
-              ) => (
-                <button
-                  type="button"
-                  className="ranking-row"
-                  key={
-                    player.playerId
-                  }
-                  onClick={() => {
-
-                    const found =
-                      players.find(
-                        (
-                          item
-                        ) =>
-                          sameId(
-                            item._id,
-                            player.playerId
-                          )
-                      );
-
-                    if (
-                      found
-                    ) {
-                      openPlayerProfile(
-                        found
-                      );
-
-                      setActiveTab(
-                        TABS.PLAYERS
-                      );
-                    }
-
-                  }}
-                >
-
-                  <span className="ranking-position">
-
-                    {index <
-                    3
-                      ? [
-                          "🥇",
-                          "🥈",
-                          "🥉",
-                        ][index]
-                      : index +
-                        1}
-
-                  </span>
-
-                  <span className="ranking-player">
-
-                    <strong>
-                      {
-                        player.name
-                      }
-                    </strong>
-
-                    <small>
-                      {
-                        player[
-                          secondary
-                        ]
-                      }{" "}
-                      {
-                        secondary
-                      }
-
-                    </small>
-
-                  </span>
-
-                  <strong className="ranking-number">
-
-                    {
-                      player[
-                        statKey
-                      ]
-                    }
-
-                    <small>
-                      {statLabel}
-                    </small>
-
-                  </strong>
-
-                </button>
-              )
-            )}
-
-        </div>
-      )}
-
-    </section>
-  );
-}
-
-function AwardCard({
-  icon,
-  label,
-  title,
-  value,
-}) {
-  return (
-    <article className="award-card">
-
-      <span className="award-icon">
-        {icon}
-      </span>
-
-      <p className="eyebrow">
-        {label}
-      </p>
-
-      <h3>
-        {title}
-      </h3>
-
-      {value && (
-        <div className="award-rating">
-          <strong>
-            {value}
-          </strong>
-
-          <span>
-            rating
-          </span>
-        </div>
-      )}
-
-    </article>
-  );
-}
-
-function ProfileStat({
-  label,
-  value,
-}) {
-  return (
-    <div className="profile-stat">
-
-      <span>
-        {label}
-      </span>
-
-      <strong>
-        {value}
-      </strong>
-
-    </div>
-  );
+function MatchHistoryCard({match,canEdit,onEdit,onDelete,onOpen}) {
+ const scorers=team=>{const ids=new Set((match.participants||[]).filter(p=>p.team===team).map(p=>String(p.player?._id||p.player)));const counts=new Map();for(const e of match.events||[])if(e.type==='goal'&&ids.has(String(e.player?._id||e.player))){const name=e.player?.name||'Player';counts.set(name,(counts.get(name)||0)+1);}return [...counts].map(([name,n])=>`${name}(${n})`).join(', ')||'—';};
+ return <article className="match-card"><button className="gg-match-open" onClick={onOpen}><div className="match-main"><div><p className="match-date">{formatDate(match.date)}</p><h3>{match.name}</h3></div><div className="match-score"><strong>{match.teamA.score}–{match.teamB.score}</strong><span>{match.teamA.score===match.teamB.score?'DRAW':'FINAL'}</span></div></div><div className="v14-history-summary"><div className="v14-history-team"><strong>{match.teamA.label}</strong><div className="v14-history-scorers">{scorers('A')}</div></div><div className="v14-history-team v14-history-team-b"><strong>{match.teamB.label}</strong><div className="v14-history-scorers">{scorers('B')}</div></div></div><small className="muted">View match details →</small></button>{canEdit&&<div className="match-actions"><button className="secondary-button" onClick={onEdit}>Edit</button><button className="danger-button" onClick={onDelete}>Delete</button></div>}</article>;
 }
 
 function InfoItem({

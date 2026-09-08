@@ -1,0 +1,2 @@
+import {useEffect,useState} from 'react';import {api} from '../lib/api';
+export default function useResource(path,refreshKey=0){const key=`${path}:${refreshKey}`;const [state,setState]=useState({key:null,data:null,error:''});useEffect(()=>{let active=true;api(path).then(data=>{if(active)setState({key,data,error:''});}).catch(e=>{if(active)setState({key,data:null,error:e.message});});return()=>{active=false;};},[path,key]);return state.key===key?{...state,loading:false}:{data:null,error:'',loading:true};}

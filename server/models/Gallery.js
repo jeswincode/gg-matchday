@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const gallerySchema =
   new mongoose.Schema(
     {
+      playerIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
       imageUrl: {
         type: String,
         required: true,

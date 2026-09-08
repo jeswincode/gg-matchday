@@ -1,3 +1,6 @@
+import { prepareMatch } from "../services/validation.js";
+import { scheduleHistory } from "../services/history.js";
+import Vote from "../models/Vote.js";
 import express from "express";
 
 import Match from "../models/Match.js";
@@ -478,10 +481,9 @@ router.get(
             "events.player",
             "name profileImage"
           )
-          .sort({
-            date: -1,
-            createdAt: -1,
-          });
+          .sort({date:-1,createdAt:-1})
+          .skip(Math.max(0,(Number(req.query.page)||1)-1)*Math.min(100,Math.max(1,Number(req.query.limit)||50)))
+          .limit(Math.min(100,Math.max(1,Number(req.query.limit)||50)));
 
       res.json(
         matches
@@ -516,6 +518,7 @@ router.post(
     res
   ) => {
     try {
+      try { prepareMatch(req.body); } catch (error) { return res.status(400).json({ message: error.message }); }
       const validationError =
         await validateMatchData(
           req.body
@@ -545,7 +548,7 @@ router.post(
         await Match.create({
           date: date
             ? new Date(
-                `${date}T12:00:00`
+                `${date}T12:00:00.000Z`
               )
             : new Date(),
 
@@ -593,6 +596,7 @@ router.post(
           populatedMatch
         );
 
+      scheduleHistory();
       res.status(
         201
       ).json({
@@ -632,6 +636,10 @@ router.put(
     res
   ) => {
     try {
+      const previous = await Match.findById(req.params.id);
+      if (!previous) return res.status(404).json({message:"Match not found."});
+      if (await Vote.exists({match:previous._id})) return res.status(409).json({message:"Matches with votes are locked to preserve final votes and recognition."});
+      try { prepareMatch(req.body, previous); } catch (error) { return res.status(400).json({ message: error.message }); }
       const validationError =
         await validateMatchData(
           req.body
@@ -676,7 +684,7 @@ router.put(
       match.date =
         date
           ? new Date(
-              `${date}T12:00:00`
+              `${date}T12:00:00.000Z`
             )
           : match.date;
 
@@ -730,6 +738,7 @@ router.put(
           populatedMatch
         );
 
+      scheduleHistory();
       res.json({
         match:
           populatedMatch,
@@ -767,6 +776,7 @@ router.delete(
     res
   ) => {
     try {
+      if (await Vote.exists({match:req.params.id})) return res.status(409).json({message:"Matches with votes cannot be deleted."});
       const match =
         await Match.findByIdAndDelete(
           req.params.id
@@ -789,6 +799,7 @@ router.delete(
           match._id,
       });
 
+      scheduleHistory();
       res.json({
         message:
           "Match deleted.",

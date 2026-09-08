@@ -3,6 +3,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const POSITIONS = ["GK","CB","LB","RB","LWB","RWB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 const FIELDS = [
   ["height", "Height"], ["weight", "Weight"], ["position", "Position"],
   ["preferredFoot", "Preferred foot"], ["jerseyNumber", "Jersey number"],
@@ -10,7 +11,7 @@ const FIELDS = [
 ];
 
 async function api(path, options = {}) {
-  const user = auth.currentUser;
+  const user = auth?.currentUser;
   const token = user ? await user.getIdToken() : null;
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -49,14 +50,14 @@ export default function ProfileRequests() {
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({});
 
-  useEffect(() => onAuthStateChanged(auth, async (u) => {
+  useEffect(() => auth ? onAuthStateChanged(auth, async (u) => {
     setFirebaseUser(u);
     if (!u) { setAccount(null); return; }
     try {
       const data = await api("/auth/me");
       setAccount(data.user);
     } catch (e) { console.error(e); }
-  }), []);
+  }) : undefined, []);
 
   async function refresh() {
     if (!firebaseUser) return;
@@ -68,7 +69,7 @@ export default function ProfileRequests() {
         const list = Array.isArray(all) ? all : (all.players || []);
         const p = list.find((x) => String(x._id || x.id) === String(me.user.playerProfile));
         setPlayer(p || null);
-        if (p) setForm(Object.fromEntries(FIELDS.map(([k]) => [k, p[k] ?? ""])));
+        if (p) setForm({...Object.fromEntries(FIELDS.map(([k]) => [k, k === "dateOfBirth" && p[k] ? new Date(p[k]).toISOString().slice(0,10) : p[k] ?? ""])), preferredPositions:p.preferredPositions||[],clasicoSide:p.clasicoSide||""});
       } else setPlayer(null);
       const mine = await api("/profile-requests/me");
       setRequests(mine);
@@ -79,6 +80,7 @@ export default function ProfileRequests() {
     } catch (e) { setMessage(e.message); }
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- Refresh the existing linked-account panel after Firebase identity changes.
   useEffect(() => { if (firebaseUser) refresh(); }, [firebaseUser]);
 
   async function submit() {
@@ -117,12 +119,14 @@ export default function ProfileRequests() {
         {!isAdmin && player && <>
           <div className="pr-card"><strong>{player.name}</strong><p className="pr-muted">Changes below are sent to the admin for approval. Nothing becomes official until approved.</p></div>
           <div className="pr-grid">{FIELDS.map(([key,label]) => <div className="pr-field" key={key}><label>{label}</label>{key === "bio" ? <textarea value={form[key] ?? ""} onChange={(e)=>setForm({...form,[key]:e.target.value})}/> : key === "preferredFoot" ? <select value={form[key] ?? ""} onChange={(e)=>setForm({...form,[key]:e.target.value})}><option value="">Select</option><option>Left</option><option>Right</option><option>Both</option></select> : <input type={key === "dateOfBirth" ? "date" : key === "height" || key === "weight" || key === "jerseyNumber" ? "number" : "text"} value={form[key] ?? ""} onChange={(e)=>setForm({...form,[key]:e.target.value})}/>}</div>)}</div>
+          <fieldset className="gg-associations"><legend>Preferred positions</legend>{POSITIONS.map(position=><label key={position}><input type="checkbox" checked={(form.preferredPositions||[]).includes(position)} onChange={e=>setForm(old=>({...old,preferredPositions:e.target.checked?[...(old.preferredPositions||[]),position]:(old.preferredPositions||[]).filter(p=>p!==position)}))}/>{position}</label>)}</fieldset>
+          <label>El Clásico side<select disabled={Boolean(player.clasicoSide)} value={form.clasicoSide||""} onChange={e=>setForm({...form,clasicoSide:e.target.value})}><option value="">Choose a side</option><option>Messi</option><option>Ronaldo</option></select></label><p className="pr-muted">Preferences require approval. Your approved El Clásico side is permanent.</p>
           <div className="pr-actions"><button className="pr-btn primary" disabled={busy} onClick={submit}>{busy ? "Submitting…" : "Submit for Approval"}</button></div>
           {requests.length > 0 && <div className="pr-card"><strong>Request history</strong>{requests.map(r=><div key={r._id} style={{marginTop:10}}><span className="pr-status">{r.status}</span> <span className="pr-muted">{new Date(r.createdAt).toLocaleString()}</span>{r.rejectionReason && <div className="pr-muted">Reason: {r.rejectionReason}</div>}</div>)}</div>}
         </>}
 
         {isAdmin && <>
-          <div className="pr-card"><strong>Link viewer account to player</strong><div className="pr-grid" style={{marginTop:10}}><div className="pr-field"><label>Viewer account</label><select value={linkUser} onChange={e=>setLinkUser(e.target.value)}><option value="">Select account</option>{viewers.map(u=><option key={u._id} value={u._id}>{u.name || u.email} — {u.email}</option>)}</select></div><div className="pr-field"><label>Player</label><select value={linkPlayer} onChange={e=>setLinkPlayer(e.target.value)}><option value="">Select player</option>{players.map(p=><option key={p._id} value={p._id}>{p.name}</option>)}</select></div></div><div className="pr-actions"><button className="pr-btn primary" disabled={busy || !linkUser || !linkPlayer} onClick={link}>Link account</button></div></div>
+          <div className="pr-card"><strong>Link account to player</strong><div className="pr-grid" style={{marginTop:10}}><div className="pr-field"><label>Account</label><select value={linkUser} onChange={e=>setLinkUser(e.target.value)}><option value="">Select account</option>{viewers.map(u=><option key={u._id} value={u._id}>{u.name || u.email} — {u.email}</option>)}</select></div><div className="pr-field"><label>Player</label><select value={linkPlayer} onChange={e=>setLinkPlayer(e.target.value)}><option value="">Select player</option>{players.map(p=><option key={p._id} value={p._id}>{p.name}</option>)}</select></div></div><div className="pr-actions"><button className="pr-btn primary" disabled={busy || !linkUser || !linkPlayer} onClick={link}>Link account</button></div></div>
           <div className="pr-card"><strong>Pending profile requests</strong>{adminRequests.length === 0 && <p className="pr-muted">No pending requests.</p>}{adminRequests.map(r=><div className="pr-card" key={r._id}><strong>{r.requestedBy?.name || r.requestedBy?.email}</strong><div className="pr-muted">{r.player?.name} • {new Date(r.createdAt).toLocaleString()}</div><div className="pr-diff" style={{marginTop:10}}>{Object.keys(r.changes || {}).map(k=><div key={k}><strong>{k}</strong><br/>Before: {String(r.before?.[k] ?? "—")}<br/>After: {String(r.changes?.[k] ?? "—")}</div>)}</div><div className="pr-actions"><button className="pr-btn primary" disabled={busy} onClick={()=>review(r._id,"approve")}>Approve</button><button className="pr-btn danger" disabled={busy} onClick={()=>review(r._id,"reject")}>Reject</button></div></div>)}</div>
         </>}
       </section>
