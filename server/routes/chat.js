@@ -1,5 +1,5 @@
 import express from 'express';import {randomUUID} from 'node:crypto';import {requireAuth} from '../middleware/auth.js';import User from '../models/User.js';import {chatMonth,messageText} from '../services/validation.js';
-const router=express.Router(),clients=new Map(),messages=new Map();const lifetime=60000;
+const router=express.Router(),clients=new Map(),messages=new Map();const lifetime = 86400000;;
 router.use(requireAuth);
 router.use((req,res,next)=>process.env.CHAT_ENABLED==='true'?next():res.status(503).json({message:'Community chat is not enabled on this server yet.'}));
 router.get('/',(req,res)=>res.json({used:req.user.chatMonth===chatMonth(),monthKey:chatMonth(),expiresSeconds:lifetime/1000}));
