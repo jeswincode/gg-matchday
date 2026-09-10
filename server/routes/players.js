@@ -8,6 +8,8 @@ import {
   requireEditor,
 } from "../middleware/auth.js";
 
+import { positions as approvedPositions } from "../services/validation.js";
+
 const router = express.Router();
 
 // ==================================================
@@ -211,6 +213,7 @@ router.put(
         height,
         weight,
         position,
+        preferredPositions,
         preferredFoot,
         jerseyNumber,
         dateOfBirth,
@@ -290,6 +293,22 @@ router.put(
         "string"
           ? position.trim()
           : "";
+
+      if (preferredPositions !== undefined) {
+        if (!Array.isArray(preferredPositions)) {
+          return res.status(400).json({
+            message: "Preferred positions must be an array.",
+          });
+        }
+
+        if (preferredPositions.length > approvedPositions.length || preferredPositions.some((value) => !approvedPositions.includes(value))) {
+          return res.status(400).json({
+            message: "Choose valid preferred positions.",
+          });
+        }
+
+        player.preferredPositions = [...new Set(preferredPositions)];
+      }
 
       player.preferredFoot =
         [
