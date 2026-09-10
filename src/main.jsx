@@ -9,12 +9,14 @@ import './v1.4-match-history.css'
 import './components/features.css'
 import App from './App.jsx'
 import ProfileRequests from './ProfileRequests.jsx'
+import AdminPreferredPositions from './components/AdminPreferredPositions.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <>
       <App />
       <ProfileRequests />
+      <AdminPreferredPositions />
     </>
   </StrictMode>,
 )
