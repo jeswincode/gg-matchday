@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { auth } from "../firebase";
 
 const API_URL =
@@ -45,6 +46,7 @@ export default function AdminPreferredPositions() {
   const [selected, setSelected] = useState([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [portalTarget, setPortalTarget] = useState(null);
 
   const selectedKey = useMemo(
     () => selected.join("|"),
@@ -64,10 +66,13 @@ export default function AdminPreferredPositions() {
         if (!cancelled) {
           setEditing(false);
           setPlayer(null);
+          setPortalTarget(null);
           setMessage("");
         }
         return;
       }
+
+      setPortalTarget(form);
 
       try {
         const response = await fetch(`${API_URL}/players`);
@@ -105,6 +110,8 @@ export default function AdminPreferredPositions() {
         return previous;
       });
 
+      setPortalTarget(currentEditing ? form : null);
+
       if (!currentEditing) {
         setPlayer(null);
         setMessage("");
@@ -122,7 +129,7 @@ export default function AdminPreferredPositions() {
     };
   }, [editing, selectedKey]);
 
-  if (!editing || !player) return null;
+  if (!editing || !player || !portalTarget) return null;
 
   async function save() {
     try {
@@ -164,8 +171,14 @@ export default function AdminPreferredPositions() {
     }
   }
 
-  return (
-    <section className="card" style={{ marginTop: "1rem" }}>
+  return createPortal(
+    <section
+      className="card admin-preferred-positions"
+      style={{
+        marginTop: "1rem",
+        marginBottom: "6rem",
+      }}
+    >
       <div className="section-heading">
         <div>
           <p className="eyebrow">SQUAD BUILDER</p>
@@ -198,7 +211,15 @@ export default function AdminPreferredPositions() {
         ))}
       </fieldset>
 
-      <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "1rem", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "0.75rem",
+          alignItems: "center",
+          marginTop: "1rem",
+          flexWrap: "wrap",
+        }}
+      >
         <button
           type="button"
           className="save-button"
@@ -209,6 +230,7 @@ export default function AdminPreferredPositions() {
         </button>
         {message && <span className="muted">{message}</span>}
       </div>
-    </section>
+    </section>,
+    portalTarget
   );
 }
