@@ -49,6 +49,8 @@ export default function ProfileRequests() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({});
+  const [rejectingRequestId, setRejectingRequestId] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   useEffect(() => auth ? onAuthStateChanged(auth, async (u) => {
     setFirebaseUser(u);
@@ -90,9 +92,57 @@ export default function ProfileRequests() {
   }
 
   async function review(id, action) {
+    if (action === "reject") {
+      setRejectingRequestId(id);
+      setRejectionReason("");
+      setMessage("");
+      return;
+    }
+
     setBusy(true); setMessage("");
-    try { await api(`/profile-requests/admin/${id}/${action}`, { method: "POST", body: JSON.stringify(action === "reject" ? { reason: "Rejected by admin." } : {}) }); setMessage(`Request ${action}ed.`); await refresh(); }
-    catch (e) { setMessage(e.message); } finally { setBusy(false); }
+    try {
+      await api(`/profile-requests/admin/${id}/approve`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setMessage("Request approved.");
+      await refresh();
+    }
+    catch (e) { setMessage(e.message); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmReject() {
+    const reason = rejectionReason.trim();
+
+    if (!reason) {
+      setMessage("Please enter a reason for rejecting this request.");
+      return;
+    }
+
+    if (reason.length > 300) {
+      setMessage("Rejection reason must be 300 characters or fewer.");
+      return;
+    }
+
+    setBusy(true); setMessage("");
+    try {
+      await api(`/profile-requests/admin/${rejectingRequestId}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      setMessage("Request rejected.");
+      setRejectingRequestId(null);
+      setRejectionReason("");
+      await refresh();
+    }
+    catch (e) { setMessage(e.message); }
+    finally { setBusy(false); }
+  }
+
+  function cancelReject() {
+    setRejectingRequestId(null);
+    setRejectionReason("");
   }
 
   async function link() {
@@ -131,5 +181,71 @@ export default function ProfileRequests() {
         </>}
       </section>
     </div>}
+
+    {rejectingRequestId && (
+      <div
+        className="pr-backdrop"
+        style={{ zIndex: 200 }}
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) cancelReject();
+        }}
+      >
+        <section
+          className="pr-modal"
+          style={{ width: "min(520px, 100%)" }}
+        >
+          <div className="pr-head">
+            <h2>Reject Profile Request</h2>
+            <button
+              className="pr-x"
+              onClick={cancelReject}
+              disabled={busy}
+            >
+              ×
+            </button>
+          </div>
+
+          <p className="pr-muted">
+            Enter a reason for rejecting this profile update request.
+            The user will be able to see this reason in their request history.
+          </p>
+
+          <div className="pr-field">
+            <label htmlFor="rejection-reason">Reason for rejection</label>
+            <textarea
+              id="rejection-reason"
+              value={rejectionReason}
+              maxLength={300}
+              autoFocus
+              placeholder="Example: Please provide a more accurate playing position."
+              onChange={(e) => setRejectionReason(e.target.value)}
+            />
+            <div
+              className="pr-muted"
+              style={{ marginTop: 5, textAlign: "right" }}
+            >
+              {rejectionReason.length}/300
+            </div>
+          </div>
+
+          <div className="pr-actions">
+            <button
+              className="pr-btn"
+              disabled={busy}
+              onClick={cancelReject}
+            >
+              Cancel
+            </button>
+            <button
+              className="pr-btn danger"
+              disabled={busy || !rejectionReason.trim()}
+              onClick={confirmReject}
+            >
+              {busy ? "Rejecting…" : "Confirm Rejection"}
+            </button>
+          </div>
+        </section>
+      </div>
+    )}
   </>;
 }
