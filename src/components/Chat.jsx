@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import './chat.css';
 import Modal from './Modal';
 import { api, API_URL } from '../lib/api';
 import { auth } from '../firebase';
