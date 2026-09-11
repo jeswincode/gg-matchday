@@ -1,8 +1,138 @@
-import express from 'express';import {randomUUID} from 'node:crypto';import {requireAuth} from '../middleware/auth.js';import User from '../models/User.js';import {chatMonth,messageText} from '../services/validation.js';
-const router=express.Router(),clients=new Map(),messages=new Map();const lifetime = 86400000;;
+import express from 'express';
+import { randomUUID } from 'node:crypto';
+import { requireAuth } from '../middleware/auth.js';
+import User from '../models/User.js';
+import { chatMonth, messageText } from '../services/validation.js';
+
+const router = express.Router();
+const clients = new Map();
+const messages = new Map();
+const lifetime = 5 * 24 * 60 * 60 * 1000;
+const monthlyLimit = 3;
+
 router.use(requireAuth);
-router.use((req,res,next)=>process.env.CHAT_ENABLED==='true'?next():res.status(503).json({message:'Community chat is not enabled on this server yet.'}));
-router.get('/',(req,res)=>res.json({used:req.user.chatMonth===chatMonth(),monthKey:chatMonth(),expiresSeconds:lifetime/1000}));
-router.get('/stream',(req,res)=>{const key=String(req.user._id);if([...clients.values()].filter(c=>c.user===key).length>=3||clients.size>=500)return res.status(429).json({message:'Too many open chat connections.'});res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','Connection':'keep-alive'});res.flushHeaders();const clientId=randomUUID();clients.set(clientId,{user:key,res});for(const m of messages.values())res.write(`data: ${JSON.stringify(m)}\n\n`);const heartbeat=setInterval(()=>res.write(': keepalive\n\n'),20000);req.on('close',()=>{clearInterval(heartbeat);clients.delete(clientId);});});
-router.post('/',async(req,res)=>{try{const text=messageText(req.body.message),month=chatMonth();const claimed=await User.findOneAndUpdate({_id:req.user._id,chatMonth:{$ne:month}},{$set:{chatMonth:month}},{new:true});if(!claimed)return res.status(409).json({message:'You have used your message for this calendar month.'});const message={id:randomUUID(),name:req.user.name,photo:req.user.profileImage,text,expiresAt:Date.now()+lifetime};messages.set(message.id,message);for(const c of clients.values())c.res.write(`data: ${JSON.stringify(message)}\n\n`);setTimeout(()=>messages.delete(message.id),lifetime).unref();res.status(201).json({used:true,monthKey:month});}catch(e){res.status(400).json({message:e.message==='Write a message between 1 and 500 characters.'?e.message:'Could not send your message.'});}});
+router.use((req, res, next) =>
+  process.env.CHAT_ENABLED === 'true'
+    ? next()
+    : res.status(503).json({ message: 'Community chat is not enabled on this server yet.' })
+);
+
+function usageFor(user, month) {
+  const used = user.chatMonth === month ? Math.max(0, Number(user.chatMessagesUsed) || 0) : 0;
+  return { used, remaining: Math.max(0, monthlyLimit - used) };
+}
+
+router.get('/', (req, res) => {
+  const monthKey = chatMonth();
+  const usage = usageFor(req.user, monthKey);
+  res.json({
+    used: usage.used >= monthlyLimit,
+    messagesUsed: usage.used,
+    messagesRemaining: usage.remaining,
+    monthlyLimit,
+    monthKey,
+    expiresSeconds: lifetime / 1000,
+  });
+});
+
+router.get('/stream', (req, res) => {
+  const key = String(req.user._id);
+  if ([...clients.values()].filter((client) => client.user === key).length >= 3 || clients.size >= 500) {
+    return res.status(429).json({ message: 'Too many open chat connections.' });
+  }
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+  });
+  res.flushHeaders();
+
+  const clientId = randomUUID();
+  clients.set(clientId, { user: key, res });
+
+  const now = Date.now();
+  for (const [id, message] of messages) {
+    if (message.expiresAt <= now) messages.delete(id);
+    else res.write(`data: ${JSON.stringify(message)}\n\n`);
+  }
+
+  const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 20000);
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    clients.delete(clientId);
+  });
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const text = messageText(req.body.message);
+    const month = chatMonth();
+
+    const claimed = await User.findOneAndUpdate(
+      {
+        _id: req.user._id,
+        $or: [
+          { chatMonth: { $ne: month } },
+          { chatMonth: month, chatMessagesUsed: { $lt: monthlyLimit } },
+          { chatMonth: month, chatMessagesUsed: { $exists: false } },
+        ],
+      },
+      [
+        {
+          $set: {
+            chatMessagesUsed: {
+              $cond: [
+                { $eq: ['$chatMonth', month] },
+                { $add: [{ $ifNull: ['$chatMessagesUsed', 0] }, 1] },
+                1,
+              ],
+            },
+            chatMonth: month,
+          },
+        },
+      ],
+      { new: true }
+    );
+
+    if (!claimed) {
+      return res.status(409).json({
+        message: 'You have used all 3 messages for this calendar month.',
+      });
+    }
+
+    const usage = usageFor(claimed, month);
+    const message = {
+      id: randomUUID(),
+      name: req.user.name,
+      photo: req.user.profileImage,
+      text,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + lifetime,
+    };
+
+    messages.set(message.id, message);
+    for (const client of clients.values()) {
+      client.res.write(`data: ${JSON.stringify(message)}\n\n`);
+    }
+
+    setTimeout(() => messages.delete(message.id), lifetime).unref();
+
+    res.status(201).json({
+      used: usage.used >= monthlyLimit,
+      messagesUsed: usage.used,
+      messagesRemaining: usage.remaining,
+      monthlyLimit,
+      monthKey: month,
+      expiresSeconds: lifetime / 1000,
+    });
+  } catch (e) {
+    res.status(400).json({
+      message: e.message === 'Write a message between 1 and 500 characters.'
+        ? e.message
+        : 'Could not send your message.',
+    });
+  }
+});
+
 export default router;
