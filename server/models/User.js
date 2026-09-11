@@ -4,6 +4,7 @@ const userSchema =
   new mongoose.Schema(
     {
       chatMonth: { type: String, default: "" },
+      chatMessagesUsed: { type: Number, default: 0 },
       firebaseUid: {
         type: String,
         required: true,
