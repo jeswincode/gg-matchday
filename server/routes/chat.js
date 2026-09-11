@@ -22,6 +22,20 @@ function usageFor(user, month) {
   return { used, remaining: Math.max(0, monthlyLimit - used) };
 }
 
+function broadcast(message) {
+  const payload = `data: ${JSON.stringify(message)}\n\n`;
+
+  for (const [clientId, client] of clients) {
+    try {
+      client.res.write(payload);
+    } catch (error) {
+      console.warn('Removing closed chat connection:', error.message);
+      clients.delete(clientId);
+      try { client.res.end(); } catch { /* Connection is already closed. */ }
+    }
+  }
+}
+
 router.get('/', (req, res) => {
   const monthKey = chatMonth();
   const usage = usageFor(req.user, monthKey);
@@ -54,10 +68,26 @@ router.get('/stream', (req, res) => {
   const now = Date.now();
   for (const [id, message] of messages) {
     if (message.expiresAt <= now) messages.delete(id);
-    else res.write(`data: ${JSON.stringify(message)}\n\n`);
+    else {
+      try {
+        res.write(`data: ${JSON.stringify(message)}\n\n`);
+      } catch {
+        clients.delete(clientId);
+        return;
+      }
+    }
   }
 
-  const heartbeat = setInterval(() => res.write(': keepalive\n\n'), 20000);
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': keepalive\n\n');
+    } catch {
+      clearInterval(heartbeat);
+      clients.delete(clientId);
+      try { res.end(); } catch { /* Connection is already closed. */ }
+    }
+  }, 20000);
+
   req.on('close', () => {
     clearInterval(heartbeat);
     clients.delete(clientId);
@@ -102,23 +132,25 @@ router.post('/', async (req, res) => {
     }
 
     const usage = usageFor(claimed, month);
+    const now = Date.now();
     const message = {
       id: randomUUID(),
       name: req.user.name,
       photo: req.user.profileImage,
       text,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + lifetime,
+      createdAt: now,
+      expiresAt: now + lifetime,
     };
 
     messages.set(message.id, message);
-    for (const client of clients.values()) {
-      client.res.write(`data: ${JSON.stringify(message)}\n\n`);
-    }
+    broadcast(message);
 
     setTimeout(() => messages.delete(message.id), lifetime).unref();
 
+    // Return the created message so the sender can render it immediately.
+    // SSE remains responsible for delivering messages to other connected clients.
     res.status(201).json({
+      message,
       used: usage.used >= monthlyLimit,
       messagesUsed: usage.used,
       messagesRemaining: usage.remaining,
@@ -127,6 +159,7 @@ router.post('/', async (req, res) => {
       expiresSeconds: lifetime / 1000,
     });
   } catch (e) {
+    console.error('Chat send error:', e);
     res.status(400).json({
       message: e.message === 'Write a message between 1 and 500 characters.'
         ? e.message
