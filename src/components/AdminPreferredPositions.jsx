@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { auth } from "../firebase";
 
@@ -47,20 +47,24 @@ export default function AdminPreferredPositions() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [portalTarget, setPortalTarget] = useState(null);
-
-  const selectedKey = useMemo(
-    () => selected.join("|"),
-    [selected]
-  );
+  const playerKeyRef = useRef("");
 
   useEffect(() => {
     let cancelled = false;
 
-    const findPlayer = async () => {
+    const getEditingContext = () => {
       const form = document.querySelector(".player-profile form");
       const heading = document.querySelector(".player-profile .profile-heading h2");
-      const playerName = heading?.textContent?.trim();
-      const isEditing = Boolean(form && playerName);
+      const playerName = heading?.textContent?.trim() || "";
+      return {
+        form,
+        playerName,
+        isEditing: Boolean(form && playerName),
+      };
+    };
+
+    const syncContext = async () => {
+      const { form, playerName, isEditing } = getEditingContext();
 
       if (!isEditing) {
         if (!cancelled) {
@@ -68,11 +72,20 @@ export default function AdminPreferredPositions() {
           setPlayer(null);
           setPortalTarget(null);
           setMessage("");
+          playerKeyRef.current = "";
         }
         return;
       }
 
-      setPortalTarget(form);
+      if (!cancelled) {
+        setEditing(true);
+        setPortalTarget(form);
+      }
+
+      const playerKey = playerName.toLowerCase();
+      if (playerKeyRef.current === playerKey && player) return;
+
+      playerKeyRef.current = playerKey;
 
       try {
         const response = await fetch(`${API_URL}/players`);
@@ -80,11 +93,10 @@ export default function AdminPreferredPositions() {
 
         const players = await response.json();
         const match = players.find(
-          (item) => item.name?.trim() === playerName
+          (item) => item.name?.trim().toLowerCase() === playerKey
         );
 
         if (!cancelled) {
-          setEditing(true);
           setPlayer(match || null);
           setSelected(
             Array.isArray(match?.preferredPositions)
@@ -97,24 +109,26 @@ export default function AdminPreferredPositions() {
       }
     };
 
-    findPlayer();
+    syncContext();
 
     const observer = new MutationObserver(() => {
-      const form = document.querySelector(".player-profile form");
-      const heading = document.querySelector(".player-profile .profile-heading h2");
-      const currentName = heading?.textContent?.trim() || "";
-      const currentEditing = Boolean(form && currentName);
+      const { form, playerName, isEditing } = getEditingContext();
+      const playerKey = playerName.toLowerCase();
 
-      setEditing((previous) => {
-        if (previous !== currentEditing) return currentEditing;
-        return previous;
-      });
-
-      setPortalTarget(currentEditing ? form : null);
-
-      if (!currentEditing) {
+      if (!isEditing) {
+        setEditing(false);
         setPlayer(null);
+        setPortalTarget(null);
         setMessage("");
+        playerKeyRef.current = "";
+        return;
+      }
+
+      setEditing(true);
+      setPortalTarget(form);
+
+      if (playerKey && playerKeyRef.current !== playerKey) {
+        syncContext();
       }
     });
 
@@ -127,7 +141,7 @@ export default function AdminPreferredPositions() {
       cancelled = true;
       observer.disconnect();
     };
-  }, [editing, selectedKey]);
+  }, [player]);
 
   if (!editing || !player || !portalTarget) return null;
 
