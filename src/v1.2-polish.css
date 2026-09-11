@@ -1,161 +1,104 @@
 /* GG Matchday v1.2 — polish layer. Existing components stay intact. */
 
-/* Home */
 .home-feature-card,
 .home-player-feature,
 .news-card,
 .home-stat-card,
 .home-gallery-strip img {
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
 
 .home-feature-card:hover,
 .home-player-feature:hover,
 .news-card:hover,
-.home-stat-card:hover {
-  border-color: #343b49;
-}
-
+.home-stat-card:hover { border-color: #343b49; }
 .news-card:hover,
-.home-stat-card:hover {
-  transform: translateY(-2px);
-}
-
-.home-feature-card {
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16);
-}
-
-.home-stat-grid {
-  align-items: stretch;
-}
-
-.home-stat-card {
-  min-height: 104px;
-}
-
-/* Player profile polish */
+.home-stat-card:hover { transform: translateY(-2px); }
+.home-feature-card { box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16); }
+.home-stat-grid { align-items: stretch; }
+.home-stat-card { min-height: 104px; }
 .player-profile img,
-.player-profile-card img {
-  image-rendering: auto;
-}
-
-/* Gallery rendering can be skipped until gallery cards are near the viewport. */
-.gallery-item {
-  content-visibility: auto;
-  contain-intrinsic-size: 360px 420px;
-}
-
+.player-profile-card img { image-rendering: auto; }
+.gallery-item { content-visibility: auto; contain-intrinsic-size: 360px 420px; }
 .home-gallery-strip img,
 .gallery-grid img,
 .gallery-list img,
 .gallery-card img,
-[data-gallery] img {
-  content-visibility: auto;
-}
+[data-gallery] img { content-visibility: auto; }
 
-/* Keyboard/touch accessibility polish */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid #f5f7fb;
-  outline-offset: 3px;
-}
+textarea:focus-visible { outline: 2px solid #f5f7fb; outline-offset: 3px; }
+
+/* Community chat */
+.gg-chat { display: flex; flex-direction: column; min-height: 62dvh; }
+.gg-chat-intro { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0 0 14px; border-bottom:1px solid var(--border); }
+.gg-chat-intro strong,.gg-chat-intro span { display:block; }
+.gg-chat-intro span { color:var(--muted); font-size:.78rem; margin-top:3px; }
+.gg-chat-quota { color:var(--accent) !important; font-weight:700; text-align:right; }
+.gg-chat-stream { flex:1; min-height:320px; max-height:52dvh; overflow-y:auto; overscroll-behavior:contain; padding:18px 6px 22px 2px; scrollbar-width:thin; }
+.gg-chat-message { max-width:min(78%, 620px); margin:0 0 16px; padding:11px 15px; border:1px solid var(--border); border-radius:16px 16px 16px 5px; background:var(--panel-soft); color:var(--text); }
+.gg-chat-message.grouped { margin-top:-9px; border-top-left-radius:6px; }
+.gg-chat-message-head { display:flex; align-items:baseline; gap:9px; margin-bottom:5px; }
+.gg-chat-message-head strong { font-size:.85rem; }
+.gg-chat-message-head time { color:var(--muted-2); font-size:.7rem; }
+.gg-chat-message p { margin:0; line-height:1.5; overflow-wrap:anywhere; white-space:pre-wrap; }
+.gg-chat-empty { min-height:280px; display:grid; place-items:center; align-content:center; text-align:center; color:var(--muted); }
+.gg-chat-empty span { color:var(--accent); font-size:25px; margin-bottom:6px; }
+.gg-chat-empty strong { color:var(--text); }
+.gg-chat-empty p { margin:5px 0 0; font-size:.85rem; }
+.gg-chat-composer { margin-top:auto; padding:12px; border:1px solid var(--border); border-radius:16px; background:var(--panel-soft); }
+.gg-chat-composer textarea { width:100%; resize:vertical; min-height:52px; max-height:150px; border:0; padding:2px 2px 10px; background:transparent; outline:none; }
+.gg-chat-composer textarea:focus { outline:none; }
+.gg-chat-composer-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid var(--border); padding-top:10px; }
+.gg-chat-composer-footer small { color:var(--muted); }
+.gg-chat-send { width:auto; min-width:88px; margin:0; }
+.gg-chat-error,.gg-chat-limit { color:var(--danger); font-size:.85rem; margin:12px 0 0; }
+.gg-chat-limit { color:var(--muted); }
+
+:root:not([data-theme="golden"]) .gg-chat { background:#0d0e0f; border:1px solid #222426; border-radius:14px; padding:14px; box-shadow:inset 0 0 45px rgba(0,0,0,.28); }
+:root[data-theme="golden"] .gg-chat { background:#211c14; border:1px solid #4b3d27; border-radius:14px; padding:14px; box-shadow:inset 0 0 45px rgba(0,0,0,.22); }
+:root[data-theme="golden"] .gg-chat-message { background:#2a241a; border-color:#51432d; }
+:root[data-theme="golden"] .gg-chat-composer { background:#292217; border-color:#51432d; }
 
 /* Mobile */
-@media (max-width: 760px) {
-  .app {
-    width: min(100% - 20px, 1180px);
-    padding-top: 16px;
-    padding-bottom: 90px;
-  }
-
-  .account-bar {
-    top: 8px;
-    margin-bottom: 14px;
-    border-radius: 16px;
-  }
-
-  .home-hero {
-    padding-top: 18px;
-  }
-
-  .home-feature-card {
-    padding: 22px;
-    border-radius: 20px;
-  }
-
-  .feature-score {
-    gap: 18px;
-    margin-top: 20px;
-  }
-
-  .feature-score strong {
-    font-size: 34px;
-  }
-
-  .home-stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .home-gallery-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .news-card {
-    padding: 15px;
-    gap: 12px;
-  }
-
-  .news-icon {
-    flex-basis: 40px;
-    width: 40px;
-    height: 40px;
-  }
-
-  .section-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-  }
+@media (max-width:760px) {
+  .app { width:min(100% - 20px,1180px); padding-top:16px; padding-bottom:100px; }
+  .account-bar { top:8px; margin-bottom:14px; border-radius:16px; }
+  .home-hero { padding-top:18px; }
+  .home-feature-card { padding:22px; border-radius:20px; }
+  .feature-score { gap:18px; margin-top:20px; }
+  .feature-score strong { font-size:34px; }
+  .home-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .home-gallery-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .news-card { padding:15px; gap:12px; }
+  .news-icon { flex-basis:40px; width:40px; height:40px; }
+  .section-heading { align-items:flex-start; flex-direction:column; gap:8px; }
+  .gg-chat { min-height:calc(100dvh - 170px); padding:10px; }
+  .gg-chat-stream { min-height:300px; max-height:calc(100dvh - 410px); padding-bottom:18px; }
+  .gg-chat-message { max-width:88%; }
+  .gg-chat-intro { align-items:flex-start; flex-direction:column; }
+  .gg-chat-quota { text-align:left; }
+  .gg-chat-composer { position:sticky; bottom:0; z-index:2; }
+  .gg-chat-send { min-height:44px; }
 }
 
-@media (max-width: 480px) {
-  .home-stat-card {
-    padding: 14px;
-    min-height: 92px;
-  }
-
-  .home-stat-card strong {
-    font-size: 22px;
-  }
-
-  .account-actions {
-    width: 100%;
-  }
-
-  .account-actions button {
-    min-height: 42px;
-  }
-
-  .signed-out-account {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+@media (max-width:480px) {
+  .home-stat-card { padding:14px; min-height:92px; }
+  .home-stat-card strong { font-size:22px; }
+  .account-actions { width:100%; }
+  .account-actions button { min-height:42px; }
+  .signed-out-account { align-items:flex-start; flex-direction:column; }
+  .gg-modal { padding:14px !important; width:calc(100% - 16px) !important; max-height:calc(100dvh - 16px) !important; }
+  .gg-modal-head { gap:10px; }
+  .gg-modal-head h2 { font-size:1.35rem; }
+  .gg-chat { min-height:calc(100dvh - 120px); }
+  .gg-chat-stream { max-height:calc(100dvh - 350px); min-height:240px; }
+  .gg-chat-message { max-width:94%; padding:10px 12px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
 }
