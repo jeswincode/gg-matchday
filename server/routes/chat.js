@@ -2,11 +2,11 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { requireAuth } from '../middleware/auth.js';
 import User from '../models/User.js';
+import ChatMessage from '../models/ChatMessage.js';
 import { chatMonth, messageText } from '../services/validation.js';
 
 const router = express.Router();
 const clients = new Map();
-const messages = new Map();
 const lifetime = 5 * 24 * 60 * 60 * 1000;
 const monthlyLimit = 3;
 
@@ -35,20 +35,42 @@ function broadcast(message) {
   }
 }
 
-router.get('/', (req, res) => {
-  const monthKey = chatMonth();
-  const usage = usageFor(req.user, monthKey);
-  res.json({
-    used: usage.used >= monthlyLimit,
-    messagesUsed: usage.used,
-    messagesRemaining: usage.remaining,
-    monthlyLimit,
-    monthKey,
-    expiresSeconds: lifetime / 1000,
-  });
+function serializeMessage(message) {
+  return {
+    id: String(message._id || message.id),
+    name: message.name,
+    photo: message.photo || '',
+    text: message.text,
+    createdAt: new Date(message.createdAt).getTime(),
+    expiresAt: new Date(message.expiresAt).getTime(),
+  };
+}
+
+router.get('/', async (req, res) => {
+  try {
+    const monthKey = chatMonth();
+    const usage = usageFor(req.user, monthKey);
+    const history = await ChatMessage.find({ expiresAt: { $gt: new Date() } })
+      .sort({ createdAt: 1 })
+      .limit(200)
+      .lean();
+
+    res.json({
+      used: usage.used >= monthlyLimit,
+      messagesUsed: usage.used,
+      messagesRemaining: usage.remaining,
+      monthlyLimit,
+      monthKey,
+      expiresSeconds: lifetime / 1000,
+      messages: history.map(serializeMessage),
+    });
+  } catch (error) {
+    console.error('Chat history error:', error);
+    res.status(500).json({ message: 'Could not load chat history.' });
+  }
 });
 
-router.get('/stream', (req, res) => {
+router.get('/stream', async (req, res) => {
   const key = String(req.user._id);
   if ([...clients.values()].filter((client) => client.user === key).length >= 3 || clients.size >= 500) {
     return res.status(429).json({ message: 'Too many open chat connections.' });
@@ -64,17 +86,25 @@ router.get('/stream', (req, res) => {
   const clientId = randomUUID();
   clients.set(clientId, { user: key, res });
 
-  const now = Date.now();
-  for (const [id, message] of messages) {
-    if (message.expiresAt <= now) messages.delete(id);
-    else {
+  try {
+    const history = await ChatMessage.find({ expiresAt: { $gt: new Date() } })
+      .sort({ createdAt: 1 })
+      .limit(200)
+      .lean();
+
+    for (const message of history) {
       try {
-        res.write(`data: ${JSON.stringify(message)}\n\n`);
+        res.write(`data: ${JSON.stringify(serializeMessage(message))}\n\n`);
       } catch {
         clients.delete(clientId);
         return;
       }
     }
+  } catch (error) {
+    console.error('Chat stream history error:', error);
+    clients.delete(clientId);
+    try { res.end(); } catch { /* Connection is already closed. */ }
+    return;
   }
 
   const heartbeat = setInterval(() => {
@@ -98,15 +128,11 @@ router.post('/', async (req, res) => {
     const text = messageText(req.body.message);
     const month = chatMonth();
 
-    // Reset a stale month first. This is a single atomic operation and avoids
-    // aggregation-pipeline updates that can behave differently across MongoDB deployments.
     await User.updateOne(
       { _id: req.user._id, chatMonth: { $ne: month } },
       { $set: { chatMonth: month, chatMessagesUsed: 0 } }
     );
 
-    // Claim one of the three monthly slots atomically. Concurrent sends cannot
-    // push the counter beyond the configured limit.
     const claimed = await User.findOneAndUpdate(
       {
         _id: req.user._id,
@@ -123,20 +149,18 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const usage = usageFor(claimed, month);
-    const now = Date.now();
-    const message = {
-      id: randomUUID(),
+    const now = new Date();
+    const created = await ChatMessage.create({
       name: req.user.name,
-      photo: req.user.profileImage,
+      photo: req.user.profileImage || '',
       text,
       createdAt: now,
-      expiresAt: now + lifetime,
-    };
+      expiresAt: new Date(now.getTime() + lifetime),
+    });
 
-    messages.set(message.id, message);
+    const message = serializeMessage(created);
+    const usage = usageFor(claimed, month);
     broadcast(message);
-    setTimeout(() => messages.delete(message.id), lifetime).unref();
 
     res.status(201).json({
       message,
