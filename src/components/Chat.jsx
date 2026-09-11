@@ -78,6 +78,10 @@ export default function Chat({ onClose }) {
     try {
       const next = await api('/chat', { method: 'POST', body: { message: text } });
       setStatus(next);
+      setMessages((old) => [
+        ...old.filter((m) => m.id !== next.message?.id && m.expiresAt > Date.now()),
+        ...(next.message ? [next.message] : []),
+      ].sort((a, b) => a.createdAt - b.createdAt).slice(-50));
       setText('');
       setError('');
     } catch (e) {
