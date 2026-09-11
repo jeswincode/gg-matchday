@@ -24,7 +24,6 @@ function usageFor(user, month) {
 
 function broadcast(message) {
   const payload = `data: ${JSON.stringify(message)}\n\n`;
-
   for (const [clientId, client] of clients) {
     try {
       client.res.write(payload);
@@ -99,29 +98,22 @@ router.post('/', async (req, res) => {
     const text = messageText(req.body.message);
     const month = chatMonth();
 
+    // Reset a stale month first. This is a single atomic operation and avoids
+    // aggregation-pipeline updates that can behave differently across MongoDB deployments.
+    await User.updateOne(
+      { _id: req.user._id, chatMonth: { $ne: month } },
+      { $set: { chatMonth: month, chatMessagesUsed: 0 } }
+    );
+
+    // Claim one of the three monthly slots atomically. Concurrent sends cannot
+    // push the counter beyond the configured limit.
     const claimed = await User.findOneAndUpdate(
       {
         _id: req.user._id,
-        $or: [
-          { chatMonth: { $ne: month } },
-          { chatMonth: month, chatMessagesUsed: { $lt: monthlyLimit } },
-          { chatMonth: month, chatMessagesUsed: { $exists: false } },
-        ],
+        chatMonth: month,
+        chatMessagesUsed: { $lt: monthlyLimit },
       },
-      [
-        {
-          $set: {
-            chatMessagesUsed: {
-              $cond: [
-                { $eq: ['$chatMonth', month] },
-                { $add: [{ $ifNull: ['$chatMessagesUsed', 0] }, 1] },
-                1,
-              ],
-            },
-            chatMonth: month,
-          },
-        },
-      ],
+      { $inc: { chatMessagesUsed: 1 } },
       { new: true }
     );
 
@@ -144,11 +136,8 @@ router.post('/', async (req, res) => {
 
     messages.set(message.id, message);
     broadcast(message);
-
     setTimeout(() => messages.delete(message.id), lifetime).unref();
 
-    // Return the created message so the sender can render it immediately.
-    // SSE remains responsible for delivering messages to other connected clients.
     res.status(201).json({
       message,
       used: usage.used >= monthlyLimit,
