@@ -9,6 +9,7 @@ const participantSchema = new mongoose.Schema(
     },
 
     rating: { type: Number, min: 0, max: 10, default: null },
+    ownGoals: { type: Number, min: 0, max: 20, default: 0 },
     team: {
       type: String,
       enum: ["A", "B"],
