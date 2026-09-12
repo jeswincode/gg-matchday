@@ -1,0 +1,67 @@
+.gg-performance-head,
+.gg-performance-row {
+  grid-template-columns: minmax(120px, 1.6fr) 90px 100px 100px 100px 85px;
+}
+
+@media (max-width: 760px) {
+  .gg-performance-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "player side"
+      "goals assists"
+      "own-goal rating";
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .gg-performance-row > div:first-child {
+    grid-area: player;
+  }
+
+  .gg-performance-row > .team-switch {
+    grid-area: side;
+    justify-self: end;
+  }
+
+  .gg-performance-row > .counter:nth-of-type(3) {
+    grid-area: goals;
+  }
+
+  .gg-performance-row > .counter:nth-of-type(4) {
+    grid-area: assists;
+  }
+
+  .gg-performance-row > .counter:nth-of-type(5) {
+    grid-area: own-goal;
+  }
+
+  .gg-performance-row > .gg-rating-input {
+    grid-area: rating;
+    justify-self: stretch;
+  }
+
+  .gg-performance-row > .counter {
+    min-height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  .gg-performance-row > .counter::before {
+    content: "G";
+    margin-right: auto;
+    padding-left: 8px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .gg-performance-row > .counter:nth-of-type(4)::before {
+    content: "A";
+  }
+
+  .gg-performance-row > .counter:nth-of-type(5)::before {
+    content: "OG";
+  }
+}
