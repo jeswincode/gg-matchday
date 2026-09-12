@@ -107,7 +107,7 @@ const matchSchema = new mongoose.Schema(
 matchSchema.index({ date: -1 });
 matchSchema.index({ "participants.player": 1, date: -1 });
 
-matchSchema.pre("validate", function recalculateScores(next) {
+matchSchema.pre("validate", function recalculateScores() {
   const participants = this.participants || [];
   const events = this.events || [];
   const side = new Map(participants.map((participant) => [String(participant.player), participant.team]));
@@ -118,7 +118,6 @@ matchSchema.pre("validate", function recalculateScores(next) {
 
   if (this.teamA) this.teamA.score = normalGoals("A") + ownGoalsAgainst("A");
   if (this.teamB) this.teamB.score = normalGoals("B") + ownGoalsAgainst("B");
-  next();
 });
 
 export default mongoose.model("Match", matchSchema);
