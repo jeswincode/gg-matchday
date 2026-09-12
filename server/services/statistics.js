@@ -20,13 +20,14 @@ export function percentile(value,values) {
   return round(10*(lower+(equal-1)/2)/(values.length-1));
 }
 export function buildStatistics(players,matches,{minimumMatches=5}={}) {
- const stats=new Map(players.map(p=>[id(p),{playerId:id(p),name:p.name,profileImage:p.profileImage,position:p.position,preferredPositions:p.preferredPositions||[],clasicoSide:p.clasicoSide||"",matches:0,wins:0,draws:0,losses:0,goals:0,assists:0,cleanSheets:0,ratedMatches:0,ratingTotal:0,recent:[]} ]));
+ const stats=new Map(players.map(p=>[id(p),{playerId:id(p),name:p.name,profileImage:p.profileImage,position:p.position,preferredPositions:p.preferredPositions||[],clasicoSide:p.clasicoSide||"",matches:0,wins:0,draws:0,losses:0,goals:0,assists:0,ownGoals:0,cleanSheets:0,ratedMatches:0,ratingTotal:0,recent:[]} ]));
  for(const m of [...matches].sort((a,b)=>new Date(b.date)-new Date(a.date))) {
   for(const part of m.participants||[]) {
    const s=stats.get(id(part.player)); if(!s) continue;
    const own=Number(part.team==='A'?m.teamA.score:m.teamB.score),against=Number(part.team==='A'?m.teamB.score:m.teamA.score);
    const result=own>against?'W':own===against?'D':'L'; s.matches++; s[result==='W'?'wins':result==='D'?'draws':'losses']++; if(against===0)s.cleanSheets++;
-   if(hasRating(part.rating)){s.ratedMatches++;s.ratingTotal+=part.rating;}
+   const ownGoals=Number(part.ownGoals||0); s.ownGoals+=Number.isFinite(ownGoals)&&ownGoals>0?ownGoals:0;
+   if(hasRating(part.rating)){s.ratedMatches++;s.ratingTotal+=Math.max(0,part.rating-(Number.isFinite(ownGoals)?ownGoals:0));}
    if(s.recent.length<5)s.recent.push({matchId:id(m),date:m.date,result});
   }
   for(const e of m.events||[]){const s=stats.get(id(e.player));if(s&&['goal','assist'].includes(e.type))s[e.type==='goal'?'goals':'assists']++;}
