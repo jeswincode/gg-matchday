@@ -3,9 +3,13 @@ export const id = value => String(value?._id ?? value);
 export const isClasico = name => /\bel\s+clasico\b/.test(String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " "));
 export const round = n => Number(n.toFixed(2));
 export const hasRating = value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 10;
-export const sortOverall = (a,b) => (b.ggRating ?? -1)-(a.ggRating ?? -1) || (b.averageRating ?? -1)-(a.averageRating ?? -1) || b.winRate-a.winRate || b.goalContributions-a.goalContributions || b.cleanSheetRate-a.cleanSheetRate || b.matches-a.matches || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
+export const compareByGG = (a,b) => (b.ggRating ?? -1)-(a.ggRating ?? -1) || (b.averageRating ?? -1)-(a.averageRating ?? -1);
+export const sortOverall = (a,b) => compareByGG(a,b) || b.winRate-a.winRate || b.goalContributions-a.goalContributions || b.cleanSheetRate-a.cleanSheetRate || b.matches-a.matches || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
 export const sortOffensive = (a,b) => (b.offensiveRating ?? -1)-(a.offensiveRating ?? -1) || b.goals-a.goals || b.assists-a.assists || (b.averageRating ?? -1)-(a.averageRating ?? -1) || b.matches-a.matches || a.name.localeCompare(b.name);
 export const sortDefensive = (a,b) => (b.defensiveRating ?? -1)-(a.defensiveRating ?? -1) || b.cleanSheetRate-a.cleanSheetRate || b.cleanSheets-a.cleanSheets || b.winRate-a.winRate || (b.averageRating ?? -1)-(a.averageRating ?? -1) || a.name.localeCompare(b.name);
+export const sortMostWins = (a,b) => b.wins-a.wins || compareByGG(a,b) || b.goalContributions-a.goalContributions || b.matches-a.matches || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
+export const sortGoldenBoot = (a,b) => b.goals-a.goals || compareByGG(a,b) || b.assists-a.assists || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
+export const sortPlaymaker = (a,b) => b.assists-a.assists || compareByGG(a,b) || b.goals-a.goals || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
 export function dateQuery(year,month) {
   if (!year) return {};
   year=Number(year); month=month == null ? null : Number(month);
@@ -44,6 +48,6 @@ export function selectAwards(players,matches,{year,month}={}) {
  const period=inPeriod(matches,year,month), min=month?3:5, rows=buildStatistics(players,period,{minimumMatches:min});
  const rated=rows.filter(s=>s.ggRating!==null), eligible=rows.filter(s=>s.eligible);
  const selections=[['player',rated[0],'ggRating'],['offensive',[...eligible].sort(sortOffensive)[0],'offensiveRating'],['defensive',[...eligible].sort(sortDefensive)[0],'defensiveRating']];
- if(!month){const cs=buildStatistics(players,period.filter(m=>isClasico(m.name)),{minimumMatches:3});selections.push(['golden-boot',[...eligible].filter(s=>s.goals>0).sort((a,b)=>b.goals-a.goals||b.assists-a.assists||sortOverall(a,b))[0],'goals'],['assist-leader',[...eligible].filter(s=>s.assists>0).sort((a,b)=>b.assists-a.assists||b.goals-a.goals||sortOverall(a,b))[0],'assists'],['clasico',cs.find(s=>s.ggRating!==null),'ggRating']);}
+ if(!month){const cs=buildStatistics(players,period.filter(m=>isClasico(m.name)),{minimumMatches:3});selections.push(['golden-boot',[...eligible].filter(s=>s.goals>0).sort(sortGoldenBoot)[0],'goals'],['assist-leader',[...eligible].filter(s=>s.assists>0).sort(sortPlaymaker)[0],'assists'],['clasico',cs.find(s=>s.ggRating!==null),'ggRating']);}
  return selections.filter(([,s])=>s).map(([type,s,key])=>({type,year:Number(year),month:month?Number(month):null,player:s.playerId,playerName:s.name,value:round(s[key]),metric:key}));
 }
