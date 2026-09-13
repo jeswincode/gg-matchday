@@ -2,8 +2,15 @@ import Player from '../models/Player.js';
 import Match from '../models/Match.js';
 import Award from '../models/Award.js';
 import Achievement from '../models/Achievement.js';
-import {buildStatistics,milestoneRules,selectAwards} from './statistics.js';
+import {buildStatistics,milestoneRules,selectAwards,getMatchScores} from './statistics.js';
 let pending;
+export async function repairMatchScores(){
+ const matches=await Match.find().lean();
+ const ops=[];
+ for(const match of matches){const scores=getMatchScores(match);if(Number(match.teamA?.score)!==scores.teamA||Number(match.teamB?.score)!==scores.teamB)ops.push({updateOne:{filter:{_id:match._id},update:{$set:{'teamA.score':scores.teamA,'teamB.score':scores.teamB}}}});}
+ if(ops.length)await Match.bulkWrite(ops,{ordered:false});
+ return ops.length;
+}
 export function syncHistory(){
  if(pending)return pending;
  pending=(async()=>{
