@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+const p='src/App.jsx';
+let s=fs.readFileSync(p,'utf8');
+const start='      {/* =====================================================\n          GALLERY';
+const end='      {/* =====================================================\n          ADMIN';
+const a=s.indexOf(start),b=s.indexOf(end,a);
+if(a>=0&&b>=0)s=s.slice(0,a)+'      {/* =====================================================\n          ADMIN'+s.slice(b+end.length);
+s=s.replace(/\n        <section className="card quick-gallery-card">[\s\S]*?<\/section>/,'');
+s=s.replace(/<LikeButton[^>]*\/?>/g,'');
+fs.writeFileSync(p,s);
+const md='src/components/MatchDetail.jsx';
+if(fs.existsSync(md)){let x=fs.readFileSync(md,'utf8');x=x.replace(/import LikeButton from ['"]\.\/LikeButton['"];?/g,'').replace(/<LikeButton[^>]*\/>/g,'');fs.writeFileSync(md,x);}
