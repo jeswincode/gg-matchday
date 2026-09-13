@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+const p='src/App.jsx';
+let s=fs.readFileSync(p,'utf8');
+const start='      {/* =====================================================\n          GALLERY';
+const end='      {/* =====================================================\n          ADMIN';
+const a=s.indexOf(start),b=s.indexOf(end,a);
+if(a<0||b<0)throw new Error('Gallery render block not found');
+s=s.slice(0,a)+'      {/* =====================================================\n          ADMIN'+s.slice(b+end.length);
+s=s.replace(/\n        <section className="card quick-gallery-card">[\s\S]*?<\/section>/,'');
+s=s.replace(/\n                        <LikeButton[^\n]*\n?/g,'');
+fs.writeFileSync(p,s);
