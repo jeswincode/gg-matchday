@@ -10,6 +10,7 @@ export const sortDefensive = (a,b) => (b.defensiveRating ?? -1)-(a.defensiveRati
 export const sortMostWins = (a,b) => b.wins-a.wins || compareByGG(a,b) || b.goalContributions-a.goalContributions || b.matches-a.matches || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
 export const sortGoldenBoot = (a,b) => b.goals-a.goals || compareByGG(a,b) || b.assists-a.assists || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
 export const sortPlaymaker = (a,b) => b.assists-a.assists || compareByGG(a,b) || b.goals-a.goals || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
+export function getMatchScores(match){const participants=Array.isArray(match?.participants)?match.participants:[],events=Array.isArray(match?.events)?match.events:[];const side=new Map(participants.map(p=>[id(p.player),p.team]));const normalA=events.filter(e=>e?.type==='goal'&&side.get(id(e.player))==='A').length;const normalB=events.filter(e=>e?.type==='goal'&&side.get(id(e.player))==='B').length;const ownA=participants.reduce((n,p)=>n+(p.team==='A'?Math.max(0,Number(p.ownGoals||0)):0),0);const ownB=participants.reduce((n,p)=>n+(p.team==='B'?Math.max(0,Number(p.ownGoals||0)):0),0);return {teamA:normalA+ownB,teamB:normalB+ownA};}
 export function dateQuery(year,month) {
   if (!year) return {};
   year=Number(year); month=month == null ? null : Number(month);
@@ -25,16 +26,17 @@ export function percentile(value,values) {
 }
 export function buildStatistics(players,matches,{minimumMatches=5}={}) {
  const stats=new Map(players.map(p=>[id(p),{playerId:id(p),name:p.name,profileImage:p.profileImage,position:p.position,preferredPositions:p.preferredPositions||[],clasicoSide:p.clasicoSide||"",matches:0,wins:0,draws:0,losses:0,goals:0,assists:0,ownGoals:0,cleanSheets:0,ratedMatches:0,ratingTotal:0,recent:[]} ]));
- for(const m of [...matches].sort((a,b)=>new Date(b.date)-new Date(a.date))) {
-  for(const part of m.participants||[]) {
+ for(const original of [...matches].sort((a,b)=>new Date(b.date)-new Date(a.date))) {
+  const scores=getMatchScores(original);
+  for(const part of original.participants||[]) {
    const s=stats.get(id(part.player)); if(!s) continue;
-   const own=Number(part.team==='A'?m.teamA.score:m.teamB.score),against=Number(part.team==='A'?m.teamB.score:m.teamA.score);
+   const own=Number(part.team==='A'?scores.teamA:scores.teamB),against=Number(part.team==='A'?scores.teamB:scores.teamA);
    const result=own>against?'W':own===against?'D':'L'; s.matches++; s[result==='W'?'wins':result==='D'?'draws':'losses']++; if(against===0)s.cleanSheets++;
    const ownGoals=Number(part.ownGoals||0); s.ownGoals+=Number.isFinite(ownGoals)&&ownGoals>0?ownGoals:0;
    if(hasRating(part.rating)){s.ratedMatches++;s.ratingTotal+=Math.max(0,part.rating-(Number.isFinite(ownGoals)?ownGoals:0));}
-   if(s.recent.length<5)s.recent.push({matchId:id(m),date:m.date,result});
+   if(s.recent.length<5)s.recent.push({matchId:id(original),date:original.date,result});
   }
-  for(const e of m.events||[]){const s=stats.get(id(e.player));if(s&&['goal','assist'].includes(e.type))s[e.type==='goal'?'goals':'assists']++;}
+  for(const e of original.events||[]){const s=stats.get(id(e.player));if(s&&['goal','assist'].includes(e.type))s[e.type==='goal'?'goals':'assists']++;}
  }
  const rows=[...stats.values()];
  for(const s of rows){s.goalContributions=s.goals+s.assists;s.winRate=s.matches?s.wins/s.matches:0;s.lossRate=s.matches?s.losses/s.matches:0;s.cleanSheetRate=s.matches?s.cleanSheets/s.matches:0;s.averageRating=s.ratedMatches?s.ratingTotal/s.ratedMatches:null;s.performanceRating=s.averageRating;s.resultScore=s.matches?5+(s.winRate-s.lossRate)*5:null;s.offensiveRaw=s.matches?(s.goals+s.assists*.75)/s.matches:0;s.defensiveRaw=s.cleanSheetRate+s.winRate*.5;s.eligible=s.matches>=minimumMatches;s.form=s.recent.length?Math.round(100*s.recent.reduce((n,r)=>n+(r.result==='W'?1:r.result==='D'?.5:0),0)/s.recent.length):null;delete s.ratingTotal;}
