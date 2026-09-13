@@ -5,6 +5,7 @@ import chatRoutes from "./routes/chat.js";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 import playerRoutes from "./routes/players.js";
 import matchRoutes from "./routes/matches.js";
@@ -35,9 +36,34 @@ app.use("/api/immersive-news", immersiveNewsRoutes);
 app.use("/api/profile-requests", profileSecurityRoutes);
 app.use("/api/profile-requests", profileRequestRoutes);
 
-app.get("/api/health", (req, res) => {
-  res.json({ success: true, message: "Football Tracker API is running" });
+app.get("/api/health", async (req, res) => {
+  try {
+    if (!mongoose.connection.db) {
+      return res.status(503).json({ success: false, status: "degraded", database: "disconnected" });
+    }
+
+    await mongoose.connection.db.admin().ping();
+    return res.json({ success: true, status: "ok", database: "connected" });
+  } catch (error) {
+    console.error("Health check database error:", error);
+    return res.status(503).json({ success: false, status: "degraded", database: "disconnected" });
+  }
 });
 
-app.use((error, req, res, next) => { if(res.headersSent)return next(error);res.status(error.status || 500).json({message:error.status===413?"Request is too large.":"The request could not be completed."}); });
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+
+  if (error?.name === "CastError") {
+    return res.status(400).json({ message: "Invalid resource id." });
+  }
+
+  if (error?.name === "ValidationError") {
+    return res.status(400).json({ message: "Invalid request data." });
+  }
+
+  return res.status(error.status || 500).json({
+    message: error.status === 413 ? "Request is too large." : "The request could not be completed.",
+  });
+});
+
 export default app;
