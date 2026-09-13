@@ -35,12 +35,14 @@ edit('server/middleware/auth.js', s => s.replace(
 ));
 
 edit('server/models/User.js', s => {
-  if (!s.includes('userSchema.index({ playerProfile: 1 }, { unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });')) s = s.replace('export default mongoose.model(', 'userSchema.index({ playerProfile: 1 }, { unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });\n\nexport default mongoose.model(');
+  s = s.replace(/playerProfile:\s*\{([\s\S]*?)\n\s*index:\s*true,\n\s*\},/, 'playerProfile: {\n        type: mongoose.Schema.Types.ObjectId,\n        ref: "Player",\n        default: null,\n      },');
+  if (!s.includes('name: "user_playerProfile_unique"')) s = s.replace('export default mongoose.model(', 'userSchema.index({ playerProfile: 1 }, { name: "user_playerProfile_unique", unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });\n\nexport default mongoose.model(');
   return s;
 });
 
 edit('server/models/ProfileChangeRequest.js', s => {
-  if (!s.includes('profileChangeRequestSchema.index({ requestedBy: 1 },')) s = s.replace('export default mongoose.model(', 'profileChangeRequestSchema.index({ requestedBy: 1 }, { unique: true, partialFilterExpression: { status: "pending" } });\n\nexport default mongoose.model(');
+  s = s.replace(/requestedBy:\s*\{([\s\S]*?)\n\s*index:\s*true,\n\s*\},/, 'requestedBy: {\n        type: mongoose.Schema.Types.ObjectId,\n        ref: "User",\n        required: true,\n      },');
+  if (!s.includes('name: "profile_request_pending_unique"')) s = s.replace('export default mongoose.model(', 'profileChangeRequestSchema.index({ requestedBy: 1 }, { name: "profile_request_pending_unique", unique: true, partialFilterExpression: { status: "pending" } });\n\nexport default mongoose.model(');
   return s;
 });
 
@@ -64,7 +66,6 @@ edit('server/services/history.js', s => {
   return s;
 });
 
-// Non-destructive score normalization for legacy match reads.
 edit('server/services/statistics.js', s => {
   if (!s.includes('export function normalizeMatchScores')) {
     const marker = "export function dateQuery(year,month) {";
