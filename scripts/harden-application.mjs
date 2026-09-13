@@ -35,16 +35,12 @@ edit('server/middleware/auth.js', s => s.replace(
 ));
 
 edit('server/models/User.js', s => {
-  if (!s.includes('userSchema.index({ playerProfile: 1 }, { unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });')) {
-    s = s.replace('export default mongoose.model(', 'userSchema.index({ playerProfile: 1 }, { unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });\n\nexport default mongoose.model(');
-  }
+  if (!s.includes('userSchema.index({ playerProfile: 1 }, { unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });')) s = s.replace('export default mongoose.model(', 'userSchema.index({ playerProfile: 1 }, { unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });\n\nexport default mongoose.model(');
   return s;
 });
 
 edit('server/models/ProfileChangeRequest.js', s => {
-  if (!s.includes('profileChangeRequestSchema.index({ requestedBy: 1 },')) {
-    s = s.replace('export default mongoose.model(', 'profileChangeRequestSchema.index({ requestedBy: 1 }, { unique: true, partialFilterExpression: { status: "pending" } });\n\nexport default mongoose.model(');
-  }
+  if (!s.includes('profileChangeRequestSchema.index({ requestedBy: 1 },')) s = s.replace('export default mongoose.model(', 'profileChangeRequestSchema.index({ requestedBy: 1 }, { unique: true, partialFilterExpression: { status: "pending" } });\n\nexport default mongoose.model(');
   return s;
 });
 
@@ -65,6 +61,16 @@ edit('server/routes/profileSecurity.js', s => s.replace(
 edit('server/services/history.js', s => {
   s = s.replace("import {buildStatistics,milestoneRules,selectAwards,getMatchScores} from './statistics.js';", "import {buildStatistics,milestoneRules,selectAwards} from './statistics.js';");
   s = s.replace(/export async function repairMatchScores\(\)\{[\s\S]*?\}\s*export function syncHistory/, 'export function syncHistory');
+  return s;
+});
+
+// Non-destructive score normalization for legacy match reads.
+edit('server/services/statistics.js', s => {
+  if (!s.includes('export function normalizeMatchScores')) {
+    const marker = "export function dateQuery(year,month) {";
+    const fn = `export function normalizeMatchScores(match){const scores=getMatchScores(match);if(match?.teamA)match.teamA.score=scores.teamA;if(match?.teamB)match.teamB.score=scores.teamB;return match;}\n`;
+    s = s.replace(marker, fn + marker);
+  }
   return s;
 });
 
