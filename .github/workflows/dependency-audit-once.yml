@@ -1,0 +1,38 @@
+name: GG Matchday dependency audit once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply non-breaking security updates
+        run: npm audit fix --package-lock-only
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Show remaining audit findings
+        run: npm audit --omit=dev --audit-level=high || true
+      - name: Remove one-time audit workflow
+        run: rm -f .github/workflows/dependency-audit-once.yml
+      - name: Commit dependency updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json .github/workflows/dependency-audit-once.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: update vulnerable dependencies"
+          git push
