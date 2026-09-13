@@ -1,14 +1,13 @@
 import express from 'express';
 import Player from '../models/Player.js';
 import Match from '../models/Match.js';
-import Gallery from '../models/Gallery.js';
 import Award from '../models/Award.js';
 import Achievement from '../models/Achievement.js';
 import {buildStatistics,sortOffensive,sortDefensive,sortMostWins,dateQuery,inPeriod,isClasico,milestones,selectAwards,id,compareByGG} from '../services/statistics.js';
 const router=express.Router();
 const data=async()=>Promise.all([Player.find().lean(),Match.find().lean()]);
 const safe=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){res.status(/valid/.test(e.message)?400:500).json({message:/valid/.test(e.message)?e.message:'Could not load football statistics.'});}};
-router.get('/overview',safe(async(req,res)=>{const [players,matches,photos,goals]=await Promise.all([Player.countDocuments(),Match.countDocuments(),Gallery.countDocuments(),Match.aggregate([{$group:{_id:null,total:{$sum:{$add:['$teamA.score','$teamB.score']}}}}])]);res.json({players,matches,photos,goals:goals[0]?.total||0});}));
+router.get('/overview',safe(async(req,res)=>{const [players,matches,goals]=await Promise.all([Player.countDocuments(),Match.countDocuments(),Match.aggregate([{$group:{_id:null,total:{$sum:{$add:['$teamA.score','$teamB.score']}}}}])]);res.json({players,matches,goals:goals[0]?.total||0});}));
 router.get('/leaderboard',safe(async(req,res)=>{const [players]=await Promise.all([Player.find().lean()]);let matches=await Match.find(dateQuery(req.query.year,req.query.month)).lean();const clasico=req.query.clasico==='true';if(clasico)matches=matches.filter(m=>isClasico(m.name));const rows=buildStatistics(players,matches,{minimumMatches:clasico?3:5});const filtered=req.query.position?rows.filter(s=>{const p=[s.position,...s.preferredPositions].join(' ').toUpperCase();return ({attackers:/ST|CF|LW|RW|FORWARD|ATTACK/,midfielders:/CM|CAM|CDM|LM|RM|MIDFIELD/,defenders:/CB|LB|RB|LWB|RWB|DEFEND/,goalkeepers:/GK|GOALKEEP/}[req.query.position]||/.*/).test(p);}):rows;res.json({leaderboard:filtered,offensive:filtered.filter(s=>s.eligible).sort(sortOffensive),defensive:filtered.filter(s=>s.eligible).sort(sortDefensive)});}));
 router.get('/awards',safe(async(req,res)=>{const y=Number(req.query.year)||new Date().getUTCFullYear(),mo=req.query.month?Number(req.query.month):undefined;dateQuery(y,mo);const [players,matches]=await data();const awards=selectAwards(players,matches,{year:y,month:mo});const winner=awards.find(a=>a.type==='player');res.json({winner:winner?{...winner,name:winner.playerName,ggRating:winner.value}:null,awards,provisional:true});}));
 router.get('/award-history',safe(async(req,res)=>{const y=req.query.year?Number(req.query.year):new Date().getUTCFullYear();dateQuery(y);const [awards,years]=await Promise.all([Award.find({year:y}).sort({month:1,type:1}).lean(),Match.distinct('date')]);res.json({awards,years:[...new Set(years.map(d=>new Date(d).getUTCFullYear()))].sort((a,b)=>b-a)});}));

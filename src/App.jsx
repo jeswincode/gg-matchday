@@ -3,7 +3,7 @@ import Squad from './components/Squad';
 import LeaderboardView from './components/Leaderboard';
 import ProfileInsights from './components/ProfileInsights';
 import Clasico from './components/Clasico';
-import LikeButton from './components/LikeButton';
+import PlayerComparisons from './components/PlayerComparisons';
 import {api, invalidate} from './lib/api';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
@@ -37,7 +37,6 @@ const TABS = {
   LEADERBOARD: "leaderboard",
   CALENDAR: "calendar",
   PLAYERS: "players",
-  GALLERY: "gallery",
   ADMIN: "admin",
 };
 
@@ -89,9 +88,6 @@ function App() {
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
   const [refreshKey,setRefreshKey]=useState(0);
-  const [galleryNext,setGalleryNext]=useState(null);
-  const [galleryMatch,setGalleryMatch]=useState('');
-  const [galleryPlayers,setGalleryPlayers]=useState([]);
   const [overview,setOverview]=useState(null);
   const [archivePage,setArchivePage]=useState(1);
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
@@ -159,10 +155,6 @@ function App() {
     setLeaderboard,
   ] = useState([]);
 
-  const [
-    gallery,
-    setGallery,
-  ] = useState([]);
 
   const [
     loadingPlayers,
@@ -184,29 +176,6 @@ function App() {
     setLeaderboardLoading,
   ] = useState(false);
 
-  const [
-    galleryLoading,
-    setGalleryLoading,
-  ] = useState(true);
-
-  // =========================================================
-  // GALLERY
-  // =========================================================
-
-  const [
-    galleryFile,
-    setGalleryFile,
-  ] = useState(null);
-
-  const [
-    galleryCaption,
-    setGalleryCaption,
-  ] = useState("");
-
-  const [
-    galleryUploading,
-    setGalleryUploading,
-  ] = useState(false);
 
   // =========================================================
   // PLAYER PROFILE
@@ -519,7 +488,6 @@ function App() {
     loadNews();
     loadLeaderboard("all");
     loadAwards();
-    loadGallery();
   }, []);
 
   // =========================================================
@@ -626,34 +594,6 @@ function App() {
       setNews([]);
     } finally {
       setNewsLoading(false);
-    }
-  }
-
-  async function loadGallery(page = 1) {
-    try {
-      setGalleryLoading(true);
-
-      const response =
-        await fetch(
-          `${API_URL}/gallery?page=${page}`
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to load gallery."
-        );
-      }
-
-      const data =
-        await response.json();
-
-      setGallery(current => page === 1 ? (data.items || []) : [...current,...(data.items || [])]);
-      setGalleryNext(data.nextPage);
-    } catch (error) {
-      console.error(error);
-      setGallery([]);
-    } finally {
-      setGalleryLoading(false);
     }
   }
 
@@ -1848,203 +1788,6 @@ function App() {
   }
 
   // =========================================================
-  // GALLERY
-  // =========================================================
-
-  async function uploadGalleryPhoto() {
-    if (!isSignedIn) {
-      setMessage(
-        "Sign in to upload a photo."
-      );
-      return;
-    }
-
-    if (!galleryFile) {
-      setMessage(
-        "Choose a photo first."
-      );
-      return;
-    }
-
-    if (!/^image\/(jpeg|png|webp|avif)$/.test(galleryFile.type) || galleryFile.size > 8*1024*1024) { setMessage("Choose a JPEG, PNG, WebP or AVIF image under 8 MB."); return; }
-    const cloudName =
-      import.meta.env
-        .VITE_CLOUDINARY_CLOUD_NAME;
-
-    const uploadPreset =
-      import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "gg-matchday-gallery";
-
-    if (
-      !cloudName ||
-      !uploadPreset
-    ) {
-      setMessage(
-        "Cloudinary upload settings are missing."
-      );
-      return;
-    }
-
-    try {
-      setGalleryUploading(
-        true
-      );
-
-      const formData =
-        new FormData();
-
-      formData.append(
-        "file",
-        galleryFile
-      );
-
-      formData.append(
-        "upload_preset",
-        uploadPreset
-      );
-
-      const cloudinaryResponse =
-        await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-          {
-            method:
-              "POST",
-            body:
-              formData,
-          }
-        );
-
-      const cloudinaryData =
-        await cloudinaryResponse.json();
-
-      if (
-        !cloudinaryResponse.ok
-      ) {
-        throw new Error(
-          cloudinaryData.error
-            ?.message ||
-            "Image upload failed."
-        );
-      }
-
-      const response =
-        await authenticatedFetch(
-          `${API_URL}/gallery`,
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                imageUrl:
-                  cloudinaryData.secure_url,
-
-                caption:
-                  galleryCaption.trim(),
-              }),
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Could not save gallery photo."
-        );
-      }
-
-      setGalleryMatch("");setGalleryPlayers([]);invalidate();
-      setGalleryFile(null);
-      setGalleryCaption("");
-
-      const fileInput =
-        document.getElementById(
-          "gallery-file-input"
-        );
-
-      if (fileInput) {
-        fileInput.value = "";
-      }
-
-      await loadGallery();
-
-      setMessage(
-        "Photo added to GG Gallery."
-      );
-    } catch (error) {
-      console.error(
-        "Gallery upload error:",
-        error
-      );
-
-      setMessage(
-        error.message ||
-          "Could not upload photo."
-      );
-    } finally {
-      setGalleryUploading(
-        false
-      );
-    }
-  }
-
-  async function deleteGalleryPhoto(
-    photoId
-  ) {
-    if (!isAdmin) {
-      return;
-    }
-
-    if (
-      !window.confirm(
-        "Delete this gallery photo?"
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const response =
-        await authenticatedFetch(
-          `${API_URL}/gallery/${photoId}`,
-          {
-            method:
-              "DELETE",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Could not delete photo."
-        );
-      }
-
-      await loadGallery();
-
-      setMessage(
-        "Photo deleted."
-      );
-    } catch (error) {
-      console.error(error);
-
-      setMessage(
-        error.message ||
-          "Could not delete photo."
-      );
-    }
-  }
-
-  // =========================================================
   // ADMIN
   // =========================================================
 
@@ -2729,7 +2472,7 @@ function App() {
             </h2>
 
             <p className="home-intro">
-              Matches, players, rankings, photos and
+              Matches, players, rankings and
               every part of your football story in one
               place.
             </p>
@@ -2842,12 +2585,6 @@ function App() {
               }
             />
 
-            <HomeStat
-              label="PHOTOS"
-              value={
-                overview?.photos ?? gallery.length
-              }
-            />
 
           </section>
 
@@ -2856,12 +2593,6 @@ function App() {
             <SectionHeading
               eyebrow="THE GG DESK"
               title="Latest News"
-              action="Open Gallery"
-              onAction={() =>
-                setActiveTab(
-                  TABS.GALLERY
-                )
-              }
             />
 
             {newsLoading ? (
@@ -2932,7 +2663,6 @@ function App() {
                               article.createdAt
                             )}
                           </small>
-                        <LikeButton type="news" id={article._id} isSignedIn={isSignedIn}/>
                         </div>
                       </article>
                     )
@@ -2943,67 +2673,7 @@ function App() {
 
           </section>
 
-          <section className="home-section">
-
-            <SectionHeading
-              eyebrow="GG MOMENTS"
-              title="Latest Photos"
-              action="View Gallery"
-              onAction={() =>
-                setActiveTab(
-                  TABS.GALLERY
-                )
-              }
-            />
-
-            {gallery.length ===
-            0 ? (
-              <div className="empty-state">
-                <span>
-                  📷
-                </span>
-
-                <h3>
-                  No photos yet
-                </h3>
-
-                <p>
-                  Be the first to add a Matchday
-                  moment.
-                </p>
-              </div>
-            ) : (
-              <div className="home-gallery-strip">
-                {gallery
-                  .slice(
-                    0,
-                    4
-                  )
-                  .map(
-                    (photo) => (
-                      <img
-                        key={
-                          photo._id
-                        }
-                        src={
-                          photo.imageUrl
-                        }
-                        alt={
-                          photo.caption ||
-                          "GG Matchday"
-                        }
-                        onClick={() =>
-                          setActiveTab(
-                            TABS.GALLERY
-                          )
-                        }
-                      />
-                    )
-                  )}
-              </div>
-            )}
-
-          </section>
+          <PlayerComparisons players={players} statistics={leaderboard} onPlayer={(playerId) => showPlayer(playerId)} />
 
           {leaderboard.length >
             0 && (
@@ -3107,7 +2777,6 @@ function App() {
           {players.map(player=>{const id=String(player._id),assigned=Boolean(teams[id]);return <div className={`gg-performance-row ${assigned?'assigned':''}`} key={id}><div><strong>{player.name}</strong><small>{teams[id]==='A'?teamALabel:teams[id]==='B'?teamBLabel:'Not participating'}</small></div><div className="team-switch">{['A','B'].map((team,i)=><button key={team} type="button" aria-label={`${player.name} Side ${i+1}`} aria-pressed={teams[id]===team} className={teams[id]===team?'active':''} onClick={()=>setPlayerTeam(id,team)}>{i+1}</button>)}</div>{[[goals,setGoals,'Goals'],[assists,setAssists,'Assists'],[ownGoals,setOwnGoals,'Own Goal']].map(([values,setter,label])=><div className="counter" key={label}><button type="button" disabled={!assigned||!values[id]} aria-label={`Remove ${label.toLowerCase()} for ${player.name}`} onClick={()=>changeCount(setter,id,-1)}>−</button><strong key={values[id]}>{assigned?values[id]||0:0}</strong><button type="button" disabled={!assigned} aria-label={`Add ${label.toLowerCase()} for ${player.name}`} onClick={()=>changeCount(setter,id,1)}>+</button></div>)}<label className="gg-rating-input"><span className="sr-only">Rating for {player.name}</span><input type="number" min="0" max="10" step="0.1" placeholder={legacyUnrated.includes(id)?'Unrated':'0–10'} disabled={!assigned} required={assigned&&!legacyUnrated.includes(id)} value={ratings[id]??''} onChange={e=>setRatings(old=>({...old,[id]:e.target.value}))}/></label></div>;})}</div>
           <div className="match-total"><span>{totalGoals} goals</span><span>{totalAssists} assists</span></div><button type="submit" className="save-button" disabled={savingMatch}>{savingMatch?'Saving…':editingMatchId?'Update Match':'Save Match'}</button>{editingMatchId&&<button type="button" className="secondary-button" onClick={resetMatchForm}>Cancel edit</button>}
         </form></section>}
-        <section className="card quick-gallery-card"><h3>Matchday media</h3><button className="secondary-button" onClick={()=>setActiveTab(TABS.GALLERY)}>Open Gallery →</button></section>
         <section className="section-block"><div className="section-heading"><h2>Recent Matches</h2><span className="muted">{overview?.matches??matches.length} recorded</span></div>{loadingMatches?<div className="loading-panel">Loading matches…</div>:!matches.length?<div className="empty-state">No matches recorded yet.</div>:<div className="match-list">{matches.map(match=><MatchHistoryCard key={match._id} match={match} canEdit={isEditor} onOpen={()=>showMatch(match._id)} onEdit={()=>startEditingMatch(match)} onDelete={()=>deleteMatch(match._id)}/>)}</div>}{matches.length<(overview?.matches||0)&&<button className="secondary-button" onClick={()=>loadMatches(archivePage+1)}>Load more matches</button>}</section>
         </>}
       </section>}
@@ -4088,238 +3757,6 @@ function App() {
             </section>
           )}
 
-        </section>
-      )}
-
-      {/* =====================================================
-          GALLERY
-      ===================================================== */}
-
-      {activeTab ===
-        TABS.GALLERY && (
-        <section className="tab-content">
-
-          <div className="page-title">
-
-            <p className="eyebrow">
-              GG MOMENTS
-            </p>
-
-            <h2>
-              Gallery
-            </h2>
-
-            <p>
-              Photos from the GG Matchday football
-              archive.
-            </p>
-
-          </div>
-
-          {isSignedIn ? (
-            <section className="card gallery-upload-card">
-
-              <div className="section-heading">
-
-                <div>
-                  <p className="eyebrow">
-                    SHARE A MOMENT
-                  </p>
-
-                  <h3>
-                    Add a Photo
-                  </h3>
-
-                  <p>
-                    Anyone signed in can contribute to
-                    the gallery.
-                  </p>
-                </div>
-
-              </div>
-
-              <input
-                id="gallery-file-input"
-                type="file"
-                accept="image/*"
-                onChange={(event) =>
-                  setGalleryFile(
-                    event.target.files?.[0] ||
-                      null
-                  )
-                }
-              />
-
-              {galleryFile && (
-                <p className="file-selected">
-                  Selected:{" "}
-                  {
-                    galleryFile.name
-                  }
-                </p>
-              )}
-
-              <input
-                type="text"
-                value={
-                  galleryCaption
-                }
-                onChange={(event) =>
-                  setGalleryCaption(
-                    event.target.value
-                  )
-                }
-                placeholder="Add a caption..."
-                maxLength={160}
-              />
-
-              <label>Match (optional)<select value={galleryMatch} onChange={e=>setGalleryMatch(e.target.value)}><option value="">No match association</option>{matches.map(m=><option key={m._id} value={m._id}>{m.name} · {formatDate(m.date)}</option>)}</select></label>
-              <fieldset className="gg-associations"><legend>Players (optional)</legend>{players.map(p=><label key={p._id}><input type="checkbox" checked={galleryPlayers.includes(p._id)} onChange={e=>setGalleryPlayers(old=>e.target.checked?[...old,p._id]:old.filter(id=>id!==p._id))}/>{p.name}</label>)}</fieldset>
-              <button
-                type="button"
-                className="save-button"
-                disabled={
-                  !galleryFile ||
-                  galleryUploading
-                }
-                onClick={
-                  uploadGalleryPhoto
-                }
-              >
-                {
-                  galleryUploading
-                    ? "Uploading..."
-                    : "Add to Gallery"
-                }
-              </button>
-
-            </section>
-          ) : (
-            <section className="gallery-login-note">
-
-              <strong>
-                Want to share a photo?
-              </strong>
-
-              <span>
-                Sign in with Google to upload a
-                Matchday moment.
-              </span>
-
-              <button
-                type="button"
-                className="google-button"
-                onClick={
-                  signIn
-                }
-              >
-                Sign in with Google
-              </button>
-
-            </section>
-          )}
-
-          {galleryLoading ? (
-            <div className="loading-panel">
-              Loading the gallery...
-            </div>
-          ) : gallery.length ===
-            0 ? (
-            <div className="empty-state">
-
-              <span>
-                📷
-              </span>
-
-              <h3>
-                No photos yet
-              </h3>
-
-              <p>
-                The first Matchday moment is waiting
-                to be uploaded.
-              </p>
-
-            </div>
-          ) : (
-            <div className="gallery-grid">
-
-              {gallery.map(
-                (photo) => (
-                  <article
-                    className="gallery-item"
-                    key={
-                      photo._id
-                    }
-                  >
-
-                    <div className="gallery-image-wrap">
-
-                      <img
-                        src={
-                          photo.imageUrl
-                        }
-                        alt={
-                          photo.caption ||
-                          "GG Matchday"
-                        }
-                        loading="lazy"
-                      />
-
-                    </div>
-
-                    <div className="gallery-meta">
-
-                      {photo.caption && (
-                        <strong>
-                          {
-                            photo.caption
-                          }
-                        </strong>
-                      )}
-
-                      <span>
-                        {
-                          photo.uploadedByName ||
-                          "GG Matchday"
-                        }
-                      </span>
-
-                      <small>
-                        {
-                          formatDate(
-                            photo.createdAt
-                          )
-                        }
-                      </small>
-
-                      <LikeButton type="gallery" id={photo._id} isSignedIn={isSignedIn}/>
-                      {photo.matchId&&<button className="gg-player-link" onClick={()=>showMatch(photo.matchId._id)}>Match: {photo.matchId.name}</button>}
-                      {(photo.playerIds||[]).map(player=><button key={player._id} className="gg-player-link" onClick={()=>showPlayer(player._id)}>{player.name}</button>)}
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          className="danger-button"
-                          onClick={() =>
-                            deleteGalleryPhoto(
-                              photo._id
-                            )
-                          }
-                        >
-                          Delete
-                        </button>
-                      )}
-
-                    </div>
-
-                  </article>
-                )
-              )}
-
-            </div>
-          )}
-
-          {galleryNext&&<button className="secondary-button" onClick={()=>loadGallery(galleryNext)} disabled={galleryLoading}>Load more photos</button>}
         </section>
       )}
 

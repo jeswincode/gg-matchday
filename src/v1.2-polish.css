@@ -1,12 +1,4 @@
-/* GG Matchday v1.2 — polish layer. Existing components stay intact. */
 
-.home-feature-card,
-.home-player-feature,
-.news-card,
-.home-stat-card,
-.home-gallery-strip img {
-  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
-}
 
 .home-feature-card:hover,
 .home-player-feature:hover,
@@ -19,12 +11,6 @@
 .home-stat-card { min-height: 104px; }
 .player-profile img,
 .player-profile-card img { image-rendering: auto; }
-.gallery-item { content-visibility: auto; contain-intrinsic-size: 360px 420px; }
-.home-gallery-strip img,
-.gallery-grid img,
-.gallery-list img,
-.gallery-card img,
-[data-gallery] img { content-visibility: auto; }
 
 button:focus-visible,
 a:focus-visible,
@@ -72,7 +58,6 @@ textarea:focus-visible { outline: 2px solid #f5f7fb; outline-offset: 3px; }
   .feature-score { gap:18px; margin-top:20px; }
   .feature-score strong { font-size:34px; }
   .home-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .home-gallery-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .news-card { padding:15px; gap:12px; }
   .news-icon { flex-basis:40px; width:40px; height:40px; }
   .section-heading { align-items:flex-start; flex-direction:column; gap:8px; }

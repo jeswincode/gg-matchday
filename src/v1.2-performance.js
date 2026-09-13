@@ -158,11 +158,6 @@ function optimizeImage(image) {
   const rawSource = image.getAttribute("src");
   if (!rawSource) return;
 
-  const isGalleryImage = Boolean(
-    image.closest(
-      ".home-gallery-strip, .gallery-grid, .gallery-list, .gallery-card, [data-gallery]"
-    )
-  );
 
   const isProfileImage = Boolean(
     image.closest(
@@ -172,11 +167,8 @@ function optimizeImage(image) {
 
   image.decoding = "async";
 
-  if (isGalleryImage) {
-    image.loading = "lazy";
-  }
 
-  const width = isProfileImage ? 480 : isGalleryImage ? 900 : 1200;
+  const width = isProfileImage ? 480 : 1200;
   const optimizedSource = cloudinaryOptimizedUrl(rawSource, width);
 
   if (optimizedSource !== rawSource) {

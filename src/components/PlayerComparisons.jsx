@@ -1,0 +1,1 @@
+export default function PlayerComparisons(){return <section className="home-section"><div className="section-heading"><div><p className="eyebrow">PLAYER INSIGHTS</p><h2>Player Comparisons</h2></div></div><div className="card"><p className="muted">Player comparison tools will appear here.</p></div></section>}
