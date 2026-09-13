@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -18,10 +15,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Apply requested feature removal
-        run: node scripts/cleanup-features.mjs
-      - name: Remove remaining gallery render block
-        run: node scripts/finalize-feature-cleanup.mjs
       - run: npm ci
       - run: npm run lint
       - run: npm test
@@ -29,11 +22,3 @@ jobs:
       - run: node --check server/server.js
       - run: node --check server/routes/profileSecurity.js
       - run: node --check server/routes/profileRequests.js
-      - name: Commit requested feature removal
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet && exit 0
-          git commit -m "chore: remove gallery and likes features"
-          git push
