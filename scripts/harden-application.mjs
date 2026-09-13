@@ -64,7 +64,7 @@ edit('server/routes/profileSecurity.js', s => s.replace(
 
 edit('server/services/history.js', s => {
   s = s.replace("import {buildStatistics,milestoneRules,selectAwards,getMatchScores} from './statistics.js';", "import {buildStatistics,milestoneRules,selectAwards} from './statistics.js';");
-  s = s.replace(/export async function repairMatchScores\(\)\{[\s\S]*?return ops\.length;\}\n/, '');
+  s = s.replace(/export async function repairMatchScores\(\)\{[\s\S]*?\}\s*export function syncHistory/, 'export function syncHistory');
   return s;
 });
 
