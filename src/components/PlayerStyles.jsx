@@ -1,12 +1,10 @@
 import {createPortal} from 'react-dom';
-import {useEffect,useState} from 'react';
 import useResource from './useResource';
 import './player-styles.css';
 
 export default function PlayerStyles({playerId,refreshKey}) {
   const {data,error,loading}=useResource(`/stats/player/${playerId}`,refreshKey);
-  const [target,setTarget]=useState(null);
-  useEffect(()=>{setTarget(document.querySelector('.profile-heading'));},[playerId]);
+  const target=typeof document==='undefined'?null:document.querySelector('.profile-heading');
   if (!target || loading || error) return null;
   const styles=data?.styles;
   const content=!styles || styles.status==='developing'
