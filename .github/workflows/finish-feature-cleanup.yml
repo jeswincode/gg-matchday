@@ -1,0 +1,56 @@
+name: Finish feature cleanup
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Finish cleanup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path('.')
+          p=root/'src/App.jsx'; s=p.read_text()
+          pattern=r'\n      \{/\* =====================================================\n          GALLERY\n      ===================================================== \*/.*?\n      \{/\* =====================================================\n          ADMIN'
+          s,n=re.subn(pattern,'\n      {/* =====================================================\n          ADMIN',s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Gallery render block not found')
+          s=s.replace('              <LikeButton type="gallery" id={photo._id} isSignedIn={isSignedIn}/>\n','').replace('                        <LikeButton type="news" id={article._id} isSignedIn={isSignedIn}/>\n','')
+          s=re.sub(r'\n        <section className="card quick-gallery-card">.*?</section>','',s,flags=re.S)
+          p.write_text(s)
+          p=root/'src/v1.2-performance.js'; s=p.read_text(); s=s.replace('  const isGalleryImage = Boolean(\n    image.closest(\n      ".home-gallery-strip, .gallery-grid, .gallery-list, .gallery-card, [data-gallery]"\n    )\n  );\n\n','').replace('  if (isGalleryImage) {\n    image.loading = "lazy";\n  }\n\n','').replace('isProfileImage ? 480 : isGalleryImage ? 900 : 1200','isProfileImage ? 480 : 1200'); p.write_text(s)
+          for p in (root/'src').rglob('*.css'):
+              s=p.read_text(); out=[]; pos=0
+              for m in re.finditer(r'([^{}]+)\{([^{}]*)\}',s):
+                  out.append(s[pos:m.start()]); selector=m.group(1); parts=[x.strip().lower() for x in selector.split(',') if x.strip()]
+                  if not parts or not all(('gallery' in x or 'like' in x) for x in parts): out.append(m.group(0))
+                  pos=m.end()
+              out.append(s[pos:]); p.write_text(''.join(out))
+          for path in ['server/models/Gallery.js','server/models/Like.js','server/routes/gallery.js','server/routes/interactions.js','src/components/LikeButton.jsx','.github/cleanup-trigger.txt','.github/workflows/cleanup-features.yml','.github/workflows/finish-feature-cleanup.yml']:
+              q=root/path
+              if q.exists(): q.unlink()
+          PY
+      - name: Validate
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build
+          node --check server/server.js
+          node --check server/routes/profileSecurity.js
+          node --check server/routes/profileRequests.js
+      - name: Commit cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: remove gallery and likes features"
+          git push
