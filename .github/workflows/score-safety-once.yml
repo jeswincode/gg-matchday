@@ -1,0 +1,45 @@
+name: GG Matchday score safety once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  score-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply safe legacy score normalization
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('server/services/statistics.js')
+          s=p.read_text()
+          old='export function normalizeMatchScores(match){const scores=getMatchScores(match);if(match?.teamA)match.teamA.score=scores.teamA;if(match?.teamB)match.teamB.score=scores.teamB;return match;}'
+          new='export function normalizeMatchScores(match){const hasEvents=Array.isArray(match?.events)&&match.events.length>0;const hasOwnGoals=Array.isArray(match?.participants)&&match.participants.some(participant=>Number(participant.ownGoals||0)>0);if(!hasEvents&&!hasOwnGoals)return match;const scores=getMatchScores(match);if(match?.teamA)match.teamA.score=scores.teamA;if(match?.teamB)match.teamB.score=scores.teamB;return match;}'
+          if old not in s: raise SystemExit('normalizer pattern not found')
+          p.write_text(s.replace(old,new))
+          Path('tests/legacy-score-normalization.test.js').write_text('''import test from "node:test";\nimport assert from "node:assert/strict";\nimport { normalizeMatchScores } from "../server/services/statistics.js";\n\ntest("legacy matches without event history preserve their stored score", () => {\n  const match={teamA:{score:5},teamB:{score:3},participants:[],events:[]};\n  normalizeMatchScores(match);\n  assert.equal(match.teamA.score,5);\n  assert.equal(match.teamB.score,3);\n});\n\ntest("event-backed matches still normalize their score", () => {\n  const match={teamA:{score:0},teamB:{score:0},participants:[{player:"a",team:"A",ownGoals:0},{player:"b",team:"B",ownGoals:0}],events:[{player:"a",type:"goal"},{player:"a",type:"goal"},{player:"b",type:"goal"}]};\n  normalizeMatchScores(match);\n  assert.equal(match.teamA.score,2);\n  assert.equal(match.teamB.score,1);\n});\n''')
+          PY
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Remove one-time score safety workflow
+        run: rm -f .github/workflows/score-safety-once.yml
+      - name: Commit score safety
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: preserve legacy scores safely"
+          git push
