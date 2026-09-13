@@ -9,14 +9,16 @@ permissions:
 
 jobs:
   harden:
-    if: ${{ !contains(github.event.head_commit.message, 'chore: apply application hardening') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - name: Validate hardening script
+        run: node --check scripts/harden-application.mjs
       - name: Apply hardening
         run: node scripts/harden-application.mjs
       - run: npm ci
