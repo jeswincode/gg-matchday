@@ -9,182 +9,83 @@ permissions:
 
 jobs:
   cleanup:
-    if: ${{ !contains(github.event.head_commit.message, 'chore: remove gallery and likes features') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remove likes and gallery
-        shell: bash
+      - name: Apply cleanup
         run: |
           python - <<'PY'
           from pathlib import Path
           import re
 
           root = Path('.')
+          for path in ['server/models/Gallery.js','server/models/Like.js','server/routes/gallery.js','server/routes/interactions.js','src/components/LikeButton.jsx','.github/cleanup-trigger.txt']:
+              p=root/path
+              if p.exists(): p.unlink()
 
-          def delete(path):
-              p = root / path
-              if p.exists():
-                  p.unlink()
+          def edit(path, fn):
+              p=root/path; s=p.read_text(); n=fn(s); p.write_text(n)
 
-          # Remove feature-only files.
-          for path in [
-              'server/models/Gallery.js',
-              'server/models/Like.js',
-              'server/routes/gallery.js',
-              'server/routes/interactions.js',
-              'src/components/LikeButton.jsx',
-          ]:
-              delete(path)
+          edit('server/app.js', lambda s: s.replace('import galleryRoutes from "./routes/gallery.js";\n','').replace('import interactionRoutes from "./routes/interactions.js";\n','').replace('app.use("/api/interactions", interactionRoutes);\n','').replace('app.use("/api/gallery", galleryRoutes);\n',''))
 
-          # server/app.js: remove feature route registrations/imports.
-          p = root / 'server/app.js'
-          s = p.read_text()
-          s = s.replace('import galleryRoutes from "./routes/gallery.js";\n', '')
-          s = s.replace('import interactionRoutes from "./routes/interactions.js";\n', '')
-          s = s.replace('app.use("/api/interactions", interactionRoutes);\n', '')
-          s = s.replace('app.use("/api/gallery", galleryRoutes);\n', '')
-          p.write_text(s)
+          def stats(s):
+              s=s.replace("import Gallery from '../models/Gallery.js';\n",'')
+              s=re.sub(r"router\.get\('/overview'.*?\n", "router.get('/overview',safe(async(req,res)=>{const [players,matches,goals]=await Promise.all([Player.countDocuments(),Match.countDocuments(),Match.aggregate([{$group:{_id:null,total:{$sum:{$add:['$teamA.score','$teamB.score']}}}}])]);res.json({players,matches,goals:goals[0]?.total||0});}));\n", s, count=1)
+              return s
+          edit('server/routes/stats.js',stats)
 
-          # server/routes/stats.js: overview no longer counts gallery photos.
-          p = root / 'server/routes/stats.js'
-          s = p.read_text()
-          s = s.replace("import Gallery from '../models/Gallery.js';\n", '')
-          old = "router.get('/overview',safe(async(req,res)=>{const [players,matches,photos,goals]=await Promise.all([Player.countDocuments(),Match.countDocuments(),Gallery.countDocuments(),Match.aggregate([{$group:{_id:null,total:{$sum:{$add:['$teamA.score','$teamB.score']}}}}])]);res.json({players,matches,photos,goals:goals[0]?.total||0});}));"
-          new = "router.get('/overview',safe(async(req,res)=>{const [players,matches,goals]=await Promise.all([Player.countDocuments(),Match.countDocuments(),Match.aggregate([{$group:{_id:null,total:{$sum:{$add:['$teamA.score','$teamB.score']}}}}])]);res.json({players,matches,goals:goals[0]?.total||0});}));"
-          if old not in s:
-              raise SystemExit('stats.js overview pattern not found')
-          p.write_text(s.replace(old, new))
+          def tests(s):
+              s=s.replace("const {default:Like}=await import('../server/models/Like.js');",'').replace("const {default:Gallery}=await import('../server/models/Gallery.js');",'').replace(',Like,Gallery,ProfileChangeRequest',',ProfileChangeRequest')
+              s=re.sub(r"test\('gallery associations validated; immutable likes deduplicated concurrently'.*?\);\n",'',s)
+              return s
+          edit('tests/api.test.js',tests)
 
-          # tests/api.test.js: remove gallery/like models, initialization, and feature test.
-          p = root / 'tests/api.test.js'
-          s = p.read_text()
-          s = s.replace("const {default:Like}=await import('../server/models/Like.js');", '')
-          s = s.replace("const {default:Gallery}=await import('../server/models/Gallery.js');", '')
-          s = s.replace(',Like,Gallery,ProfileChangeRequest', ',ProfileChangeRequest')
-          s = re.sub(r"test\('gallery associations validated; immutable likes deduplicated concurrently'.*?\);\n", '', s)
-          p.write_text(s)
+          def perf(s):
+              s=s.replace('const isGalleryImage = Boolean(/gallery/i.test(src || ""));\n','')
+              s=s.replace('image.loading = "lazy";\n','')
+              s=s.replace('isProfileImage ? 480 : isGalleryImage ? 900 : 1200','isProfileImage ? 480 : 1200')
+              return s
+          edit('src/v1.2-performance.js',perf)
 
-          # Current regression tests use a deprecated sync validation API. Keep behavior tested,
-          # but execute the actual validation middleware asynchronously.
-          p = root / 'tests/match-score.test.js'
-          s = p.read_text()
-          s = s.replace("test('saving a match with populated participants preserves goal-event scores',()=>{", "test('saving a match with populated participants preserves goal-event scores',async()=>{")
-          s = s.replace(" const error=match.validateSync();\n const error=match.validateSync();", " const error=await match.validate().then(()=>undefined).catch(error=>error);\n")
-          # Handle the actual file's two distinct occurrences safely.
-          s = s.replace(" const error=match.validateSync();\n assert.equal(error,undefined);", " await match.validate();\n assert.equal(match.teamA.score,3);")
-          s = s.replace("test('populated participant own goals still credit the opponent',()=>{", "test('populated participant own goals still credit the opponent',async()=>{")
-          # The first replacement above consumes the first assert block; fix the second separately.
-          s = s.replace(" await match.validate();\n assert.equal(match.teamA.score,3);\n assert.equal(match.teamA.score,1);", " await match.validate();\n assert.equal(match.teamA.score,3);")
-          p.write_text(s)
+          def app(s):
+              s=s.replace("import LikeButton from './components/LikeButton';\n",'')
+              s=s.replace("import Clasico from './components/Clasico';\n", "import Clasico from './components/Clasico';\nimport PlayerComparisons from './components/PlayerComparisons';\n")
+              s=s.replace('  GALLERY: "gallery",\n','')
+              for block in [
+                "  const [galleryNext,setGalleryNext]=useState(null);\n  const [galleryMatch,setGalleryMatch]=useState('');\n  const [galleryPlayers,setGalleryPlayers]=useState([]);\n",
+                "  const [\n    gallery,\n    setGallery,\n  ] = useState([]);\n",
+                "  const [\n    galleryLoading,\n    setGalleryLoading,\n  ] = useState(true);\n\n  // =========================================================\n  // GALLERY\n  // =========================================================\n\n  const [\n    galleryFile,\n    setGalleryFile,\n  ] = useState(null);\n\n  const [\n    galleryCaption,\n    setGalleryCaption,\n  ] = useState(\"\");\n\n  const [\n    galleryUploading,\n    setGalleryUploading,\n  ] = useState(false);\n",
+              ]: s=s.replace(block,'')
+              s=s.replace('    loadGallery();\n','')
+              s=re.sub(r"\n  async function loadGallery\(page = 1\) \{.*?\n  async function loadLeaderboard", "\n  async function loadLeaderboard", s, flags=re.S)
+              s=re.sub(r"\n  // =========================================================\n  // GALLERY\n  // =========================================================\n\n  async function uploadGalleryPhoto\(\) \{.*?\n  // =========================================================\n  // ADMIN", "\n  // =========================================================\n  // ADMIN", s, flags=re.S)
+              s=s.replace('Matches, players, rankings, photos and\n              every part','Matches, players, rankings and\n              every part')
+              s=re.sub(r"\n            <HomeStat\n              label=\"PHOTOS\"\n              value=\{\n                overview\?\.photos \?\? gallery\.length\n              \}\n            />",'',s)
+              s=re.sub(r"\n                        <LikeButton type=\"news\" id=\{article\._id\} isSignedIn=\{isSignedIn\}/>",'',s)
+              s=re.sub(r"\n              action=\"Open Gallery\"\n              onAction=\{\(\) =>\n                setActiveTab\(\n                  TABS\.GALLERY\n                \)\n              \}",'',s)
+              s=re.sub(r"\n        <section className=\"card quick-gallery-card\">.*?</section>",'',s,flags=re.S)
+              s=re.sub(r"\n          <section className=\"home-section\">\n\n            <SectionHeading\n              eyebrow=\"GG MOMENTS\"\n              title=\"Latest Photos\".*?\n          </section>\n\n          \{leaderboard\.length >", "\n          <PlayerComparisons players={players} statistics={leaderboard} onPlayer={(playerId) => showPlayer(playerId)} />\n\n          {leaderboard.length >", s, count=1, flags=re.S)
+              s=re.sub(r"\n      /\* =====================================================\n          GALLERY\n      =====================================================\n      \*/.*?\n      /\* =====================================================\n          ADMIN", "\n      /\* =====================================================\n          ADMIN", s, count=1, flags=re.S)
+              s=s.replace('View Gallery','')
+              s=s.replace('              <LikeButton type="gallery" id={photo._id} isSignedIn={isSignedIn}/>\n','')
+              return s
+          edit('src/App.jsx',app)
 
-          # src/v1.2-performance.js: remove gallery-specific image logic while keeping generic optimization.
-          p = root / 'src/v1.2-performance.js'
-          s = p.read_text()
-          s = re.sub(r"\n  const isGalleryImage = Boolean\(.*?\n  \);", '', s, flags=re.S)
-          s = re.sub(r"\n  if \(isGalleryImage\) \{\n    image\.loading = \"lazy\";\n  \}", '', s)
-          s = s.replace("const width = isProfileImage ? 480 : isGalleryImage ? 900 : 1200;", "const width = isProfileImage ? 480 : 1200;")
-          p.write_text(s)
+          edit('.env.example',lambda s:s.replace('\nVITE_CLOUDINARY_CLOUD_NAME=\nVITE_CLOUDINARY_UPLOAD_PRESET=gg-matchday-gallery\n','\n'))
+          edit('README.md',lambda s:s.replace(', gallery associations, immutable likes,',','))
 
-          # src/App.jsx: remove likes/gallery state, API calls, UI, and replace Home photos with a comparison shell.
-          p = root / 'src/App.jsx'
-          s = p.read_text()
-          s = s.replace("import LikeButton from './components/LikeButton';\n", '')
-          s = s.replace("import Clasico from './components/Clasico';\n", "import Clasico from './components/Clasico';\nimport PlayerComparisons from './components/PlayerComparisons';\n")
-          s = s.replace('  GALLERY: "gallery",\n', '')
-          s = s.replace("  const [galleryNext,setGalleryNext]=useState(null);\n  const [galleryMatch,setGalleryMatch]=useState('');\n  const [galleryPlayers,setGalleryPlayers]=useState([]);\n", '')
-          s = s.replace("  const [\n    gallery,\n    setGallery,\n  ] = useState([]);\n", '')
-          s = s.replace("  const [\n    galleryLoading,\n    setGalleryLoading,\n  ] = useState(true);\n\n  // =========================================================\n  // GALLERY\n  // =========================================================\n\n  const [\n    galleryFile,\n    setGalleryFile,\n  ] = useState(null);\n\n  const [\n    galleryCaption,\n    setGalleryCaption,\n  ] = useState(\"\");\n\n  const [\n    galleryUploading,\n    setGalleryUploading,\n  ] = useState(false);\n", '')
-          s = s.replace('    loadGallery();\n', '')
-          s = re.sub(r"\n  async function loadGallery\(page = 1\) \{.*?\n  async function loadLeaderboard", "\n  async function loadLeaderboard", s, flags=re.S)
-          s = re.sub(r"\n  // =========================================================\n  // GALLERY\n  // =========================================================\n\n  async function uploadGalleryPhoto\(\) \{.*?\n  // =========================================================\n  // ADMIN", "\n  // =========================================================\n  // ADMIN", s, flags=re.S)
-          s = s.replace('Matches, players, rankings, photos and\n              every part', 'Matches, players, rankings and\n              every part')
-          s = re.sub(r"\n            <HomeStat\n              label=\"PHOTOS\"\n              value=\{\n                overview\?\.photos \?\? gallery\.length\n              \}\n            />", '', s)
-          s = re.sub(r"\n                        <LikeButton type=\"news\" id=\{article\._id\} isSignedIn=\{isSignedIn\}/>", '', s)
-          # Latest News header no longer points to a removed Gallery tab.
-          s = re.sub(r"\n              action=\"Open Gallery\"\n              onAction=\{\(\) =>\n                setActiveTab\(\n                  TABS\.GALLERY\n                \)\n              \}", '', s)
-          # Remove the Match Record shortcut to Gallery.
-          s = re.sub(r"\n        <section className=\"card quick-gallery-card\">.*?</section>", '', s, flags=re.S)
-          # Replace Home's Latest Photos section with the new comparison shell.
-          s = re.sub(r"\n          <section className=\"home-section\">\n\n            <SectionHeading\n              eyebrow=\"GG MOMENTS\"\n              title=\"Latest Photos\".*?\n          </section>\n\n        </section>", "\n          <PlayerComparisons players={players} statistics={leaderboard} onPlayer={(playerId) => showPlayer(playerId)} />\n\n        </section>", s, count=1, flags=re.S)
-          # Remove the Gallery tab render block entirely.
-          s = re.sub(r"\n      /\* =====================================================\n          GALLERY\n      ===================================================== \*/.*?\n      /\* =====================================================\n          ADMIN", "\n      /\* =====================================================\n          ADMIN", s, count=1, flags=re.S)
-          s = re.sub(r"\n          \{gallery\.length ===\n            0 \? .*?\n", '\n', s) if False else s
-          s = s.replace('              <LikeButton type="gallery" id={photo._id} isSignedIn={isSignedIn}/>\n', '')
-          p.write_text(s)
-
-          # Remove Cloudinary upload-only environment settings.
-          p = root / '.env.example'
-          s = p.read_text().replace('\nVITE_CLOUDINARY_CLOUD_NAME=\nVITE_CLOUDINARY_UPLOAD_PRESET=gg-matchday-gallery\n', '\n')
-          p.write_text(s)
-
-          # Update README feature list without likes/gallery.
-          p = root / 'README.md'
-          s = p.read_text()
-          s = s.replace(', gallery associations, immutable likes,', ',')
-          p.write_text(s)
-
-          # Remove CSS-only blocks dedicated entirely to gallery/like UI.
-          for p in root.joinpath('src').rglob('*.css'):
-              s = p.read_text()
-              out=[]
-              i=0
-              n=len(s)
-              while i<n:
-                  j=s.find('{',i)
-                  if j<0:
-                      out.append(s[i:])
-                      break
-                  k=j-1
-                  while k>=i and s[k].isspace(): k-=1
-                  prelude_start=i
-                  line_start=s.rfind('\n',i,j)+1
-                  selector=s[line_start:j].strip()
-                  depth=1
-                  q=j+1
-                  while q<n and depth:
-                      if s[q]=='{': depth+=1
-                      elif s[q]=='}': depth-=1
-                      q+=1
-                  block=s[line_start:q]
-                  parts=[x.strip().lower() for x in re.split(r'[,\n]', selector) if x.strip()]
-                  dedicated=bool(parts) and all(('gallery' in x or 'like' in x) for x in parts)
-                  out.append(s[i:line_start])
-                  if not dedicated:
-                      out.append(block)
-                  i=q
-              ns=''.join(out)
-              if ns!=s:
-                  p.write_text(ns)
-
-          # Hard fail if feature references remain in executable source, except intended history labels in git metadata are irrelevant.
-          allowed = {'.git', 'node_modules', 'package-lock.json'}
-          leftovers=[]
-          for p in root.rglob('*'):
-              if not p.is_file():
-                  continue
-              if any(part in allowed for part in p.parts):
-                  continue
-              if p.suffix not in {'.js','.jsx','.css','.md','.yml','.json'}:
-                  continue
-              try:
-                  text=p.read_text()
-              except UnicodeDecodeError:
-                  continue
-              for term in ['LikeButton','Gallery','gallery', '/gallery', 'interactions']:
-                  if term in text:
-                      # Remaining Cloudinary/image optimizer code is not gallery-specific; only fail on the explicit feature symbols/usages.
-                      if p.name == 'v1.2-performance.js' and term in {'gallery','Gallery'}:
-                          continue
-                      leftovers.append(f'{p}:{term}')
-                      break
-          if leftovers:
-              print('\n'.join(leftovers))
-              raise SystemExit('Removed-feature references remain')
+          css_terms=('gallery','like')
+          for p in (root/'src').rglob('*.css'):
+              s=p.read_text(); out=[]; pos=0
+              for m in re.finditer(r'([^{}]+)\{([^{}]*)\}',s):
+                  out.append(s[pos:m.start()]); selector=m.group(1); body=m.group(2)
+                  parts=[x.strip().lower() for x in selector.split(',') if x.strip()]
+                  if not parts or not all(any(t in x for t in css_terms) for x in parts): out.append(m.group(0))
+                  pos=m.end()
+              out.append(s[pos:]); p.write_text(''.join(out))
           PY
 
-      - name: Add comparison shell
-        shell: bash
+      - name: Add player comparison shell
         run: |
           cat > src/components/PlayerComparisons.jsx <<'EOF'
           export default function PlayerComparisons() {
@@ -204,7 +105,7 @@ jobs:
           }
           EOF
 
-      - name: Validate cleaned app
+      - name: Validate
         run: |
           npm ci
           npm run lint
@@ -215,13 +116,10 @@ jobs:
           node --check server/routes/profileRequests.js
 
       - name: Commit cleanup
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git status --short
+          git diff --cached --quiet && exit 0
           git commit -m "chore: remove gallery and likes features"
           git push
