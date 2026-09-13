@@ -19,7 +19,8 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean);
+app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
 app.use(express.json({limit:"64kb"}));
 app.use("/api/chat", chatRoutes);
 app.use("/api/matches", matchDetailRoutes);

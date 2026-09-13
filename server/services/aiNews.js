@@ -136,7 +136,7 @@ function buildFallbackNews(match) {
       `${winner} came out on top in ${match.name || "the match"}.`;
 
     body =
-      `${winner} finished ahead ${scoreA}-${scoreB === scoreA ? scoreA : scoreA > scoreB ? scoreA : scoreB}.`;
+      `${winner} finished ahead ${scoreA}-${scoreB}.`;
 
     icon = "🏆";
   }

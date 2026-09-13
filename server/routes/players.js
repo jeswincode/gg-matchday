@@ -2,6 +2,8 @@ import express from "express";
 
 import Player from "../models/Player.js";
 import Match from "../models/Match.js";
+import User from "../models/User.js";
+import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
 
 import {
   requireAuth,
@@ -167,6 +169,7 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
     player.height = height === "" || height === null || height === undefined ? null : Number(height);
     player.weight = weight === "" || weight === null || weight === undefined ? null : Number(weight);
     player.position = typeof position === "string" ? position.trim() : "";
+    if (player.position && !approvedPositions.includes(player.position)) return res.status(400).json({ message: "Choose a valid primary position." });
 
     if (preferredPositions !== undefined) {
       if (!Array.isArray(preferredPositions)) {
@@ -249,6 +252,14 @@ router.delete("/:id", requireAuth, requireEditor, async (req, res) => {
         { "events.player": player._id },
       ],
     });
+
+    const [linkedAccount, pendingRequest] = await Promise.all([
+      User.exists({ playerProfile: player._id }),
+      ProfileChangeRequest.exists({ player: player._id, status: "pending" }),
+    ]);
+
+    if (linkedAccount) return res.status(409).json({ message: "This player is linked to a user account and cannot be deleted. Unlink the account first." });
+    if (pendingRequest) return res.status(409).json({ message: "This player has a pending profile request and cannot be deleted." });
 
     if (hasMatchHistory) {
       return res.status(409).json({

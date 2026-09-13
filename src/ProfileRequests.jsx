@@ -15,6 +15,7 @@ async function api(path, options = {}) {
   const token = user ? await user.getIdToken() : null;
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
+    ...(options.body !== undefined ? { body: typeof options.body === "string" ? options.body : JSON.stringify(options.body) } : {}),
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) },
   });
   const data = await response.json().catch(() => ({}));

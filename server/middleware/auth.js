@@ -101,44 +101,14 @@ export async function requireAuth(
             "none",
         });
     } else {
-      // Keep profile information synced.
-      user.email =
-        email ||
-        user.email;
-
-      user.name =
-        name ||
-        user.name;
-
-      user.profileImage =
-        photoURL ||
-        user.profileImage ||
-        "";
-
-      // ------------------------------------------------
-      // ADMIN EMAIL ALWAYS REMAINS ADMIN
-      // ------------------------------------------------
-
-      const configuredAdminEmail =
-        (
-          process.env.ADMIN_EMAIL ||
-          ""
-        ).toLowerCase()
-          .trim();
-
-      if (
-        email &&
-        email ===
-          configuredAdminEmail
-      ) {
-        user.role =
-          "admin";
-
-        user.accessRequest =
-          "none";
-      }
-
-      await user.save();
+      const configuredAdminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase().trim();
+      let changed = false;
+      if (email && email !== user.email) { user.email = email; changed = true; }
+      if (name && name !== user.name) { user.name = name; changed = true; }
+      if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
+      if (email && email === configuredAdminEmail && user.role !== "admin") { user.role = "admin"; changed = true; }
+      if (email && email === configuredAdminEmail && user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+      if (changed) await user.save();
     }
 
     req.firebaseUser =

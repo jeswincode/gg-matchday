@@ -19,7 +19,7 @@ router.post("/admin/link", requireAuth, requireAdmin, async (req, res) => {
   const conflict = await User.findOne({ playerProfile: player._id, _id: { $ne: user._id } });
   if (conflict) return res.status(409).json({ message: `${player.name} is already linked to another account.` });
   user.playerProfile = player._id;
-  await user.save();
+  try { await user.save(); } catch (error) { if (error?.code === 11000) return res.status(409).json({ message: `${player.name} is already linked to another account.` }); throw error; }
   res.json({ message: `${user.name || user.email} is linked to ${player.name}.`, user });
 });
 

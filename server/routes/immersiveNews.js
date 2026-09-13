@@ -5,6 +5,7 @@ import express from "express";
 import { GoogleGenAI } from "@google/genai";
 
 import Match from "../models/Match.js";
+import { normalizeMatchScores } from "../services/statistics.js";
 
 dotenv.config();
 
@@ -74,6 +75,7 @@ router.get("/:matchId", requireAuth, limitAI, async (req, res) => {
       });
     }
 
+    normalizeMatchScores(match);
     const facts = factsFor(match);
     const ai = new GoogleGenAI({ apiKey: API_KEY });
 
@@ -176,7 +178,6 @@ ${JSON.stringify(facts, null, 2)}
 
     return res.status(500).json({
       message: "Failed to generate immersive commentary.",
-      error: error.message,
     });
   }
 });

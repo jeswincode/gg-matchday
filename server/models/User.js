@@ -34,7 +34,6 @@ const userSchema =
         type: mongoose.Schema.Types.ObjectId,
         ref: "Player",
         default: null,
-        index: true,
       },
 
       role: {
@@ -62,6 +61,8 @@ const userSchema =
       timestamps: true,
     }
   );
+
+userSchema.index({ playerProfile: 1 }, { name: "user_playerProfile_unique", unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });
 
 export default mongoose.model(
   "User",

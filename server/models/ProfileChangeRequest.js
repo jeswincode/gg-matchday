@@ -7,7 +7,6 @@ const profileChangeRequestSchema =
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true,
-        index: true,
       },
 
       player: {
@@ -60,6 +59,8 @@ const profileChangeRequestSchema =
       timestamps: true,
     }
   );
+
+profileChangeRequestSchema.index({ requestedBy: 1 }, { name: "profile_request_pending_unique", unique: true, partialFilterExpression: { status: "pending" } });
 
 export default mongoose.model(
   "ProfileChangeRequest",

@@ -1,5 +1,6 @@
 import { prepareMatch } from "../services/validation.js";
 import { scheduleHistory } from "../services/history.js";
+import { normalizeMatchScores } from "../services/statistics.js";
 import Vote from "../models/Vote.js";
 import express from "express";
 
@@ -484,6 +485,7 @@ router.get(
           .sort({date:-1,createdAt:-1})
           .skip(Math.max(0,(Number(req.query.page)||1)-1)*Math.min(100,Math.max(1,Number(req.query.limit)||50)))
           .limit(Math.min(100,Math.max(1,Number(req.query.limit)||50)));
+      matches.forEach(normalizeMatchScores);
 
       res.json(
         matches
