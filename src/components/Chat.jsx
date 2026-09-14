@@ -1,1 +1,1 @@
-export { default } from './ChatEnhanced.jsx';
+export { default } from './ChatShell.jsx';
