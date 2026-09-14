@@ -912,9 +912,10 @@ function App() {
                 "application/json",
             },
 
-            body: JSON.stringify({
-              name,
-            }),
+            body:
+              JSON.stringify({
+                name,
+              }),
           }
         );
 
@@ -933,7 +934,7 @@ function App() {
       await loadPlayers();
 
       setMessage(
-        "Player added."
+        `${name} added.`
       );
     } catch (error) {
       console.error(error);
@@ -949,54 +950,251 @@ function App() {
     }
   }
 
+  async function deletePlayer(
+    playerId
+  ) {
+    if (!isEditor) {
+      setMessage(
+        "Editor access required."
+      );
+      return;
+    }
+
+    const player =
+      players.find(
+        (item) =>
+          sameId(
+            item._id,
+            playerId
+          )
+      );
+
+    if (!player) return;
+
+    if (
+      !window.confirm(
+        `Delete ${player.name}?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response =
+        await authenticatedFetch(
+          `${API_URL}/players/${playerId}`,
+          {
+            method:
+              "DELETE",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Could not delete player."
+        );
+      }
+
+      await loadPlayers();
+
+      setSelectedPlayer(
+        null
+      );
+
+
+
+      setPlayerReview(null);
+
+      setMessage(
+        `${player.name} deleted.`
+      );
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        error.message ||
+          "Could not delete player."
+      );
+    }
+  }
+
+  // =========================================================
+  // PROFILE
+  // =========================================================
+
+  function openPlayerProfile(
+    player
+  ) {
+    setSelectedPlayer(
+      player
+    );
+
+    setEditingProfile(
+      false
+    );
+
+    setPlayerReview(null);
+
+    setProfileForm({
+      name:
+        player.name ||
+        "",
+
+      profileImage:
+        player.profileImage ||
+        "",
+
+      height:
+        player.height ??
+        "",
+
+      weight:
+        player.weight ??
+        "",
+
+      position:
+        player.position ||
+        "",
+
+      preferredFoot:
+        player.preferredFoot ||
+        "",
+
+      jerseyNumber:
+        player.jerseyNumber ??
+        "",
+
+      dateOfBirth:
+        player.dateOfBirth
+          ? new Date(
+              player.dateOfBirth
+            )
+              .toISOString()
+              .split("T")[0]
+          : "",
+
+      bio:
+        player.bio ||
+        "",
+    });
+
+
+  }
+
+  async function loadPlayerReview(
+    playerId
+  ) {
+    try {
+      setPlayerReviewLoading(
+        true
+      );
+
+      const response =
+        await authenticatedFetch(
+          `${API_URL}/news/player/${playerId}`,
+          {
+            method:
+              "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Could not generate review."
+        );
+      }
+
+      setPlayerReview(
+        data
+      );
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        error.message ||
+          "Could not generate review."
+      );
+    } finally {
+      setPlayerReviewLoading(
+        false
+      );
+    }
+  }
+
   async function savePlayerProfile(
     event
   ) {
     event.preventDefault();
 
-    if (!isEditor || !selectedPlayer) {
-      setMessage("Editor access required.");
+    if (
+      !isEditor ||
+      !selectedPlayer
+    ) {
+      setMessage(
+        "Editor access required."
+      );
       return;
     }
 
     try {
       setProfileSaving(true);
 
-      const response = await authenticatedFetch(
-        `${API_URL}/players/${selectedPlayer._id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: profileForm.name,
-            profileImage: profileForm.profileImage,
-            height: profileForm.height === "" ? null : Number(profileForm.height),
-            weight: profileForm.weight === "" ? null : Number(profileForm.weight),
-            position: profileForm.position,
-            preferredFoot: profileForm.preferredFoot,
-            jerseyNumber: profileForm.jerseyNumber === "" ? null : Number(profileForm.jerseyNumber),
-            dateOfBirth: profileForm.dateOfBirth || null,
-            bio: profileForm.bio,
-          }),
-        }
-      );
+      const response =
+        await authenticatedFetch(
+          `${API_URL}/players/${selectedPlayer._id}`,
+          {
+            method:
+              "PUT",
 
-      const data = await response.json();
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(
+                profileForm
+              ),
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Could not update profile.");
+        throw new Error(
+          data.message ||
+            "Could not update profile."
+        );
       }
 
-      const updated = data.player || data;
-      setSelectedPlayer(updated);
-      setPlayers((current) =>
-        current.map((player) =>
-          sameId(player._id, updated._id) ? updated : player
-        )
-      );
-      setEditingProfile(false);
-      setMessage("Profile updated.");
       await loadPlayers();
+
+      setSelectedPlayer(
+        data
+      );
+
+      setEditingProfile(
+        false
+      );
+
+      invalidate();
+
+      setMessage(
+        "Player profile updated."
+      );
     } catch (error) {
       console.error(error);
 
@@ -1371,56 +1569,223 @@ function App() {
     return events;
   }
 
-  function buildParticipants() {
-    return assignedPlayers.map(player=>({player:player._id,team:teams[String(player._id)],rating:ratings[String(player._id)]===""||ratings[String(player._id)]==null?null:Number(ratings[String(player._id)]),ownGoals:Number(ownGoals[String(player._id)]||0)}));
-  }
+  async function saveMatch(
+    event
+  ) {
+    event.preventDefault();
 
-  function validateRecord() {
-    if (!assignedPlayers.length) return "Assign at least one player to a team.";
-    if (!teamAPlayers.length || !teamBPlayers.length) return "Both teams need at least one player.";
-    if (totalGoals < 1) return "Record at least one goal.";
-    if (totalAssists > totalGoals) return "Assists cannot exceed total goals.";
-    const badRating = assignedPlayers.find(player=>{const value=ratings[String(player._id)];return value!==""&&value!=null&&(Number(value)<0||Number(value)>10||!Number.isFinite(Number(value)));});
-    if (badRating) return `Rating for ${badRating.name} must be between 0 and 10.`;
-    return "";
-  }
-
-  async function saveMatch() {
     if (!isEditor) {
-      setMessage("Editor access required.");
+      setMessage(
+        "Editor access required."
+      );
       return;
     }
-    const error=validateRecord();
-    if(error){setMessage(error);return;}
+
+    if (
+      teamAPlayers.length ===
+      0 ||
+      teamBPlayers.length ===
+      0
+    ) {
+      setMessage(
+        "Both sides need at least one player."
+      );
+      return;
+    }
+
+    if (
+      totalAssists >
+      totalGoals
+    ) {
+      setMessage(
+        "Assists cannot be greater than total goals."
+      );
+      return;
+    }
+
     try {
       setSavingMatch(true);
-      const payload={date:new Date(`${date}T12:00:00`).toISOString(),name:matchName.trim()||"Football Match",teamA:{label:teamALabel.trim()||"Team A",score:teamAScore},teamB:{label:teamBLabel.trim()||"Team B",score:teamBScore},participants:buildParticipants(),events:buildEvents()};
-      const endpoint=editingMatchId?`${API_URL}/matches/${editingMatchId}`:`${API_URL}/matches`;
-      const response=await authenticatedFetch(endpoint,{method:editingMatchId?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      const data=await response.json();
-      if(!response.ok)throw new Error(data.message||"Could not save match.");
-      setMessage(editingMatchId?"Match updated.":"Match recorded.");
-      resetMatchForm();
-      await loadMatches();
-      await loadNews();
-      await loadLeaderboard("all");
-      await loadAwards();
+
+      const payload = {
+        date,
+
+        name:
+          matchName.trim() ||
+          "Football Match",
+
+        teamA: {
+          label:
+            teamALabel.trim() ||
+            "Team A",
+
+          score:
+            teamAScore,
+        },
+
+        teamB: {
+          label:
+            teamBLabel.trim() ||
+            "Team B",
+
+          score:
+            teamBScore,
+        },
+
+        participants:
+          assignedPlayers.map(
+            (player) => ({
+              player:
+                player._id,
+              rating: ratings[String(player._id)] === "" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),
+              ownGoals: ownGoals[String(player._id)] || 0,
+              team:
+                teams[
+                  String(
+                    player._id
+                  )
+                ],
+            })
+          ),
+
+        events:
+          buildEvents(),
+      };
+
+      const url =
+        editingMatchId
+          ? `${API_URL}/matches/${editingMatchId}`
+          : `${API_URL}/matches`;
+
+      const method =
+        editingMatchId
+          ? "PUT"
+          : "POST";
+
+      const response =
+        await authenticatedFetch(
+          url,
+          {
+            method,
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(
+                payload
+              ),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Could not save match."
+        );
+      }
+
       invalidate();
-    }catch(error){console.error(error);setMessage(error.message||"Could not save match.");}finally{setSavingMatch(false);}
+      resetMatchForm();
+
+      invalidate();
+      await Promise.all([
+        loadMatches(),
+        loadLeaderboard(
+          leaderboardPeriod
+        ),
+        loadAwards(),
+        loadNews(),
+      ]);
+
+      setMessage(
+        editingMatchId
+          ? "Match updated."
+          : "Match recorded."
+      );
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        error.message ||
+          "Could not save match."
+      );
+    } finally {
+      setSavingMatch(false);
+    }
   }
 
-  // =========================================================
-  // PLAYER PROFILE HELPERS
-  // =========================================================
+  async function deleteMatch(
+    matchId
+  ) {
+    if (!isEditor) {
+      return;
+    }
 
-  function openPlayerProfile(player){
-    setSelectedPlayer(player);
-    setEditingProfile(false);
-    setPlayerReview(null);
-    setModal("player");
+    if (
+      !window.confirm(
+        "Delete this match permanently?"
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response =
+        await authenticatedFetch(
+          `${API_URL}/matches/${matchId}`,
+          {
+            method:
+              "DELETE",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Could not delete match."
+        );
+      }
+
+      if (
+        sameId(
+          editingMatchId,
+          matchId
+        )
+      ) {
+        resetMatchForm();
+      }
+
+      invalidate();
+      await Promise.all([
+        loadMatches(),
+        loadLeaderboard(
+          leaderboardPeriod
+        ),
+        loadAwards(),
+        loadNews(),
+      ]);
+
+      loadCalendar(calendarYear,calendarMonth);
+      setMessage(
+        "Match deleted."
+      );
+    } catch (error) {
+      console.error(error);
+
+      setMessage(
+        error.message ||
+          "Could not delete match."
+      );
+    }
   }
-
-  function closePlayerProfile(){setModal(null);setSelectedPlayer(null);setEditingProfile(false);}
 
   // =========================================================
   // ADMIN
@@ -1428,15 +1793,37 @@ function App() {
 
   async function loadEditorRequests() {
     if (!isAdmin) return;
+
     try {
       setAdminLoading(true);
-      const response = await authenticatedFetch(`${API_URL}/auth/editor-requests`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Could not load editor requests.");
-      setEditorRequests(Array.isArray(data.requests) ? data.requests : []);
+
+      const response =
+        await authenticatedFetch(
+          `${API_URL}/auth/admin/requests`
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Could not load requests."
+        );
+      }
+
+      setEditorRequests(
+        Array.isArray(data)
+          ? data
+          : []
+      );
     } catch (error) {
       console.error(error);
-      setMessage(error.message || "Could not load editor requests.");
+
+      setMessage(
+        error.message ||
+          "Could not load editor requests."
+      );
     } finally {
       setAdminLoading(false);
     }
@@ -1444,54 +1831,199 @@ function App() {
 
   async function loadActiveEditors() {
     if (!isAdmin) return;
+
     try {
       setEditorsLoading(true);
-      const response = await authenticatedFetch(`${API_URL}/auth/editors`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Could not load editors.");
-      setActiveEditors(Array.isArray(data.users) ? data.users : []);
+
+      const response =
+        await authenticatedFetch(
+          `${API_URL}/auth/admin/editors`
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Could not load editors."
+        );
+      }
+
+      setActiveEditors(
+        Array.isArray(data)
+          ? data
+          : []
+      );
     } catch (error) {
       console.error(error);
-      setMessage(error.message || "Could not load editors.");
+
+      setMessage(
+        error.message ||
+          "Could not load editors."
+      );
     } finally {
       setEditorsLoading(false);
     }
   }
 
-  async function decideEditorRequest(id, action) {
+  useEffect(() => {
+    if (
+      activeTab ===
+        TABS.ADMIN &&
+      isAdmin
+    ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Synchronize remote administrative data on tab entry.
+      loadEditorRequests();
+      loadActiveEditors();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- These loaders use the current Firebase account and stable state setters; entering Admin refreshes them.
+  }, [
+    activeTab,
+    isAdmin,
+  ]);
+
+  async function handleEditorRequest(
+    userId,
+    action
+  ) {
     if (!isAdmin) return;
+
+    const label =
+      action ===
+      "approve"
+        ? "approve"
+        : "reject";
+
+    if (
+      !window.confirm(
+        `Are you sure you want to ${label} this request?`
+      )
+    ) {
+      return;
+    }
+
     try {
-      setAdminActionLoading(true);
-      const response = await authenticatedFetch(`${API_URL}/auth/editor-requests/${id}`,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Could not update request.");
-      await loadEditorRequests();
-      await loadActiveEditors();
-      setMessage(data.message || "Editor request updated.");
+      setAdminActionLoading(
+        true
+      );
+
+      const response =
+        await authenticatedFetch(
+          `${API_URL}/auth/admin/requests/${userId}/${action}`,
+          {
+            method:
+              "POST",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            `Could not ${label} request.`
+        );
+      }
+
+      await Promise.all([
+        loadEditorRequests(),
+        loadActiveEditors(),
+      ]);
+
+      setMessage(
+        data.message ||
+          `Request ${label}d.`
+      );
     } catch (error) {
       console.error(error);
-      setMessage(error.message || "Could not update request.");
+
+      setMessage(
+        error.message ||
+          `Could not ${label} request.`
+      );
     } finally {
-      setAdminActionLoading(false);
+      setAdminActionLoading(
+        false
+      );
     }
   }
 
-  async function revokeEditor(userId) {
+  async function revokeEditor(
+    userId
+  ) {
     if (!isAdmin) return;
+
+    const editor =
+      activeEditors.find(
+        (item) =>
+          sameId(
+            item._id,
+            userId
+          )
+      );
+
+    if (!editor) return;
+
+    if (
+      !window.confirm(
+        `Remove editor access from ${
+          editor.name ||
+          editor.email
+        }?`
+      )
+    ) {
+      return;
+    }
+
     try {
-      setAdminActionLoading(true);
-      const response = await authenticatedFetch(`${API_URL}/auth/editors/${userId}`,{method:"DELETE"});
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Could not revoke editor access.");
+      setAdminActionLoading(
+        true
+      );
+
+      const response =
+        await authenticatedFetch(
+          `${API_URL}/auth/admin/editors/${userId}/revoke`,
+          {
+            method:
+              "POST",
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Could not revoke editor access."
+        );
+      }
+
       await loadActiveEditors();
-      setMessage(data.message || "Editor access revoked.");
+
+      setMessage(
+        data.message ||
+          "Editor access revoked."
+      );
     } catch (error) {
       console.error(error);
-      setMessage(error.message || "Could not revoke editor access.");
+
+      setMessage(
+        error.message ||
+          "Could not revoke editor access."
+      );
     } finally {
-      setAdminActionLoading(false);
+      setAdminActionLoading(
+        false
+      );
     }
   }
+
+  // =========================================================
+  // RANKINGS
+  // =========================================================
 
   // =========================================================
   // CALENDAR
@@ -2089,7 +2621,7 @@ function App() {
                 {news
                   .slice(
                     0,
-                    12
+                    6
                   )
                   .map(
                     (article) => (
@@ -2169,49 +2701,63 @@ function App() {
                         sameId(
                           item._id,
                           leaderboard[0]
-                            ?.playerId
+                            .playerId
                         )
                     );
 
-                  if (player) {
+                  if (
+                    player
+                  ) {
                     openPlayerProfile(
                       player
                     );
+
+                    setActiveTab(
+                      TABS.PLAYERS
+                    );
                   }
+
                 }}
               >
 
                 <div className="home-player-medal">
-                  🏆
+                  🥇
                 </div>
 
                 <div>
                   <span>
-                    {leaderboard[0]?.name || "Current leader"}
+                    CURRENT #1
                   </span>
 
                   <strong>
-                    {leaderboard[0]?.ggRating?.toFixed(2) || "—"}
+                    {
+                      leaderboard[0]
+                        .name
+                    }
                   </strong>
 
                   <small>
-                    GG Rating
+                    {
+                      leaderboard[0]
+                        .goals
+                    }{" "}
+                    goals ·{" "}
+                    {
+                      leaderboard[0]
+                        .assists
+                    }{" "}
+                    assists
                   </small>
                 </div>
 
-                <div className="home-player-arrow">
+                <b>
                   →
-                </div>
+                </b>
 
               </button>
 
             </section>
           )}
-
-          <section className="home-section home-dual-grid">
-            <ProfileInsights players={players} leaderboard={leaderboard} />
-            <Squad players={players} />
-          </section>
 
         </section>
       )}
@@ -2220,70 +2766,1606 @@ function App() {
           RECORD
       ===================================================== */}
 
-      {activeTab ===
-        TABS.RECORD && (
-        <section className="tab-content">
-          {/* existing record UI */}
-        </section>
-      )}
+      {activeTab === TABS.RECORD && <section className="tab-content">
+        <div className="gg-secondary-tabs" role="tablist" aria-label="Record sections"><button role="tab" aria-selected={recordSection==='record'} onClick={()=>setRecordSection('record')}>Match Record</button><button role="tab" aria-selected={recordSection==='clasico'} onClick={()=>setRecordSection('clasico')}>El Clásico</button></div>
+        {recordSection==='clasico'?<Clasico onPlayer={showPlayer} onMatch={showMatch} refreshKey={refreshKey} isSignedIn={isSignedIn}/>:<>
+        <div className="page-title"><p className="eyebrow">MATCH DAY</p><h2>{isEditor?(editingMatchId?'Edit Match':'Record a Match'):'Match Record'}</h2><p>{isEditor?'Assign sides, record performances, and let the match tell the story.':'Explore the GG Matchday archive.'}</p></div>
+        {isEditor&&<section className="card"><form onSubmit={saveMatch}>
+          <div className="form-grid"><label>Date<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label><label>Match name<input value={matchName} maxLength={160} onChange={e=>setMatchName(e.target.value)} placeholder="Sunday Football"/></label></div>
+          <div className="match-score-header"><div className="side-block"><span>Side 1</span><input value={teamALabel} maxLength={80} onChange={e=>setTeamALabel(e.target.value)}/><strong key={teamAScore}>{teamAScore}</strong></div><span className="versus">:</span><div className="side-block"><span>Side 2</span><input value={teamBLabel} maxLength={80} onChange={e=>setTeamBLabel(e.target.value)}/><strong key={teamBScore}>{teamBScore}</strong></div></div>
+          <div className="subsection"><div className="section-heading"><h3>Player performances</h3><span className="muted">{assignedPlayers.length} participating</span></div><div className="gg-performance-head"><span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Rating</span></div>
+          {players.map(player=>{const id=String(player._id),assigned=Boolean(teams[id]);return <div className={`gg-performance-row ${assigned?'assigned':''}`} key={id}><div><strong>{player.name}</strong><small>{teams[id]==='A'?teamALabel:teams[id]==='B'?teamBLabel:'Not participating'}</small></div><div className="team-switch">{['A','B'].map((team,i)=><button key={team} type="button" aria-label={`${player.name} Side ${i+1}`} aria-pressed={teams[id]===team} className={teams[id]===team?'active':''} onClick={()=>setPlayerTeam(id,team)}>{i+1}</button>)}</div>{[[goals,setGoals,'Goals'],[assists,setAssists,'Assists'],[ownGoals,setOwnGoals,'Own Goal']].map(([values,setter,label])=><div className="counter" key={label}><button type="button" disabled={!assigned||!values[id]} aria-label={`Remove ${label.toLowerCase()} for ${player.name}`} onClick={()=>changeCount(setter,id,-1)}>−</button><strong key={values[id]}>{assigned?values[id]||0:0}</strong><button type="button" disabled={!assigned} aria-label={`Add ${label.toLowerCase()} for ${player.name}`} onClick={()=>changeCount(setter,id,1)}>+</button></div>)}<label className="gg-rating-input"><span className="sr-only">Rating for {player.name}</span><input type="number" min="0" max="10" step="0.1" placeholder={legacyUnrated.includes(id)?'Unrated':'0–10'} disabled={!assigned} required={assigned&&!legacyUnrated.includes(id)} value={ratings[id]??''} onChange={e=>setRatings(old=>({...old,[id]:e.target.value}))}/></label></div>;})}</div>
+          <div className="match-total"><span>{totalGoals} goals</span><span>{totalAssists} assists</span></div><button type="submit" className="save-button" disabled={savingMatch}>{savingMatch?'Saving…':editingMatchId?'Update Match':'Save Match'}</button>{editingMatchId&&<button type="button" className="secondary-button" onClick={resetMatchForm}>Cancel edit</button>}
+        </form></section>}
+        <section className="section-block"><div className="section-heading"><h2>Recent Matches</h2><span className="muted">{overview?.matches??matches.length} recorded</span></div>{loadingMatches?<div className="loading-panel">Loading matches…</div>:!matches.length?<div className="empty-state">No matches recorded yet.</div>:<div className="match-list">{matches.map(match=><MatchHistoryCard key={match._id} match={match} canEdit={isEditor} onOpen={()=>showMatch(match._id)} onEdit={()=>startEditingMatch(match)} onDelete={()=>deleteMatch(match._id)}/>)}</div>}{matches.length<(overview?.matches||0)&&<button className="secondary-button" onClick={()=>loadMatches(archivePage+1)}>Load more matches</button>}</section>
+        </>}
+      </section>}
 
       {/* =====================================================
           LEADERBOARD
       ===================================================== */}
 
-      {activeTab ===
-        TABS.LEADERBOARD && (
-        <LeaderboardView
-          leaderboard={leaderboard}
-          players={players}
-          period={leaderboardPeriod}
-          onPlayer={showPlayer}
-        />
-      )}
+      {activeTab === TABS.LEADERBOARD && <LeaderboardView onPlayer={showPlayer} onAwards={()=>setModal('awards')} refreshKey={refreshKey}/>}
+
+      {/* =====================================================
+          CALENDAR
+      ===================================================== */}
 
       {activeTab ===
         TABS.CALENDAR && (
         <section className="tab-content">
-          {/* existing calendar UI */}
+
+          <div className="page-title">
+            <p className="eyebrow">
+              MATCH JOURNAL
+            </p>
+
+            <h2>
+              Calendar
+            </h2>
+
+            <p>
+              Browse Matchday history day by day.
+            </p>
+          </div>
+
+          <section className="card calendar-card">
+
+            <div className="calendar-header">
+
+              <button
+                type="button"
+                className="calendar-nav"
+                onClick={
+                  previousMonth
+                }
+              >
+                ‹
+              </button>
+
+              <div>
+                <h3>
+                  {
+                    monthName(
+                      calendarMonth
+                    )
+                  }{" "}
+                  {
+                    calendarYear
+                  }
+                </h3>
+
+                <span>
+                  {
+                    calendarMatches.length
+                  }{" "}
+                  matches
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="calendar-nav"
+                onClick={
+                  nextMonth
+                }
+              >
+                ›
+              </button>
+
+            </div>
+
+            {calendarLoading ? (
+              <div className="loading-panel">
+                Loading calendar...
+              </div>
+            ) : (
+              <>
+
+                <div className="calendar-weekdays">
+                  <span>Sun</span>
+                  <span>Mon</span>
+                  <span>Tue</span>
+                  <span>Wed</span>
+                  <span>Thu</span>
+                  <span>Fri</span>
+                  <span>Sat</span>
+                </div>
+
+                <div className="calendar-grid">
+
+                  {getCalendarDays(
+                    calendarYear,
+                    calendarMonth
+                  ).map(
+                    (
+                      day,
+                      index
+                    ) => {
+
+                      const dayMatches =
+                        matchesForDay(
+                          day
+                        );
+
+                      return (
+                        <button
+                          key={`${calendarYear}-${calendarMonth}-${index}`}
+                          type="button"
+                          disabled={
+                            !day
+                          }
+                          className={`calendar-day ${
+                            dayMatches.length
+                              ? "has-match"
+                              : ""
+                          } ${
+                            selectedDay ===
+                            day
+                              ? "selected-day"
+                              : ""
+                          }`}
+                          onMouseEnter={() =>
+                            setHoveredDay(
+                              day
+                            )
+                          }
+                          onMouseLeave={() =>
+                            setHoveredDay(
+                              null
+                            )
+                          }
+                          onClick={() =>
+                            setSelectedDay(
+                              day
+                            )
+                          }
+                        >
+
+                          {day && (
+                            <>
+                              <strong>
+                                {
+                                  day
+                                }
+                              </strong>
+
+                              {dayMatches.length >
+                                0 && (
+                                <span className="calendar-dot" />
+                              )}
+
+                              {hoveredDay ===
+                                day &&
+                                dayMatches.length >
+                                  0 && (
+                                  <div className="calendar-popover">
+
+                                    {dayMatches
+                                      .slice(
+                                        0,
+                                        3
+                                      )
+                                      .map(
+                                        (
+                                          match
+                                        ) => (
+                                          <div
+                                            key={
+                                              match._id
+                                            }
+                                          >
+                                            <strong>
+                                              {
+                                                match
+                                                  .teamA
+                                                  ?.score
+                                              }{" "}
+                                              :{" "}
+                                              {
+                                                match
+                                                  .teamB
+                                                  ?.score
+                                              }
+                                            </strong>
+
+                                            <span>
+                                              {
+                                                match
+                                                  .teamA
+                                                  ?.label
+                                              }{" "}
+                                              vs{" "}
+                                              {
+                                                match
+                                                  .teamB
+                                                  ?.label
+                                              }
+                                            </span>
+
+                                            <small>
+                                              {
+                                                match.name
+                                              }
+                                            </small>
+                                          </div>
+                                        )
+                                      )}
+
+                                  </div>
+                                )}
+
+                            </>
+                          )}
+
+                        </button>
+                      );
+                    }
+                  )}
+
+                </div>
+
+              </>
+            )}
+
+          </section>
+
+          <section className="section-block">
+
+            <SectionHeading
+              eyebrow="DAY DETAILS"
+              title={
+                selectedDay
+                  ? `${monthName(
+                      calendarMonth
+                    )} ${selectedDay}`
+                  : "Select a date"
+              }
+            />
+
+            {selectedDay &&
+            matchesForDay(
+              selectedDay
+            ).length >
+              0 ? (
+              <div className="match-list">
+
+                {matchesForDay(
+                  selectedDay
+                ).map(
+                  (
+                    match
+                  ) => (
+                    <MatchHistoryCard onOpen={()=>showMatch(match._id)}
+                      key={
+                        match._id
+                      }
+                      match={
+                        match
+                      }
+                      canEdit={
+                        isEditor
+                      }
+                      onEdit={() =>
+                        startEditingMatch(
+                          match
+                        )
+                      }
+                      onDelete={() =>
+                        deleteMatch(
+                          match._id
+                        )
+                      }
+                    />
+                  )
+                )}
+
+              </div>
+            ) : (
+              <div className="empty-state">
+
+                <span>
+                  📅
+                </span>
+
+                <h3>
+                  No matches this day
+                </h3>
+
+                <p>
+                  Select another date to explore the
+                  archive.
+                </p>
+
+              </div>
+            )}
+
+          </section>
+
         </section>
       )}
+
+      {/* =====================================================
+          PLAYERS
+      ===================================================== */}
 
       {activeTab ===
         TABS.PLAYERS && (
         <section className="tab-content">
-          {/* existing players UI */}
+
+          {!selectedPlayer ? (
+            <>
+
+              <div className="page-title">
+
+                <p className="eyebrow">
+                  SQUAD
+                </p>
+
+                <h2>
+                  Players
+                </h2>
+
+                <p>
+                  Profiles, player details and career
+                  statistics.
+                </p>
+
+              </div>
+
+              {isEditor && (
+                <section className="card">
+
+                  <form
+                    onSubmit={
+                      addPlayer
+                    }
+                  >
+
+                    <label>
+                      <span>
+                        Add Player
+                      </span>
+
+                      <div className="add-player-form">
+
+                        <input
+                          value={
+                            newPlayerName
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setNewPlayerName(
+                              event.target.value
+                            )
+                          }
+                          placeholder="Player name"
+                        />
+
+                        <button
+                          type="submit"
+                          className="add-button"
+                          disabled={
+                            playerActionLoading
+                          }
+                        >
+                          {
+                            playerActionLoading
+                              ? "..."
+                              : "Add Player"
+                          }
+                        </button>
+
+                      </div>
+                    </label>
+
+                  </form>
+
+                </section>
+              )}
+
+              <Squad players={players} statistics={leaderboard} onPlayer={showPlayer}/>
+              <section className="section-block">
+
+                <div className="section-heading">
+
+                  <div>
+                    <p className="eyebrow">
+                      ROSTER
+                    </p>
+
+                    <h2>
+                      All Players
+                    </h2>
+                  </div>
+
+                  <span className="muted">
+                    {
+                      players.length
+                    }
+                  </span>
+
+                </div>
+
+                {loadingPlayers ? (
+                  <div className="loading-panel">
+                    Loading players...
+                  </div>
+                ) : players.length ===
+                  0 ? (
+                  <div className="empty-state">
+
+                    <span>
+                      👥
+                    </span>
+
+                    <h3>
+                      No players yet
+                    </h3>
+
+                  </div>
+                ) : (
+                  <div className="player-list">
+
+                    {players.map(
+                      (
+                        player
+                      ) => (
+                        <button
+                          type="button"
+                          className="player-profile-row"
+                          key={
+                            player._id
+                          }
+                          onClick={() =>
+                            openPlayerProfile(
+                              player
+                            )
+                          }
+                        >
+
+                          {player.profileImage ? (
+                            <img
+                              className="player-photo"
+                              src={
+                                player.profileImage
+                              }
+                              alt=""
+                            />
+                          ) : (
+                            <div className="player-avatar">
+                              {
+                                player.name
+                                  ?.charAt(
+                                    0
+                                  )
+                                  .toUpperCase()
+                              }
+                            </div>
+                          )}
+
+                          <div className="managed-player-info">
+
+                            <strong>
+                              {
+                                player.name
+                              }
+                            </strong>
+
+                            <span>
+                              {
+                                player.position ||
+                                "Position not set"
+                              }
+                            </span>
+
+                          </div>
+
+                          <span className="profile-arrow">
+                            →
+                          </span>
+
+                        </button>
+                      )
+                    )}
+
+                  </div>
+                )}
+
+              </section>
+
+            </>
+          ) : (
+            <section className="player-profile">
+
+              <button
+                type="button"
+                className="back-button"
+                onClick={() => {
+                  setSelectedPlayer(null);
+            
+                  setPlayerReview(null);
+                }}
+              >
+                ← Back to Players
+              </button>
+
+              <section className="profile-hero card">
+
+                <div className="profile-photo-wrap">
+
+                  {selectedPlayer.profileImage ? (
+                    <img
+                      src={
+                        selectedPlayer.profileImage
+                      }
+                      alt={
+                        selectedPlayer.name
+                      }
+                      className="profile-large-photo"
+                    />
+                  ) : (
+                    <div className="profile-photo-fallback">
+                      {
+                        selectedPlayer.name
+                          ?.charAt(
+                            0
+                          )
+                          .toUpperCase()
+                      }
+                    </div>
+                  )}
+
+                </div>
+
+                <div className="profile-heading">
+
+                  <p className="eyebrow">
+                    PLAYER PROFILE
+                  </p>
+
+                  <h2>
+                    {
+                      selectedPlayer.name
+                    }
+                  </h2>
+
+                  <p>
+                    {
+                      selectedPlayer.position ||
+                      "Position not set"
+                    }
+                  </p>
+
+                </div>
+
+                {isEditor && (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() =>
+                      setEditingProfile(
+                        (
+                          value
+                        ) =>
+                          !value
+                      )
+                    }
+                  >
+                    {
+                      editingProfile
+                        ? "Cancel"
+                        : "Edit Profile"
+                    }
+                  </button>
+                )}
+
+              </section>
+
+              {editingProfile &&
+              isEditor ? (
+                <section className="card">
+
+                  <form
+                    onSubmit={
+                      savePlayerProfile
+                    }
+                  >
+
+                    <div className="form-grid">
+
+                      <label>
+                        <span>
+                          Name
+                        </span>
+
+                        <input
+                          value={
+                            profileForm.name
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setProfileForm(
+                              (
+                                current
+                              ) => ({
+                                ...current,
+                                name:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                        />
+                      </label>
+
+                      <label>
+                        <span>
+                          Profile Image URL
+                        </span>
+
+                        <input
+                          value={
+                            profileForm.profileImage
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setProfileForm(
+                              (
+                                current
+                              ) => ({
+                                ...current,
+                                profileImage:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                        />
+                      </label>
+
+                    </div>
+
+                    <div className="profile-fields-grid">
+
+                      {[
+                        [
+                          "height",
+                          "Height (cm)",
+                        ],
+                        [
+                          "weight",
+                          "Weight (kg)",
+                        ],
+                        [
+                          "position",
+                          "Position",
+                        ],
+                        [
+                          "jerseyNumber",
+                          "Jersey Number",
+                        ],
+                      ].map(
+                        ([
+                          field,
+                          label,
+                        ]) => (
+                          <label
+                            key={
+                              field
+                            }
+                          >
+                            <span>
+                              {
+                                label
+                              }
+                            </span>
+
+                            <input
+                              type={
+                                field ===
+                                "height" ||
+                                field ===
+                                "weight" ||
+                                field ===
+                                "jerseyNumber"
+                                  ? "number"
+                                  : "text"
+                              }
+                              value={
+                                profileForm[
+                                  field
+                                ]
+                              }
+                              onChange={(
+                                event
+                              ) =>
+                                setProfileForm(
+                                  (
+                                    current
+                                  ) => ({
+                                    ...current,
+                                    [field]:
+                                      event
+                                        .target
+                                        .value,
+                                  })
+                                )
+                              }
+                            />
+                          </label>
+                        )
+                      )}
+
+                      <label>
+                        <span>
+                          Preferred Foot
+                        </span>
+
+                        <select
+                          value={
+                            profileForm.preferredFoot
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setProfileForm(
+                              (
+                                current
+                              ) => ({
+                                ...current,
+                                preferredFoot:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                        >
+                          <option value="">
+                            Not set
+                          </option>
+
+                          <option value="Left">
+                            Left
+                          </option>
+
+                          <option value="Right">
+                            Right
+                          </option>
+
+                          <option value="Both">
+                            Both
+                          </option>
+                        </select>
+                      </label>
+
+                      <label>
+                        <span>
+                          Date of Birth
+                        </span>
+
+                        <input
+                          type="date"
+                          value={
+                            profileForm.dateOfBirth
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            setProfileForm(
+                              (
+                                current
+                              ) => ({
+                                ...current,
+                                dateOfBirth:
+                                  event.target.value,
+                              })
+                            )
+                          }
+                        />
+                      </label>
+
+                    </div>
+
+                    <label>
+                      <span>
+                        Bio
+                      </span>
+
+                      <textarea
+                        rows="5"
+                        value={
+                          profileForm.bio
+                        }
+                        onChange={(
+                          event
+                        ) =>
+                          setProfileForm(
+                            (
+                              current
+                            ) => ({
+                              ...current,
+                              bio:
+                                event.target.value,
+                            })
+                          )
+                        }
+                      />
+                    </label>
+
+                    <button
+                      type="submit"
+                      className="save-button"
+                      disabled={
+                        profileSaving
+                      }
+                    >
+                      {
+                        profileSaving
+                          ? "Saving..."
+                          : "Save Profile"
+                      }
+                    </button>
+
+                  </form>
+
+                </section>
+              ) : (
+                <>
+
+                  <div className="profile-info-grid">
+
+                    <InfoItem
+                      label="Height"
+                      value={
+                        selectedPlayer.height
+                          ? `${selectedPlayer.height} cm`
+                          : "—"
+                      }
+                    />
+
+                    <InfoItem
+                      label="Weight"
+                      value={
+                        selectedPlayer.weight
+                          ? `${selectedPlayer.weight} kg`
+                          : "—"
+                      }
+                    />
+
+                    <InfoItem
+                      label="Position"
+                      value={
+                        selectedPlayer.position ||
+                        "—"
+                      }
+                    />
+
+                    <InfoItem
+                      label="Preferred Foot"
+                      value={
+                        selectedPlayer.preferredFoot ||
+                        "—"
+                      }
+                    />
+
+                    <InfoItem
+                      label="Jersey"
+                      value={
+                        selectedPlayer.jerseyNumber ??
+                        "—"
+                      }
+                    />
+
+                    <InfoItem
+                      label="Date of Birth"
+                      value={
+                        formatDate(
+                          selectedPlayer.dateOfBirth
+                        )
+                      }
+                    />
+
+                  </div>
+
+                  <ProfileInsights playerId={selectedPlayer._id} onMatch={showMatch} refreshKey={refreshKey}/>
+
+                  <section className="card">
+
+                    <div className="section-heading">
+
+                      <div>
+                        <p className="eyebrow">
+                          AI EDITORIAL
+                        </p>
+
+                        <h3>
+                          Player Review
+                        </h3>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={
+                          playerReviewLoading
+                        }
+                        onClick={() =>
+                          loadPlayerReview(
+                            selectedPlayer._id
+                          )
+                        }
+                      >
+                        {
+                          playerReviewLoading
+                            ? "Writing..."
+                            : "Generate Review"
+                        }
+                      </button>
+
+                    </div>
+
+                    {playerReview ? (
+                      <div className="ai-review">
+                        <p>
+                          {
+                            playerReview.review
+                          }
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="muted">
+                        Generate a review from the
+                        player's statistics.
+                      </p>
+                    )}
+
+                  </section>
+
+                  <section className="card profile-bio">
+
+                    <p className="eyebrow">
+                      ABOUT
+                    </p>
+
+                    <p>
+                      {
+                        selectedPlayer.bio ||
+                        "No player bio added yet."
+                      }
+                    </p>
+
+                  </section>
+
+                  {isEditor && (
+                    <button
+                      type="button"
+                      className="danger-button"
+                      onClick={() =>
+                        deletePlayer(
+                          selectedPlayer._id
+                        )
+                      }
+                    >
+                      Delete Player
+                    </button>
+                  )}
+
+                </>
+              )}
+
+            </section>
+          )}
+
         </section>
       )}
+
+      {/* =====================================================
+          ADMIN
+      ===================================================== */}
 
       {activeTab ===
         TABS.ADMIN && (
         <section className="tab-content">
-          {/* existing admin UI */}
+
+          {!isAdmin ? (
+            <AccessDenied
+              title="Admin access required"
+              description="This area is only available to the GG Matchday administrator."
+              signIn={
+                !isSignedIn
+                  ? signIn
+                  : null
+              }
+            />
+          ) : (
+            <>
+
+              <div className="page-title">
+                <p className="eyebrow">
+                  ADMIN
+                </p>
+
+                <h2>
+                  Access Control
+                </h2>
+
+                <p>
+                  Manage editor requests and active
+                  editors.
+                </p>
+              </div>
+
+              <section className="card">
+
+                <div className="section-heading">
+
+                  <div>
+                    <p className="eyebrow">
+                      REQUESTS
+                    </p>
+
+                    <h3>
+                      Editor Requests
+                    </h3>
+                  </div>
+
+                  <span className="muted">
+                    {
+                      editorRequests.length
+                    }
+                  </span>
+
+                </div>
+
+                {adminLoading ? (
+                  <div className="loading-panel">
+                    Loading requests...
+                  </div>
+                ) : editorRequests.length ===
+                  0 ? (
+                  <div className="empty-state">
+
+                    <span>
+                      ✅
+                    </span>
+
+                    <h3>
+                      No pending requests
+                    </h3>
+
+                    <p>
+                      You're all caught up.
+                    </p>
+
+                  </div>
+                ) : (
+                  <div className="admin-request-list">
+
+                    {editorRequests.map(
+                      (
+                        request
+                      ) => (
+                        <div
+                          className="admin-request"
+                          key={
+                            request._id
+                          }
+                        >
+
+                          <div className="admin-request-user">
+
+                            {request.photoURL ? (
+                              <img
+                                src={
+                                  request.photoURL
+                                }
+                                alt=""
+                              />
+                            ) : (
+                              <div>
+                                {
+                                  request.name
+                                    ?.charAt(
+                                      0
+                                    )
+                                    .toUpperCase()
+                                }
+                              </div>
+                            )}
+
+                            <div>
+
+                              <strong>
+                                {
+                                  request.name ||
+                                  "User"
+                                }
+                              </strong>
+
+                              <span>
+                                {
+                                  request.email
+                                }
+                              </span>
+
+                            </div>
+
+                          </div>
+
+                          <div className="admin-request-actions">
+
+                            <button
+                              type="button"
+                              className="approve-button"
+                              disabled={
+                                adminActionLoading
+                              }
+                              onClick={() =>
+                                handleEditorRequest(
+                                  request._id,
+                                  "approve"
+                                )
+                              }
+                            >
+                              Approve
+                            </button>
+
+                            <button
+                              type="button"
+                              className="danger-button"
+                              disabled={
+                                adminActionLoading
+                              }
+                              onClick={() =>
+                                handleEditorRequest(
+                                  request._id,
+                                  "reject"
+                                )
+                              }
+                            >
+                              Reject
+                            </button>
+
+                          </div>
+
+                        </div>
+                      )
+                    )}
+
+                  </div>
+                )}
+
+              </section>
+
+              <section className="card">
+
+                <div className="section-heading">
+
+                  <div>
+                    <p className="eyebrow">
+                      TEAM ACCESS
+                    </p>
+
+                    <h3>
+                      Active Editors
+                    </h3>
+                  </div>
+
+                  <span className="muted">
+                    {
+                      activeEditors.length
+                    }
+                  </span>
+
+                </div>
+
+                {editorsLoading ? (
+                  <div className="loading-panel">
+                    Loading editors...
+                  </div>
+                ) : activeEditors.length ===
+                  0 ? (
+                  <div className="empty-state">
+
+                    <span>
+                      ✏️
+                    </span>
+
+                    <h3>
+                      No active editors
+                    </h3>
+
+                  </div>
+                ) : (
+                  <div className="admin-request-list">
+
+                    {activeEditors.map(
+                      (
+                        editor
+                      ) => (
+                        <div
+                          className="admin-request"
+                          key={
+                            editor._id
+                          }
+                        >
+
+                          <div className="admin-request-user">
+
+                            {editor.photoURL ? (
+                              <img
+                                src={
+                                  editor.photoURL
+                                }
+                                alt=""
+                              />
+                            ) : (
+                              <div>
+                                {
+                                  editor.name
+                                    ?.charAt(
+                                      0
+                                    )
+                                    .toUpperCase()
+                                }
+                              </div>
+                            )}
+
+                            <div>
+
+                              <strong>
+                                {
+                                  editor.name
+                                }
+                              </strong>
+
+                              <span>
+                                {
+                                  editor.email
+                                }
+                              </span>
+
+                              <small>
+                                Editor
+                              </small>
+
+                            </div>
+
+                          </div>
+
+                          <button
+                            type="button"
+                            className="danger-button"
+                            disabled={
+                              adminActionLoading
+                            }
+                            onClick={() =>
+                              revokeEditor(
+                                editor._id
+                              )
+                            }
+                          >
+                            Remove Editor
+                          </button>
+
+                        </div>
+                      )
+                    )}
+
+                  </div>
+                )}
+
+              </section>
+
+              <section className="formula-card">
+
+                <p className="eyebrow">
+                  PERMISSIONS
+                </p>
+
+                <h3>
+                  GG Matchday access
+                </h3>
+
+                <div className="permission-model">
+
+                  <div>
+                    <strong>
+                      Viewer
+                    </strong>
+
+                    <span>
+                      View the public archive and
+                      upload Gallery photos.
+                    </span>
+                  </div>
+
+                  <div>
+                    <strong>
+                      Editor
+                    </strong>
+
+                    <span>
+                      Manage matches, players and
+                      football data.
+                    </span>
+                  </div>
+
+                  <div>
+                    <strong>
+                      Admin
+                    </strong>
+
+                    <span>
+                      Full access plus user management.
+                    </span>
+                  </div>
+
+                </div>
+
+                <p>
+                  Removing editor access changes the
+                  user's role back to viewer without
+                  deleting their account or history.
+                </p>
+
+              </section>
+
+            </>
+          )}
+
         </section>
       )}
 
-      {/* MODALS */}
-
-      {modal === 'chat' && <Chat onClose={closeModal} />}
-      {modal === 'hall' && <HallOfFame onClose={closeModal} onPlayer={showPlayer} />}
-      {modal === 'match' && <MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} />}
-      {modal === 'player' && selectedPlayer && <ProfileInsights player={selectedPlayer} onClose={closePlayerProfile} />}
+      {/* =====================================================
+          NAVIGATION
+      ===================================================== */}
 
       <nav className="bottom-nav">
-        <button className={activeTab===TABS.HOME?'active':''} onClick={()=>setActiveTab(TABS.HOME)}>⌂<span>Home</span></button>
-        <button className={activeTab===TABS.RECORD?'active':''} onClick={()=>setActiveTab(TABS.RECORD)}>＋<span>Record</span></button>
-        <button className={activeTab===TABS.LEADERBOARD?'active':''} onClick={()=>setActiveTab(TABS.LEADERBOARD)}>🏆<span>Leaderboard</span></button>
-        <button className={activeTab===TABS.CALENDAR?'active':''} onClick={()=>setActiveTab(TABS.CALENDAR)}>▦<span>Calendar</span></button>
-        <button className={activeTab===TABS.PLAYERS?'active':''} onClick={()=>setActiveTab(TABS.PLAYERS)}>♟<span>Players</span></button>
+
+        <NavButton
+          active={
+            activeTab ===
+            TABS.HOME
+          }
+          icon="⌂"
+          label="Home"
+          onClick={() =>
+            setActiveTab(
+              TABS.HOME
+            )
+          }
+        />
+
+        <NavButton active={activeTab===TABS.RECORD} icon="＋" label="Record" onClick={()=>setActiveTab(TABS.RECORD)}/>
+
+        <NavButton
+          active={
+            activeTab ===
+            TABS.LEADERBOARD
+          }
+          icon="🏆"
+          label="Leaderboard"
+          onClick={() =>
+            setActiveTab(
+              TABS.LEADERBOARD
+            )
+          }
+        />
+
+        <NavButton
+          active={
+            activeTab ===
+            TABS.CALENDAR
+          }
+          icon="📅"
+          label="Calendar"
+          onClick={() =>
+            setActiveTab(
+              TABS.CALENDAR
+            )
+          }
+        />
+
+        <NavButton
+          active={
+            activeTab ===
+            TABS.PLAYERS
+          }
+          icon="👥"
+          label="Players"
+          onClick={() =>
+            setActiveTab(
+              TABS.PLAYERS
+            )
+          }
+        />
+
       </nav>
+
+      <Suspense fallback={<div className="loading-panel">Opening…</div>}>
+      {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer}/>}
+      {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer}/>}
+      {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
+      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
+      </Suspense>
     </main>
   );
 }
 
-function HomeStat({label,value}){
-  return <div className="home-stat-card"><span>{label}</span><strong>{value}</strong></div>;
+// =========================================================
+// COMPONENTS
+// =========================================================
+
+function SectionHeading({
+  eyebrow,
+  title,
+  action,
+  onAction,
+}) {
+  return (
+    <div className="section-heading">
+
+      <div>
+        <p className="eyebrow">
+          {eyebrow}
+        </p>
+
+        <h2>
+          {title}
+        </h2>
+      </div>
+
+      {action && (
+        <button
+          type="button"
+          className="text-button"
+          onClick={
+            onAction
+          }
+        >
+          {action} →
+        </button>
+      )}
+
+    </div>
+  );
 }
 
-function SectionHeading({eyebrow,title,action,onAction}){
-  return <div className="section-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div>{action&&<button type="button" className="text-button" onClick={onAction}>{action} →</button>}</div>;
+function HomeStat({
+  label,
+  value,
+}) {
+  return (
+    <div className="home-stat-card">
+
+      <span>
+        {label}
+      </span>
+
+      <strong>
+        {value}
+      </strong>
+
+    </div>
+  );
 }
+
+function MatchHistoryCard({match,canEdit,onEdit,onDelete,onOpen}) {
+ const scorers=team=>{const ids=new Set((match.participants||[]).filter(p=>p.team===team).map(p=>String(p.player?._id||p.player)));const counts=new Map();for(const e of match.events||[])if(e.type==='goal'&&ids.has(String(e.player?._id||e.player))){const name=e.player?.name||'Player';counts.set(name,(counts.get(name)||0)+1);}return [...counts].map(([name,n])=>`${name}(${n})`).join(', ')||'—';};
+ return <article className="match-card"><button className="gg-match-open" onClick={onOpen}><div className="match-main"><div><p className="match-date">{formatDate(match.date)}</p><h3>{match.name}</h3></div><div className="match-score"><strong>{match.teamA.score}–{match.teamB.score}</strong><span>{match.teamA.score===match.teamB.score?'DRAW':'FINAL'}</span></div></div><div className="v14-history-summary"><div className="v14-history-team"><strong>{match.teamA.label}</strong><div className="v14-history-scorers">{scorers('A')}</div></div><div className="v14-history-team v14-history-team-b"><strong>{match.teamB.label}</strong><div className="v14-history-scorers">{scorers('B')}</div></div></div><small className="muted">View match details →</small></button>{canEdit&&<div className="match-actions"><button className="secondary-button" onClick={onEdit}>Edit</button><button className="danger-button" onClick={onDelete}>Delete</button></div>}</article>;
+}
+
+function InfoItem({
+  label,
+  value,
+}) {
+  return (
+    <div className="profile-info-item">
+
+      <span>
+        {label}
+      </span>
+
+      <strong>
+        {value}
+      </strong>
+
+    </div>
+  );
+}
+
+function AccessDenied({
+  title,
+  description,
+  signIn,
+  request,
+  pending,
+}) {
+  return (
+    <section className="access-denied">
+
+      <div className="access-icon">
+        🔒
+      </div>
+
+      <p className="eyebrow">
+        RESTRICTED
+      </p>
+
+      <h2>
+        {title}
+      </h2>
+
+      <p>
+        {description}
+      </p>
+
+      {signIn && (
+        <button
+          type="button"
+          className="google-button"
+          onClick={
+            signIn
+          }
+        >
+          Continue with Google
+        </button>
+      )}
+
+      {request &&
+        !pending && (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={
+              request
+            }
+          >
+            Request Editor Access
+          </button>
+        )}
+
+      {pending && (
+        <span className="request-pending">
+          Your editor request is pending approval.
+        </span>
+      )}
+
+    </section>
+  );
+}
+
+function NavButton({
+  active,
+  icon,
+  label,
+  onClick,
+}) {
+  return (
+    <button
+      type="button"
+      className={
+        active
+          ? "active"
+          : ""
+      }
+      onClick={
+        onClick
+      }
+    >
+
+      <span>
+        {icon}
+      </span>
+
+      <small>
+        {label}
+      </small>
+
+    </button>
+  );
+}
+
+export default App;
