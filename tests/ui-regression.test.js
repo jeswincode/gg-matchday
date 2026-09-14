@@ -28,5 +28,5 @@ test('Latest News uses an internal scroll viewport rather than growing the page'
   assert.match(css,/\.news-card\{min-height:145px\}/);
   assert.match(css,/@media\(max-width:600px\)\{\.news-list\{max-height:440px/);
   assert.match(app,/<div className="news-list">/);
-  assert.match(app,/news\.slice\(0,6\)\.map/);
+  assert.match(app,/news\s*\.slice\(\s*0\s*,\s*6\s*\)\s*\.map/);
 });
