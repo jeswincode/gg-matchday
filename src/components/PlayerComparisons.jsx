@@ -1,1 +1,195 @@
-export default function PlayerComparisons(){return <section className="home-section"><div className="section-heading"><div><p className="eyebrow">PLAYER INSIGHTS</p><h2>Player Comparisons</h2></div></div><div className="card"><p className="muted">Player comparison tools will appear here.</p></div></section>}
+import {useMemo,useState} from 'react';
+import {api} from '../lib/api';
+import useResource from './useResource';
+import './player-comparisons.css';
+
+const RATE_MAX=10;
+
+const ratingValue=value=>value===null||value===undefined?'—':Number(value).toFixed(2);
+const percentValue=value=>`${Math.round((Number(value)||0)*100)}%`;
+
+function Avatar({player}){
+  return player?.profileImage
+    ? <img className="compare-avatar" src={player.profileImage} alt="" />
+    : <span className="compare-avatar compare-avatar-fallback" aria-hidden="true">{player?.name?.trim()?.[0]?.toUpperCase()||'?'}</span>;
+}
+
+function Styles({styles}){
+  if(!styles?.length)return <span className="compare-muted">Developing</span>;
+  return <span className="compare-styles">{styles.map(style=><span className="compare-style-badge" key={style.key} title={style.description}>{style.icon} {style.label}</span>)}</span>;
+}
+
+function TrendChart({players}){
+  const series=useMemo(()=>players.map(player=>{
+    const ratings=(player.matches||[])
+      .slice()
+      .sort((a,b)=>new Date(a.date)-new Date(b.date))
+      .map(match=>{
+        const participant=(match.participants||[]).find(item=>String(item.player?._id??item.player)===String(player.playerId));
+        const value=participant?.rating;
+        return value===null||value===undefined?null:Number(value);
+      })
+      .filter(value=>Number.isFinite(value));
+    return {...player,ratings};
+  }),[players]);
+  const maxLength=Math.max(0,...series.map(item=>item.ratings.length));
+  const width=860,height=310,pad={top:30,right:24,bottom:42,left:44};
+  const plotWidth=width-pad.left-pad.right,plotHeight=height-pad.top-pad.bottom;
+  const x=i=>maxLength<=1?pad.left+plotWidth/2:pad.left+(i/(maxLength-1))*plotWidth;
+  const y=value=>pad.top+plotHeight-(Math.max(0,Math.min(RATE_MAX,value))/RATE_MAX)*plotHeight;
+  const palette=['#e7bc67','#71b7ff','#c48cff'];
+
+  return <div className="compare-chart-wrap">
+    <div className="compare-chart-legend">{series.map((player,index)=><span key={player.playerId}><i style={{background:palette[index]}} />{player.name}</span>)}</div>
+    {maxLength<2
+      ? <div className="compare-chart-empty">Not enough recorded match ratings to show a trend yet.</div>
+      : <svg className="compare-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Player performance rating trend">
+          {[0,2,4,6,8,10].map(tick=><g key={tick}><line className="compare-grid" x1={pad.left} x2={width-pad.right} y1={y(tick)} y2={y(tick)} /><text className="compare-axis-label" x={pad.left-10} y={y(tick)+4} textAnchor="end">{tick}</text></g>)}
+          {series.map((player,index)=>{
+            const points=player.ratings.map((value,i)=>`${x(i)},${y(value)}`).join(' ');
+            return <g key={player.playerId}>
+              <polyline fill="none" stroke={palette[index]} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={points} />
+              {player.ratings.map((value,i)=><circle key={`${player.playerId}-${i}`} cx={x(i)} cy={y(value)} r="4.5" fill={palette[index]} stroke="var(--panel)" strokeWidth="2"><title>{player.name} · Match {i+1}: {value.toFixed(2)}</title></circle>)}
+            </g>;
+          })}
+          <text className="compare-axis-label" x={width/2} y={height-9} textAnchor="middle">Recorded matches →</text>
+        </svg>}
+  </div>;
+}
+
+export default function PlayerComparisons(){
+  const {data:playerData,error:playersError,loading:playersLoading}=useResource('/players');
+  const players=Array.isArray(playerData)?playerData:[];
+  const [selectedIds,setSelectedIds]=useState([]);
+  const [compareData,setCompareData]=useState([]);
+  const [loadingCompare,setLoadingCompare]=useState(false);
+  const [compareError,setCompareError]=useState('');
+
+  const selectedPlayers=useMemo(()=>selectedIds.map(id=>players.find(player=>String(player._id)===String(id))).filter(Boolean),[players,selectedIds]);
+  const canCompare=selectedIds.length>=2&&selectedIds.length<=3;
+
+  async function runCompare(){
+    if(!canCompare)return;
+    setLoadingCompare(true);
+    setCompareError('');
+    try{
+      const results=await Promise.all(selectedIds.map(playerId=>api(`/stats/player/${playerId}`)));
+      setCompareData(results.map(result=>({
+        playerId:String(result.player?._id||result.stats?.playerId),
+        name:result.player?.name||result.stats?.name||'Player',
+        position:result.player?.position||result.stats?.position||'',
+        profileImage:result.player?.profileImage||'',
+        goals:Number(result.stats?.goals||0),
+        assists:Number(result.stats?.assists||0),
+        wins:Number(result.stats?.wins||0),
+        draws:Number(result.stats?.draws||0),
+        losses:Number(result.stats?.losses||0),
+        matches:Number(result.stats?.matches||0),
+        winRate:Number(result.stats?.winRate||0),
+        lossRate:Number(result.stats?.lossRate||0),
+        offensiveRating:result.stats?.offensiveRating,
+        defensiveRating:result.stats?.defensiveRating,
+        ggRating:result.stats?.ggRating,
+        performanceRating:result.stats?.averageRating,
+        styles:result.styles?.styles||[],
+        matchHistory:result.matches||[]
+      })));
+    }catch(error){
+      setCompareData([]);
+      setCompareError(error.message||'Could not load player comparisons.');
+    }finally{
+      setLoadingCompare(false);
+    }
+  }
+
+  function updateSlot(slot,value){
+    setCompareError('');
+    setSelectedIds(current=>{
+      const next=[...current];
+      if(!value){next.splice(slot,1);return next;}
+      if(next.includes(value)&&next[slot]!==value)return current;
+      next[slot]=value;
+      return next.filter(Boolean).filter((id,index,all)=>all.indexOf(id)===index).slice(0,3);
+    });
+  }
+
+  return <section className="home-section player-comparisons">
+    <div className="section-heading">
+      <div>
+        <p className="eyebrow">PLAYER INSIGHTS</p>
+        <h2>Player Comparisons</h2>
+        <p className="muted">Choose two or three players to compare their output, rates, styles and performance trend.</p>
+      </div>
+    </div>
+
+    <div className="card compare-selector-card">
+      <div className="compare-selector-grid">
+        {[0,1,2].map(slot=><label className="compare-select" key={slot}>
+          <span>Player {slot+1}{slot===2&&' · optional'}</span>
+          <select value={selectedIds[slot]||''} onChange={event=>updateSlot(slot,event.target.value)} disabled={playersLoading||Boolean(playersError)}>
+            <option value="">Select player</option>
+            {players.map(player=><option key={player._id} value={player._id} disabled={selectedIds.includes(String(player._id))&&String(player._id)!==selectedIds[slot]}>{player.name}</option>)}
+          </select>
+        </label>)}
+      </div>
+      <div className="compare-selector-footer">
+        <span className="compare-selection-count">{selectedPlayers.length}/3 selected</span>
+        <button className="primary-button" type="button" onClick={runCompare} disabled={!canCompare||loadingCompare}>{loadingCompare?'Comparing…':`Compare ${selectedPlayers.length} players`}</button>
+      </div>
+      {playersError&&<p className="compare-error">{playersError}</p>}
+      {compareError&&<p className="compare-error">{compareError}</p>}
+    </div>
+
+    {compareData.length>=2&&<div className="compare-floating" role="dialog" aria-modal="false" aria-label="Player comparison">
+      <div className="compare-floating-backdrop" />
+      <div className="compare-panel">
+        <div className="compare-panel-header">
+          <div><p className="eyebrow">HEAD-TO-HEAD</p><h3>Player Comparison</h3><p className="muted">All-time recorded performance</p></div>
+          <button className="compare-close" type="button" onClick={()=>setCompareData([])} aria-label="Close comparison">×</button>
+        </div>
+
+        <div className="compare-player-strip compare-grid" style={{'--players':compareData.length}}>
+          {compareData.map(player=><div className="compare-player-card" key={player.playerId}><Avatar player={player}/><div><strong>{player.name}</strong><small>{player.position||'Player'}</small></div></div>)}
+        </div>
+
+        <section className="compare-block">
+          <div className="compare-block-title">Goals · assists · player style</div>
+          <div className="compare-columns compare-grid" style={{'--players':compareData.length}}>
+            {compareData.map(player=><div className="compare-column" key={player.playerId}>
+              <div className="compare-stat-pair"><span><b>{player.goals}</b><small>Goals</small></span><span><b>{player.assists}</b><small>Assists</small></span></div>
+              <Styles styles={player.styles}/>
+            </div>)}
+          </div>
+        </section>
+
+        <section className="compare-block">
+          <div className="compare-block-title">Match results</div>
+          <div className="compare-columns compare-grid" style={{'--players':compareData.length}}>
+            {compareData.map(player=><div className="compare-column compare-result-column" key={player.playerId}>
+              <strong>{percentValue(player.winRate)}</strong><small>Win rate</small>
+              <span className="compare-subline">{percentValue(player.lossRate)} loss · {player.wins}W / {player.draws}D / {player.losses}L</span>
+            </div>)}
+          </div>
+        </section>
+
+        <section className="compare-block">
+          <div className="compare-block-title">Ratings</div>
+          <div className="compare-rating-grid compare-grid" style={{'--players':compareData.length}}>
+            {compareData.map(player=><div className="compare-rating-column" key={player.playerId}>
+              <div><b>{ratingValue(player.offensiveRating)}</b><small>Attacking</small></div>
+              <div><b>{ratingValue(player.defensiveRating)}</b><small>Defending</small></div>
+              <div className="compare-rating-primary"><b>{ratingValue(player.ggRating)}</b><small>GG Rating</small></div>
+              <div><b>{ratingValue(player.performanceRating)}</b><small>Performance</small></div>
+            </div>)}
+          </div>
+        </section>
+
+        <section className="compare-block compare-trend-block">
+          <div className="compare-block-title">Performance trend</div>
+          <p className="muted compare-trend-copy">Recorded match ratings from oldest to newest. Hover a dot for the exact rating.</p>
+          <TrendChart players={compareData.map(player=>({playerId:player.playerId,name:player.name,matches:player.matchHistory}))}/>
+        </section>
+      </div>
+    </div>}
+  </section>;
+}
