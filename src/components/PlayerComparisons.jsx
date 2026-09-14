@@ -59,7 +59,7 @@ function TrendChart({players}){
 
 export default function PlayerComparisons(){
   const {data:playerData,error:playersError,loading:playersLoading}=useResource('/players');
-  const players=Array.isArray(playerData)?playerData:[];
+  const players=useMemo(()=>Array.isArray(playerData)?playerData:[],[playerData]);
   const [selectedIds,setSelectedIds]=useState([]);
   const [compareData,setCompareData]=useState([]);
   const [loadingCompare,setLoadingCompare]=useState(false);
