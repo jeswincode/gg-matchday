@@ -1,0 +1,24 @@
+import test,{before,after,mock} from 'node:test';
+import assert from 'node:assert/strict';
+import mongoose from 'mongoose';
+import {MongoMemoryReplSet} from 'mongodb-memory-server';
+
+process.env.ADMIN_EMAIL='admin@example.invalid';
+process.env.CHAT_ENABLED='true';
+mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other'].includes(token))throw new Error('Invalid test token');return {uid:`notification-${token}`,email:`${token}@example.invalid`,name:`Test ${token}`};}})});
+const {default:app}=await import('../server/app.js');
+const {default:User}=await import('../server/models/User.js');
+const {default:Notification}=await import('../server/models/Notification.js');
+let database,server,origin,viewer;
+async function request(path,{token,method='GET',body}={}){const response=await fetch(origin+'/api'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,data:await response.json()};}
+
+before(async()=>{database=await MongoMemoryReplSet.create({binary:{version:'8.2.6'},replSet:{count:1}});await mongoose.connect(database.getUri());await Promise.all([User,Notification].map(m=>m.init()));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.on('listening',r));origin=`http://127.0.0.1:${server.address().port}`;for(const token of ['admin','viewer','other'])await request('/auth/me',{token});viewer=await User.findOne({firebaseUid:'notification-viewer'});});
+after(async()=>{server?.closeAllConnections();if(server)await new Promise(r=>server.close(r));await mongoose.disconnect();await database?.stop();});
+
+test('notifications are admin-created, visible to viewers and unread per user',async()=>{const created=await request('/notifications',{token:'admin',method:'POST',body:{title:'GG MATCHDAY vNext',message:'Notifications are now live.'}});assert.equal(created.status,201,JSON.stringify(created.data));const stored=await Notification.findById(created.data.notification.id).lean();assert.ok(stored);assert.equal(stored.readBy.length,1);const viewerList=await request('/notifications',{token:'viewer'});assert.equal(viewerList.status,200);assert.equal(viewerList.data.notifications.length,1);assert.equal(viewerList.data.notifications[0].read,false);assert.equal(viewerList.data.unread,true);const adminList=await request('/notifications',{token:'admin'});assert.equal(adminList.data.notifications[0].read,true);assert.equal(adminList.data.unread,false);});
+
+test('opening notifications marks all current notifications read for that user only',async()=>{const before=await request('/notifications',{token:'viewer'});assert.equal(before.data.unread,true);assert.equal((await request('/notifications/read-all',{token:'viewer',method:'POST'})).status,200);const viewerList=await request('/notifications',{token:'viewer'});assert.equal(viewerList.data.unread,false);assert.equal(viewerList.data.notifications.every(item=>item.read),true);const otherList=await request('/notifications',{token:'other'});assert.equal(otherList.data.unread,true);});
+
+test('notification management is admin-only and supports manual deletion',async()=>{const notification=(await request('/notifications',{token:'admin',method:'POST',body:{title:'Delete me',message:'Temporary'}})).data.notification;assert.equal((await request(`/notifications/${notification.id}`,{token:'viewer',method:'DELETE'})).status,403);assert.equal((await request(`/notifications/${notification.id}`,{token:'admin',method:'DELETE'})).status,200);assert.equal(await Notification.exists({_id:notification.id}),false);});
+
+test('notifications have a five-day TTL and expired records are removed from API results',async()=>{const now=new Date();const expired=await Notification.create({title:'Expired',message:'Old',authorName:'Test admin',createdAt:new Date(now.getTime()-6*24*60*60*1000),expiresAt:new Date(now.getTime()-1000),readBy:[]});assert.ok(expired);const result=await request('/notifications',{token:'viewer'});assert.equal(result.data.notifications.some(item=>item.id===String(expired._id)),false);assert.equal(await Notification.exists({_id:expired._id}),false);const index=(await Notification.collection.indexes()).find(item=>item.key?.expiresAt===1);assert.equal(index?.expireAfterSeconds,0);});
