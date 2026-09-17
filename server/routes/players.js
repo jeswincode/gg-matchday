@@ -65,8 +65,18 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
     player.profileImage = typeof profileImage === "string" ? profileImage.trim() : "";
     player.height = height === "" || height === null || height === undefined ? null : Number(height);
     player.weight = weight === "" || weight === null || weight === undefined ? null : Number(weight);
-    player.position = typeof position === "string" ? position.trim() : "";
-    if (player.position && !approvedPositions.includes(player.position)) return res.status(400).json({ message: "Choose a valid primary position." });
+
+    // Primary position is a human-readable profile field (for example,
+    // "Left Attacking Midfielder") and is intentionally separate from the
+    // short approved position codes used by Squad Builder eligibility.
+    if (position === "" || position === null || position === undefined) {
+      player.position = "";
+    } else {
+      const cleanPosition = String(position).trim();
+      if (cleanPosition.length > 100) return res.status(400).json({ message: "Position is too long." });
+      player.position = cleanPosition;
+    }
+
     if (preferredPositions !== undefined) {
       if (!Array.isArray(preferredPositions)) return res.status(400).json({ message: "Preferred positions must be an array." });
       const uniquePositions = [...new Set(preferredPositions)];
