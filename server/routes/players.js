@@ -4,8 +4,7 @@ import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
-import { requireAuth, requireEditor } from "../middleware/auth.js";
-import { positions as approvedPositions } from "../services/validation.js";
+import { positions as approvedPositions, primaryPositionCode } from "../services/validation.js";
 
 const router = express.Router();
 const invalidId = id => !mongoose.isValidObjectId(id);
@@ -65,8 +64,9 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
     player.profileImage = typeof profileImage === "string" ? profileImage.trim() : "";
     player.height = height === "" || height === null || height === undefined ? null : Number(height);
     player.weight = weight === "" || weight === null || weight === undefined ? null : Number(weight);
-    player.position = typeof position === "string" ? position.trim() : "";
-    if (player.position && !approvedPositions.includes(player.position)) return res.status(400).json({ message: "Choose a valid primary position." });
+    const cleanPosition = typeof position === "string" ? position.trim() : "";
+    if (cleanPosition && !primaryPositionCode(cleanPosition)) return res.status(400).json({ message: "Choose a valid primary position." });
+    player.position = cleanPosition;
     if (preferredPositions !== undefined) {
       if (!Array.isArray(preferredPositions)) return res.status(400).json({ message: "Preferred positions must be an array." });
       const uniquePositions = [...new Set(preferredPositions)];
