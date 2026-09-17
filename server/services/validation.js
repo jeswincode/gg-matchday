@@ -1,5 +1,38 @@
 import {hasRating,id} from './statistics.js';
 export const positions=['GK','CB','LB','RB','LWB','RWB','CDM','CM','CAM','LM','RM','LW','RW','ST','CF'];
+
+// Primary profile positions may be stored as either the Squad Builder code
+// (for example, "CM") or a human-readable label (for example,
+// "Central Midfielder"). Both forms resolve to the same position code.
+export const primaryPositionAliases={
+ GK:['gk','goalkeeper'],
+ CB:['cb','centre back','center back','central defender'],
+ LB:['lb','left back'],
+ RB:['rb','right back'],
+ LWB:['lwb','left wing back'],
+ RWB:['rwb','right wing back'],
+ CDM:['cdm','defensive midfielder','central defensive midfielder'],
+ CM:['cm','central midfielder'],
+ CAM:['cam','attacking midfielder','central attacking midfielder'],
+ LM:['lm','left midfielder','left attacking midfielder'],
+ RM:['rm','right midfielder','right attacking midfielder'],
+ LW:['lw','left wing','left winger'],
+ RW:['rw','right wing','right winger'],
+ ST:['st','striker','centre forward striker','center forward striker'],
+ CF:['cf','centre forward','center forward']
+};
+
+const primaryPositionLookup=Object.entries(primaryPositionAliases).reduce((lookup,[code,aliases])=>{
+  for(const alias of aliases) lookup[alias]=code;
+  return lookup;
+},{});
+
+export function primaryPositionCode(value){
+ if(typeof value!=='string') return '';
+ const normalized=value.trim().toLowerCase().replace(/\s+/g,' ');
+ return primaryPositionLookup[normalized]||'';
+}
+
 export function prepareMatch(body,previous=null){
  if(!body||!Array.isArray(body.participants)||!Array.isArray(body.events)||body.participants.length>100||body.events.length>1000)throw new Error('Invalid match performance data.');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(body.date||'')||Number.isNaN(new Date(body.date).getTime())||new Date(body.date).toISOString().slice(0,10)!==body.date)throw new Error('Choose a valid match date.');
