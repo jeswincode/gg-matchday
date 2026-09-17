@@ -1,0 +1,99 @@
+/* GG Matchday — cinematic video background */
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background: #050914;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+.gg-video-background {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  background: #050914;
+}
+
+.gg-video-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(3, 7, 16, 0.78) 0%, rgba(4, 8, 17, 0.72) 42%, rgba(3, 6, 13, 0.88) 100%),
+    radial-gradient(900px 520px at 50% 8%, rgba(42, 116, 190, 0.17), transparent 72%),
+    radial-gradient(720px 420px at 82% 70%, rgba(190, 148, 55, 0.07), transparent 72%);
+}
+
+/* Remove the previous star-field layers while retaining the stylesheet for backwards compatibility. */
+body::before,
+body::after {
+  display: none !important;
+}
+
+/* Video-aware glass surfaces. Keep data-heavy UI readable over motion. */
+.card,
+.home-stat-card,
+.news-card,
+.home-player-feature,
+.account-bar,
+.global-message,
+.home-feature-card {
+  background: rgba(7, 11, 20, 0.78);
+  border-color: rgba(118, 145, 181, 0.22);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.home-feature-card {
+  background:
+    linear-gradient(135deg, rgba(13, 24, 42, 0.86), rgba(5, 9, 17, 0.82));
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.32), 0 0 80px rgba(32, 104, 175, 0.08);
+}
+
+.home-stat-card:hover,
+.news-card:hover,
+.home-player-feature:hover,
+.home-feature-card:hover {
+  border-color: rgba(220, 176, 76, 0.38);
+}
+
+.secondary-button,
+.ghost-button {
+  background: rgba(10, 16, 28, 0.76);
+  border-color: rgba(118, 145, 181, 0.24);
+}
+
+.gg-video-fallback {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .gg-video-overlay {
+    background:
+      linear-gradient(180deg, rgba(3, 7, 16, 0.84) 0%, rgba(4, 8, 17, 0.80) 45%, rgba(3, 6, 13, 0.91) 100%),
+      radial-gradient(650px 420px at 50% 8%, rgba(42, 116, 190, 0.12), transparent 72%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gg-video-background {
+    display: none;
+  }
+}
