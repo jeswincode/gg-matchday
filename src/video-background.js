@@ -8,7 +8,6 @@ video.playsInline = true;
 video.preload = 'metadata';
 video.setAttribute('aria-hidden', 'true');
 video.setAttribute('tabindex', '-1');
-video.poster = '/ggmatchdaybg-poster.jpg';
 video.src = '/ggmatchdaybg.mp4';
 
 document.body.prepend(video);
