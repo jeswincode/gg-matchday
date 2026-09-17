@@ -1,33 +1,31 @@
-const video = document.getElementById('gg-background-video');
+const video = document.createElement('video');
+video.id = 'gg-background-video';
+video.className = 'gg-video-background';
+video.autoplay = true;
+video.muted = true;
+video.loop = true;
+video.playsInline = true;
+video.preload = 'metadata';
+video.setAttribute('aria-hidden', 'true');
+video.setAttribute('tabindex', '-1');
+video.poster = '/ggmatchdaybg-poster.jpg';
+video.src = '/ggmatchdaybg.mp4';
 
-if (video) {
-  fetch('/ggmatchdaybg-web.mp4.b64', { cache: 'force-cache' })
-    .then((response) => {
-      if (!response.ok) throw new Error(`Background video asset failed (${response.status})`);
-      return response.text();
-    })
-    .then((base64) => {
-      const clean = base64.replace(/\s+/g, '');
-      const binary = atob(clean);
-      const bytes = new Uint8Array(binary.length);
+document.body.prepend(video);
 
-      for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index);
-      }
+const overlay = document.createElement('div');
+overlay.className = 'gg-video-overlay';
+overlay.setAttribute('aria-hidden', 'true');
+document.body.prepend(overlay);
 
-      const objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
-      video.src = objectUrl;
-      video.load();
+const play = () => video.play().catch(() => {});
+video.addEventListener('loadeddata', play, { once: true });
+play();
 
-      const playPromise = video.play();
-      if (playPromise && typeof playPromise.catch === 'function') {
-        playPromise.catch(() => {});
-      }
+video.addEventListener('error', () => {
+  video.classList.add('gg-video-fallback');
+}, { once: true });
 
-      window.addEventListener('beforeunload', () => URL.revokeObjectURL(objectUrl), { once: true });
-    })
-    .catch((error) => {
-      console.warn('GG Matchday background video unavailable:', error.message);
-      video.classList.add('gg-video-fallback');
-    });
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  video.classList.add('gg-video-reduced-motion');
 }
