@@ -28,6 +28,7 @@ body {
   object-position: center;
   pointer-events: none;
   background: #050914;
+  transition: filter 450ms ease, opacity 450ms ease;
 }
 
 .gg-video-overlay {
@@ -39,6 +40,30 @@ body {
     linear-gradient(180deg, rgba(3, 7, 16, 0.78) 0%, rgba(4, 8, 17, 0.72) 42%, rgba(3, 6, 13, 0.88) 100%),
     radial-gradient(900px 520px at 50% 8%, rgba(42, 116, 190, 0.17), transparent 72%),
     radial-gradient(720px 420px at 82% 70%, rgba(190, 148, 55, 0.07), transparent 72%);
+  transition: background 450ms ease;
+}
+
+/* Golden theme: shift the supplied blue stadium footage into a warm amber palette. */
+html[data-theme="golden"] .gg-video-background {
+  filter: hue-rotate(165deg) saturate(1.18) sepia(0.08) brightness(0.82);
+}
+
+html[data-theme="golden"] .gg-video-overlay {
+  background:
+    linear-gradient(180deg, rgba(20, 13, 5, 0.72) 0%, rgba(17, 11, 4, 0.68) 42%, rgba(9, 7, 3, 0.86) 100%),
+    radial-gradient(900px 520px at 50% 8%, rgba(233, 174, 58, 0.22), transparent 72%),
+    radial-gradient(760px 440px at 82% 68%, rgba(255, 198, 74, 0.12), transparent 72%);
+}
+
+/* Keep the cinematic gold cast readable with the existing Golden theme surfaces. */
+html[data-theme="golden"] .card,
+html[data-theme="golden"] .home-stat-card,
+html[data-theme="golden"] .news-card,
+html[data-theme="golden"] .home-player-feature,
+html[data-theme="golden"] .account-bar,
+html[data-theme="golden"] .global-message,
+html[data-theme="golden"] .home-feature-card {
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.28), 0 0 55px rgba(214, 158, 42, 0.06);
 }
 
 /* Remove the previous star-field layers while retaining the stylesheet for backwards compatibility. */
@@ -89,6 +114,12 @@ body::after {
     background:
       linear-gradient(180deg, rgba(3, 7, 16, 0.84) 0%, rgba(4, 8, 17, 0.80) 45%, rgba(3, 6, 13, 0.91) 100%),
       radial-gradient(650px 420px at 50% 8%, rgba(42, 116, 190, 0.12), transparent 72%);
+  }
+
+  html[data-theme="golden"] .gg-video-overlay {
+    background:
+      linear-gradient(180deg, rgba(20, 13, 5, 0.80) 0%, rgba(17, 11, 4, 0.77) 45%, rgba(9, 7, 3, 0.90) 100%),
+      radial-gradient(650px 420px at 50% 8%, rgba(233, 174, 58, 0.16), transparent 72%);
   }
 }
 
