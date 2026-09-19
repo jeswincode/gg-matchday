@@ -1,6 +1,6 @@
 .gg-performance-head,
 .gg-performance-row {
-  grid-template-columns: minmax(120px, 1.6fr) 90px 100px 100px 100px 85px;
+  grid-template-columns: minmax(120px, 1.6fr) 80px 90px 90px 90px 85px 90px;
 }
 
 @media (max-width: 760px) {
@@ -9,7 +9,8 @@
     grid-template-areas:
       "player side"
       "goals assists"
-      "own-goal rating";
+      "own-goal rating"
+      "defensive defensive";
     gap: 10px;
     padding: 12px;
   }
@@ -37,6 +38,11 @@
 
   .gg-performance-row > .gg-rating-input {
     grid-area: rating;
+    justify-self: stretch;
+  }
+
+  .gg-performance-row > .gg-defense-input {
+    grid-area: defensive;
     justify-self: stretch;
   }
 
