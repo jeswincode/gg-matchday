@@ -13,8 +13,8 @@ export const STYLE_DEFINITIONS = {
   finisher: { label: 'FINISHER', icon: '🚀', description: 'Strong scoring rate with a large share of goal contributions coming from goals.' },
   creator: { label: 'CREATOR', icon: '🎯', description: 'Strong assist rate and creative contribution relative to the eligible GG player pool.' },
   playmaker: { label: 'PLAYMAKER', icon: '🧠', description: 'High involvement through assists and goal contributions with solid match performance.' },
-  defender: { label: 'DEFENDER', icon: '🧱', description: 'Strong defensive output, clean-sheet contribution and team results.' },
-  wall: { label: 'WALL', icon: '🧤', description: 'Goalkeeper with exceptional defensive and clean-sheet contribution.' },
+  defender: { label: 'DEFENDER', icon: '🧱', description: 'Strong individual defensive performance and clean-sheet contribution.' },
+  wall: { label: 'WALL', icon: '🧤', description: 'Goalkeeper with exceptional individual defensive and clean-sheet contribution.' },
   highImpact: { label: 'HIGH IMPACT', icon: '⚡', description: 'Combines strong personal performance, goal involvement and positive results.' },
   winner: { label: 'WINNER', icon: '🏆', description: 'Consistently turns appearances into victories and strong result scores.' },
   consistent: { label: 'CONSISTENT', icon: '🧊', description: 'Low variation in recorded match ratings across a meaningful sample.' },
@@ -36,8 +36,8 @@ export function getPlayerStyleScores(stats, cohort = [stats]) {
     finisher: 0.60 * goalRatePct + 0.40 * goalShare * 100,
     creator: 0.55 * assistRatePct + 0.25 * offensivePct + 0.20 * assistShare * 100,
     playmaker: 0.40 * assistRatePct + 0.25 * contributionRatePct + 0.20 * averageRating + 0.15 * winRate,
-    defender: 0.60 * defensivePct + 0.25 * cleanSheetRate + 0.15 * winRate,
-    wall: 0.55 * defensivePct + 0.30 * cleanSheetRate + 0.15 * winRate,
+    defender: 0.70 * defensivePct + 0.30 * cleanSheetRate,
+    wall: 0.70 * defensivePct + 0.30 * cleanSheetRate,
     highImpact: 0.30 * contributionRatePct + 0.25 * averageRating + 0.25 * resultScore + 0.20 * winRate,
     winner: 0.65 * winRate + 0.35 * resultScore,
     consistent: 0.70 * consistency + 0.30 * averageRating,
@@ -46,8 +46,8 @@ export function getPlayerStyleScores(stats, cohort = [stats]) {
   };
   const gates = {
     attacker: goals > 0 || offensivePct >= 70, finisher: goals > 0 && goalShare >= 0.45, creator: assists > 0,
-    playmaker: assists > 0 && contributions >= 2, defender: cleanSheetRate > 0 || defensivePct >= 70,
-    wall: goalkeeper && (cleanSheetRate > 0 || defensivePct >= 70), highImpact: stats?.averageRating != null,
+    playmaker: assists > 0 && contributions >= 2, defender: stats?.defensiveEligible === true,
+    wall: goalkeeper && stats?.defensiveEligible === true, highImpact: stats?.averageRating != null,
     winner: matches >= 5 && winRate >= 55, consistent: stats?.ratedMatches >= 5 && consistency >= 70,
     formMachine: matches >= 5 && form >= 70, workhorse: matches >= 8
   };
