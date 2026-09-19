@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import Match from '../server/models/Match.js';
+import { buildStatistics, hasDefensivePerformance } from '../server/services/statistics.js';
+import { prepareMatch } from '../server/services/validation.js';
+
+const players=[
+  {_id:'a',name:'A',position:'CM'},
+  {_id:'b',name:'B',position:'CB'},
+];
+
+const makeMatch=(id,scoreA,scoreB,defA=8,defB=8)=>({
+  _id:id,
+  date:`2026-01-${String(Number(id.slice(1))+10).padStart(2,'0')}`,
+  name:'Test Match',
+  teamA:{label:'A',score:scoreA},
+  teamB:{label:'B',score:scoreB},
+  participants:[
+    {player:'a',team:'A',rating:8,defensivePerformance:defA,ownGoals:0},
+    {player:'b',team:'B',rating:8,defensivePerformance:defB,ownGoals:0},
+  ],
+  events:[],
+});
+
+test('Match participants expose a 0-10 defensivePerformance field',()=>{
+  const path=Match.schema.path('participants');
+  const participantSchema=path.schema;
+  assert.equal(participantSchema.path('defensivePerformance').options.min,0);
+  assert.equal(participantSchema.path('defensivePerformance').options.max,10);
+  assert.equal(participantSchema.path('defensivePerformance').options.default,null);
+});
+
+test('70/25/5 defensive rating is driven by individual defense, clean sheets and own-goal discipline',()=>{
+  const matches=[makeMatch('m1',1,0),makeMatch('m2',0,0),makeMatch('m3',2,1),makeMatch('m4',1,2),makeMatch('m5',1,1)];
+  const a=buildStatistics(players,matches,{minimumMatches:1,minimumDefensiveMatches:3}).find(row=>row.playerId==='a');
+  assert.equal(a.averageDefensivePerformance,8);
+  assert.equal(a.defensiveCleanSheetRate,0.4);
+  assert.equal(a.defensiveOwnGoalRate,0);
+  assert.equal(a.defensiveRating,Number((8*.70+4*.25+10*.05).toFixed(2)));
+});
+
+test('win rate does not change defensive rating',()=>{
+  const strongWins=[makeMatch('m1',1,0),makeMatch('m2',2,0),makeMatch('m3',0,0),makeMatch('m4',0,1),makeMatch('m5',0,1)];
+  const moreLosses=[makeMatch('m1',0,1),makeMatch('m2',0,2),makeMatch('m3',0,0),makeMatch('m4',1,0),makeMatch('m5',1,0)];
+  const first=buildStatistics(players,strongWins,{minimumMatches:1,minimumDefensiveMatches:3}).find(row=>row.playerId==='a');
+  const second=buildStatistics(players,moreLosses,{minimumMatches:1,minimumDefensiveMatches:3}).find(row=>row.playerId==='a');
+  assert.notEqual(first.winRate,second.winRate);
+  assert.equal(first.defensiveCleanSheetRate,second.defensiveCleanSheetRate);
+  assert.equal(first.defensiveRating,second.defensiveRating);
+});
+
+test('zero is valid while null means defensive performance was not recorded',()=>{
+  assert.equal(hasDefensivePerformance(0),true);
+  assert.equal(hasDefensivePerformance(10),true);
+  assert.equal(hasDefensivePerformance(null),false);
+  const matches=[makeMatch('m1',1,0,0),makeMatch('m2',1,0,null),makeMatch('m3',1,0,10)];
+  const row=buildStatistics(players,matches,{minimumMatches:1,minimumDefensiveMatches:2}).find(item=>item.playerId==='a');
+  assert.equal(row.defensiveRatedMatches,2);
+  assert.equal(row.averageDefensivePerformance,5);
+});
+
+test('three defensive records activate defensive rating and five overall ratings are still required for GG Rating',()=>{
+  const matches=[makeMatch('m1',1,0),makeMatch('m2',1,0),makeMatch('m3',1,0)];
+  const row=buildStatistics(players,matches,{minimumMatches:5,minimumDefensiveMatches:3}).find(item=>item.playerId==='a');
+  assert.equal(row.defensiveEligible,true);
+  assert.equal(row.defensiveRating!==null,true);
+  assert.equal(row.eligible,false);
+  assert.equal(row.ggRating,null);
+});
+
+test('own goals do not alter the recorded defensive-performance average but do affect the 5 percent discipline component',()=>{
+  const clean=[makeMatch('m1',1,0),makeMatch('m2',1,0),makeMatch('m3',1,0)];
+  const own=[...clean].map(match=>({...match,participants:match.participants.map(participant=>participant.player==='a'?{...participant,ownGoals:1}:participant)}));
+  const normal=buildStatistics(players,clean,{minimumMatches:1,minimumDefensiveMatches:3}).find(row=>row.playerId==='a');
+  const withOwnGoals=buildStatistics(players,own,{minimumMatches:1,minimumDefensiveMatches:3}).find(row=>row.playerId==='a');
+  assert.equal(normal.averageDefensivePerformance,withOwnGoals.averageDefensivePerformance);
+  assert.equal(withOwnGoals.defensiveOwnGoalRate,1);
+  assert.equal(withOwnGoals.ownGoalScore,0);
+  assert.ok(withOwnGoals.defensiveRating<normal.defensiveRating);
+});
+
+test('new match validation requires defensive performance for every participant',()=>{
+  const good=makeMatch('m1',1,0);good.events=[{player:'a',type:'goal'}];assert.doesNotThrow(()=>prepareMatch(good));
+  const missing=makeMatch('m2',1,0);missing.events=[{player:'a',type:'goal'}];missing.participants[1].defensivePerformance=null;assert.throws(()=>prepareMatch(missing),/defensive performance/);
+});
+
+test('legacy overall rating can stay null when an old match is edited to add defensive performance',()=>{
+  const legacy=makeMatch('m3',1,0,null,7);legacy.participants[0].rating=null;legacy.events=[{player:'a',type:'goal'}];
+  assert.doesNotThrow(()=>prepareMatch(legacy,legacy));
+  assert.equal(legacy.participants[0].rating,null);
+  assert.equal(legacy.participants[0].defensivePerformance,7);
+});
