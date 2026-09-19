@@ -8,7 +8,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        file: [tests/statistics.test.js, tests/playerStyles.test.js]
+        include:
+          - name: core formula
+            pattern: 'statistics derive results'
+          - name: formula weights
+            pattern: 'defensive rating is 70%'
+          - name: win rate isolation
+            pattern: 'win rate no longer'
+          - name: zero legacy
+            pattern: 'defensive score zero'
+          - name: cohort
+            pattern: 'absolute and do not depend'
+          - name: unrated
+            pattern: 'unrated legacy'
+          - name: draws
+            pattern: 'draws are neutral'
+          - name: periods
+            pattern: 'year and month'
+          - name: eligibility
+            pattern: 'eligibility differs'
+          - name: clasico
+            pattern: 'El Clasico matching'
+          - name: mandatory fields
+            pattern: 'new match ratings'
+          - name: own goals
+            pattern: 'own goals subtract'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,4 +40,4 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node --test ${{ matrix.file }}
+      - run: node --test tests/statistics.test.js --test-name-pattern "${{ matrix.pattern }}"
