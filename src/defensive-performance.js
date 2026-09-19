@@ -5,13 +5,13 @@ const CACHE_KEY='__ggDefensivePerformance';
 if(!window[CACHE_KEY]){
   const state=window[CACHE_KEY]={players:new Map(),matches:[],pending:null};
   const originalFetch=window.fetch.bind(window);
-  const isPath=(url,pattern)=>{try{return pattern.test(new URL(typeof url==='string'?url:url.url,window.location.origin).pathname);}catch{return false;}};
+  const isPath=(url,pattern)=>{try{return pattern.test(new URL(typeof url==='string'?url:url.url,window.location.origin).pathname);}catch(error){void error;return false;}};
   const normalize=value=>String(value||'').replace(/\s+/g,' ').trim();
   const findPlayerId=name=>{for(const [id,player] of state.players)if(normalize(player.name)===normalize(name))return id;return '';};
   window.fetch=async function(input,options={}){
     const method=String(options.method||input?.method||'GET').toUpperCase();let requestBody=options.body;const url=typeof input==='string'?input:input?.url||'';
     if((method==='POST'||method==='PUT')&&isPath(url,/\/api\/matches(?:\/[^/]+)?$/)&&typeof requestBody==='string'){
-      try{const body=JSON.parse(requestBody);if(Array.isArray(body.participants)){const values=new Map(Array.from(document.querySelectorAll('[data-gg-defensive-input]')).map(input=>[String(input.dataset.playerId),input.value]));body.participants=body.participants.map(participant=>{const value=values.get(String(participant.player));return value===undefined?participant:{...participant,defensivePerformance:value===''?null:Number(value)};});options={...options,body:JSON.stringify(body)};}}catch{}
+      try{const body=JSON.parse(requestBody);if(Array.isArray(body.participants)){const values=new Map(Array.from(document.querySelectorAll('[data-gg-defensive-input]')).map(input=>[String(input.dataset.playerId),input.value]));body.participants=body.participants.map(participant=>{const value=values.get(String(participant.player));return value===undefined?participant:{...participant,defensivePerformance:value===''?null:Number(value)};});options={...options,body:JSON.stringify(body)};}}catch(error){void error;}
     }
     const response=await originalFetch(input,options);
     if(method==='GET'&&isPath(url,/\/api\/(players|matches)$/))response.clone().json().then(data=>{if(isPath(url,/\/api\/players$/)&&Array.isArray(data)){data.forEach(player=>state.players.set(String(player._id),player));requestAnimationFrame(enhance);}if(isPath(url,/\/api\/matches$/)&&Array.isArray(data)){const known=new Map(state.matches.map(match=>[String(match._id),match]));data.forEach(match=>known.set(String(match._id),match));state.matches=Array.from(known.values()).sort((a,b)=>new Date(b.date)-new Date(a.date)||new Date(b.createdAt||0)-new Date(a.createdAt||0));}}).catch(()=>{});
