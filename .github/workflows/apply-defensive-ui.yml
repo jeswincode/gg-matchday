@@ -1,0 +1,65 @@
+name: Apply defensive performance UI
+
+on:
+  push:
+    branches:
+      - feature/defensive-performance-rating
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'Apply defensive performance UI'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch App.jsx
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('src/App.jsx')
+          s = p.read_text()
+          replacements = [
+            ("  const [\n    legacyUnrated,setLegacyUnrated\n  ] = useState([]);" , "  const [\n    legacyUnrated,setLegacyUnrated\n  ] = useState([]);\n\n  const [\n    defensivePerformances,setDefensivePerformances\n  ] = useState({});\n\n  const [\n    legacyDefensiveUnrated,setLegacyDefensiveUnrated\n  ] = useState([]);"),
+            ("    setRatings({});setLegacyUnrated([]);", "    setRatings({});setLegacyUnrated([]);\n    setDefensivePerformances({});setLegacyDefensiveUnrated([]);"),
+            ("    setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??\"\"])));\n    setLegacyUnrated((match.participants||[]).filter(p=>p.rating==null).map(p=>String(p.player?._id||p.player)));", "    setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??\"\"])));\n    setLegacyUnrated((match.participants||[]).filter(p=>p.rating==null).map(p=>String(p.player?._id||p.player)));\n    setDefensivePerformances(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.defensivePerformance??\"\"])));\n    setLegacyDefensiveUnrated((match.participants||[]).filter(p=>p.defensivePerformance==null).map(p=>String(p.player?._id||p.player)));"),
+            ("    setOwnGoals(\n      nextOwnGoals\n    );", "    setOwnGoals(\n      nextOwnGoals\n    );"),
+            ("              rating: ratings[String(player._id)] === \"\" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),\n              ownGoals: ownGoals[String(player._id)] || 0,", "              rating: ratings[String(player._id)] === \"\" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),\n              defensivePerformance: defensivePerformances[String(player._id)] === \"\" || defensivePerformances[String(player._id)] == null ? null : Number(defensivePerformances[String(player._id)]),\n              ownGoals: ownGoals[String(player._id)] || 0,"),
+            ("<div className=\"gg-performance-head\"><span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Rating</span></div>", "<div className=\"gg-performance-head\"><span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Rating</span><span>Defensive</span></div>"),
+            ("<label className=\"gg-rating-input\"><span className=\"sr-only\">Rating for {player.name}</span><input type=\"number\" min=\"0\" max=\"10\" step=\"0.1\" placeholder={legacyUnrated.includes(id)?'Unrated':'0–10'} disabled={!assigned} required={assigned&&!legacyUnrated.includes(id)} value={ratings[id]??''} onChange={e=>setRatings(old=>({...old,[id]:e.target.value}))}/></label>", "<label className=\"gg-rating-input\"><span className=\"sr-only\">Rating for {player.name}</span><input type=\"number\" min=\"0\" max=\"10\" step=\"0.1\" placeholder={legacyUnrated.includes(id)?'Unrated':'0–10'} disabled={!assigned} required={assigned&&!legacyUnrated.includes(id)} value={ratings[id]??''} onChange={e=>setRatings(old=>({...old,[id]:e.target.value}))}/></label><label className=\"gg-defense-input\"><span className=\"sr-only\">Defensive performance for {player.name}</span><input type=\"number\" min=\"0\" max=\"10\" step=\"0.1\" placeholder={legacyDefensiveUnrated.includes(id)?'Not recorded':'0–10'} disabled={!assigned} required={assigned&&!legacyDefensiveUnrated.includes(id)} value={defensivePerformances[id]??''} onChange={e=>setDefensivePerformances(old=>({...old,[id]:e.target.value}))}/></label>"),
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit(f'Missing App.jsx pattern: {old[:100]}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+      - name: Patch defensive UI CSS
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('src/own-goals-ui.css');s=p.read_text()
+          old='.gg-performance-head,\n.gg-performance-row {\n  grid-template-columns: minmax(120px, 1.6fr) 90px 100px 100px 100px 85px;\n}'
+          new='.gg-performance-head,\n.gg-performance-row {\n  grid-template-columns: minmax(120px, 1.6fr) 80px 90px 90px 90px 85px 90px;\n}'
+          if old not in s: raise SystemExit('Missing desktop CSS pattern')
+          s=s.replace(old,new,1)
+          old='      "player side"\n      "goals assists"\n      "own-goal rating";'
+          new='      "player side"\n      "goals assists"\n      "own-goal rating"\n      "defensive defensive";'
+          if old not in s: raise SystemExit('Missing mobile grid pattern')
+          s=s.replace(old,new,1)
+          marker='  .gg-performance-row > .gg-rating-input {\n    grid-area: rating;\n    justify-self: stretch;\n  }'
+          insert=marker+'\n\n  .gg-performance-row > .gg-defense-input {\n    grid-area: defensive;\n    justify-self: stretch;\n  }\n\n  .gg-defense-input input,\n  .gg-rating-input input {\n    width: 85px;\n  }'
+          if marker not in s: raise SystemExit('Missing rating CSS pattern')
+          s=s.replace(marker,insert,1)
+          p.write_text(s)
+      - name: Commit and remove temporary workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/App.jsx src/own-goals-ui.css
+          git commit -m 'Apply defensive performance UI'
+          git rm .github/workflows/apply-defensive-ui.yml
+          git commit -m 'Remove temporary defensive UI workflow'
+          git push
