@@ -74,9 +74,16 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
       if (uniquePositions.some(value => !approvedPositions.includes(value))) return res.status(400).json({ message: "Choose valid preferred positions." });
       player.preferredPositions = uniquePositions;
     }
-    player.preferredFoot = ["Left", "Right", "Both", ""].includes(preferredFoot) ? preferredFoot : "";
+    if (!["Left", "Right", "Both", ""].includes(preferredFoot ?? "")) return res.status(400).json({ message: "Preferred foot is invalid." });
+    player.preferredFoot = preferredFoot ?? "";
     player.jerseyNumber = jerseyNumber === "" || jerseyNumber === null || jerseyNumber === undefined ? null : Number(jerseyNumber);
-    player.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+    if (dateOfBirth === "" || dateOfBirth === null || dateOfBirth === undefined) {
+      player.dateOfBirth = null;
+    } else {
+      const parsedDate = new Date(dateOfBirth);
+      if (Number.isNaN(parsedDate.getTime())) return res.status(400).json({ message: "Date of birth is invalid." });
+      player.dateOfBirth = parsedDate;
+    }
     player.bio = typeof bio === "string" ? bio.trim() : "";
     if (player.height !== null && (!Number.isFinite(player.height) || player.height < 0 || player.height > 250)) return res.status(400).json({ message: "Height must be between 0 and 250 cm." });
     if (player.weight !== null && (!Number.isFinite(player.weight) || player.weight < 0 || player.weight > 300)) return res.status(400).json({ message: "Weight must be between 0 and 300 kg." });
