@@ -1296,7 +1296,7 @@ function App() {
     setRecordSection("record");
     setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??""])));
     setLegacyUnrated((match.participants||[]).filter(p=>p.rating==null).map(p=>String(p.player?._id||p.player)));
-    setDefensivePerformances(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.defensivePerformance??"\"])));
+    setDefensivePerformances(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.defensivePerformance??""])));
     setLegacyDefensiveUnrated((match.participants||[]).filter(p=>p.defensivePerformance==null).map(p=>String(p.player?._id||p.player)));
     const nextTeams =
       {};
