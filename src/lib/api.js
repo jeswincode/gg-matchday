@@ -2,6 +2,11 @@ import {auth} from '../firebase';
 export const API_URL=import.meta.env.VITE_API_URL||'http://localhost:5000/api';
 const cache=new Map(),pending=new Map();
 export function invalidate(){cache.clear();window.dispatchEvent(new Event('gg-data-changed'));}
+export async function authenticatedFetch(url,options={}){
+ if(!auth?.currentUser) throw new Error('Authentication required.');
+ const token=await auth.currentUser.getIdToken();
+ return fetch(url,{...options,headers:{...(options.headers||{}),Authorization:`Bearer ${token}`}});
+}
 export async function api(path,{method='GET',body,signal,...options}={}){
  const key=`${auth?.currentUser?.uid||'public'}:${path}`,hit=cache.get(key);
  if(method==='GET'&&!signal&&hit&&hit.until>Date.now())return hit.data;

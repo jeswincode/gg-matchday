@@ -1,9 +1,6 @@
 import {hasRating,id} from './statistics.js';
 export const positions=['GK','CB','LB','RB','LWB','RWB','CDM','CM','CAM','LM','RM','LW','RW','ST','CF'];
 
-// Primary profile positions may be stored as either the Squad Builder code
-// (for example, "CM") or a human-readable label (for example,
-// "Central Midfielder"). Both forms resolve to the same position code.
 export const primaryPositionAliases={
  GK:['gk','goalkeeper'],
  CB:['cb','centre back','center back','central defender'],
@@ -23,14 +20,23 @@ export const primaryPositionAliases={
 };
 
 const primaryPositionLookup=Object.entries(primaryPositionAliases).reduce((lookup,[code,aliases])=>{
-  for(const alias of aliases) lookup[alias]=code;
-  return lookup;
+ for(const alias of aliases) lookup[alias]=code;
+ return lookup;
 },{});
 
 export function primaryPositionCode(value){
  if(typeof value!=='string') return '';
  const normalized=value.trim().toLowerCase().replace(/\s+/g,' ');
  return primaryPositionLookup[normalized]||'';
+}
+
+export function validatePlayerProfileUpdate({preferredFoot,dateOfBirth}={}){
+ if(!['Left','Right','Both',''].includes(preferredFoot??''))throw new Error('Preferred foot is invalid.');
+ if(dateOfBirth!==''&&dateOfBirth!==null&&dateOfBirth!==undefined){
+  const parsedDate=new Date(dateOfBirth);
+  if(Number.isNaN(parsedDate.getTime()))throw new Error('Date of birth is invalid.');
+ }
+ return true;
 }
 
 export function prepareMatch(body,previous=null){

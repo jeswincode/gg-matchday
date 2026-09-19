@@ -5,7 +5,7 @@ import Match from "../models/Match.js";
 import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
 import { requireAuth, requireEditor } from "../middleware/auth.js";
-import { positions as approvedPositions, primaryPositionCode } from "../services/validation.js";
+import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
 
 const router = express.Router();
 const invalidId = id => !mongoose.isValidObjectId(id);
@@ -74,16 +74,20 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
       if (uniquePositions.some(value => !approvedPositions.includes(value))) return res.status(400).json({ message: "Choose valid preferred positions." });
       player.preferredPositions = uniquePositions;
     }
-    player.preferredFoot = ["Left", "Right", "Both", ""].includes(preferredFoot) ? preferredFoot : "";
+    validatePlayerProfileUpdate({ preferredFoot, dateOfBirth });
+    player.preferredFoot = preferredFoot ?? "";
     player.jerseyNumber = jerseyNumber === "" || jerseyNumber === null || jerseyNumber === undefined ? null : Number(jerseyNumber);
-    player.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+    player.dateOfBirth = dateOfBirth === "" || dateOfBirth === null || dateOfBirth === undefined ? null : new Date(dateOfBirth);
     player.bio = typeof bio === "string" ? bio.trim() : "";
     if (player.height !== null && (!Number.isFinite(player.height) || player.height < 0 || player.height > 250)) return res.status(400).json({ message: "Height must be between 0 and 250 cm." });
     if (player.weight !== null && (!Number.isFinite(player.weight) || player.weight < 0 || player.weight > 300)) return res.status(400).json({ message: "Weight must be between 0 and 300 kg." });
     if (player.jerseyNumber !== null && (!Number.isInteger(player.jerseyNumber) || player.jerseyNumber < 0 || player.jerseyNumber > 99)) return res.status(400).json({ message: "Jersey number must be between 0 and 99." });
     await player.save();
     res.json(player);
-  } catch (error) { console.error("Error updating player:", error); res.status(500).json({ message: "Failed to update player." }); }
+  } catch (error) {
+    if (error?.message === "Preferred foot is invalid." || error?.message === "Date of birth is invalid.") return res.status(400).json({ message: error.message });
+    console.error("Error updating player:", error); res.status(500).json({ message: "Failed to update player." });
+  }
 });
 
 router.delete("/:id", requireAuth, requireEditor, async (req, res) => {
