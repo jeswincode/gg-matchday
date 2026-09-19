@@ -20,39 +20,33 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          p = Path('src/App.jsx')
-          s = p.read_text()
-          replacements = [
-            ("  const [\n    legacyUnrated,setLegacyUnrated\n  ] = useState([]);" , "  const [\n    legacyUnrated,setLegacyUnrated\n  ] = useState([]);\n\n  const [\n    defensivePerformances,setDefensivePerformances\n  ] = useState({});\n\n  const [\n    legacyDefensiveUnrated,setLegacyDefensiveUnrated\n  ] = useState([]);"),
-            ("    setRatings({});setLegacyUnrated([]);", "    setRatings({});setLegacyUnrated([]);\n    setDefensivePerformances({});setLegacyDefensiveUnrated([]);"),
-            ("    setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??\"\"])));\n    setLegacyUnrated((match.participants||[]).filter(p=>p.rating==null).map(p=>String(p.player?._id||p.player)));", "    setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??\"\"])));\n    setLegacyUnrated((match.participants||[]).filter(p=>p.rating==null).map(p=>String(p.player?._id||p.player)));\n    setDefensivePerformances(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.defensivePerformance??\"\"])));\n    setLegacyDefensiveUnrated((match.participants||[]).filter(p=>p.defensivePerformance==null).map(p=>String(p.player?._id||p.player)));"),
-            ("    setOwnGoals(\n      nextOwnGoals\n    );", "    setOwnGoals(\n      nextOwnGoals\n    );"),
-            ("              rating: ratings[String(player._id)] === \"\" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),\n              ownGoals: ownGoals[String(player._id)] || 0,", "              rating: ratings[String(player._id)] === \"\" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),\n              defensivePerformance: defensivePerformances[String(player._id)] === \"\" || defensivePerformances[String(player._id)] == null ? null : Number(defensivePerformances[String(player._id)]),\n              ownGoals: ownGoals[String(player._id)] || 0,"),
-            ("<div className=\"gg-performance-head\"><span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Rating</span></div>", "<div className=\"gg-performance-head\"><span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Rating</span><span>Defensive</span></div>"),
-            ("<label className=\"gg-rating-input\"><span className=\"sr-only\">Rating for {player.name}</span><input type=\"number\" min=\"0\" max=\"10\" step=\"0.1\" placeholder={legacyUnrated.includes(id)?'Unrated':'0–10'} disabled={!assigned} required={assigned&&!legacyUnrated.includes(id)} value={ratings[id]??''} onChange={e=>setRatings(old=>({...old,[id]:e.target.value}))}/></label>", "<label className=\"gg-rating-input\"><span className=\"sr-only\">Rating for {player.name}</span><input type=\"number\" min=\"0\" max=\"10\" step=\"0.1\" placeholder={legacyUnrated.includes(id)?'Unrated':'0–10'} disabled={!assigned} required={assigned&&!legacyUnrated.includes(id)} value={ratings[id]??''} onChange={e=>setRatings(old=>({...old,[id]:e.target.value}))}/></label><label className=\"gg-defense-input\"><span className=\"sr-only\">Defensive performance for {player.name}</span><input type=\"number\" min=\"0\" max=\"10\" step=\"0.1\" placeholder={legacyDefensiveUnrated.includes(id)?'Not recorded':'0–10'} disabled={!assigned} required={assigned&&!legacyDefensiveUnrated.includes(id)} value={defensivePerformances[id]??''} onChange={e=>setDefensivePerformances(old=>({...old,[id]:e.target.value}))}/></label>"),
-          ]
-          for old, new in replacements:
-              if old not in s:
-                  raise SystemExit(f'Missing App.jsx pattern: {old[:100]}')
-              s = s.replace(old, new, 1)
+          import re
+          p=Path('src/App.jsx');s=p.read_text()
+          def once(pattern,repl):
+              global s
+              s,n=re.subn(pattern,repl,s,count=1,flags=re.S)
+              if n!=1: raise SystemExit(f'Pattern not found: {pattern[:100]}')
+          once(r'(const \[ratings,setRatings\]=useState\(\{\}\);\s*const \[legacyUnrated,setLegacyUnrated\]=useState\(\[\]\);)', r'\1\n  const [defensivePerformances,setDefensivePerformances]=useState({});\n  const [legacyDefensiveUnrated,setLegacyDefensiveUnrated]=useState([]);')
+          once(r'(setRatings\(\{\}\);setLegacyUnrated\(\[\]\);)', r'\1\n    setDefensivePerformances({});setLegacyDefensiveUnrated([]);')
+          once(r'(setLegacyUnrated\(\(match\.participants\|\|\[\]\)\.filter\(p=>p\.rating==null\).*?\);)', r'\1\n    setDefensivePerformances(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.defensivePerformance??"\"])));\n    setLegacyDefensiveUnrated((match.participants||[]).filter(p=>p.defensivePerformance==null).map(p=>String(p.player?._id||p.player)));')
+          once(r'(rating: ratings\[String\(player\._id\)\].*?\n\s*ownGoals: ownGoals\[String\(player\._id\)\] \|\| 0,)', r'\1'.replace('\\n','\n'))
+          s=s.replace('rating: ratings[String(player._id)] === "" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),\n              ownGoals:', 'rating: ratings[String(player._id)] === "" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),\n              defensivePerformance: defensivePerformances[String(player._id)] === "" || defensivePerformances[String(player._id)] == null ? null : Number(defensivePerformances[String(player._id)]),\n              ownGoals:',1)
+          once(r'<div className="gg-performance-head"><span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Rating</span></div>', '<div className="gg-performance-head"><span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Rating</span><span>Defensive</span></div>')
+          old=r'<label className="gg-rating-input"><span className="sr-only">Rating for \{player.name\}</span><input type="number" min="0" max="10" step="0.1" placeholder=\{legacyUnrated.includes\(id\)\?\x27Unrated\x27:\x270–10\x27\} disabled=\{!assigned\} required=\{assigned&&!legacyUnrated.includes\(id\)\} value=\{ratings\[id\]\?\?\x27\x27\} onChange=\{e=>setRatings\(old=>\(\{\.\.\.old,\[id\]:e.target.value\}\)\)\}/></label>'
+          new='<label className="gg-rating-input"><span className="sr-only">Rating for {player.name}</span><input type="number" min="0" max="10" step="0.1" placeholder={legacyUnrated.includes(id)?\x27Unrated\x27:\x270–10\x27} disabled={!assigned} required={assigned&&!legacyUnrated.includes(id)} value={ratings[id]??\x27\x27} onChange={e=>setRatings(old=>({...old,[id]:e.target.value}))}/></label><label className="gg-defense-input"><span className="sr-only">Defensive performance for {player.name}</span><input type="number" min="0" max="10" step="0.1" placeholder={legacyDefensiveUnrated.includes(id)?\x27Not recorded\x27:\x270–10\x27} disabled={!assigned} required={assigned&&!legacyDefensiveUnrated.includes(id)} value={defensivePerformances[id]??\x27\x27} onChange={e=>setDefensivePerformances(old=>({...old,[id]:e.target.value}))}/></label>'
+          if not re.search(old,s): raise SystemExit('Rating input pattern not found')
+          s=re.sub(old,new,s,count=1)
           p.write_text(s)
       - name: Patch defensive UI CSS
         shell: python
         run: |
           from pathlib import Path
           p=Path('src/own-goals-ui.css');s=p.read_text()
-          old='.gg-performance-head,\n.gg-performance-row {\n  grid-template-columns: minmax(120px, 1.6fr) 90px 100px 100px 100px 85px;\n}'
-          new='.gg-performance-head,\n.gg-performance-row {\n  grid-template-columns: minmax(120px, 1.6fr) 80px 90px 90px 90px 85px 90px;\n}'
-          if old not in s: raise SystemExit('Missing desktop CSS pattern')
-          s=s.replace(old,new,1)
-          old='      "player side"\n      "goals assists"\n      "own-goal rating";'
-          new='      "player side"\n      "goals assists"\n      "own-goal rating"\n      "defensive defensive";'
-          if old not in s: raise SystemExit('Missing mobile grid pattern')
-          s=s.replace(old,new,1)
+          s=s.replace('grid-template-columns: minmax(120px, 1.6fr) 90px 100px 100px 100px 85px;','grid-template-columns: minmax(120px, 1.6fr) 80px 90px 90px 90px 85px 90px;',1)
+          s=s.replace('      "own-goal rating";','      "own-goal rating"\n      "defensive defensive";',1)
           marker='  .gg-performance-row > .gg-rating-input {\n    grid-area: rating;\n    justify-self: stretch;\n  }'
-          insert=marker+'\n\n  .gg-performance-row > .gg-defense-input {\n    grid-area: defensive;\n    justify-self: stretch;\n  }\n\n  .gg-defense-input input,\n  .gg-rating-input input {\n    width: 85px;\n  }'
-          if marker not in s: raise SystemExit('Missing rating CSS pattern')
-          s=s.replace(marker,insert,1)
+          if marker not in s: raise SystemExit('Rating CSS marker not found')
+          s=s.replace(marker,marker+'\n\n  .gg-performance-row > .gg-defense-input {\n    grid-area: defensive;\n    justify-self: stretch;\n  }',1)
           p.write_text(s)
       - name: Commit and remove temporary workflow
         run: |
