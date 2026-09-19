@@ -4,6 +4,7 @@ import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
+import { requireAuth, requireEditor } from "../middleware/auth.js";
 import { positions as approvedPositions, primaryPositionCode } from "../services/validation.js";
 
 const router = express.Router();
