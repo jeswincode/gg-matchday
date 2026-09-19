@@ -40,4 +40,4 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node --test tests/statistics.test.js --test-name-pattern "${{ matrix.pattern }}"
+      - run: node --test --test-name-pattern "${{ matrix.pattern }}" tests/statistics.test.js
