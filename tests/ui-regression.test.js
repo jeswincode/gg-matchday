@@ -11,7 +11,7 @@ test('Player Comparisons keeps its player dependency stable and supports the com
   const source=read('src/components/PlayerComparisons.jsx');
   assert.match(source,/const players=useMemo\(\(\)=>Array\.isArray\(playerData\)\?playerData:\[\],\[playerData\]\);/);
   assert.match(source,/selectedIds\.length>=2&&selectedIds\.length<=3/);
-  assert.match(source,/Promise\.all\(selectedIds\.map\(playerId=>api\(`\/stats\/player\/\$\{playerId\}`\)\)\)/);
+  assert.match(source,/Promise\.all\(selectedIds\.map\(playerId=>api\(`\/stats\/player\/\$\{playerId\}\?historyLimit=all`\)\)\)/);
   assert.match(source,/Goals/);
   assert.match(source,/Assists/);
   assert.match(source,/Attacking/);
