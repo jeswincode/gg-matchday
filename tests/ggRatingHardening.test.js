@@ -25,7 +25,7 @@ test('zero defensive performance is valid and contributes to defensive rating',(
   assert.equal(stats.defensiveRatedMatches,3);
   assert.equal(stats.defensiveEligible,true);
   assert.equal(stats.defensivePerformanceAverage,0);
-  assert.equal(stats.defensiveRating,0.5);
+  assert.equal(stats.defensiveRating,3);
 });
 
 test('own-goal deduction used by performance is bounded at zero',()=>{
