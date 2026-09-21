@@ -23,7 +23,7 @@ function credentialsFromFile() {
   try {
     return JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
   } catch (error) {
-    throw new Error(`Firebase service account JSON could not be read: ${error.message}`);
+    throw new Error("Firebase service account JSON could not be read.", { cause: error });
   }
 }
 
