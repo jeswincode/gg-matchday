@@ -27,4 +27,4 @@ createRoot(document.getElementById('root')).render(
     </>
   </StrictMode>,
 )
-\nimport './mobile-ux.css';\n
+import './mobile-ux.css';
