@@ -1,6 +1,7 @@
 /* =========================================================
    MOBILE UI / UX
    Final responsive layer. Loaded after all feature CSS so
+   2nd-pass verified for narrow-phone stability.
    mobile rules remain consistent across the app.
 ========================================================= */
 
