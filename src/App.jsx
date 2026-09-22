@@ -3878,7 +3878,7 @@ function App() {
                                 alt=""
                               />
                             ) : (
-                              <div>
+                              <div className="admin-request-avatar">
                                 {
                                   request.name
                                     ?.charAt(
@@ -4016,7 +4016,7 @@ function App() {
                                 alt=""
                               />
                             ) : (
-                              <div>
+                              <div className="admin-request-avatar">
                                 {
                                   editor.name
                                     ?.charAt(
@@ -4027,24 +4027,10 @@ function App() {
                               </div>
                             )}
 
-                            <div>
-
-                              <strong>
-                                {
-                                  editor.name
-                                }
-                              </strong>
-
-                              <span>
-                                {
-                                  editor.email
-                                }
-                              </span>
-
-                              <small>
-                                Editor
-                              </small>
-
+                            <div className="admin-request-copy">
+                              <strong>{editor.name}</strong>
+                              <span>{editor.email}</span>
+                              <small>Editor</small>
                             </div>
 
                           </div>
