@@ -3878,7 +3878,7 @@ function App() {
                                 alt=""
                               />
                             ) : (
-                              <div>
+                              <div className="admin-request-avatar">
                                 {
                                   request.name
                                     ?.charAt(
@@ -4016,7 +4016,7 @@ function App() {
                                 alt=""
                               />
                             ) : (
-                              <div>
+                              <div className="admin-request-avatar">
                                 {
                                   editor.name
                                     ?.charAt(
