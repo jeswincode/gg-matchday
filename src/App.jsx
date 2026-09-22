@@ -4047,6 +4047,12 @@ function App() {
 
                             </div>
 
+                            <div className="admin-request-copy">
+                              <strong>{editor.name}</strong>
+                              <span>{editor.email}</span>
+                              <small>Editor</small>
+                            </div>
+
                           </div>
 
                           <button
