@@ -39,6 +39,21 @@ export function validatePlayerProfileUpdate({preferredFoot,dateOfBirth}={}){
  return true;
 }
 
+
+export function preservesLegacyStoredScore(body, previous) {
+  if (!previous || (previous.events || []).length > 0) return false;
+  if ((previous.participants || []).some(participant => Number(participant.ownGoals || 0) > 0)) return false;
+  if ((body.events || []).length > 0) return false;
+  if ((body.participants || []).some(participant => Number(participant.ownGoals || 0) > 0)) return false;
+  const previousParticipants = previous.participants || [];
+  const nextParticipants = body.participants || [];
+  if (previousParticipants.length !== nextParticipants.length) return false;
+  return nextParticipants.every(participant => {
+    const prior = previousParticipants.find(item => id(item.player) === id(participant.player));
+    return Boolean(prior && prior.team === participant.team);
+  });
+}
+
 export function prepareMatch(body,previous=null){
  if(!body||!Array.isArray(body.participants)||!Array.isArray(body.events)||body.participants.length>100||body.events.length>1000)throw new Error('Invalid match performance data.');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(body.date||'')||Number.isNaN(new Date(body.date).getTime())||new Date(body.date).toISOString().slice(0,10)!==body.date)throw new Error('Choose a valid match date.');
@@ -46,7 +61,8 @@ export function prepareMatch(body,previous=null){
  for(const p of body.participants){const old=previous?.participants.find(v=>id(v.player)===id(p.player));const legacy=old&&!hasRating(old.rating);if(!hasRating(p.rating)&&!(legacy&&(p.rating===null||p.rating===undefined)))throw new Error('Enter a rating from 0 to 10 for every participating player.');const legacyDefense=old&&!hasDefensivePerformance(old.defensivePerformance);const missingDefense=p.defensivePerformance===null||p.defensivePerformance===undefined||p.defensivePerformance==='';if(!hasDefensivePerformance(p.defensivePerformance)&&!(legacyDefense&&missingDefense))throw new Error('Enter a defensive performance score from 0 to 10 for every participating player.');if(hasDefensivePerformance(p.defensivePerformance))p.defensivePerformance=Number(p.defensivePerformance);else p.defensivePerformance=null;const ownGoals=Number(p.ownGoals??0);if(!Number.isInteger(ownGoals)||ownGoals<0||ownGoals>20)throw new Error('Own goals must be whole numbers from 0 to 20.');p.ownGoals=ownGoals;}
  const side=new Map(body.participants.map(p=>[id(p.player),p.team]));
  const score=t=>body.events.filter(e=>e.type==='goal'&&side.get(id(e.player))===t).length;
- body.teamA={label:String(body.teamA?.label||'Team A').trim(),score:score('A')};body.teamB={label:String(body.teamB?.label||'Team B').trim(),score:score('B')};
+ const preserveLegacyScore = preservesLegacyStoredScore(body, previous);
+ body.teamA={label:String(body.teamA?.label||'Team A').trim(),score:preserveLegacyScore?Number(previous.teamA?.score||0):score('A')};body.teamB={label:String(body.teamB?.label||'Team B').trim(),score:preserveLegacyScore?Number(previous.teamB?.score||0):score('B')};
  return body;
 }
 export function validatePreferences(input,player){
