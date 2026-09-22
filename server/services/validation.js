@@ -40,7 +40,7 @@ export function validatePlayerProfileUpdate({preferredFoot,dateOfBirth}={}){
 }
 
 
-function preservesLegacyStoredScore(body, previous) {
+export function preservesLegacyStoredScore(body, previous) {
   if (!previous || (previous.events || []).length > 0) return false;
   if ((previous.participants || []).some(participant => Number(participant.ownGoals || 0) > 0)) return false;
   if ((body.events || []).length > 0) return false;
@@ -53,8 +53,6 @@ function preservesLegacyStoredScore(body, previous) {
     return Boolean(prior && prior.team === participant.team);
   });
 }
-
-export { preservesLegacyStoredScore };
 
 export function prepareMatch(body,previous=null){
  if(!body||!Array.isArray(body.participants)||!Array.isArray(body.events)||body.participants.length>100||body.events.length>1000)throw new Error('Invalid match performance data.');
