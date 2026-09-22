@@ -27,3 +27,4 @@ createRoot(document.getElementById('root')).render(
     </>
   </StrictMode>,
 )
+\nimport './mobile-ui-fixes.css';\n
