@@ -1,0 +1,402 @@
+/* =========================================================
+   GG MATCHDAY — MOBILE UI/UX STABILITY
+   Desktop layout is intentionally untouched.
+========================================================= */
+
+@media (max-width: 760px) {
+  /* Prevent long labels/content from forcing grid/flex overflow. */
+  .app,
+  .app * {
+    min-width: 0;
+  }
+
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .topbar > div:first-child {
+    min-width: 0;
+  }
+
+  .topbar h1 {
+    font-size: clamp(28px, 8vw, 38px);
+    line-height: 1;
+  }
+
+  .topbar .status-dot {
+    grid-column: 2;
+    grid-row: 1;
+    flex-shrink: 0;
+  }
+
+  .gg-header-actions {
+    grid-column: 1 / -1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .gg-theme {
+    min-width: 0;
+    display: flex;
+  }
+
+  .gg-theme button,
+  .gg-header-actions > .secondary-button {
+    min-height: 40px;
+    white-space: nowrap;
+  }
+
+  .account-bar {
+    align-items: center;
+  }
+
+  .account-user {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .account-user > div {
+    min-width: 0;
+  }
+
+  .account-user strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .account-actions {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .account-actions button {
+    white-space: nowrap;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+  }
+
+  .section-heading > div {
+    min-width: 0;
+  }
+
+  .section-heading h2,
+  .section-heading h3 {
+    overflow-wrap: anywhere;
+  }
+
+  .card,
+  .home-feature-card,
+  .match-card {
+    overflow: hidden;
+  }
+
+  .match-main {
+    min-width: 0;
+  }
+
+  .match-main > div:first-child {
+    min-width: 0;
+  }
+
+  .match-main h3,
+  .match-labels span {
+    overflow-wrap: anywhere;
+  }
+
+  .match-score {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .assignment-row,
+  .stat-entry,
+  .ranking-row,
+  .home-player-feature {
+    min-width: 0;
+  }
+
+  .assignment-player,
+  .ranking-player,
+  .home-player-feature > div:nth-child(2) {
+    min-width: 0;
+  }
+
+  .assignment-player strong,
+  .ranking-player strong,
+  .home-player-feature strong {
+    overflow-wrap: anywhere;
+  }
+
+  .home-player-feature {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .news-card {
+    min-width: 0;
+  }
+
+  .news-content {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Keep data-heavy views readable instead of squeezing columns. */
+  .table-scroll,
+  .compare-player-strip,
+  .compare-columns,
+  .compare-rating-grid,
+  .compare-chart-wrap {
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Narrow phones: explicitly stack areas that otherwise compete for width. */
+@media (max-width: 600px) {
+  .app {
+    width: calc(100% - 18px);
+    padding-top: 14px;
+    padding-bottom: 112px;
+  }
+
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .topbar .status-dot {
+    padding: 7px 9px;
+    gap: 6px;
+    font-size: 10px;
+  }
+
+  .gg-header-actions {
+    justify-content: stretch;
+  }
+
+  .gg-theme {
+    flex: 1 1 auto;
+  }
+
+  .gg-theme button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .gg-header-actions > .secondary-button {
+    flex: 0 0 auto;
+  }
+
+  .account-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .account-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .account-actions button {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .request-pending {
+    overflow-wrap: anywhere;
+  }
+
+  .global-message {
+    align-items: flex-start;
+  }
+
+  .global-message > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .home-feature-card {
+    padding: 22px 18px;
+  }
+
+  .feature-score {
+    gap: 18px;
+  }
+
+  .feature-score strong {
+    font-size: 36px;
+  }
+
+  .home-stat-card {
+    padding: 15px 12px;
+  }
+
+  .home-stat-card span {
+    line-height: 1.3;
+  }
+
+  .match-main {
+    gap: 12px;
+  }
+
+  .match-score strong {
+    font-size: 23px;
+  }
+
+  .match-actions {
+    flex-wrap: wrap;
+  }
+
+  .match-actions button {
+    flex: 1 1 120px;
+  }
+
+  .calendar-header {
+    gap: 8px;
+  }
+
+  .calendar-nav {
+    width: 36px;
+    height: 36px;
+  }
+
+  .gg-notifications-heading {
+    gap: 10px;
+  }
+
+  .gg-notifications-heading > div {
+    min-width: 0;
+  }
+
+  .gg-notifications-heading span,
+  .gg-notification-card p {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Very narrow phones: give the bottom nav predictable icon/text lanes. */
+@media (max-width: 430px) {
+  .topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .topbar h1 {
+    font-size: 29px;
+  }
+
+  .gg-header-actions {
+    gap: 6px;
+  }
+
+  .gg-theme button,
+  .gg-header-actions > .secondary-button {
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+
+  .bottom-nav {
+    bottom: 8px;
+    width: calc(100% - 12px);
+    gap: 3px;
+    padding: 6px;
+  }
+
+  .bottom-nav button {
+    min-height: 52px;
+    gap: 4px;
+    padding: 7px 3px;
+  }
+
+  .bottom-nav button .nav-icon {
+    width: 24px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    line-height: 1;
+    flex: 0 0 22px;
+  }
+
+  .bottom-nav button .nav-label {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: center;
+    font-size: 9px;
+    line-height: 1.1;
+  }
+
+  .bottom-nav button:nth-child(3) .nav-label {
+    font-size: 8px;
+  }
+
+  .home-stat-card strong {
+    font-size: 22px;
+  }
+
+  .feature-score {
+    gap: 12px;
+  }
+
+  .feature-score strong {
+    font-size: 32px;
+  }
+
+  .match-total {
+    gap: 7px;
+  }
+}
+
+@media (max-width: 360px) {
+  .app {
+    width: calc(100% - 14px);
+  }
+
+  .topbar h1 {
+    font-size: 27px;
+  }
+
+  .status-dot {
+    font-size: 9px;
+  }
+
+  .gg-header-actions {
+    flex-wrap: wrap;
+  }
+
+  .gg-theme {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .gg-header-actions > .secondary-button {
+    flex: 1 1 100%;
+  }
+
+  .bottom-nav button {
+    padding-inline: 2px;
+  }
+
+  .bottom-nav button .nav-label {
+    font-size: 8px;
+  }
+
+  .bottom-nav button:nth-child(3) .nav-label {
+    font-size: 7.5px;
+  }
+}
