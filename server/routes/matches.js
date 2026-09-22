@@ -524,8 +524,7 @@ router.post(
       try { prepareMatch(req.body); } catch (error) { return res.status(400).json({ message: error.message }); }
       const validationError =
         await validateMatchData(
-          req.body,
-          { allowLegacyStoredScore: preservesLegacyStoredScore(req.body, previous) }
+          req.body
         );
 
       if (validationError) {
@@ -646,7 +645,8 @@ router.put(
       try { prepareMatch(req.body, previous); } catch (error) { return res.status(400).json({ message: error.message }); }
       const validationError =
         await validateMatchData(
-          req.body
+          req.body,
+          { allowLegacyStoredScore: preservesLegacyStoredScore(req.body, previous) }
         );
 
       if (validationError) {
