@@ -1,6 +1,7 @@
 import { prepareMatch } from "../services/validation.js";
 import { scheduleHistory } from "../services/history.js";
 import { normalizeMatchScores } from "../services/statistics.js";
+import { preservesLegacyStoredScore } from "../services/validation.js";
 import Vote from "../models/Vote.js";
 import express from "express";
 
@@ -23,7 +24,7 @@ const router = express.Router();
 // VALIDATION
 // ==================================================
 
-async function validateMatchData(body) {
+async function validateMatchData(body, { allowLegacyStoredScore = false } = {}) {
   const {
     teamA,
     teamB,
@@ -154,11 +155,11 @@ async function validateMatchData(body) {
   // The entered score must match
   // actual goal events.
 
-  if (teamAGoals !== teamAScore) {
+  if (!allowLegacyStoredScore && teamAGoals !== teamAScore) {
     return `Side 1 score is ${teamAScore}, but ${teamAGoals} goal events were recorded.`;
   }
 
-  if (teamBGoals !== teamBScore) {
+  if (!allowLegacyStoredScore && teamBGoals !== teamBScore) {
     return `Side 2 score is ${teamBScore}, but ${teamBGoals} goal events were recorded.`;
   }
 
@@ -523,7 +524,8 @@ router.post(
       try { prepareMatch(req.body); } catch (error) { return res.status(400).json({ message: error.message }); }
       const validationError =
         await validateMatchData(
-          req.body
+          req.body,
+          { allowLegacyStoredScore: preservesLegacyStoredScore(req.body, previous) }
         );
 
       if (validationError) {
