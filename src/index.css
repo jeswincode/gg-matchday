@@ -1980,14 +1980,18 @@ textarea:focus {
 }
 
 .admin-request-user > img,
-.admin-request-user > div {
+.admin-request-user > .admin-request-avatar {
   width: 42px;
   height: 42px;
 
-  flex:
-    0 0 42px;
+  flex: 0 0 42px;
 
   border-radius: 50%;
+}
+
+.admin-request-user > .admin-request-copy {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .admin-request-user > img {
