@@ -739,3 +739,333 @@
     font-size: 16px;
   }
 }
+
+
+/* =========================================================
+   MOBILE POLISH PASS — screenshot-driven refinement
+   Keeps the existing GG Matchday visual identity while
+   giving dense desktop components mobile-native behavior.
+========================================================= */
+
+@media (max-width: 760px) {
+  .app {
+    width: min(calc(100% - 24px), 1180px);
+    padding-bottom: calc(132px + env(safe-area-inset-bottom));
+  }
+
+  .card,
+  .home-feature-card,
+  .match-card,
+  .news-card {
+    border-radius: 20px;
+  }
+
+  /* Keep floating profile controls clear of the bottom nav. */
+  .pr-launch {
+    right: 12px !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    max-width: calc(100vw - 24px);
+    min-height: 44px;
+    padding: 10px 14px !important;
+    z-index: 90;
+  }
+
+  /* Admin/editor rows become a deliberate mobile stack. */
+  .admin-request {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .admin-request-user {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-request-copy {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .admin-request-copy strong {
+    display: block;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .admin-request-copy span,
+  .admin-request-copy small {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .admin-request > .danger-button,
+  .admin-request-actions {
+    width: 100%;
+  }
+
+  .admin-request > .danger-button {
+    min-height: 44px;
+  }
+
+  /* Leaderboard: preserve all desktop data behind a contained scroller,
+     while presenting a compact mobile table at a glance. */
+  .gg-table-scroll {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .gg-table {
+    min-width: 0 !important;
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .gg-table th,
+  .gg-table td {
+    padding: 11px 8px;
+    white-space: normal;
+    vertical-align: middle;
+  }
+
+  .gg-table th:nth-child(3),
+  .gg-table td:nth-child(3),
+  .gg-table th:nth-child(4),
+  .gg-table td:nth-child(4),
+  .gg-table th:nth-child(5),
+  .gg-table td:nth-child(5),
+  .gg-table th:nth-child(6),
+  .gg-table td:nth-child(6),
+  .gg-table th:nth-child(7),
+  .gg-table td:nth-child(7),
+  .gg-table th:nth-child(8),
+  .gg-table td:nth-child(8),
+  .gg-table th:nth-child(9),
+  .gg-table td:nth-child(9),
+  .gg-table th:nth-child(10),
+  .gg-table td:nth-child(10) {
+    display: none;
+  }
+
+  .gg-table th:nth-child(1),
+  .gg-table td:nth-child(1) {
+    width: 44px;
+    text-align: center;
+  }
+
+  .gg-table th:nth-child(2),
+  .gg-table td:nth-child(2) {
+    width: auto;
+  }
+
+  .gg-table th:nth-child(11),
+  .gg-table td:nth-child(11) {
+    width: 82px;
+    text-align: right;
+  }
+
+  .gg-table .gg-player-link {
+    width: 100%;
+    min-width: 0;
+    padding: 6px 0;
+  }
+
+  .gg-table .gg-player-link span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The three podium cards breathe better as a horizontal rail. */
+  .gg-podium {
+    grid-template-columns: repeat(3, minmax(148px, 1fr));
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+  }
+
+  .gg-podium::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gg-place {
+    min-width: 0;
+    padding: 15px;
+  }
+
+  .gg-place .gg-player-link span {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Analytics charts must scale to the viewport, never the other way around. */
+  .compare-chart-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .compare-chart {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: auto;
+    display: block;
+  }
+
+  .compare-chart-legend {
+    gap: 8px 12px;
+    font-size: 10px;
+  }
+
+  /* Comparison data itself can scroll inside its own region. */
+  .compare-player-strip,
+  .compare-columns,
+  .compare-rating-grid {
+    max-width: 100%;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Community chat: give the message area less vertical dominance so
+     the composer and Send control remain fully visible on short phones. */
+  .gg-modal {
+    width: min(100%, 620px);
+    max-height: calc(100dvh - 24px);
+    padding: 18px;
+    border-radius: 22px;
+  }
+
+  .gg-modal-head {
+    margin-bottom: 16px;
+    padding-bottom: 13px;
+  }
+
+  .gg-modal-head h2 {
+    font-size: 1.35rem;
+  }
+
+  .gg-chat {
+    min-height: 0;
+  }
+
+  .gg-chat-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .gg-chat-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gg-chat-stream {
+    min-height: 170px;
+    max-height: 34dvh;
+    margin: 10px 0;
+  }
+
+  .gg-chat-empty {
+    min-height: 170px;
+  }
+
+  .gg-chat-composer {
+    padding: 11px;
+  }
+
+  .gg-chat-composer textarea {
+    min-height: 62px;
+    max-height: 120px;
+  }
+
+  .gg-chat-composer-footer {
+    gap: 9px;
+  }
+
+  .gg-chat-send {
+    min-height: 46px;
+    flex: 1 1 auto;
+  }
+
+  /* Prevent page content from disappearing underneath fixed navigation. */
+  .tab-content {
+    padding-bottom: 8px;
+  }
+
+  .bottom-nav {
+    bottom: max(8px, env(safe-area-inset-bottom));
+    min-height: 62px;
+    box-shadow: 0 14px 36px rgb(0 0 0 / 0.32);
+  }
+}
+
+@media (max-width: 430px) {
+  .app {
+    width: calc(100% - 18px);
+    padding-bottom: calc(128px + env(safe-area-inset-bottom));
+  }
+
+  .page-title {
+    margin-bottom: 20px;
+  }
+
+  .page-title h2 {
+    font-size: clamp(28px, 8vw, 36px);
+  }
+
+  .section-block {
+    margin-top: 26px;
+  }
+
+  .section-heading {
+    margin-bottom: 13px;
+  }
+
+  .gg-podium {
+    grid-template-columns: repeat(3, minmax(136px, 1fr));
+  }
+
+  .gg-table th,
+  .gg-table td {
+    font-size: 12px;
+  }
+
+  .gg-table th:nth-child(11),
+  .gg-table td:nth-child(11) {
+    width: 74px;
+  }
+
+  .gg-modal {
+    padding: 15px;
+    border-radius: 20px;
+  }
+
+  .gg-chat-stream {
+    max-height: 31dvh;
+  }
+
+  .pr-launch {
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-content,
+  .gg-place,
+  .gg-modal,
+  .pr-launch {
+    animation: none !important;
+    transition: none !important;
+  }
+}
