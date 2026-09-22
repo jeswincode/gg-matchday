@@ -1,0 +1,740 @@
+/* =========================================================
+   MOBILE UI / UX
+   Final responsive layer. Loaded after all feature CSS so
+   mobile rules remain consistent across the app.
+========================================================= */
+
+@media (max-width: 760px) {
+  html,
+  body,
+  #root {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app {
+    width: min(100% - 20px, 1180px);
+    padding-top: 16px;
+    padding-bottom: 108px;
+  }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title live"
+      "actions actions";
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .topbar > div:first-child {
+    grid-area: title;
+    min-width: 0;
+  }
+
+  .topbar .status-dot {
+    grid-area: live;
+    justify-self: end;
+    white-space: nowrap;
+  }
+
+  .gg-header-actions {
+    grid-area: actions;
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .gg-header-actions > .gg-theme {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .gg-header-actions > .secondary-button {
+    flex: 0 0 auto;
+  }
+
+  .gg-theme {
+    display: flex;
+    gap: 6px;
+  }
+
+  .gg-theme button {
+    min-height: 40px;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
+
+  /* ---------- Account ---------- */
+  .account-bar {
+    position: static;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px;
+  }
+
+  .account-user {
+    min-width: 0;
+  }
+
+  .account-user > div {
+    min-width: 0;
+  }
+
+  .account-user strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .account-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .account-actions .request-pending {
+    grid-column: 1 / -1;
+    padding: 4px 2px;
+  }
+
+  .account-actions button {
+    min-width: 0;
+    min-height: 42px;
+    padding: 10px 9px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .signed-out-account {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .signed-out-account .google-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  /* ---------- Global text safety ---------- */
+  .page-title,
+  .section-heading,
+  .card,
+  .formula-card,
+  .home-section,
+  .home-hero,
+  .home-feature-card {
+    min-width: 0;
+  }
+
+  .page-title h2,
+  .section-heading h2,
+  .section-heading h3,
+  .card h2,
+  .card h3,
+  .home-feature-card h2,
+  .home-hero h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .section-heading .text-button {
+    align-self: flex-start;
+  }
+
+  /* ---------- Buttons ---------- */
+  .google-button,
+  .secondary-button,
+  .add-button,
+  .save-button,
+  .danger-button,
+  .approve-button,
+  .ghost-button {
+    min-height: 42px;
+    max-width: 100%;
+    line-height: 1.2;
+  }
+
+  /* ---------- Home ---------- */
+  .home-hero {
+    padding-top: 14px;
+  }
+
+  .home-feature-card {
+    padding: 20px;
+  }
+
+  .home-feature-card h2 {
+    font-size: clamp(27px, 8vw, 42px);
+  }
+
+  .home-intro,
+  .home-feature-card p {
+    overflow-wrap: anywhere;
+  }
+
+  .feature-score {
+    gap: 14px;
+    margin-top: 20px;
+  }
+
+  .feature-score > div {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .feature-score > div span {
+    overflow-wrap: anywhere;
+  }
+
+  .feature-score strong {
+    font-size: 34px;
+  }
+
+  .home-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .home-stat-card {
+    min-width: 0;
+    padding: 14px;
+  }
+
+  .home-stat-card span {
+    white-space: nowrap;
+  }
+
+  .home-stat-card strong {
+    font-size: 22px;
+  }
+
+  /* ---------- News ---------- */
+  .news-card {
+    min-width: 0;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 14px;
+  }
+
+  .news-icon {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .news-content {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .news-content h3,
+  .news-content p {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- Match cards ---------- */
+  .match-card {
+    min-width: 0;
+    padding: 14px;
+  }
+
+  .match-main {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .match-main > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .match-main h3,
+  .match-date {
+    overflow-wrap: anywhere;
+  }
+
+  .match-score {
+    flex: 0 0 auto;
+    min-width: 62px;
+  }
+
+  .match-score strong {
+    white-space: nowrap;
+  }
+
+  .v14-history-summary {
+    min-width: 0;
+  }
+
+  .v14-history-team {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .v14-history-team > strong,
+  .v14-history-scorers {
+    overflow-wrap: anywhere;
+  }
+
+  .match-actions {
+    flex-wrap: wrap;
+  }
+
+  .match-actions button {
+    flex: 1 1 120px;
+  }
+
+  /* ---------- Forms / record ---------- */
+  .add-player-form {
+    grid-template-columns: 1fr;
+  }
+
+  .add-player-form .add-button {
+    width: 100%;
+  }
+
+  input,
+  select,
+  textarea {
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  .match-score-header {
+    gap: 8px;
+  }
+
+  .side-block {
+    min-width: 0;
+  }
+
+  .side-block span {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- Players ---------- */
+  .player-profile-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    min-width: 0;
+    gap: 10px;
+    padding: 11px 12px;
+  }
+
+  .managed-player-info {
+    min-width: 0;
+  }
+
+  .managed-player-info strong,
+  .managed-player-info span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .profile-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    min-width: 0;
+    gap: 12px;
+  }
+
+  .profile-heading {
+    min-width: 0;
+  }
+
+  .profile-heading h2,
+  .profile-heading p {
+    overflow-wrap: anywhere;
+  }
+
+  .profile-large-photo,
+  .profile-photo-fallback {
+    width: 76px;
+    height: 76px;
+    border-radius: 20px;
+  }
+
+  .profile-info-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-info-item {
+    min-width: 0;
+  }
+
+  .profile-info-item strong {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- Calendar ---------- */
+  .calendar-card {
+    min-width: 0;
+  }
+
+  .calendar-header {
+    gap: 8px;
+  }
+
+  .calendar-header h3 {
+    font-size: 18px;
+  }
+
+  .calendar-nav {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+  }
+
+  .calendar-weekdays,
+  .calendar-grid {
+    gap: 4px;
+  }
+
+  .calendar-day {
+    min-height: 60px;
+    border-radius: 10px;
+  }
+
+  .calendar-day strong {
+    top: 7px;
+    left: 7px;
+    font-size: 13px;
+  }
+
+  .calendar-day small {
+    right: 5px;
+    bottom: 5px;
+    max-width: calc(100% - 10px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .calendar-dot {
+    left: 7px;
+    bottom: 8px;
+  }
+
+  /* ---------- Admin ---------- */
+  .admin-request {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-request-user {
+    min-width: 0;
+  }
+
+  .admin-request-user > div:last-child {
+    min-width: 0;
+  }
+
+  .admin-request-user strong,
+  .admin-request-user span {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-request-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-request-actions button {
+    min-width: 0;
+  }
+
+  .permission-model {
+    grid-template-columns: 1fr;
+  }
+
+  /* ---------- Bottom navigation ---------- */
+  .bottom-nav {
+    left: 50%;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: calc(100% - 16px);
+    max-width: 700px;
+    gap: 3px;
+    padding: 5px;
+    border-radius: 18px;
+  }
+
+  .bottom-nav button {
+    min-width: 0;
+    min-height: 56px;
+    gap: 2px;
+    padding: 7px 3px;
+    line-height: 1;
+  }
+
+  .bottom-nav button span {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .bottom-nav button small {
+    display: block;
+    width: 100%;
+    min-height: 20px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 8px;
+    line-height: 20px;
+    text-align: center;
+  }
+
+  /* ---------- Data-heavy sections ---------- */
+  .table-scroll,
+  .compare-player-strip,
+  .compare-columns,
+  .compare-rating-grid,
+  .h2h-history-list {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .leaderboard-head,
+  .leaderboard-row {
+    min-width: 720px;
+  }
+
+  .compare-panel {
+    max-width: calc(100vw - 20px);
+  }
+
+  .compare-panel-header {
+    min-width: 0;
+  }
+
+  .compare-panel-header h3 {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- Performance dashboard ---------- */
+  .perf-hero {
+    min-width: 0;
+  }
+
+  .perf-hero > div:first-child {
+    min-width: 0;
+  }
+
+  .perf-hero h3,
+  .perf-hero p {
+    overflow-wrap: anywhere;
+  }
+
+  .perf-kpis > div,
+  .perf-highlights > div {
+    min-width: 0;
+  }
+
+  /* ---------- Notifications ---------- */
+  .gg-notifications-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .gg-notification-card-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .gg-notification-card h3,
+  .gg-notification-card p {
+    overflow-wrap: anywhere;
+  }
+
+  .gg-notification-compose > div:last-child {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  /* ---------- Modals / chat ---------- */
+  .gg-backdrop {
+    padding: 8px;
+  }
+
+  .gg-modal {
+    width: min(100%, 620px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+  }
+
+  .gg-modal-head {
+    min-width: 0;
+  }
+
+  .gg-modal-head h2,
+  .gg-modal-head h3 {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .gg-chat-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .gg-chat-composer-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .gg-chat-send {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .app {
+    width: calc(100% - 14px);
+    padding-bottom: 106px;
+  }
+
+  .topbar {
+    gap: 9px;
+  }
+
+  .topbar h1 {
+    font-size: 29px;
+  }
+
+  .status-dot {
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+
+  .gg-header-actions {
+    gap: 6px;
+  }
+
+  .gg-header-actions > .secondary-button {
+    padding-inline: 11px;
+  }
+
+  .gg-theme {
+    gap: 4px;
+  }
+
+  .gg-theme button {
+    padding-inline: 7px;
+    font-size: 12px;
+  }
+
+  .account-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .home-feature-card {
+    padding: 17px;
+    border-radius: 20px;
+  }
+
+  .feature-score {
+    gap: 8px;
+  }
+
+  .feature-score strong {
+    font-size: 30px;
+  }
+
+  .feature-score span {
+    font-size: 10px;
+  }
+
+  .home-stat-grid {
+    gap: 7px;
+  }
+
+  .home-stat-card {
+    padding: 12px;
+  }
+
+  .home-stat-card strong {
+    font-size: 20px;
+  }
+
+  .calendar-day {
+    min-height: 56px;
+  }
+
+  .calendar-day strong {
+    top: 6px;
+    left: 6px;
+    font-size: 12px;
+  }
+
+  .calendar-weekdays span {
+    font-size: 9px;
+  }
+
+  .bottom-nav {
+    width: calc(100% - 10px);
+    gap: 1px;
+    padding: 4px;
+  }
+
+  .bottom-nav button {
+    min-height: 54px;
+    padding-inline: 1px;
+  }
+
+  .bottom-nav button span {
+    width: 22px;
+    height: 22px;
+    font-size: 17px;
+  }
+
+  .bottom-nav button small {
+    font-size: 7.5px;
+  }
+}
+
+@media (max-width: 360px) {
+  .app {
+    width: calc(100% - 10px);
+  }
+
+  .topbar h1 {
+    font-size: 27px;
+  }
+
+  .gg-header-actions .secondary-button {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .bottom-nav button small {
+    font-size: 7px;
+  }
+
+  .bottom-nav button span {
+    font-size: 16px;
+  }
+}
