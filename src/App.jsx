@@ -288,6 +288,8 @@ function App() {
     setOwnGoals,
   ] = useState({});
 
+  const [legacyMatchContext,setLegacyMatchContext] = useState(null);
+
   const [
     savingMatch,
     setSavingMatch,
@@ -1227,6 +1229,7 @@ function App() {
     setGoals({});
     setAssists({});
     setOwnGoals({});
+    setLegacyMatchContext(null);
     setRatings({});setLegacyUnrated([]);
     setDefensivePerformances({});setLegacyDefensiveUnrated([]);
   }
@@ -1408,6 +1411,9 @@ function App() {
       nextOwnGoals
     );
 
+    const isLegacyMatch = !(match.events || []).length && !(match.participants || []).some((participant) => Number(participant.ownGoals || 0) > 0);
+    setLegacyMatchContext(isLegacyMatch ? {teamA:Number(match.teamA?.score||0),teamB:Number(match.teamB?.score||0),teams:nextTeams} : null);
+
     setActiveTab(
       TABS.RECORD
     );
@@ -1498,8 +1504,11 @@ function App() {
       0
     );
 
-  const teamAScore = teamANormalScore + teamAOwnGoals;
-  const teamBScore = teamBNormalScore + teamBOwnGoals;
+  const legacyTeamsUnchanged = legacyMatchContext && players.every((player) => (teams[String(player._id)] || null) === (legacyMatchContext.teams[String(player._id)] || null));
+  const legacyEventsUntouched = legacyMatchContext && teamANormalScore + teamBNormalScore + teamAOwnGoals + teamBOwnGoals === 0;
+  const legacyScoreActive = Boolean(legacyMatchContext && legacyTeamsUnchanged && legacyEventsUntouched);
+  const teamAScore = legacyScoreActive ? legacyMatchContext.teamA : teamANormalScore + teamAOwnGoals;
+  const teamBScore = legacyScoreActive ? legacyMatchContext.teamB : teamBNormalScore + teamBOwnGoals;
 
   const totalGoals =
     teamAScore +
