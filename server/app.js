@@ -16,6 +16,7 @@ import authRoutes from "./routes/auth.js";
 import profileSecurityRoutes from "./routes/profileSecurity.js";
 import profileRequestRoutes from "./routes/profileRequests.js";
 import immersiveNewsRoutes from "./routes/immersiveNews.js";
+import systemRoutes from "./routes/system.js";
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/news", editorialRoutes);
 app.use("/api/news", newsRoutes);
 app.use("/api/immersive-news", immersiveNewsRoutes);
+app.use("/api/system", systemRoutes);
 app.use("/api/profile-requests", profileSecurityRoutes);
 app.use("/api/profile-requests", profileRequestRoutes);
 
