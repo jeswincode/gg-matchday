@@ -33,6 +33,8 @@ jobs:
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          # Optional: set MONGODB_DATABASE as a repository secret when the Atlas URI does not name the app database.
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
         run: |
           mkdir -p backups
           bash scripts/backup-mongodb.sh

@@ -3,6 +3,7 @@ set -euo pipefail
 
 : "${MONGODB_URI:?MONGODB_URI is required}"
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}"
+MONGODB_DATABASE="${MONGODB_DATABASE:-}"
 
 BACKUP_FILE="${1:-}"
 if [ -z "$BACKUP_FILE" ] || [ ! -f "$BACKUP_FILE" ]; then

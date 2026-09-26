@@ -3,6 +3,7 @@ set -euo pipefail
 
 : "${MONGODB_URI:?MONGODB_URI is required}"
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}"
+MONGODB_DATABASE="${MONGODB_DATABASE:-}"
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"

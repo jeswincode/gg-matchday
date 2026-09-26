@@ -31,7 +31,7 @@ The repository contains:
 - `scripts/restore-mongodb.sh`
 - `.github/workflows/mongodb-backup.yml`
 
-The workflow runs daily at **02:30 UTC** and can also be started manually.
+The workflow runs daily at **02:30 UTC** and can also be started manually. The backup script no longer suppresses `mongodump` errors, so Atlas connection/permission failures remain visible in the workflow logs without printing the connection string.
 
 It:
 1. installs MongoDB Database Tools 100.19.0;
@@ -48,6 +48,7 @@ Add these under **Settings → Secrets and variables → Actions**:
 
 - `MONGODB_URI`: the Atlas connection string for the database.
 - `BACKUP_ENCRYPTION_KEY`: a long random secret used to encrypt/decrypt the backup.
+- `MONGODB_DATABASE` (optional): the application database name when the Atlas URI does not already identify it. For GG Matchday, use the database name shown in Atlas/your connection string.
 
 **Keep the encryption key separately from the backup artifacts.** Losing the key means the encrypted backups cannot be restored.
 
