@@ -1204,3 +1204,23 @@
     transition: none !important;
   }
 }
+
+/* Dedicated Match Details mobile presentation. */
+.gg-match-performance-cards { display:none; }
+@media (max-width:760px) {
+  .gg-match-performance-scroll { display:none !important; }
+  .gg-match-performance-cards { display:grid; gap:10px; margin-top:12px; }
+  .gg-match-player-card { border:1px solid var(--border); border-radius:15px; overflow:hidden; background:var(--panel); }
+  .gg-match-player-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; background:var(--panel-soft); border-bottom:1px solid var(--border); }
+  .gg-match-player-head .gg-player-link { min-width:0; flex:1; display:flex; align-items:center; gap:10px; padding:0; font-size:14px; }
+  .gg-match-player-head .gg-player-link img { width:42px; height:42px; flex:0 0 42px; object-fit:cover; border-radius:50%; }
+  .gg-match-player-head .gg-player-link span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .gg-match-player-head > span { flex:0 0 auto; color:var(--muted); font-size:11px; text-align:right; }
+  .gg-match-player-stats { display:grid; grid-template-columns:repeat(4,1fr); }
+  .gg-match-player-stats > div { min-width:0; padding:10px 5px; text-align:center; border-right:1px solid var(--border); }
+  .gg-match-player-stats > div:nth-child(4) { border-right:0; }
+  .gg-match-player-stats strong { display:block; font-size:16px; line-height:1.1; color:var(--text); }
+  .gg-match-player-stats span { display:block; margin-top:4px; color:var(--muted); font-size:8px; line-height:1.1; text-transform:uppercase; letter-spacing:.04em; }
+  .gg-match-player-stats .match-player-rating { grid-column:1 / -1; border-right:0; border-top:1px solid var(--border); background:var(--panel-soft); }
+  .gg-match-player-stats .match-player-rating strong { color:var(--accent); font-size:20px; }
+}
