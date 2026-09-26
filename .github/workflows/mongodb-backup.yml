@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: mongodb-backup
+  cancel-in-progress: false
+
 jobs:
   backup:
     name: Create encrypted MongoDB backup
@@ -19,25 +23,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL             "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.19.0.tgz"             -o /tmp/mongodb-tools.tgz
+          curl -fsSL \
+            "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.19.0.tgz" \
+            -o /tmp/mongodb-tools.tgz
           tar -xzf /tmp/mongodb-tools.tgz -C /tmp
           TOOLS_DIR="/tmp/mongodb-database-tools-ubuntu2404-x86_64-100.19.0/bin"
           echo "$TOOLS_DIR" >> "$GITHUB_PATH"
           export PATH="$TOOLS_DIR:$PATH"
           mongodump --version
+          jq --version
 
       - name: Checkout backup scripts
         uses: actions/checkout@v5
 
-      - name: Create encrypted backup
+      - name: Create encrypted backup with temporary Atlas access
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
-          # Optional: set MONGODB_DATABASE as a repository secret when the Atlas URI does not name the app database.
           MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+          ATLAS_CLIENT_ID: ${{ secrets.ATLAS_CLIENT_ID }}
+          ATLAS_CLIENT_SECRET: ${{ secrets.ATLAS_CLIENT_SECRET }}
+          ATLAS_PROJECT_ID: ${{ secrets.ATLAS_PROJECT_ID }}
         run: |
-          mkdir -p backups
-          bash scripts/backup-mongodb.sh
+          chmod +x scripts/backup-mongodb-atlas.sh scripts/backup-mongodb.sh
+          bash scripts/backup-mongodb-atlas.sh
 
       - name: Upload encrypted backup artifact
         uses: actions/upload-artifact@v4
