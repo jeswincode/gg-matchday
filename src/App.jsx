@@ -2599,8 +2599,6 @@ function App() {
           onEdit={startEditingMatch}
           onDelete={deleteMatch}
           refreshKey={refreshKey}
-          MatchHistoryCardComponent={MatchHistoryCard}
-          SectionHeadingComponent={SectionHeading}
         />
       )}
 
