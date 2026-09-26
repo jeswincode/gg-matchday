@@ -2493,44 +2493,6 @@ function App() {
 // COMPONENTS
 // =========================================================
 
-function HomeStat({
-  label,
-  value,
-}) {
-  return (
-    <div className="home-stat-card">
-
-      <span>
-        {label}
-      </span>
-
-      <strong>
-        {value}
-      </strong>
-
-    </div>
-  );
-}
-
-function InfoItem({
-  label,
-  value,
-}) {
-  return (
-    <div className="profile-info-item">
-
-      <span>
-        {label}
-      </span>
-
-      <strong>
-        {value}
-      </strong>
-
-    </div>
-  );
-}
-
 function NavButton({
   active,
   icon,
