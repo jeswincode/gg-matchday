@@ -79,3 +79,19 @@ The restore command uses `--drop`, so use it against a dedicated restore/test da
 ## Important limitation
 
 GitHub Actions artifacts are a practical first backup layer, not a complete disaster-recovery architecture. They should not be the only long-term copy once GG Matchday becomes important enough to require stronger retention or geographic redundancy.
+
+
+## GitHub Actions → Atlas temporary network access
+
+The backup workflow dynamically authorizes the GitHub-hosted runner's public IPv4 address in the Atlas project immediately before `mongodump`. It removes the entry after the backup completes, and the Atlas entry also has a 30-minute automatic expiry as a safety net.
+
+Required additional GitHub Actions secrets:
+- `ATLAS_CLIENT_ID`
+- `ATLAS_CLIENT_SECRET`
+- `ATLAS_PROJECT_ID`
+
+Create a dedicated Atlas Service Account for this workflow and grant it the **Project Network Access Manager** role for the GG Matchday project. MongoDB documents this role for managing project IP access-list entries. The service account is separate from the MongoDB database user in `MONGODB_URI`.
+
+The workflow checks whether the runner IP is already present. If it is, the workflow leaves it alone. Otherwise it creates a temporary entry and removes only that entry.
+
+Do not add `0.0.0.0/0` to the database IP access list for this backup workflow.
