@@ -1,6 +1,4 @@
 import {useEffect,useState} from "react";
-import MatchHistoryCard from "../../components/MatchHistoryCard";
-import SectionHeading from "../../components/SectionHeading";
 
 function getCalendarDays(year,month){
   const firstDay=new Date(year,month-1,1).getDay();
@@ -15,7 +13,7 @@ function monthName(month){
   return new Date(2026,month-1,1).toLocaleString(undefined,{month:"long"});
 }
 
-export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete}){
+export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,MatchHistoryCardComponent,SectionHeadingComponent}){
   const today=new Date();
   const [calendarMonth,setCalendarMonth]=useState(today.getMonth()+1);
   const [calendarYear,setCalendarYear]=useState(today.getFullYear());
@@ -137,7 +135,7 @@ export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete}){
       </section>
 
       <section className="section-block">
-        <SectionHeading
+        <SectionHeadingComponent
           eyebrow="DAY DETAILS"
           title={selectedDay?(`${monthName(calendarMonth)} ${selectedDay}`):"Select a date"}
         />
@@ -145,7 +143,7 @@ export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete}){
         {selectedDay&&matchesForDay(selectedDay).length>0?(
           <div className="match-list">
             {matchesForDay(selectedDay).map(match=>(
-              <MatchHistoryCard
+              <MatchHistoryCardComponent
                 onOpen={()=>onOpen(match._id)}
                 key={match._id}
                 match={match}
