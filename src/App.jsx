@@ -16,6 +16,7 @@ import {
 } from "react";
 
 import {
+  getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
@@ -416,70 +417,77 @@ function App() {
 
   useEffect(() => {
     if (!auth) return;
-    const unsubscribe =
-      onAuthStateChanged(
-        auth,
-        async (firebaseUser) => {
-          setAuthUser(
-            firebaseUser
+
+    let active = true;
+
+    async function syncBackendUser(firebaseUser) {
+      if (!active) return;
+
+      setAuthUser(firebaseUser);
+
+      if (!firebaseUser) {
+        setBackendUser(null);
+        setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const token = await firebaseUser.getIdToken();
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              `Authentication sync failed (${response.status})`,
           );
-
-          if (!firebaseUser) {
-            setBackendUser(null);
-            setAuthLoading(false);
-            return;
-          }
-
-          try {
-            const token =
-              await firebaseUser.getIdToken();
-
-            const response =
-              await fetch(
-                `${API_URL}/auth/me`,
-                {
-                  headers: {
-                    Authorization:
-                      `Bearer ${token}`,
-                  },
-                }
-              );
-
-            const data =
-              await response
-                .json()
-                .catch(() => ({}));
-
-            if (!response.ok) {
-              throw new Error(
-                data.message ||
-                  `Authentication sync failed (${response.status})`
-              );
-            }
-
-            setBackendUser(
-              data.user || null
-            );
-
-            setMessage("");
-          } catch (error) {
-            console.error(
-              "Auth sync error:",
-              error
-            );
-
-            setBackendUser(null);
-
-            setMessage(
-              `Could not sync your account: ${error.message}`
-            );
-          } finally {
-            setAuthLoading(false);
-          }
         }
-      );
 
-    return unsubscribe;
+        if (!active) return;
+        setBackendUser(data.user || null);
+        setMessage("");
+      } catch (error) {
+        console.error("Auth sync error:", error);
+
+        if (!active) return;
+        setBackendUser(null);
+        setMessage(`Could not sync your account: ${error.message}`);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, syncBackendUser);
+
+    // Consume a pending redirect result on startup as an explicit
+    // fallback for browsers where the auth observer is delayed.
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) return syncBackendUser(result.user);
+        return undefined;
+      })
+      .catch((error) => {
+        console.error("Redirect auth result error:", error);
+
+        if (active) {
+          setAuthLoading(false);
+          setMessage(
+            error?.code === "auth/web-storage-unsupported"
+              ? "Google sign-in needs browser storage enabled."
+              : `${error?.code || "auth-error"}: ${error?.message || "Google sign-in could not be completed."}`,
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   // =========================================================
@@ -755,37 +763,51 @@ function App() {
   // =========================================================
 
   async function signIn() {
-    if (!auth) { setMessage("Sign-in is not configured for this environment yet."); return; }
+    if (!auth) {
+      setMessage("Sign-in is not configured for this environment yet.");
+      return;
+    }
+
     try {
       setMessage("");
+      setAuthLoading(true);
 
-      if (
-        window.innerWidth <
-        700
-      ) {
-        await signInWithRedirect(
-          auth,
-          googleProvider
-        );
+      // Popup auth works across desktop and mobile Chrome. Firebase
+      // recommends it as the alternative when redirect auth is affected
+      // by browser storage restrictions.
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Google sign-in error:", error);
 
-        return;
+      let finalError = error;
+
+      const canFallbackToRedirect = [
+        "auth/popup-blocked",
+        "auth/popup-timeout",
+        "auth/operation-not-supported-in-this-environment",
+        "auth/cancelled-popup-request",
+      ].includes(error?.code);
+
+      if (canFallbackToRedirect) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError) {
+          console.error(
+            "Google redirect fallback error:",
+            redirectError,
+          );
+          setAuthLoading(false);
+          finalError = redirectError;
+        }
+      } else {
+        setAuthLoading(false);
       }
 
-      await signInWithPopup(
-        auth,
-        googleProvider
-      );
-    } catch (error) {
-      console.error(error);
-
       setMessage(
-        error?.code ===
-          "auth/popup-closed-by-user"
+        finalError?.code === "auth/popup-closed-by-user"
           ? "Sign-in cancelled."
-          : `${error?.code || "auth-error"}: ${
-              error?.message ||
-              "Google sign-in failed."
-            }`
+          : `${finalError?.code || "auth-error"}: ${finalError?.message || "Google sign-in failed."}`,
       );
     }
   }
