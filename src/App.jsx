@@ -4,6 +4,7 @@ import LeaderboardView from './components/Leaderboard';
 import ProfileInsights from './components/ProfileInsights';
 import Clasico from './components/Clasico';
 import PlayerComparisons from './components/PlayerComparisons';
+import DatabaseHealth from './components/DatabaseHealth';
 import {api, invalidate} from './lib/api';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
@@ -4080,6 +4081,8 @@ function App() {
                 )}
 
               </section>
+
+              <DatabaseHealth />
 
               <section className="formula-card">
 
