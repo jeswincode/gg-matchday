@@ -14,6 +14,7 @@ DELETE_AFTER_DATE="$(date -u -d '+30 minutes' '+%Y-%m-%dT%H:%M:%SZ')"
 TEMP_ENTRY_CREATED="false"
 
 echo "GitHub runner public IP: ${RUNNER_IP}"
+echo "Atlas project ID configured; beginning temporary access test."
 
 BASIC_AUTH="$(printf '%s:%s' "$ATLAS_CLIENT_ID" "$ATLAS_CLIENT_SECRET" | base64 -w 0)"
 TOKEN_RESPONSE="$(mktemp)"
