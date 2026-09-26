@@ -21,7 +21,9 @@ jobs:
           set -euo pipefail
           curl -fsSL             "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.19.0.tgz"             -o /tmp/mongodb-tools.tgz
           tar -xzf /tmp/mongodb-tools.tgz -C /tmp
-          echo "/tmp/mongodb-database-tools-ubuntu2404-x86_64-100.19.0/bin" >> "$GITHUB_PATH"
+          TOOLS_DIR="/tmp/mongodb-database-tools-ubuntu2404-x86_64-100.19.0/bin"
+          echo "$TOOLS_DIR" >> "$GITHUB_PATH"
+          export PATH="$TOOLS_DIR:$PATH"
           mongodump --version
 
       - name: Checkout backup scripts
