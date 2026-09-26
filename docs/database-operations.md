@@ -90,7 +90,7 @@ Required additional GitHub Actions secrets:
 - `ATLAS_CLIENT_SECRET`
 - `ATLAS_PROJECT_ID`
 
-Create a dedicated Atlas Service Account for this workflow and grant it the **Project Network Access Manager** role for the GG Matchday project. MongoDB documents this role for managing project IP access-list entries. The service account is separate from the MongoDB database user in `MONGODB_URI`. cite docs/database-operations not supported in markdown tool output
+Create a dedicated Atlas Service Account for this workflow and grant it the **Project Network Access Manager** role for the GG Matchday project. MongoDB documents this role for managing project IP access-list entries. The service account is separate from the MongoDB database user in `MONGODB_URI`.
 
 The workflow checks whether the runner IP is already present. If it is, the workflow leaves it alone. Otherwise it creates a temporary entry and removes only that entry.
 
