@@ -1769,7 +1769,7 @@ function App() {
         loadNews(),
       ]);
 
-      loadCalendar(calendarYear,calendarMonth);
+      // Calendar refreshes from the shared data-change event.
       setMessage(
         "Match deleted."
       );
@@ -2610,6 +2610,7 @@ function App() {
           onOpen={showMatch}
           onEdit={startEditingMatch}
           onDelete={deleteMatch}
+          refreshKey={refreshKey}
           MatchHistoryCardComponent={MatchHistoryCard}
           SectionHeadingComponent={SectionHeading}
         />
