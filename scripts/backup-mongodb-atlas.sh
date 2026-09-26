@@ -53,7 +53,7 @@ CREATE_STATUS="$(curl -sS --retry 3 --output /tmp/atlas-create-response.json --w
   --header "Content-Type: application/json" \
   --data "$(jq -n --arg ip "$RUNNER_IP" --arg comment "GG Matchday GitHub Actions backup" --arg expiry "$DELETE_AFTER_DATE" '[{ipAddress:$ip,comment:$comment,deleteAfterDate:$expiry}]')")"
 
-if [ "$CREATE_STATUS" = "200" ]; then
+if [ "$CREATE_STATUS" = "200" ] || [ "$CREATE_STATUS" = "201" ]; then
   TEMP_ENTRY_CREATED="true"
 else
   echo "Atlas access-list creation failed with HTTP status $CREATE_STATUS."
