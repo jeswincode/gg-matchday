@@ -2,6 +2,7 @@
 export const id = value => String(value?._id ?? value);
 export const isClasico = name => /\bel\s+clasico\b/.test(String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " "));
 import { MINIMUM_DEFENSIVE_MATCHES, calculateDefensiveRating, calculateGGRating, calculateOffensiveRating, calculateResultScore, effectiveMatchRating, hasDefensivePerformance, hasRating, round } from "./ratings/index.js";
+export {hasRating,hasDefensivePerformance};
 export const compareByGG = (a,b) => (b.ggRating ?? -1)-(a.ggRating ?? -1) || (b.averageRating ?? -1)-(a.averageRating ?? -1);
 export const sortOverall = (a,b) => compareByGG(a,b) || b.winRate-a.winRate || b.goalContributions-a.goalContributions || b.cleanSheetRate-a.cleanSheetRate || b.matches-a.matches || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
 export const sortOffensive = (a,b) => (b.offensiveRating ?? -1)-(a.offensiveRating ?? -1) || b.goals-a.goals || b.assists-a.assists || (b.averageRating ?? -1)-(a.averageRating ?? -1) || b.matches-a.matches || a.name.localeCompare(b.name);
