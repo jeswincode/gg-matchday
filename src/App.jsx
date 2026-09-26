@@ -16,6 +16,7 @@ import {
 } from "react";
 
 import {
+  getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
