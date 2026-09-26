@@ -2327,7 +2327,7 @@ function App() {
             resetMatchForm={resetMatchForm}
             changeCount={changeCount}
           />
-        )}}
+        )}
         <section className="section-block"><div className="section-heading"><h2>Recent Matches</h2><span className="muted">{overview?.matches??matches.length} recorded</span></div>{loadingMatches?<div className="loading-panel">Loading matches…</div>:!matches.length?<div className="empty-state">No matches recorded yet.</div>:<div className="match-list">{matches.map(match=><MatchHistoryCard key={match._id} match={match} canEdit={isEditor} onOpen={()=>showMatch(match._id)} onEdit={()=>startEditingMatch(match)} onDelete={()=>deleteMatch(match._id)}/>)}</div>}{matches.length<(overview?.matches||0)&&<button className="secondary-button" onClick={()=>loadMatches(archivePage+1)}>Load more matches</button>}</section>
         </>}
       </section>}
