@@ -27,4 +27,5 @@ createRoot(document.getElementById('root')).render(
     </>
   </StrictMode>,
 )
-import './mobile-ux.css';
+import './mobile-ux.css'
+import './components/database-health.css';

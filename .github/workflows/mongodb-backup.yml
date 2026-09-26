@@ -1,0 +1,44 @@
+name: MongoDB Backup
+
+on:
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Create encrypted MongoDB backup
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Install MongoDB Database Tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL             "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.19.0.tgz"             -o /tmp/mongodb-tools.tgz
+          tar -xzf /tmp/mongodb-tools.tgz -C /tmp
+          echo "/tmp/mongodb-database-tools-ubuntu2404-x86_64-100.19.0/bin" >> "$GITHUB_PATH"
+          mongodump --version
+
+      - name: Checkout backup scripts
+        uses: actions/checkout@v5
+
+      - name: Create encrypted backup
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          mkdir -p backups
+          bash scripts/backup-mongodb.sh
+
+      - name: Upload encrypted backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gg-matchday-mongodb-backup-${{ github.run_id }}
+          path: backups/*.enc
+          if-no-files-found: error
+          retention-days: 30
