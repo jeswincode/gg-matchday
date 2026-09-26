@@ -1,6 +1,8 @@
 name: MongoDB Backup
 
 on:
+  push:
+    branches: ["test/mongodb-backup-live"]
   schedule:
     - cron: "30 2 * * *"
   workflow_dispatch:
