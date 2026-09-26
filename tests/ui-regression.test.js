@@ -30,3 +30,8 @@ test('Latest News uses an internal scroll viewport rather than growing the page'
   assert.match(home,/<div className="news-list">/);
   assert.match(home,/news\s*\.slice\(\s*0\s*,\s*6\s*\)\s*\.map/);
 });
+test('Calendar hover popover preserves all matches from the main baseline',()=>{
+  const calendar=read('src/features/calendar/Calendar.jsx');
+  assert.match(calendar,/\{dayMatches\.map\(match=>/);
+  assert.doesNotMatch(calendar,/dayMatches\.slice\(\s*0\s*,\s*3\s*\)/);
+});
