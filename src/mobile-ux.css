@@ -747,6 +747,141 @@
    giving dense desktop components mobile-native behavior.
 ========================================================= */
 
+/* ---------- Match details / player performance ---------- */
+@media (max-width: 760px) {
+  .gg-match-performance-scroll {
+    overflow: visible;
+    border: 0;
+    margin: 12px 0 0;
+  }
+
+  .gg-match-performance-table {
+    display: block;
+    width: 100%;
+    background: transparent;
+  }
+
+  .gg-match-performance-table thead {
+    display: none;
+  }
+
+  .gg-match-performance-table tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  .gg-match-performance-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) repeat(3, minmax(58px, auto));
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--panel);
+  }
+
+  .gg-match-performance-table td {
+    display: block;
+    min-width: 0;
+    padding: 9px 8px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    white-space: normal;
+  }
+
+  .gg-match-performance-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 3px;
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+
+  .gg-match-performance-table td[data-label="Player"] {
+    grid-column: 1 / -1;
+    padding: 10px 11px;
+    background: var(--panel-soft);
+  }
+
+  .gg-match-performance-table td[data-label="Player"]::before {
+    display: none;
+  }
+
+  .gg-match-performance-table td[data-label="Side"] {
+    grid-column: 1 / -1;
+    padding: 7px 11px;
+    color: var(--muted);
+    font-size: 11px;
+    border-bottom: 0;
+  }
+
+  .gg-match-performance-table td[data-label="Side"]::before {
+    display: none;
+  }
+
+  .gg-match-performance-table td[data-label="Goals"],
+  .gg-match-performance-table td[data-label="Assists"],
+  .gg-match-performance-table td[data-label="Own Goals"],
+  .gg-match-performance-table td[data-label="Defensive"],
+  .gg-match-performance-table td[data-label="Rating"] {
+    text-align: center;
+  }
+
+  .gg-match-performance-table td[data-label="Goals"] {
+    grid-column: 1;
+  }
+
+  .gg-match-performance-table td[data-label="Assists"] {
+    grid-column: 2;
+  }
+
+  .gg-match-performance-table td[data-label="Own Goals"] {
+    grid-column: 3;
+  }
+
+  .gg-match-performance-table td[data-label="Defensive"] {
+    grid-column: 4;
+  }
+
+  .gg-match-performance-table td[data-label="Rating"] {
+    grid-column: 1 / -1;
+    border-bottom: 0;
+    background: var(--panel-soft);
+    color: var(--accent);
+    font-weight: 800;
+    font-size: 16px;
+  }
+
+  .gg-match-performance-table .gg-player-link {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 1px 0;
+    font-size: 14px;
+  }
+
+  .gg-match-performance-table .gg-player-link img {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .gg-match-performance-table .gg-player-link span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+
 @media (max-width: 760px) {
   .app {
     width: min(calc(100% - 24px), 1180px);
