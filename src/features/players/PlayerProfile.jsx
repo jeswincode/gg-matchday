@@ -500,9 +500,5 @@ export default function PlayerProfile({
       )}
     
     </section>
-              )}
-    
-            </section>
-          )}
   );
 }
