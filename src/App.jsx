@@ -2646,6 +2646,10 @@ function App() {
               onBack={()=>setSelectedPlayer(null)}
               onClearReview={()=>setPlayerReview(null)}
             />
+          )}
+        </section>
+      )}
+
       {/* =====================================================
           ADMIN
       ===================================================== */}
