@@ -117,7 +117,7 @@ export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshK
                         {dayMatches.length>0&&<span className="calendar-dot"/>}
                         {hoveredDay===day&&dayMatches.length>0&&(
                           <div className="calendar-popover">
-                            {dayMatches.slice(0,3).map(match=>(
+                            {dayMatches.map(match=>(
                               <div key={match._id}>
                                 <strong>{match.teamA?.score} : {match.teamB?.score}</strong>
                                 <span>{match.teamA?.label} vs {match.teamB?.label}</span>
