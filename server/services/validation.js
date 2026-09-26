@@ -1,4 +1,5 @@
-import {hasDefensivePerformance,hasRating,id} from './statistics.js';
+import {hasDefensivePerformance,hasRating} from './ratings/index.js';
+import {id} from './statistics.js';
 export const positions=['GK','CB','LB','RB','LWB','RWB','CDM','CM','CAM','LM','RM','LW','RW','ST','CF'];
 
 export const primaryPositionAliases={
