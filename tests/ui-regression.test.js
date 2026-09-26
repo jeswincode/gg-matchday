@@ -23,10 +23,15 @@ test('Player Comparisons keeps its player dependency stable and supports the com
 
 test('Latest News uses an internal scroll viewport rather than growing the page',()=>{
   const css=read('src/news-scroll.css');
-  const app=read('src/App.jsx');
+  const home=read('src/features/home/HomePage.jsx');
   assert.match(css,/\.news-list\{[^}]*max-height:476px[^}]*overflow-y:auto/);
   assert.match(css,/\.news-card\{min-height:145px\}/);
   assert.match(css,/@media\(max-width:600px\)\{\.news-list\{max-height:440px/);
-  assert.match(app,/<div className="news-list">/);
-  assert.match(app,/news\s*\.slice\(\s*0\s*,\s*6\s*\)\s*\.map/);
+  assert.match(home,/<div className="news-list">/);
+  assert.match(home,/news\s*\.slice\(\s*0\s*,\s*6\s*\)\s*\.map/);
+});
+test('Calendar hover popover preserves all matches from the main baseline',()=>{
+  const calendar=read('src/features/calendar/Calendar.jsx');
+  assert.match(calendar,/\{dayMatches\.map\(match=>/);
+  assert.doesNotMatch(calendar,/dayMatches\.slice\(\s*0\s*,\s*3\s*\)/);
 });
