@@ -43,12 +43,11 @@ const copy = {
 
 export default function DatabaseHealth() {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
     api("/system/database-health")
       .then((result) => {
         if (active) {
