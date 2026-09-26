@@ -16,16 +16,28 @@ TEMP_ENTRY_CREATED="false"
 echo "GitHub runner public IP: ${RUNNER_IP}"
 
 BASIC_AUTH="$(printf '%s:%s' "$ATLAS_CLIENT_ID" "$ATLAS_CLIENT_SECRET" | base64 -w 0)"
-ACCESS_TOKEN="$(curl -fsS --retry 3 \
+TOKEN_RESPONSE="$(mktemp)"
+TOKEN_STATUS="$(curl -sS --retry 3 --output "$TOKEN_RESPONSE" --write-out '%{http_code}' \
   --request POST \
   --url https://cloud.mongodb.com/api/oauth/token \
   --header "Authorization: Basic $BASIC_AUTH" \
   --header "Content-Type: application/x-www-form-urlencoded" \
   --header "Accept: application/json" \
-  --data 'grant_type=client_credentials' | jq -r '.access_token')"
+  --data 'grant_type=client_credentials')"
 
-if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
-  echo "Atlas OAuth token was not returned." >&2
+echo "Atlas OAuth token endpoint HTTP status: $TOKEN_STATUS"
+if [ "$TOKEN_STATUS" != "200" ]; then
+  echo "Atlas OAuth response (credentials redacted):"
+  cat "$TOKEN_RESPONSE"
+  rm -f "$TOKEN_RESPONSE"
+  exit 1
+fi
+
+ACCESS_TOKEN="$(jq -r '.access_token // empty' "$TOKEN_RESPONSE")"
+rm -f "$TOKEN_RESPONSE"
+
+if [ -z "$ACCESS_TOKEN" ]; then
+  echo "Atlas OAuth response did not contain an access token." >&2
   exit 1
 fi
 
