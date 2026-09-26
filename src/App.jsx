@@ -12,6 +12,7 @@ import SectionHeading from './components/ui/SectionHeading';
 import MatchHistoryCard from './components/ui/MatchHistoryCard';
 import PlayersDirectory from './features/players/PlayersDirectory';
 import PlayerProfile from './features/players/PlayerProfile';
+import HomePage from './features/home/HomePage';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
