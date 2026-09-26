@@ -41,28 +41,26 @@ if [ -z "$ACCESS_TOKEN" ]; then
   exit 1
 fi
 
-ACCESS_LIST="$(curl -fsS --retry 3 \
-  --request GET \
+TEMP_ENTRY_CREATED="false"
+
+echo "Adding temporary Atlas access for runner IP until $DELETE_AFTER_DATE."
+CREATE_STATUS="$(curl -sS --retry 3 --output /tmp/atlas-create-response.json --write-out '%{http_code}' \
+  --request POST \
   --url "$ATLAS_API_BASE/groups/$ATLAS_PROJECT_ID/accessList" \
   --header "Authorization: Bearer $ACCESS_TOKEN" \
-  --header "Accept: $ATLAS_ACCEPT")"
+  --header "Accept: $ATLAS_ACCEPT" \
+  --header "Content-Type: application/json" \
+  --data "$(jq -n --arg ip "$RUNNER_IP" --arg comment "GG Matchday GitHub Actions backup" --arg expiry "$DELETE_AFTER_DATE" '[{ipAddress:$ip,comment:$comment,deleteAfterDate:$expiry}]')")"
 
-ALREADY_ALLOWED="$(printf '%s' "$ACCESS_LIST" | jq -r --arg ip "$RUNNER_IP" '[.results[]? | .ipAddress? // empty] | any(. == $ip)')"
-
-if [ "$ALREADY_ALLOWED" = "true" ]; then
-  echo "Runner IP is already authorized in Atlas. No temporary entry will be created."
-else
-  echo "Adding temporary Atlas access for runner IP until $DELETE_AFTER_DATE."
-  curl -fsS --retry 3 \
-    --request POST \
-    --url "$ATLAS_API_BASE/groups/$ATLAS_PROJECT_ID/accessList" \
-    --header "Authorization: Bearer $ACCESS_TOKEN" \
-    --header "Accept: $ATLAS_ACCEPT" \
-    --header "Content-Type: application/json" \
-    --data "$(jq -n --arg ip "$RUNNER_IP" --arg comment "GG Matchday GitHub Actions backup" --arg expiry "$DELETE_AFTER_DATE" '[{ipAddress:$ip,comment:$comment,deleteAfterDate:$expiry}]')" \
-    >/dev/null
+if [ "$CREATE_STATUS" = "200" ]; then
   TEMP_ENTRY_CREATED="true"
+else
+  echo "Atlas access-list creation failed with HTTP status $CREATE_STATUS."
+  cat /tmp/atlas-create-response.json
+  rm -f /tmp/atlas-create-response.json
+  exit 1
 fi
+rm -f /tmp/atlas-create-response.json
 
 cleanup() {
   if [ "$TEMP_ENTRY_CREATED" != "true" ]; then
