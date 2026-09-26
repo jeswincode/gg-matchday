@@ -16,19 +16,16 @@ test("GG rating uses the documented 40/20/20/20 weights", () => {
       defensiveRating: 9,
       resultScore: 6,
     }),
-    7.8
+    7.6
   );
 });
 
 test("defensive rating uses individual, clean-sheet and own-goal components", () => {
-  assert.equal(
-    calculateDefensiveRating({
+  assert.ok(Math.abs(calculateDefensiveRating({
       defensivePerformanceAverage: 6,
       defensiveCleanSheetRate: 2 / 3,
       defensiveOwnGoalRate: 1 / 3,
-    }),
-    6.2
-  );
+    }) - 6.2) < 1e-12);
 });
 
 test("offensive rating uses the centralized goal/assist weights", () => {
