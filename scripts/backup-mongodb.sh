@@ -3,7 +3,7 @@ set -euo pipefail
 
 : "${MONGODB_URI:?MONGODB_URI is required}"
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}"
-MONGODB_DATABASE="${MONGODB_DATABASE:-}"
+MONGODB_DATABASE="${MONGODB_DATABASE:-test}"
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
@@ -14,7 +14,7 @@ mkdir -p "$BACKUP_DIR"
 trap 'rm -f "$ARCHIVE"' EXIT
 
 echo "Creating MongoDB backup: $ARCHIVE"
-mongodump   --uri="$MONGODB_URI"   --archive="$ARCHIVE"   --gzip   --quiet
+mongodump   --uri="$MONGODB_URI"   --db="$MONGODB_DATABASE"   --archive="$ARCHIVE"   --gzip   --quiet
 
 echo "Encrypting backup..."
 openssl enc -aes-256-cbc   -salt   -pbkdf2   -iter 200000   -in "$ARCHIVE"   -out "$ENCRYPTED"   -pass env:BACKUP_ENCRYPTION_KEY
