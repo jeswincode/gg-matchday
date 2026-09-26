@@ -763,37 +763,49 @@ function App() {
   // =========================================================
 
   async function signIn() {
-    if (!auth) { setMessage("Sign-in is not configured for this environment yet."); return; }
+    if (!auth) {
+      setMessage("Sign-in is not configured for this environment yet.");
+      return;
+    }
+
     try {
       setMessage("");
+      setAuthLoading(true);
 
-      if (
-        window.innerWidth <
-        700
-      ) {
-        await signInWithRedirect(
-          auth,
-          googleProvider
-        );
+      // Popup auth works across desktop and mobile Chrome. Firebase
+      // recommends it as the alternative when redirect auth is affected
+      // by browser storage restrictions.
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Google sign-in error:", error);
 
-        return;
+      const canFallbackToRedirect = [
+        "auth/popup-blocked",
+        "auth/popup-timeout",
+        "auth/operation-not-supported-in-this-environment",
+        "auth/cancelled-popup-request",
+      ].includes(error?.code);
+
+      if (canFallbackToRedirect) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError) {
+          console.error(
+            "Google redirect fallback error:",
+            redirectError,
+          );
+          setAuthLoading(false);
+          error = redirectError;
+        }
+      } else {
+        setAuthLoading(false);
       }
 
-      await signInWithPopup(
-        auth,
-        googleProvider
-      );
-    } catch (error) {
-      console.error(error);
-
       setMessage(
-        error?.code ===
-          "auth/popup-closed-by-user"
+        error?.code === "auth/popup-closed-by-user"
           ? "Sign-in cancelled."
-          : `${error?.code || "auth-error"}: ${
-              error?.message ||
-              "Google sign-in failed."
-            }`
+          : `${error?.code || "auth-error"}: ${error?.message || "Google sign-in failed."}`,
       );
     }
   }
