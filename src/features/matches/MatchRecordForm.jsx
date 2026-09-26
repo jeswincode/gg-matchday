@@ -1,4 +1,4 @@
-import {RATING_INPUT} from '../ratings';
+import { RATING_INPUT } from '../ratings';
 
 export default function MatchRecordForm({
   onSubmit,
