@@ -779,6 +779,8 @@ function App() {
     } catch (error) {
       console.error("Google sign-in error:", error);
 
+      let finalError = error;
+
       const canFallbackToRedirect = [
         "auth/popup-blocked",
         "auth/popup-timeout",
@@ -796,16 +798,16 @@ function App() {
             redirectError,
           );
           setAuthLoading(false);
-          error = redirectError;
+          finalError = redirectError;
         }
       } else {
         setAuthLoading(false);
       }
 
       setMessage(
-        error?.code === "auth/popup-closed-by-user"
+        finalError?.code === "auth/popup-closed-by-user"
           ? "Sign-in cancelled."
-          : `${error?.code || "auth-error"}: ${error?.message || "Google sign-in failed."}`,
+          : `${finalError?.code || "auth-error"}: ${finalError?.message || "Google sign-in failed."}`,
       );
     }
   }
