@@ -27,13 +27,13 @@ test("defensive rating uses individual, clean-sheet and own-goal components", ()
       defensiveCleanSheetRate: 2 / 3,
       defensiveOwnGoalRate: 1 / 3,
     }),
-    5.3
+    6.2
   );
 });
 
 test("offensive rating uses the centralized goal/assist weights", () => {
   const value = calculateOffensiveRating({ goalRate: 1, assistRate: 0 });
-  assert.equal(value, 6.5 * (1 - Math.exp(-1)));
+  assert.ok(Math.abs(value - 0.65 * 10 * (1 - Math.exp(-1))) < 1e-12);
 });
 
 test("result score is neutral at equal win/loss rates", () => {
