@@ -13,7 +13,7 @@ function monthName(month){
   return new Date(2026,month-1,1).toLocaleString(undefined,{month:"long"});
 }
 
-export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,MatchHistoryCardComponent,SectionHeadingComponent}){
+export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshKey,MatchHistoryCardComponent,SectionHeadingComponent}){
   const today=new Date();
   const [calendarMonth,setCalendarMonth]=useState(today.getMonth()+1);
   const [calendarYear,setCalendarYear]=useState(today.getFullYear());
@@ -40,7 +40,7 @@ export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,MatchHis
     }
     loadCalendar();
     return()=>{cancelled=true;};
-  },[apiUrl,calendarYear,calendarMonth]);
+  },[apiUrl,calendarYear,calendarMonth,refreshKey]);
 
   function matchesForDay(day){
     if(!day) return [];
