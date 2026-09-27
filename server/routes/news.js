@@ -49,14 +49,6 @@ router.post("/generate/:matchId", requireAuth, requireEditor, limitAI, async (re
   } catch (error) { console.error("Manual news generation error:", error); res.status(500).json({ message: "Failed to generate news." }); }
 });
 
-router.get("/debug/gemini", requireAuth, requireAdmin, limitAI, async (req, res) => {
-  try {
-    const testMatch = await Match.findOne().populate("participants.player", "name profileImage").populate("events.player", "name profileImage").sort({ date: -1 });
-    if (!testMatch) return res.status(404).json({ message: "Create at least one match before testing Gemini." });
-    const result = await generateMatchNews(testMatch);
-    res.json({ success: true, generatedBy: result.generatedBy, aiError: result.aiError || null, article: { headline: result.headline, summary: result.summary, body: result.body, icon: result.icon } });
-  } catch (error) { console.error("Gemini debug error:", error); res.status(500).json({ success: false, message: error.message }); }
-});
 
 router.delete("/:id", requireAuth, requireEditor, async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });

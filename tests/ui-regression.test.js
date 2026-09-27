@@ -35,3 +35,11 @@ test('Calendar hover popover preserves all matches from the main baseline',()=>{
   assert.match(calendar,/\{dayMatches\.map\(match=>/);
   assert.doesNotMatch(calendar,/dayMatches\.slice\(\s*0\s*,\s*3\s*\)/);
 });
+
+test('post-merge cleanup keeps Gemini debug route unique and match save invalidation single-shot',()=>{
+  const news=read('server/routes/news.js');
+  const app=read('src/App.jsx');
+  assert.equal((news.match(/router\.get\(\s*["']\/debug\/gemini["']/g)||[]).length,1);
+  assert.match(app,/invalidate\(\);\s*resetMatchForm\(\);\s*await Promise\.all\(\[/);
+  assert.doesNotMatch(app,/invalidate\(\);\s*resetMatchForm\(\);\s*invalidate\(\);/);
+});

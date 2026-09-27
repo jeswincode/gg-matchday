@@ -1674,8 +1674,6 @@ function App() {
 
       invalidate();
       resetMatchForm();
-
-      invalidate();
       await Promise.all([
         loadMatches(),
         loadLeaderboard(
