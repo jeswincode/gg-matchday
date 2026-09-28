@@ -110,11 +110,13 @@ function migrationView(match) {
     },
     participants: (match.participants || []).map(participant => {
       const codes = Array.isArray(participant.performanceCodes) ? participant.performanceCodes : [];
+      let previewCodes = [];
+      try { previewCodes = normalizePerformanceCodes(codes); } catch {}
       const expected = calculateMatchRatings({
         team: participant.team, teamACount, teamBCount,
         teamAScore: teamAScore + sideAOwnGoals, teamBScore: teamBScore + sideBOwnGoals,
         goals: goals.get(id(participant.player)) || 0, assists: assists.get(id(participant.player)) || 0,
-        ownGoals: participant.ownGoals || 0, performanceCodes: codes,
+        ownGoals: participant.ownGoals || 0, performanceCodes: previewCodes,
       });
       return {
         playerId: id(participant.player),
