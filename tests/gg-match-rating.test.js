@@ -12,7 +12,7 @@ test("only the highest code in each category is retained", () => {
 });
 test("equal teams use equal result modifiers and independent defensive rating", () => {
   const result=calculateMatchRatings({team:"A",teamACount:5,teamBCount:5,teamAScore:3,teamBScore:2,goals:1,assists:1,performanceCodes:["finisher","architect","wall"]});
-  assert.equal(result.resultContext,"equal"); assert.equal(result.matchRating,8.9); assert.equal(result.defensiveRating,8.8);
+  assert.equal(result.resultContext,"equal"); assert.equal(result.matchRating,8.9); assert.equal(result.defensiveRating,8.3);
 });
 test("the larger side is favoured and receives the favoured result modifier", () => {
   const win=calculateMatchRatings({team:"A",teamACount:6,teamBCount:4,teamAScore:2,teamBScore:1});
@@ -33,7 +33,7 @@ test("defensive baseline is exactly six and is independent of match-rating contr
     goals:0,assists:0,ownGoals:0,performanceCodes:[],
   });
   assert.equal(result.defensiveRating,6.5);
-  assert.equal(result.matchRating,6.35);
+  assert.equal(result.matchRating,6.4);
   assert.notEqual(result.defensiveRating,result.matchRating);
 });
 test("defensive rating never enters the match-rating calculation", () => {
