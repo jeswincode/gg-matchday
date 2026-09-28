@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Modal from "../../components/Modal";
 import PerformancePicker from "../ratings/PerformancePicker";
 import { calculateMatchRatings } from "../ratings/matchCalculator";
@@ -112,12 +112,12 @@ export default function GGAdminPanel() {
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("actionable");
 
-  async function loadAudit() {
+  const loadAudit = useCallback(async () => {
     setLoading(true);
     try { setAudit(await api("/admin/gg/audit")); } finally { setLoading(false); }
-  }
+  }, []);
 
-  useEffect(() => { loadAudit(); }, []);
+  useEffect(() => { loadAudit(); }, [loadAudit]);
 
   async function openMatch(matchId) {
     setSelected({ loading: true });
