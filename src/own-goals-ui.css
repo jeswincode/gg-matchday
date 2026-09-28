@@ -79,7 +79,8 @@
 }
 
 .gg-performance-head,.gg-performance-row { grid-template-columns:minmax(120px,1.45fr) 72px 72px 72px 72px minmax(280px,3fr) 130px; }
-.gg-performance-head > span:nth-child(7) { text-align:center; }
+.gg-performance-head > span:nth-child(6) { order:6; }
+.gg-performance-head > span:nth-child(7) { order:7; text-align:center; }
 .gg-performance-row { align-items:start; }
 .gg-code-cell { min-width:0; }
 .gg-code-picker { display:grid; gap:7px; }
