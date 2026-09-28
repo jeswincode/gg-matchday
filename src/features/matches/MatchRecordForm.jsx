@@ -85,8 +85,7 @@ export default function MatchRecordForm({
             const id = String(player._id);
             const assigned = Boolean(teams[id]);
             const codes = performanceCodes[id];
-            const legacy = editingMatchId && codes === undefined;
-            const calculated = !legacy && assigned ? calculateMatchRatings({
+            const calculated = assigned ? calculateMatchRatings({
               team: teams[id], teamACount, teamBCount, teamAScore, teamBScore,
               goals: goals[id] || 0, assists: assists[id] || 0, ownGoals: ownGoals[id] || 0, performanceCodes: codes || [],
             }) : null;
