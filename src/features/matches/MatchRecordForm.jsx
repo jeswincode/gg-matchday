@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { calculateMatchRatings, PERFORMANCE_CODE_CATEGORIES } from '../ratings/matchCalculator';
 
 function PointsLine({ items }) {
@@ -12,36 +13,104 @@ function PointsLine({ items }) {
   );
 }
 
+function getPerformanceLabel(code) {
+  for (const category of PERFORMANCE_CODE_CATEGORIES) {
+    const entry = category.codes.find(item => item.code === code);
+    if (entry) return entry.label;
+  }
+  return code;
+}
+
 function PerformancePicker({ value = [], onChange, disabled }) {
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef(null);
   const selected = new Set(value);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function handlePointerDown(event) {
+      if (!pickerRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
+
   function toggle(code, category) {
     const categoryCodes = PERFORMANCE_CODE_CATEGORIES.find(item => item.key === category)?.codes || [];
-    const withoutCategory = [...selected].filter(existing => !categoryCodes.some(item => item.code === existing));
+    const withoutCategory = [...selected].filter(
+      existing => !categoryCodes.some(item => item.code === existing),
+    );
     const next = selected.has(code) ? withoutCategory : [...withoutCategory, code];
     onChange(next);
   }
 
+  function clearCodes() {
+    onChange([]);
+  }
+
+  const selectedLabels = value.map(getPerformanceLabel).join(' · ');
+
   return (
-    <div className="gg-code-picker">
-      {PERFORMANCE_CODE_CATEGORIES.map(category => (
-        <div className="gg-code-category" key={category.key}>
-          <span>{category.label}</span>
-          <div>
-            {category.codes.map(code => (
-              <button
-                type="button"
-                key={code.code}
-                disabled={disabled}
-                aria-pressed={selected.has(code.code)}
-                className={selected.has(code.code) ? 'active' : ''}
-                onClick={() => toggle(code.code, category.key)}
-              >
-                {code.label}
-              </button>
+    <div className="gg-code-dropdown" ref={pickerRef}>
+      <button
+        type="button"
+        className={`gg-code-trigger ${open ? 'open' : ''}`}
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(current => !current)}
+      >
+        <span className="gg-code-trigger-text">
+          {selectedLabels || 'Choose performance codes'}
+        </span>
+        <span className="gg-code-count">{value.length}</span>
+        <span className="gg-code-chevron" aria-hidden="true">⌄</span>
+      </button>
+
+      {open && (
+        <div className="gg-code-menu" role="dialog" aria-label="Performance codes">
+          <div className="gg-code-menu-header">
+            <span>Select one level per category</span>
+            <button type="button" onClick={clearCodes} disabled={!value.length}>Clear</button>
+          </div>
+
+          <div className="gg-code-menu-scroll">
+            {PERFORMANCE_CODE_CATEGORIES.map(category => (
+              <div className="gg-code-menu-category" key={category.key}>
+                <span>{category.label}</span>
+                <div>
+                  {category.codes.map(code => (
+                    <button
+                      type="button"
+                      key={code.code}
+                      aria-pressed={selected.has(code.code)}
+                      className={selected.has(code.code) ? 'active' : ''}
+                      onClick={() => toggle(code.code, category.key)}
+                    >
+                      {code.label}
+                      <small>{code.match > 0 ? '+' : ''}{code.match.toFixed(2)}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }
