@@ -73,8 +73,6 @@ function localDateString(
 
 function App() {
   const [recordSection,setRecordSection]=useState('record');
-  const [ratings,setRatings]=useState({});
-  const [defensivePerformances,setDefensivePerformances]=useState({});
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
   const [refreshKey,setRefreshKey]=useState(0);
@@ -1266,8 +1264,6 @@ function App() {
 
     setRecordSection("record");
     setPerformanceCodes(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),Array.isArray(p.performanceCodes)?p.performanceCodes:[]])));
-    setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??""])));
-    setDefensivePerformances(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.defensivePerformance??""])));
     const nextTeams =
       {};
 
