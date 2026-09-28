@@ -109,7 +109,7 @@ function migrationView(match) {
     participants: (match.participants || []).map(participant => {
       const codes = Array.isArray(participant.performanceCodes) ? participant.performanceCodes : [];
       let previewCodes = [];
-      try { previewCodes = normalizePerformanceCodes(codes); } catch {}
+      try { previewCodes = normalizePerformanceCodes(codes); } catch { /* Invalid legacy codes are replaced in the migration form. */ }
       const expected = calculateMatchRatings({
         team: participant.team, teamACount, teamBCount,
         teamAScore: teamAScore + sideAOwnGoals, teamBScore: teamBScore + sideBOwnGoals,
