@@ -74,9 +74,7 @@ function localDateString(
 function App() {
   const [recordSection,setRecordSection]=useState('record');
   const [ratings,setRatings]=useState({});
-  const [legacyUnrated,setLegacyUnrated]=useState([]);
   const [defensivePerformances,setDefensivePerformances]=useState({});
-  const [legacyDefensiveUnrated,setLegacyDefensiveUnrated]=useState([]);
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
   const [refreshKey,setRefreshKey]=useState(0);
@@ -1200,7 +1198,7 @@ function App() {
     setOwnGoals({});
     setLegacyMatchContext(null);
     setPerformanceCodes({});
-    setRatings({});setLegacyUnrated([]);
+    setRatings({});
     setDefensivePerformances({});setLegacyDefensiveUnrated([]);
   }
 
@@ -1271,7 +1269,6 @@ function App() {
     setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??""])));
     setLegacyUnrated((match.participants||[]).filter(p=>p.rating==null).map(p=>String(p.player?._id||p.player)));
     setDefensivePerformances(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.defensivePerformance??""])));
-    setLegacyDefensiveUnrated((match.participants||[]).filter(p=>p.defensivePerformance==null).map(p=>String(p.player?._id||p.player)));
     const nextTeams =
       {};
 
