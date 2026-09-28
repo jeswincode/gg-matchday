@@ -73,10 +73,6 @@ function localDateString(
 
 function App() {
   const [recordSection,setRecordSection]=useState('record');
-  const [ratings,setRatings]=useState({});
-  const [legacyUnrated,setLegacyUnrated]=useState([]);
-  const [defensivePerformances,setDefensivePerformances]=useState({});
-  const [legacyDefensiveUnrated,setLegacyDefensiveUnrated]=useState([]);
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
   const [refreshKey,setRefreshKey]=useState(0);
@@ -279,6 +275,7 @@ function App() {
   ] = useState({});
 
   const [legacyMatchContext,setLegacyMatchContext] = useState(null);
+  const [performanceCodes,setPerformanceCodes] = useState({});
 
   const [
     savingMatch,
@@ -1198,8 +1195,7 @@ function App() {
     setAssists({});
     setOwnGoals({});
     setLegacyMatchContext(null);
-    setRatings({});setLegacyUnrated([]);
-    setDefensivePerformances({});setLegacyDefensiveUnrated([]);
+    setPerformanceCodes({});
   }
 
   function setPlayerTeam(
@@ -1265,10 +1261,7 @@ function App() {
     }
 
     setRecordSection("record");
-    setRatings(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.rating??""])));
-    setLegacyUnrated((match.participants||[]).filter(p=>p.rating==null).map(p=>String(p.player?._id||p.player)));
-    setDefensivePerformances(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),p.defensivePerformance??""])));
-    setLegacyDefensiveUnrated((match.participants||[]).filter(p=>p.defensivePerformance==null).map(p=>String(p.player?._id||p.player)));
+    setPerformanceCodes(Object.fromEntries((match.participants||[]).map(p=>[String(p.player?._id||p.player),Array.isArray(p.performanceCodes)?p.performanceCodes:[]])));
     const nextTeams =
       {};
 
@@ -1618,8 +1611,7 @@ function App() {
             (player) => ({
               player:
                 player._id,
-              rating: ratings[String(player._id)] === "" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),
-              defensivePerformance: defensivePerformances[String(player._id)] === "" || defensivePerformances[String(player._id)] == null ? null : Number(defensivePerformances[String(player._id)]),
+              performanceCodes: performanceCodes[String(player._id)] || [],
               ownGoals: ownGoals[String(player._id)] || 0,
               team:
                 teams[
@@ -2306,12 +2298,8 @@ function App() {
             setAssists={setAssists}
             ownGoals={ownGoals}
             setOwnGoals={setOwnGoals}
-            ratings={ratings}
-            setRatings={setRatings}
-            legacyUnrated={legacyUnrated}
-            defensivePerformances={defensivePerformances}
-            setDefensivePerformances={setDefensivePerformances}
-            legacyDefensiveUnrated={legacyDefensiveUnrated}
+            performanceCodes={performanceCodes}
+            setPerformanceCodes={setPerformanceCodes}
             assignedPlayers={assignedPlayers}
             totalGoals={totalGoals}
             totalAssists={totalAssists}

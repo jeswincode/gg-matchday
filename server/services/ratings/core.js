@@ -87,10 +87,7 @@ export function calculateGGRating({
 
 export function effectiveMatchRating(participant) {
   if (!hasRating(participant?.rating)) return null;
+  if (participant?.ratingSystem === "gg-v3") return Number(participant.rating);
   const ownGoals = Number(participant?.ownGoals || 0);
-  return Math.max(
-    0,
-    Number(participant.rating) -
-      (Number.isFinite(ownGoals) ? ownGoals : 0)
-  );
+  return Math.max(0, Number(participant.rating) - (Number.isFinite(ownGoals) ? ownGoals : 0));
 }

@@ -8,6 +8,7 @@ import express from "express";
 import Match from "../models/Match.js";
 import Player from "../models/Player.js";
 import News from "../models/News.js";
+import { calculateMatchRatings } from "../services/ratings/match.js";
 
 import {
   requireAuth,
@@ -19,6 +20,41 @@ import {
 } from "../services/aiNews.js";
 
 const router = express.Router();
+function calculateGGParticipantRatings(participants, events, teamAScore, teamBScore) {
+  const teamACount = participants.filter(p => p.team === "A").length;
+  const teamBCount = participants.filter(p => p.team === "B").length;
+  const goals = new Map();
+  const assists = new Map();
+  for (const event of events || []) {
+    const key = String(event.player);
+    if (event.type === "goal") goals.set(key, (goals.get(key) || 0) + 1);
+    if (event.type === "assist") assists.set(key, (assists.get(key) || 0) + 1);
+  }
+  const sideAOwnGoals = participants.filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
+  const sideBOwnGoals = participants.filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
+  return participants.map(participant => {
+    if (!Array.isArray(participant.performanceCodes)) return participant;
+    const result = calculateMatchRatings({
+      team: participant.team,
+      teamACount,
+      teamBCount,
+      teamAScore: Number(teamAScore || 0) + sideAOwnGoals,
+      teamBScore: Number(teamBScore || 0) + sideBOwnGoals,
+      goals: goals.get(String(participant.player)) || 0,
+      assists: assists.get(String(participant.player)) || 0,
+      ownGoals: participant.ownGoals || 0,
+      performanceCodes: participant.performanceCodes,
+    });
+    return {
+      ...participant,
+      rating: result.matchRating,
+      defensivePerformance: result.defensiveRating,
+      ratingSystem: "gg-v3",
+      performanceCodes: result.performanceCodes,
+    };
+  });
+}
+
 
 // ==================================================
 // VALIDATION
@@ -543,9 +579,10 @@ router.post(
         name,
         teamA,
         teamB,
-        participants,
         events,
       } = req.body;
+
+      const participants = calculateGGParticipantRatings(req.body.participants, events, req.body.teamA.score, req.body.teamB.score);
 
       const match =
         await Match.create({
@@ -681,9 +718,10 @@ router.put(
         name,
         teamA,
         teamB,
-        participants,
         events,
       } = req.body;
+
+      const participants = calculateGGParticipantRatings(req.body.participants, events, req.body.teamA.score, req.body.teamB.score);
 
       match.date =
         date

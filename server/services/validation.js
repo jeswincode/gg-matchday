@@ -1,4 +1,5 @@
 import {hasDefensivePerformance,hasRating} from './ratings/index.js';
+import {normalizePerformanceCodes} from './ratings/match.js';
 import {id} from './statistics.js';
 export const positions=['GK','CB','LB','RB','LWB','RWB','CDM','CM','CAM','LM','RM','LW','RW','ST','CF'];
 
@@ -59,10 +60,32 @@ export function prepareMatch(body,previous=null){
  if(!body||!Array.isArray(body.participants)||!Array.isArray(body.events)||body.participants.length>100||body.events.length>1000)throw new Error('Invalid match performance data.');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(body.date||'')||Number.isNaN(new Date(body.date).getTime())||new Date(body.date).toISOString().slice(0,10)!==body.date)throw new Error('Choose a valid match date.');
  if(!body.participants.some(p=>p.team==='A')||!body.participants.some(p=>p.team==='B'))throw new Error('Assign at least one player to each side.');
- for(const p of body.participants){const old=previous?.participants.find(v=>id(v.player)===id(p.player));const legacy=old&&!hasRating(old.rating);if(!hasRating(p.rating)&&!(legacy&&(p.rating===null||p.rating===undefined)))throw new Error('Enter a rating from 0 to 10 for every participating player.');const legacyDefense=old&&!hasDefensivePerformance(old.defensivePerformance);const missingDefense=p.defensivePerformance===null||p.defensivePerformance===undefined||p.defensivePerformance==='';if(!hasDefensivePerformance(p.defensivePerformance)&&!(legacyDefense&&missingDefense))throw new Error('Enter a defensive performance score from 0 to 10 for every participating player.');if(hasDefensivePerformance(p.defensivePerformance))p.defensivePerformance=Number(p.defensivePerformance);else p.defensivePerformance=null;const ownGoals=Number(p.ownGoals??0);if(!Number.isInteger(ownGoals)||ownGoals<0||ownGoals>20)throw new Error('Own goals must be whole numbers from 0 to 20.');p.ownGoals=ownGoals;}
+ for(const p of body.participants){
+  const old=previous?.participants.find(v=>id(v.player)===id(p.player));
+  const hasCodes=Array.isArray(p.performanceCodes);
+  const oldIsGG=old?.ratingSystem==="gg-v3";
+  const isNewMatch=!previous;
+  if(isNewMatch||oldIsGG||hasCodes){
+   if(!hasCodes)throw new Error('Choose performance codes for every participating player.');
+   p.performanceCodes=normalizePerformanceCodes(p.performanceCodes);
+   p.ratingSystem='gg-v3';
+   p.rating=null;
+   p.defensivePerformance=null;
+  }else{
+   if(Array.isArray(old?.performanceCodes))p.performanceCodes=old.performanceCodes;else delete p.performanceCodes;
+   p.ratingSystem='legacy';
+   if(!hasRating(p.rating)&&!(old&&!hasRating(old.rating)&&(p.rating===null||p.rating===undefined)))throw new Error('Enter a rating from 0 to 10 for every participating player.');
+   const missingDefense=p.defensivePerformance===null||p.defensivePerformance===undefined||p.defensivePerformance==='';
+   if(!hasDefensivePerformance(p.defensivePerformance)&&!(old&&!hasDefensivePerformance(old.defensivePerformance)&&missingDefense))throw new Error('Enter a defensive performance score from 0 to 10 for every participating player.');
+   if(hasDefensivePerformance(p.defensivePerformance))p.defensivePerformance=Number(p.defensivePerformance);else p.defensivePerformance=null;
+  }
+  const ownGoals=Number(p.ownGoals??0);
+  if(!Number.isInteger(ownGoals)||ownGoals<0||ownGoals>20)throw new Error('Own goals must be whole numbers from 0 to 20.');
+  p.ownGoals=ownGoals;
+ }
  const side=new Map(body.participants.map(p=>[id(p.player),p.team]));
  const score=t=>body.events.filter(e=>e.type==='goal'&&side.get(id(e.player))===t).length;
- const preserveLegacyScore = preservesLegacyStoredScore(body, previous);
+ const preserveLegacyScore=preservesLegacyStoredScore(body,previous);
  body.teamA={label:String(body.teamA?.label||'Team A').trim(),score:preserveLegacyScore?Number(previous.teamA?.score||0):score('A')};body.teamB={label:String(body.teamB?.label||'Team B').trim(),score:preserveLegacyScore?Number(previous.teamB?.score||0):score('B')};
  return body;
 }
