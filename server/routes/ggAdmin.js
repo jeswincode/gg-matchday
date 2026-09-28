@@ -1,13 +1,11 @@
 import express from "express";
 import mongoose from "mongoose";
 import Match from "../models/Match.js";
-import Vote from "../models/Vote.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { calculateGGParticipantRatings, calculateMatchRatings, normalizePerformanceCodes } from "../services/ratings/match.js";
 
 const router = express.Router();
 const TOLERANCE = 0.05;
-const RATING_FIELDS = ["performanceCodes", "rating", "defensivePerformance", "ratingSystem"];
 
 function id(value) { return String(value?._id ?? value); }
 
