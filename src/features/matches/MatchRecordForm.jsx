@@ -84,7 +84,7 @@ export default function MatchRecordForm({
           </div>
 
           <div className="gg-performance-head">
-            <span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Performance codes</span><span>Defensive</span><span>Rating</span>
+            <span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Performance codes</span><span>Ratings</span>
           </div>
 
           {players.map(player => {
