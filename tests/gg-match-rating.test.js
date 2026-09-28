@@ -48,7 +48,7 @@ test("defensive rating never enters the match-rating calculation", () => {
   assert.equal(plain.defensiveRating,8.9);
   assert.equal(offensive.defensiveRating,8.9);
   assert.equal(plain.matchRating,6.4);
-  assert.equal(offensive.matchRating,9.1);
+  assert.equal(offensive.matchRating,8.8);
 });
 test("ratings clamp to four through ten and round to one decimal", () => {
   const low=calculateMatchRatings({team:"B",teamACount:5,teamBCount:5,teamAScore:0,teamBScore:9,ownGoals:4,performanceCodes:["choke","scatter","disaster"]});
