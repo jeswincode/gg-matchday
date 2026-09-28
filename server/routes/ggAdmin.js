@@ -33,8 +33,13 @@ function expectedForMatch(match) {
 
   return (match.participants || []).map(participant => {
     const codes = Array.isArray(participant.performanceCodes) ? participant.performanceCodes : null;
-    if (!codes) return { participant, expected: null };
-    const expected = calculateMatchRatings({
+    if (!codes) return { participant, expected: null, invalidCodes: true };
+    let expected;
+    let normalizedCodes;
+    try {
+      normalizedCodes = normalizePerformanceCodes(codes);
+      if (!normalizedCodes.length) return { participant, expected: null, invalidCodes: true };
+      expected = calculateMatchRatings({
       team: participant.team,
       teamACount,
       teamBCount,
@@ -43,18 +48,22 @@ function expectedForMatch(match) {
       goals: goals.get(id(participant.player)) || 0,
       assists: assists.get(id(participant.player)) || 0,
       ownGoals: participant.ownGoals || 0,
-      performanceCodes: codes,
+      performanceCodes: normalizedCodes,
     });
-    return { participant, expected };
+    return { participant, expected, normalizedCodes, nonCanonicalCodes: JSON.stringify(codes) !== JSON.stringify(normalizedCodes) };
+    } catch {
+      return { participant, expected: null, invalidCodes: true };
+    }
   });
 }
 
 function classifyMatch(match) {
   const rows = expectedForMatch(match);
-  const needsCodes = rows.some(row => !Array.isArray(row.participant.performanceCodes) || row.participant.performanceCodes.length === 0);
+  const needsCodes = rows.some(row => row.invalidCodes || row.nonCanonicalCodes || !Array.isArray(row.participant.performanceCodes) || row.participant.performanceCodes.length === 0);
   if (needsCodes) return "needsPerformanceCodes";
 
   const partial = rows.some(row =>
+    !row.expected ||
     row.participant.rating == null ||
     row.participant.defensivePerformance == null ||
     row.participant.ratingSystem !== "gg-v3"
