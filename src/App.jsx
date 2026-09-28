@@ -1199,7 +1199,7 @@ function App() {
     setLegacyMatchContext(null);
     setPerformanceCodes({});
     setRatings({});
-    setDefensivePerformances({});setLegacyDefensiveUnrated([]);
+    setDefensivePerformances({});
   }
 
   function setPlayerTeam(
