@@ -1,79 +1,31 @@
-.gg-performance-head,
-.gg-performance-row {
-  grid-template-columns: minmax(120px, 1.6fr) 80px 90px 90px 90px 85px 90px;
-}
-
-/* Keep the recorder order consistent: Goals → Assists → Own Goals → Defensive → Rating. */
-.gg-performance-head > span:nth-child(6) { order: 7; }
-.gg-performance-head > span:nth-child(7) { order: 6; }
-.gg-performance-row > .gg-rating-input { order: 7; }
-.gg-performance-row > .gg-defense-input { order: 6; }
-
-@media (max-width: 760px) {
-  .gg-performance-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "player side"
-      "goals assists"
-      "own-goal defensive"
-      "rating rating";
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .gg-performance-row > div:first-child {
-    grid-area: player;
-  }
-
-  .gg-performance-row > .team-switch {
-    grid-area: side;
-    justify-self: end;
-  }
-
-  .gg-performance-row > .counter:nth-of-type(3) {
-    grid-area: goals;
-  }
-
-  .gg-performance-row > .counter:nth-of-type(4) {
-    grid-area: assists;
-  }
-
-  .gg-performance-row > .counter:nth-of-type(5) {
-    grid-area: own-goal;
-  }
-
-  .gg-performance-row > .gg-defense-input {
-    grid-area: defensive;
-    justify-self: stretch;
-  }
-
-  .gg-performance-row > .gg-rating-input {
-    grid-area: rating;
-    justify-self: stretch;
-  }
-
-  .gg-performance-row > .counter {
-    min-height: 38px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.015);
-  }
-
-  .gg-performance-row > .counter::before {
-    content: "G";
-    margin-right: auto;
-    padding-left: 8px;
-    color: var(--muted);
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-  }
-
-  .gg-performance-row > .counter:nth-of-type(4)::before {
-    content: "A";
-  }
-
-  .gg-performance-row > .counter:nth-of-type(5)::before {
-    content: "OG";
-  }
+.gg-performance-head,.gg-performance-row { grid-template-columns:minmax(120px,1.45fr) 72px 72px 72px 72px minmax(280px,3fr) 78px 78px; }
+.gg-performance-head > span:nth-child(7),.gg-performance-head > span:nth-child(8) { text-align:center; }
+.gg-performance-row { align-items:start; }
+.gg-code-cell { min-width:0; }
+.gg-code-picker { display:grid; gap:7px; }
+.gg-code-category > span { display:block; margin-bottom:5px; color:var(--muted); font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.gg-code-category > div { display:flex; flex-wrap:wrap; gap:5px; }
+.gg-code-category button { border:1px solid var(--border); border-radius:8px; padding:6px 8px; background:var(--panel); color:var(--muted); font-size:11px; font-weight:700; }
+.gg-code-category button.active { background:var(--accent); color:var(--accent-dark); border-color:var(--accent); }
+.gg-calculated-ratings { display:grid; grid-template-columns:1fr 1fr auto; align-items:center; gap:5px 8px; margin-top:9px; padding-top:8px; border-top:1px solid var(--border); }
+.gg-calculated-ratings strong { font-size:13px; }
+.gg-calculated-ratings small { color:var(--muted); font-size:9px; text-transform:uppercase; }
+.gg-rating-breakdown { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:4px 7px; color:var(--muted-2); font-size:9px; line-height:1.35; }
+.gg-rating-breakdown::before { content:"Points:"; color:var(--muted); font-weight:800; }
+.gg-legacy-rating-pair { display:grid; gap:4px; color:var(--muted); font-size:11px; }
+@media (max-width:760px) {
+  .gg-performance-head { display:none; }
+  .gg-performance-row { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"player side" "goals assists" "own-goal codes" "ratings ratings"; gap:10px; padding:12px; }
+  .gg-performance-row > div:first-child { grid-area:player; }
+  .gg-performance-row > .team-switch { grid-area:side; justify-self:end; }
+  .gg-performance-row > .counter:nth-of-type(3) { grid-area:goals; }
+  .gg-performance-row > .counter:nth-of-type(4) { grid-area:assists; }
+  .gg-performance-row > .counter:nth-of-type(5) { grid-area:own-goal; }
+  .gg-performance-row > .gg-code-cell { grid-area:codes; min-width:0; }
+  .gg-performance-row > .gg-legacy-rating-pair { grid-area:ratings; }
+  .gg-performance-row > .gg-code-cell { grid-column:auto; }
+  .gg-code-category > div { gap:4px; }
+  .gg-code-category button { padding:7px 8px; }
+  .gg-calculated-ratings { grid-template-columns:1fr 1fr; }
+  .gg-calculated-ratings small { grid-column:1 / -1; }
 }
