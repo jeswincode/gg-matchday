@@ -50,6 +50,31 @@ test('historical GG migration recalculates canonically and changes only rating f
   }
 });
 
+test('GG audit distinguishes missing codes and partial records',async()=>{
+  const missing=await Match.create({
+    date:new Date('2026-09-02'),name:'Audit Missing Codes',
+    teamA:{label:'A',score:0},teamB:{label:'B',score:0},
+    participants:[{player:p1._id,team:'A'},{player:p2._id,team:'B'}],events:[],
+  });
+  const partial=await Match.create({
+    date:new Date('2026-09-03'),name:'Audit Partial',
+    teamA:{label:'A',score:0},teamB:{label:'B',score:0},
+    participants:[
+      {player:p1._id,team:'A',performanceCodes:['wall'],rating:8.9,ratingSystem:'gg-v3'},
+      {player:p2._id,team:'B',performanceCodes:['hero'],rating:7.6,ratingSystem:'gg-v3',defensivePerformance:7.6},
+    ],events:[],
+  });
+  const before=await Match.findById(partial._id).lean();
+  const migration=await request(`/admin/gg/migration/${partial._id}`,{token:'admin'});
+  assert.equal(migration.status,200);
+  const after=await Match.findById(partial._id).lean();
+  assert.deepEqual(after,before);
+  const audit=await request('/admin/gg/audit',{token:'admin'});
+  assert.equal(audit.status,200,JSON.stringify(audit.data));
+  assert.equal(audit.data.matches.find(row=>String(row.match._id)===String(missing._id)).classification,'needsPerformanceCodes');
+  assert.equal(audit.data.matches.find(row=>String(row.match._id)===String(partial._id)).classification,'partiallyCompleted');
+});
+
 test('GG audit detects stored rating inconsistencies without rewriting them',async()=>{
   const match=await Match.create({
     date:new Date('2026-09-01'),name:'Audit Rating Issue',
