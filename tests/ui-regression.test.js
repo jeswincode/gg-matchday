@@ -36,6 +36,13 @@ test('Calendar hover popover preserves all matches from the main baseline',()=>{
   assert.doesNotMatch(calendar,/dayMatches\.slice\(\s*0\s*,\s*3\s*\)/);
 });
 
+test('Player Performance API exposes the canonical GG-v3 career rating used by the profile',()=>{
+  const route=read('server/routes/stats.js');
+  assert.ok(route.includes("router.get('/player/:id/performance'"));
+  assert.ok(route.includes('const stats=buildStatistics(players,matches).find(s=>s.playerId===req.params.id)'));
+  assert.ok(route.includes('res.json({player,stats,analytics:buildPlayerPerformanceAnalytics'));
+});
+
 test('post-merge cleanup keeps Gemini debug route unique and match save invalidation single-shot',()=>{
   const news=read('server/routes/news.js');
   const app=read('src/App.jsx');
