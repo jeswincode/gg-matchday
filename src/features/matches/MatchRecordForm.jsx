@@ -13,8 +13,9 @@ function PointsLine({ items }) {
   );
 }
 
-function getPerformanceLabel(code) {
-  for (const category of etDate, matchName, setMatchName, teamALabel, setTeamALabel, teamBLabel, setTeamBLabel,
+
+export default function MatchRecordForm({
+  onSubmit, date, setDate, matchName, setMatchName, teamALabel, setTeamALabel, teamBLabel, setTeamBLabel,
   teamAScore, teamBScore, players, teams, setPlayerTeam, goals, setGoals, assists, setAssists, ownGoals, setOwnGoals,
   performanceCodes, setPerformanceCodes, assignedPlayers, totalGoals, totalAssists,
   savingMatch, editingMatchId, resetMatchForm, changeCount,
