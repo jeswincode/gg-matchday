@@ -200,16 +200,21 @@ async function saveRatings(req, res) {
       match.teamB?.score,
     );
 
-    const updates = new Map(calculatedParticipants.map(participant => [id(participant.player), participant]));
-    for (const participant of match.participants || []) {
-      const calculated = updates.get(id(participant.player));
-      participant.performanceCodes = calculated.performanceCodes;
-      participant.rating = calculated.rating;
-      participant.defensivePerformance = calculated.defensivePerformance;
-      participant.ratingSystem = "gg-v3";
-    }
+    const operations = calculatedParticipants.map(participant => ({
+      updateOne: {
+        filter: { _id: match._id, "participants.player": participant.player },
+        update: {
+          $set: {
+            "participants.$.performanceCodes": participant.performanceCodes,
+            "participants.$.rating": participant.rating,
+            "participants.$.defensivePerformance": participant.defensivePerformance,
+            "participants.$.ratingSystem": "gg-v3",
+          },
+        },
+      },
+    }));
 
-    await match.save({ validateModifiedOnly: true });
+    if (operations.length) await Match.bulkWrite(operations);
     const updated = await Match.findById(match._id).populate("participants.player", "name profileImage");
     return res.json(migrationView(updated.toObject()));
   } catch (error) {
