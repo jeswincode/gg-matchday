@@ -27,6 +27,29 @@ test("defensive rating starts at six and uses defensive-only contributions", () 
   const result=calculateMatchRatings({team:"A",teamACount:5,teamBCount:5,teamAScore:1,teamBScore:0,goals:2,assists:3,ownGoals:1,performanceCodes:["wall","hero","blunder","finisher"]});
   assert.equal(result.defensiveRating,8.8); assert.equal(result.matchRating,9.9);
 });
+test("defensive baseline is exactly six and is independent of match-rating contributions", () => {
+  const result=calculateMatchRatings({
+    team:"A",teamACount:5,teamBCount:5,teamAScore:1,teamBScore:0,
+    goals:0,assists:0,ownGoals:0,performanceCodes:[],
+  });
+  assert.equal(result.defensiveRating,6.5);
+  assert.equal(result.matchRating,6.35);
+  assert.notEqual(result.defensiveRating,result.matchRating);
+});
+test("defensive rating never enters the match-rating calculation", () => {
+  const plain=calculateMatchRatings({
+    team:"A",teamACount:5,teamBCount:5,teamAScore:1,teamBScore:0,
+    performanceCodes:["wall"],
+  });
+  const offensive=calculateMatchRatings({
+    team:"A",teamACount:5,teamBCount:5,teamAScore:1,teamBScore:0,
+    goals:1,assists:2,performanceCodes:["wall"],
+  });
+  assert.equal(plain.defensiveRating,8.85);
+  assert.equal(offensive.defensiveRating,8.85);
+  assert.equal(plain.matchRating,6.65);
+  assert.equal(offensive.matchRating,9.05);
+});
 test("ratings clamp to four through ten and round to one decimal", () => {
   const low=calculateMatchRatings({team:"B",teamACount:5,teamBCount:5,teamAScore:0,teamBScore:9,ownGoals:4,performanceCodes:["choke","scatter","disaster"]});
   const high=calculateMatchRatings({team:"A",teamACount:5,teamBCount:5,teamAScore:9,teamBScore:0,goals:8,assists:8,performanceCodes:["architect","wall","hero","dominant","heroic","finisher"]});
