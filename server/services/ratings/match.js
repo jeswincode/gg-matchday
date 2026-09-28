@@ -236,7 +236,7 @@ export function calculateMatchRatings({
 }
 
 
-export function calculateGGParticipantRatings(participants, events, teamAScore, teamBScore) {
+export function calculateGGParticipantRatings(participants, events, teamAScore, teamBScore, { scoresIncludeOwnGoals = false } = {}) {
   const teamACount = participants.filter(participant => participant.team === "A").length;
   const teamBCount = participants.filter(participant => participant.team === "B").length;
   const goals = new Map();
@@ -263,8 +263,8 @@ export function calculateGGParticipantRatings(participants, events, teamAScore, 
       team: participant.team,
       teamACount,
       teamBCount,
-      teamAScore: Number(teamAScore || 0) + sideAOwnGoals,
-      teamBScore: Number(teamBScore || 0) + sideBOwnGoals,
+      teamAScore: Number(teamAScore || 0) + (scoresIncludeOwnGoals ? 0 : sideAOwnGoals),
+      teamBScore: Number(teamBScore || 0) + (scoresIncludeOwnGoals ? 0 : sideBOwnGoals),
       goals: goals.get(participantId(participant.player)) || 0,
       assists: assists.get(participantId(participant.player)) || 0,
       ownGoals: participant.ownGoals || 0,

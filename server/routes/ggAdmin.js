@@ -26,9 +26,6 @@ function expectedForMatch(match) {
   const teamBCount = (match.participants || []).filter(p => p.team === "B").length;
   const teamAScore = Number(match.teamA?.score || 0);
   const teamBScore = Number(match.teamB?.score || 0);
-  const sideAOwnGoals = (match.participants || []).filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
-  const sideBOwnGoals = (match.participants || []).filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
-
   return (match.participants || []).map(participant => {
     const codes = Array.isArray(participant.performanceCodes) ? participant.performanceCodes : null;
     if (!codes) return { participant, expected: null, invalidCodes: true };
@@ -41,8 +38,8 @@ function expectedForMatch(match) {
       team: participant.team,
       teamACount,
       teamBCount,
-      teamAScore: teamAScore + sideAOwnGoals,
-      teamBScore: teamBScore + sideBOwnGoals,
+      teamAScore,
+      teamBScore,
       goals: goals.get(id(participant.player)) || 0,
       assists: assists.get(id(participant.player)) || 0,
       ownGoals: participant.ownGoals || 0,
@@ -99,8 +96,6 @@ function migrationView(match) {
   const teamBCount = (match.participants || []).filter(p => p.team === "B").length;
   const teamAScore = Number(match.teamA?.score || 0);
   const teamBScore = Number(match.teamB?.score || 0);
-  const sideAOwnGoals = (match.participants || []).filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
-  const sideBOwnGoals = (match.participants || []).filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
   return {
     match: {
       _id: match._id, date: match.date, name: match.name,
@@ -112,7 +107,7 @@ function migrationView(match) {
       try { previewCodes = normalizePerformanceCodes(codes); } catch { /* Invalid legacy codes are replaced in the migration form. */ }
       const expected = calculateMatchRatings({
         team: participant.team, teamACount, teamBCount,
-        teamAScore: teamAScore + sideAOwnGoals, teamBScore: teamBScore + sideBOwnGoals,
+        teamAScore, teamBScore,
         goals: goals.get(id(participant.player)) || 0, assists: assists.get(id(participant.player)) || 0,
         ownGoals: participant.ownGoals || 0, performanceCodes: previewCodes,
       });
@@ -207,6 +202,7 @@ async function saveRatings(req, res) {
       match.events || [],
       match.teamA?.score,
       match.teamB?.score,
+      { scoresIncludeOwnGoals: true },
     );
 
     const operations = calculatedParticipants.map(participant => ({
