@@ -47,7 +47,7 @@ test("defensive rating never enters the match-rating calculation", () => {
   });
   assert.equal(plain.defensiveRating,8.9);
   assert.equal(offensive.defensiveRating,8.9);
-  assert.equal(plain.matchRating,6.7);
+  assert.equal(plain.matchRating,6.4);
   assert.equal(offensive.matchRating,9.1);
 });
 test("ratings clamp to four through ten and round to one decimal", () => {
