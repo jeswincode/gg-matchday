@@ -20,7 +20,7 @@ import {
 } from "../services/aiNews.js";
 
 const router = express.Router();
-function calculateGGParticipantRatings(participants, events) {
+function calculateGGParticipantRatings(participants, events, teamAScore, teamBScore) {
   const teamACount = participants.filter(p => p.team === "A").length;
   const teamBCount = participants.filter(p => p.team === "B").length;
   const goals = new Map();
@@ -30,14 +30,16 @@ function calculateGGParticipantRatings(participants, events) {
     if (event.type === "goal") goals.set(key, (goals.get(key) || 0) + 1);
     if (event.type === "assist") assists.set(key, (assists.get(key) || 0) + 1);
   }
+  const sideAOwnGoals = participants.filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
+  const sideBOwnGoals = participants.filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
   return participants.map(participant => {
     if (!Array.isArray(participant.performanceCodes)) return participant;
     const result = calculateMatchRatings({
       team: participant.team,
       teamACount,
       teamBCount,
-      teamAScore: events.filter(event => event.type === "goal" && participants.find(p => String(p.player) === String(event.player))?.team === "A").length + participants.filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0),
-      teamBScore: events.filter(event => event.type === "goal" && participants.find(p => String(p.player) === String(event.player))?.team === "B").length + participants.filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0),
+      teamAScore: Number(teamAScore || 0) + sideAOwnGoals,
+      teamBScore: Number(teamBScore || 0) + sideBOwnGoals,
       goals: goals.get(String(participant.player)) || 0,
       assists: assists.get(String(participant.player)) || 0,
       ownGoals: participant.ownGoals || 0,
@@ -580,7 +582,7 @@ router.post(
         events,
       } = req.body;
 
-      const participants = calculateGGParticipantRatings(req.body.participants, events);
+      const participants = calculateGGParticipantRatings(req.body.participants, events, req.body.teamA.score, req.body.teamB.score);
 
       const match =
         await Match.create({
@@ -719,12 +721,7 @@ router.put(
         events,
       } = req.body;
 
-      const participants = calculateGGParticipantRatings(
-        req.body.participants,
-        events,
-        Number(req.body.teamA.score) + req.body.participants.filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0),
-        Number(req.body.teamB.score) + req.body.participants.filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0),
-      );
+      const participants = calculateGGParticipantRatings(req.body.participants, events, req.body.teamA.score, req.body.teamB.score);
 
       match.date =
         date
