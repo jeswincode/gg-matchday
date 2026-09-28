@@ -116,7 +116,7 @@ export function assistPoints(assists){
   if(value===3)return 1.70;
   if(value===4)return 2.10;
   if(value===5)return 2.45;
-  return 2.45+(value-5)*0.45;
+  return Number((2.45+(value-5)*0.45).toFixed(2));
 }
 
 function clamp(value){return Math.min(10,Math.max(4,value));}
