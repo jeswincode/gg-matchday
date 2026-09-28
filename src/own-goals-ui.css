@@ -352,3 +352,35 @@
 .gg-code-menu-category button.active {
   background: var(--accent) !important;
 }
+
+
+.gg-code-menu-portal {
+  position: fixed !important;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(340px, calc(100vh - 24px));
+  overflow: hidden;
+  background: #10131a !important;
+  background-color: #10131a !important;
+  background-image: none !important;
+  opacity: 1 !important;
+  z-index: 2147483647 !important;
+  isolation: isolate;
+}
+
+.gg-code-menu-portal .gg-code-menu-scroll {
+  max-height: 270px;
+  overflow-y: auto;
+  background: #10131a !important;
+  background-color: #10131a !important;
+}
+
+@media (max-width: 760px) {
+  .gg-code-menu-portal {
+    width: min(340px, calc(100vw - 24px));
+    max-height: min(320px, calc(100vh - 24px));
+  }
+
+  .gg-code-menu-portal .gg-code-menu-scroll {
+    max-height: 250px;
+  }
+}
