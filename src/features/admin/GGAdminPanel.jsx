@@ -34,16 +34,10 @@ function previewRatings(row, match) {
 }
 
 function MigrationView({ match, onSaved }) {
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(() => match.participants.map(participant => ({ ...participant, performanceCodes: [...(participant.performanceCodes || [])] })));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [confirming, setConfirming] = useState(false);
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset migration draft when the selected match changes.
-  useEffect(() => {
-    setRows(match.participants.map(participant => ({ ...participant, performanceCodes: [...(participant.performanceCodes || [])] })));
-    setMessage("");
-  }, [match]);
 
   const payload = useMemo(() => rows.map(row => ({ playerId: row.playerId, performanceCodes: row.performanceCodes })), [rows]);
   const ready = rows.length > 0 && rows.every(row => row.performanceCodes.length > 0);
@@ -118,7 +112,10 @@ export default function GGAdminPanel() {
     try { setAudit(await api("/admin/gg/audit")); } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { loadAudit(); }, [loadAudit]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Load the remote admin audit once when the tool mounts.
+    loadAudit();
+  }, [loadAudit]);
 
   async function openMatch(matchId) {
     setSelected({ loading: true });
@@ -179,7 +176,7 @@ export default function GGAdminPanel() {
           </div>
         )}
       </section>
-      {selected && !selected.error && !selected.loading && <Modal title={selected.match.name || "Historical GG Migration"} onClose={() => setSelected(null)}><MigrationView match={selected} onSaved={handleSaved} /></Modal>}
+      {selected && !selected.error && !selected.loading && <Modal title={selected.match.name || "Historical GG Migration"} onClose={() => setSelected(null)}><MigrationView key={selected.match._id} match={selected} onSaved={handleSaved} /></Modal>}
       {selected?.loading && <div className="loading-panel">Loading match…</div>}
       {selected?.error && <div className="global-message">{selected.error}</div>}
     </section>
