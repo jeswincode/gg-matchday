@@ -28,3 +28,4 @@ createRoot(document.getElementById('root')).render(
 )
 import './mobile-ux.css'
 import './components/database-health.css';
+import './features/admin/gg-admin.css';
