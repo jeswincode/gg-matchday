@@ -1196,8 +1196,6 @@ function App() {
     setOwnGoals({});
     setLegacyMatchContext(null);
     setPerformanceCodes({});
-    setRatings({});
-    setDefensivePerformances({});
   }
 
   function setPlayerTeam(
