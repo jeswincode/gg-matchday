@@ -26,9 +26,6 @@ function expectedForMatch(match) {
   const teamBCount = (match.participants || []).filter(p => p.team === "B").length;
   const teamAScore = Number(match.teamA?.score || 0);
   const teamBScore = Number(match.teamB?.score || 0);
-  const sideAOwnGoals = (match.participants || []).filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
-  const sideBOwnGoals = (match.participants || []).filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0);
-
   return (match.participants || []).map(participant => {
     const codes = Array.isArray(participant.performanceCodes) ? participant.performanceCodes : null;
     if (!codes) return { participant, expected: null, invalidCodes: true };
