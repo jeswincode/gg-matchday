@@ -129,7 +129,7 @@ export default function GGAdminPanel() {
   async function handleSaved() {
     await loadAudit();
     if (selected?.match?._id) {
-      try { setSelected(await api("/admin/gg/migration/" + selected.match._id)); } catch {}
+      try { setSelected(await api("/admin/gg/migration/" + selected.match._id)); } catch (error) { setSelected({ error: error.message }); }
     }
   }
 
