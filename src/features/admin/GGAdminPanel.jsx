@@ -39,6 +39,7 @@ function MigrationView({ match, onSaved }) {
   const [message, setMessage] = useState("");
   const [confirming, setConfirming] = useState(false);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset migration draft when the selected match changes.
   useEffect(() => {
     setRows(match.participants.map(participant => ({ ...participant, performanceCodes: [...(participant.performanceCodes || [])] })));
     setMessage("");
