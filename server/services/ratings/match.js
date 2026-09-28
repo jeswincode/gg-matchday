@@ -144,7 +144,6 @@ function round1(value) {
 function matchResultContext({ team, teamACount, teamBCount, teamAScore, teamBScore }) {
   const equal = teamACount === teamBCount;
   const favoured = !equal && ((team === "A" && teamACount > teamBCount) || (team === "B" && teamBCount > teamACount));
-  const underdog = !equal && !favoured;
 
   const own = team === "A" ? teamAScore : teamBScore;
   const against = team === "A" ? teamBScore : teamAScore;
