@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PERFORMANCE_CODE_CATEGORIES } from "./matchCalculator";
 
-export function getPerformanceLabel(code) {
+function getPerformanceLabel(code) {
   for (const category of PERFORMANCE_CODE_CATEGORIES) {
     const entry = category.codes.find(item => item.code === code);
     if (entry) return entry.label;
