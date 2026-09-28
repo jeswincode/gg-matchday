@@ -384,3 +384,213 @@
     max-height: 250px;
   }
 }
+
+
+/* Mobile Record tab: hide input controls for players who are not participating. */
+.gg-mobile-rating-details {
+  display: none;
+}
+
+.gg-desktop-rating-breakdown {
+  display: contents;
+}
+
+@media (max-width: 760px) {
+  .gg-performance-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "player side"
+      "goals assists"
+      "own-goal codes"
+      "ratings ratings";
+    gap: 8px;
+    padding: 11px 10px;
+    min-height: 0;
+  }
+
+  .gg-performance-row:not(.assigned) {
+    grid-template-areas: "player side";
+    align-items: center;
+    min-height: 72px;
+  }
+
+  .gg-performance-row:not(.assigned) .counter,
+  .gg-performance-row:not(.assigned) .gg-code-cell {
+    display: none;
+  }
+
+  .gg-performance-row:not(.assigned) > div:first-child {
+    min-width: 0;
+  }
+
+  .gg-performance-row:not(.assigned) > div:first-child strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .gg-performance-row:not(.assigned) > div:first-child small {
+    display: block;
+    margin-top: 2px;
+  }
+
+  .gg-performance-row.assigned {
+    align-items: start;
+  }
+
+  .gg-performance-row.assigned > div:first-child strong {
+    display: block;
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .gg-performance-row.assigned > div:first-child small {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+  }
+
+  .gg-performance-row.assigned > .team-switch {
+    gap: 5px;
+  }
+
+  .gg-performance-row.assigned > .team-switch button {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+  }
+
+  .gg-performance-row.assigned > .counter {
+    min-height: 42px;
+    padding: 4px 5px;
+    border-radius: 11px;
+  }
+
+  .gg-performance-row.assigned > .counter button {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+  }
+
+  .gg-performance-row.assigned > .counter strong {
+    min-width: 20px;
+    font-size: 15px;
+  }
+
+  .gg-performance-row.assigned > .gg-code-cell {
+    display: grid;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .gg-performance-row.assigned .gg-code-trigger {
+    min-height: 42px;
+    padding: 7px 8px;
+    border-radius: 11px;
+  }
+
+  .gg-performance-row.assigned .gg-code-trigger-text {
+    font-size: 9px;
+  }
+
+  .gg-performance-row.assigned .gg-code-count {
+    min-width: 18px;
+    padding: 2px 5px;
+    font-size: 8px;
+  }
+
+  .gg-calculated-ratings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 7px;
+    margin-top: 2px;
+    padding-top: 6px;
+  }
+
+  .gg-calculated-ratings strong {
+    font-size: 12px;
+  }
+
+  .gg-calculated-ratings small {
+    grid-column: 1 / -1;
+    font-size: 8px;
+  }
+
+  .gg-desktop-rating-breakdown {
+    display: none;
+  }
+
+  .gg-mobile-rating-details {
+    display: block;
+    margin-top: 1px;
+    border-top: 1px solid var(--border);
+    padding-top: 4px;
+  }
+
+  .gg-mobile-rating-details summary {
+    list-style: none;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+
+  .gg-mobile-rating-details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .gg-mobile-rating-details summary::after {
+    content: " +";
+    color: var(--accent);
+  }
+
+  .gg-mobile-rating-details[open] summary::after {
+    content: " −";
+  }
+
+  .gg-mobile-rating-details .gg-rating-breakdown {
+    margin-top: 5px;
+    display: flex;
+    gap: 3px 6px;
+    font-size: 8px;
+  }
+
+  .gg-performance-row.assigned .gg-code-menu-portal {
+    width: min(340px, calc(100vw - 24px));
+  }
+
+  .gg-performance-row.assigned .gg-code-menu-portal .gg-code-menu-scroll {
+    max-height: 250px;
+  }
+}
+
+@media (max-width: 430px) {
+  .gg-performance-row:not(.assigned) {
+    min-height: 64px;
+    padding-block: 9px;
+  }
+
+  .gg-performance-row.assigned {
+    gap: 7px;
+    padding: 10px 8px;
+  }
+
+  .gg-performance-row.assigned > .team-switch button {
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+  }
+
+  .gg-performance-row.assigned > .counter {
+    min-height: 40px;
+  }
+
+  .gg-performance-row.assigned > .counter button {
+    width: 30px;
+    min-width: 30px;
+    height: 30px;
+  }
+}

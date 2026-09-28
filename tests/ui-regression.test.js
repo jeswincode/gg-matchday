@@ -51,3 +51,13 @@ test('Player Comparisons trend uses GG-v3-aware effective ratings',()=>{
   assert.match(source,/effectiveRating\(participant\)/);
   assert.equal(source.includes('Number(rating)-(Number.isFinite(ownGoals)?ownGoals:0)'),false);
 });
+
+
+test('mobile Record rows collapse non-participants and expose rating points on demand',()=>{
+  const css=read('src/own-goals-ui.css');
+  const component=read('src/features/matches/MatchRecordForm.jsx');
+  assert.match(css,/\.gg-performance-row:not\(\.assigned\) \.counter/);
+  assert.match(css,/\.gg-performance-row:not\(\.assigned\) \.gg-code-cell/);
+  assert.match(css,/\.gg-mobile-rating-details\s*\{[^}]*display:\s*block/s);
+  assert.match(component,/className="gg-mobile-rating-details"/);
+});

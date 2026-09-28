@@ -205,8 +205,15 @@ export default function MatchRecordForm({
                       <strong>🛡️ {calculated.defensiveRating.toFixed(1)}</strong>
                       <strong>⭐ {calculated.matchRating.toFixed(1)}</strong>
                       <small>{calculated.resultContext} · {calculated.result}</small>
-                      <PointsLine items={calculated.matchBreakdown} />
-                      <PointsLine items={calculated.defensiveBreakdown} />
+                      <div className="gg-desktop-rating-breakdown">
+                        <PointsLine items={calculated.matchBreakdown} />
+                        <PointsLine items={calculated.defensiveBreakdown} />
+                      </div>
+                      <details className="gg-mobile-rating-details">
+                        <summary>Points</summary>
+                        <PointsLine items={calculated.matchBreakdown} />
+                        <PointsLine items={calculated.defensiveBreakdown} />
+                      </details>
                     </div>
                   )}
                 </div>
