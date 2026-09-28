@@ -46,6 +46,7 @@ test('historical GG migration recalculates canonically and changes only rating f
     assert.ok(participant.performanceCodes.length>0);
     assert.equal(typeof participant.rating,'number');
     assert.equal(typeof participant.defensivePerformance,'number');
+    if(String(participant.player)===String(p1._id)){assert.equal(participant.rating,7.9);assert.equal(participant.defensivePerformance,8.9);}else{assert.equal(participant.rating,5.9);assert.equal(participant.defensivePerformance,7.6);}
   }
 });
 
