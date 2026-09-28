@@ -49,15 +49,11 @@ function PerformancePicker({ value = [], onChange, disabled }) {
 export default function MatchRecordForm({
   onSubmit, date, setDate, matchName, setMatchName, teamALabel, setTeamALabel, teamBLabel, setTeamBLabel,
   teamAScore, teamBScore, players, teams, setPlayerTeam, goals, setGoals, assists, setAssists, ownGoals, setOwnGoals,
-  performanceCodes, setPerformanceCodes, ratings, defensivePerformances, assignedPlayers, totalGoals, totalAssists,
+  performanceCodes, setPerformanceCodes, assignedPlayers, totalGoals, totalAssists,
   savingMatch, editingMatchId, resetMatchForm, changeCount,
 }) {
   const teamACount = assignedPlayers.filter(player => teams[String(player._id)] === 'A').length;
   const teamBCount = assignedPlayers.filter(player => teams[String(player._id)] === 'B').length;
-  const isLegacyEdit = Boolean(editingMatchId && assignedPlayers.some(player => {
-    const id = String(player._id);
-    return performanceCodes[id] === undefined;
-  }));
 
   return (
     <section className="card">
@@ -73,9 +69,7 @@ export default function MatchRecordForm({
           <div className="side-block"><span>Side 2</span><input value={teamBLabel} maxLength={80} onChange={e => setTeamBLabel(e.target.value)} /><strong>{teamBScore}</strong></div>
         </div>
 
-        {isLegacyEdit && (
-          <p className="global-message">This is a legacy match. Its existing ratings are preserved; new GG-v3 ratings are used only when performance codes are supplied.</p>
-        )}
+
 
         <div className="subsection">
           <div className="section-heading">
@@ -108,25 +102,22 @@ export default function MatchRecordForm({
                     <button type="button" disabled={!assigned} aria-label={`Add ${label.toLowerCase()} for ${player.name}`} onClick={()=>changeCount(setter,id,1)}>+</button>
                   </div>
                 ))}
-                {legacy ? (
-                  <div className="gg-legacy-rating-pair">
-                    <span>Def {defensivePerformances[id] == null || defensivePerformances[id] === '' ? '—' : Number(defensivePerformances[id]).toFixed(1)}</span>
-                    <span>⭐ {ratings[id] == null || ratings[id] === '' ? '—' : Number(ratings[id]).toFixed(1)}</span>
-                  </div>
-                ) : (
-                  <div className="gg-code-cell">
-                    <PerformancePicker value={codes || []} disabled={!assigned} onChange={next => setPerformanceCodes(old => ({...old,[id]:next}))} />
-                    {calculated && (
-                      <div className="gg-calculated-ratings">
-                        <strong>🛡️ {calculated.defensiveRating.toFixed(1)}</strong>
-                        <strong>⭐ {calculated.matchRating.toFixed(1)}</strong>
-                        <small>{calculated.resultContext} · {calculated.result}</small>
-                        <PointsLine items={calculated.matchBreakdown} />
-                        <PointsLine items={calculated.defensiveBreakdown} />
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div className="gg-code-cell">
+                  <PerformancePicker
+                    value={codes || []}
+                    disabled={!assigned}
+                    onChange={next => setPerformanceCodes(old => ({ ...old, [id]: next }))}
+                  />
+                  {calculated && (
+                    <div className="gg-calculated-ratings">
+                      <strong>🛡️ {calculated.defensiveRating.toFixed(1)}</strong>
+                      <strong>⭐ {calculated.matchRating.toFixed(1)}</strong>
+                      <small>{calculated.resultContext} · {calculated.result}</small>
+                      <PointsLine items={calculated.matchBreakdown} />
+                      <PointsLine items={calculated.defensiveBreakdown} />
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
