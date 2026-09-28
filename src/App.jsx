@@ -1617,12 +1617,12 @@ function App() {
             (player) => ({
               player:
                 player._id,
-              ...(performanceCodes[String(player._id)] !== undefined
-                ? { performanceCodes: performanceCodes[String(player._id)] }
-                : {
+              ...(editingMatchId && performanceCodes[String(player._id)] === undefined
+                ? {
                     rating: ratings[String(player._id)] === "" || ratings[String(player._id)] == null ? null : Number(ratings[String(player._id)]),
                     defensivePerformance: defensivePerformances[String(player._id)] === "" || defensivePerformances[String(player._id)] == null ? null : Number(defensivePerformances[String(player._id)]),
-                  }),
+                  }
+                : { performanceCodes: performanceCodes[String(player._id)] || [] }),
               ownGoals: ownGoals[String(player._id)] || 0,
               team:
                 teams[
