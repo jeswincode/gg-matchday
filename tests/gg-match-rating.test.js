@@ -59,3 +59,17 @@ test("GG-v3 effective rating already includes its own-goal penalty", () => {
   assert.equal(effectiveMatchRating({rating:7.5,ownGoals:1,ratingSystem:"gg-v3"}),7.5);
   assert.equal(effectiveMatchRating({rating:7.5,ownGoals:1,ratingSystem:"legacy"}),6.5);
 });
+
+test("stored final scores are not double-counted when a participant has an own goal", () => {
+  const result = calculateMatchRatings({
+    team: "A",
+    teamACount: 5,
+    teamBCount: 5,
+    teamAScore: 1,
+    teamBScore: 1,
+    ownGoals: 1,
+    performanceCodes: [],
+  });
+  assert.equal(result.result, "D");
+  assert.equal(result.matchRating, 5.5);
+});
