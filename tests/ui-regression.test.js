@@ -49,5 +49,5 @@ test('Player Comparisons trend uses GG-v3-aware effective ratings',()=>{
   const source=read('src/components/PlayerComparisons.jsx');
   assert.match(source,/participant\?\.ratingSystem==='gg-v3'/);
   assert.match(source,/effectiveRating\(participant\)/);
-  assert.doesNotMatch(source,/Number\(rating\)-(Number\.isFinite\(ownGoals\)\?ownGoals:0\)/);
+  assert.equal(source.includes('Number(rating)-(Number.isFinite(ownGoals)?ownGoals:0)'),false);
 });
