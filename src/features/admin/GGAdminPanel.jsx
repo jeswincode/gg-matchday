@@ -52,7 +52,7 @@ function MigrationView({ match, onSaved }) {
     setSaving(true);
     setMessage("");
     try {
-      const result = await api(\`/admin/gg/migration/\${match.match._id}\`, { method: "POST", body: { participants: payload } });
+      const result = await api("/admin/gg/migration/" + match.match._id, { method: "POST", body: { participants: payload } });
       onSaved(result);
       setMessage("GG-v3 values saved.");
       setConfirming(false);
@@ -122,14 +122,14 @@ export default function GGAdminPanel() {
 
   async function openMatch(matchId) {
     setSelected({ loading: true });
-    try { setSelected(await api(\`/admin/gg/migration/\${matchId}\`)); }
+    try { setSelected(await api("/admin/gg/migration/" + matchId)); }
     catch (error) { setSelected({ error: error.message }); }
   }
 
   async function handleSaved() {
     await loadAudit();
     if (selected?.match?._id) {
-      try { setSelected(await api(\`/admin/gg/migration/\${selected.match._id}\`)); } catch {}
+      try { setSelected(await api("/admin/gg/migration/" + selected.match._id)); } catch {}
     }
   }
 
