@@ -104,7 +104,7 @@ export function normalizePerformanceCodes(value) {
     }
   }
 
-  return [...selected.values()].sort((a, b) => a.category.localeCompare(b.category)).map(entry => entry.code);
+  return CATEGORIES.flatMap(category => selected.has(category.key) ? [selected.get(category.key).code] : []);
 }
 
 export function performanceEntries(value) {
@@ -138,7 +138,7 @@ function clamp(value) {
 }
 
 function round1(value) {
-  return Number(clamp(value).toFixed(1));
+  return Math.round((clamp(value) + Number.EPSILON) * 10) / 10;
 }
 
 function matchResultContext({ team, teamACount, teamBCount, teamAScore, teamBScore }) {
