@@ -19,4 +19,80 @@ test('votes are final, only participants can receive votes, concurrent duplicate
 test('admin finalization stores permanent MOTM and leaves GG Rating unchanged',async()=>{const before=(await request(`/stats/player/${p1._id}`)).data.stats;assert.equal((await request(`/matches/${matchId}/finalize-vote`,{token:'viewer',method:'POST'})).status,403);const final=await request(`/matches/${matchId}/finalize-vote`,{token:'admin',method:'POST'});assert.equal(final.status,200,JSON.stringify(final.data));assert.equal((await request(`/matches/${matchId}/votes`,{token:'other',method:'POST',body:{playerId:String(p2._id)}})).status,409);assert.equal(await Award.countDocuments({key:`motm:${matchId}`,player:p1._id}),1);const after=(await request(`/stats/player/${p1._id}`)).data.stats;assert.equal(after.ggRating,before.ggRating);assert.equal(after.averageRating,before.averageRating);});
 test('linked-profile preference request cannot target another player and needs approval',async()=>{assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{preferredPositions:['ST']}}})).status,403);assert.equal((await request('/profile-requests/admin/link',{token:'admin',method:'POST',body:{userId:String(viewer._id),playerId:String(p1._id)}})).status,200);assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p2._id),changes:{preferredPositions:['ST']}}})).status,403);const rq=await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{preferredPositions:['ST','LW'],clasicoSide:'Messi'}}});assert.equal(rq.status,201,JSON.stringify(rq.data));assert.deepEqual((await Player.findById(p1._id)).preferredPositions,[]);assert.equal((await request(`/profile-requests/admin/${rq.data._id}/approve`,{token:'admin',method:'POST'})).status,200);assert.deepEqual((await Player.findById(p1._id)).preferredPositions,['ST','LW']);assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{clasicoSide:'Ronaldo'}}})).status,400);});
 test('chat allows three monthly messages atomically and persists only five-day chat records',async()=>{const results=await Promise.all([1,2,3,4].map(()=>request('/chat',{token:'viewer',method:'POST',body:{message:'Temporary test message'}})));assert.deepEqual(results.map(r=>r.status).sort(),[201,201,201,409]);assert.ok(results.filter(r=>r.status===201).every(r=>r.data.message?.text==='Temporary test message'));const user=await User.findById(viewer._id).lean();assert.ok(user.chatMonth);assert.equal(user.chatMessagesUsed,3);assert.ok(await ChatMessage.exists({text:'Temporary test message'}));assert.equal((await request('/chat',{token:'other'})).data.messages.length,3);assert.equal((await request('/chat',{token:'other',method:'POST',body:{message:'x'.repeat(501)}})).status,400);});
+test('GG audit and migration are admin-only',async()=>{
+  assert.equal((await request('/admin/gg/audit')).status,401);
+  assert.equal((await request('/admin/gg/audit',{token:'viewer'})).status,403);
+  assert.equal((await request(`/admin/gg/migration/${matchId}`,{token:'viewer'})).status,403);
+});
+
+test('historical GG migration recalculates canonically and changes only rating fields on voted matches',async()=>{
+  const before=await Match.findById(matchId).lean();
+  assert.ok(await Vote.exists({match:matchId}));
+  const participants=before.participants.map(p=>({playerId:String(p.player),performanceCodes:p.player.toString()===p1._id.toString()?['finisher','wall']:['hero']}));
+  const result=await request(`/admin/gg/migration/${matchId}`,{token:'admin',method:'POST',body:{participants}});
+  assert.equal(result.status,200,JSON.stringify(result.data));
+  const after=await Match.findById(matchId).lean();
+  assert.equal(after.name,before.name);
+  assert.equal(new Date(after.date).getTime(),new Date(before.date).getTime());
+  assert.deepEqual(after.teamA,before.teamA);
+  assert.deepEqual(after.teamB,before.teamB);
+  assert.deepEqual(after.events,before.events);
+  assert.equal(after.votingClosed,before.votingClosed);
+  assert.equal(String(after.motmWinner),String(before.motmWinner));
+  assert.deepEqual(after.participants.map(p=>({player:String(p.player),team:p.team,ownGoals:p.ownGoals})),before.participants.map(p=>({player:String(p.player),team:p.team,ownGoals:p.ownGoals})));
+  for(const participant of after.participants){
+    assert.equal(participant.ratingSystem,'gg-v3');
+    assert.ok(Array.isArray(participant.performanceCodes));
+    assert.ok(participant.performanceCodes.length>0);
+    assert.equal(typeof participant.rating,'number');
+    assert.equal(typeof participant.defensivePerformance,'number');
+    if(String(participant.player)===String(p1._id)){assert.equal(participant.rating,7.9);assert.equal(participant.defensivePerformance,8.9);}else{assert.equal(participant.rating,5.9);assert.equal(participant.defensivePerformance,7.6);}
+  }
+});
+
+test('GG audit distinguishes missing codes and partial records',async()=>{
+  const missing=await Match.create({
+    date:new Date('2026-09-02'),name:'Audit Missing Codes',
+    teamA:{label:'A',score:0},teamB:{label:'B',score:0},
+    participants:[{player:p1._id,team:'A'},{player:p2._id,team:'B'}],events:[],
+  });
+  const partial=await Match.create({
+    date:new Date('2026-09-03'),name:'Audit Partial',
+    teamA:{label:'A',score:0},teamB:{label:'B',score:0},
+    participants:[
+      {player:p1._id,team:'A',performanceCodes:['wall'],rating:8.9,ratingSystem:'gg-v3'},
+      {player:p2._id,team:'B',performanceCodes:['hero'],rating:7.6,ratingSystem:'gg-v3',defensivePerformance:7.6},
+    ],events:[],
+  });
+  const before=await Match.findById(partial._id).lean();
+  const migration=await request(`/admin/gg/migration/${partial._id}`,{token:'admin'});
+  assert.equal(migration.status,200);
+  const after=await Match.findById(partial._id).lean();
+  assert.deepEqual(after,before);
+  const audit=await request('/admin/gg/audit',{token:'admin'});
+  assert.equal(audit.status,200,JSON.stringify(audit.data));
+  assert.equal(audit.data.matches.find(row=>String(row.match._id)===String(missing._id)).classification,'needsPerformanceCodes');
+  assert.equal(audit.data.matches.find(row=>String(row.match._id)===String(partial._id)).classification,'partiallyCompleted');
+});
+
+test('GG audit detects stored rating inconsistencies without rewriting them',async()=>{
+  const match=await Match.create({
+    date:new Date('2026-09-01'),name:'Audit Rating Issue',
+    teamA:{label:'A',score:1},teamB:{label:'B',score:0},
+    participants:[
+      {player:p1._id,team:'A',performanceCodes:['wall'],rating:7.2,defensivePerformance:8.9,ratingSystem:'gg-v3'},
+      {player:p2._id,team:'B',performanceCodes:['hero'],rating:5.9,defensivePerformance:7.6,ratingSystem:'gg-v3'},
+    ],
+    events:[{player:p1._id,type:'goal'}],
+  });
+  const audit=await request('/admin/gg/audit',{token:'admin'});
+  assert.equal(audit.status,200,JSON.stringify(audit.data));
+  const row=audit.data.matches.find(item=>String(item.match._id)===String(match._id));
+  assert.ok(row);
+  assert.equal(row.classification,'ratingIssue');
+  assert.ok(row.ratingIssues.some(issue=>issue.playerId===String(p1._id)));
+  const stored=await Match.findById(match._id).lean();
+  assert.equal(stored.participants[0].rating,7.2);
+});
+
 test('closed-period awards and career achievements remain immutable across subsequent corrections',async()=>{for(let i=0;i<9;i++)await Match.create({...payload(),date:new Date('2025-06-01'),teamA:{label:'A',score:1},teamB:{label:'B',score:0}});await syncHistory();const original=await Award.findOne({key:'player:2025:0'}).lean();assert.ok(original);await Match.updateMany({date:{$lt:new Date('2026-01-01')}},{$set:{'participants.0.rating':0,'participants.1.rating':10}});await syncHistory();const kept=await Award.findOne({key:'player:2025:0'}).lean();assert.equal(String(kept.player),String(original.player));assert.ok(await Achievement.exists({player:p1._id,key:'goals:10'}));});

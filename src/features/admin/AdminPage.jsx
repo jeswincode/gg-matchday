@@ -1,5 +1,6 @@
 import DatabaseHealth from "../../components/DatabaseHealth";
 import AccessDenied from "../../components/ui/AccessDenied";
+import GGAdminPanel from "./GGAdminPanel";
 
 export default function AdminPage({
   isAdmin,
@@ -141,6 +142,7 @@ export default function AdminPage({
           </section>
 
           <DatabaseHealth />
+          <GGAdminPanel />
 
           <section className="formula-card">
             <p className="eyebrow">PERMISSIONS</p>

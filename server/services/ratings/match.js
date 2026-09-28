@@ -235,6 +235,52 @@ export function calculateMatchRatings({
   };
 }
 
+
+export function calculateGGParticipantRatings(participants, events, teamAScore, teamBScore) {
+  const teamACount = participants.filter(participant => participant.team === "A").length;
+  const teamBCount = participants.filter(participant => participant.team === "B").length;
+  const goals = new Map();
+  const assists = new Map();
+  const participantId = value => String(value?._id ?? value);
+
+  for (const event of events || []) {
+    const key = participantId(event.player);
+    if (event.type === "goal") goals.set(key, (goals.get(key) || 0) + 1);
+    if (event.type === "assist") assists.set(key, (assists.get(key) || 0) + 1);
+  }
+
+  const sideAOwnGoals = participants
+    .filter(participant => participant.team === "B")
+    .reduce((sum, participant) => sum + Number(participant.ownGoals || 0), 0);
+  const sideBOwnGoals = participants
+    .filter(participant => participant.team === "A")
+    .reduce((sum, participant) => sum + Number(participant.ownGoals || 0), 0);
+
+  return participants.map(participant => {
+    if (!Array.isArray(participant.performanceCodes)) return participant;
+
+    const result = calculateMatchRatings({
+      team: participant.team,
+      teamACount,
+      teamBCount,
+      teamAScore: Number(teamAScore || 0) + sideAOwnGoals,
+      teamBScore: Number(teamBScore || 0) + sideBOwnGoals,
+      goals: goals.get(participantId(participant.player)) || 0,
+      assists: assists.get(participantId(participant.player)) || 0,
+      ownGoals: participant.ownGoals || 0,
+      performanceCodes: participant.performanceCodes,
+    });
+
+    return {
+      ...participant,
+      rating: result.matchRating,
+      defensivePerformance: result.defensiveRating,
+      ratingSystem: "gg-v3",
+      performanceCodes: result.performanceCodes,
+    };
+  });
+}
+
 export function isGGCalculatedParticipant(participant) {
   return participant?.ratingSystem === "gg-v3";
 }
