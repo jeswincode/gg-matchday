@@ -41,8 +41,8 @@ function expectedForMatch(match) {
       team: participant.team,
       teamACount,
       teamBCount,
-      teamAScore: teamAScore + sideAOwnGoals,
-      teamBScore: teamBScore + sideBOwnGoals,
+      teamAScore,
+      teamBScore,
       goals: goals.get(id(participant.player)) || 0,
       assists: assists.get(id(participant.player)) || 0,
       ownGoals: participant.ownGoals || 0,
@@ -112,7 +112,7 @@ function migrationView(match) {
       try { previewCodes = normalizePerformanceCodes(codes); } catch { /* Invalid legacy codes are replaced in the migration form. */ }
       const expected = calculateMatchRatings({
         team: participant.team, teamACount, teamBCount,
-        teamAScore: teamAScore + sideAOwnGoals, teamBScore: teamBScore + sideBOwnGoals,
+        teamAScore, teamBScore,
         goals: goals.get(id(participant.player)) || 0, assists: assists.get(id(participant.player)) || 0,
         ownGoals: participant.ownGoals || 0, performanceCodes: previewCodes,
       });
@@ -207,6 +207,7 @@ async function saveRatings(req, res) {
       match.events || [],
       match.teamA?.score,
       match.teamB?.score,
+      { scoresIncludeOwnGoals: true },
     );
 
     const operations = calculatedParticipants.map(participant => ({
