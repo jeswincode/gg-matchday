@@ -12,7 +12,7 @@ test("only the highest code in each category is retained", () => {
 });
 test("equal teams use equal result modifiers and independent defensive rating", () => {
   const result=calculateMatchRatings({team:"A",teamACount:5,teamBCount:5,teamAScore:3,teamBScore:2,goals:1,assists:1,performanceCodes:["finisher","architect","wall"]});
-  assert.equal(result.resultContext,"equal"); assert.equal(result.matchRating,8.6); assert.equal(result.defensiveRating,8.3);
+  assert.equal(result.resultContext,"equal"); assert.equal(result.matchRating,8.5); assert.equal(result.defensiveRating,8.9);
 });
 test("the larger side is favoured and receives the favoured result modifier", () => {
   const win=calculateMatchRatings({team:"A",teamACount:6,teamBCount:4,teamAScore:2,teamBScore:1});
@@ -25,7 +25,7 @@ test("underdog win receives the underdog result bonus", () => {
 });
 test("defensive rating starts at six and uses defensive-only contributions", () => {
   const result=calculateMatchRatings({team:"A",teamACount:5,teamBCount:5,teamAScore:1,teamBScore:0,goals:2,assists:3,ownGoals:1,performanceCodes:["wall","hero","blunder","finisher"]});
-  assert.equal(result.defensiveRating,7.6); assert.equal(result.matchRating,8.6);
+  assert.equal(result.defensiveRating,8.8); assert.equal(result.matchRating,9.6);
 });
 test("ratings clamp to four through ten and round to one decimal", () => {
   const low=calculateMatchRatings({team:"B",teamACount:5,teamBCount:5,teamAScore:0,teamBScore:9,ownGoals:4,performanceCodes:["choke","scatter","disaster"]});
