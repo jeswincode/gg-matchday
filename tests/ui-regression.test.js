@@ -43,3 +43,11 @@ test('post-merge cleanup keeps Gemini debug route unique and match save invalida
   assert.match(app,/invalidate\(\);\s*resetMatchForm\(\);\s*await Promise\.all\(\[/);
   assert.doesNotMatch(app,/invalidate\(\);\s*resetMatchForm\(\);\s*invalidate\(\);/);
 });
+
+
+test('Player Comparisons trend uses GG-v3-aware effective ratings',()=>{
+  const source=read('src/components/PlayerComparisons.jsx');
+  assert.match(source,/participant\?\.ratingSystem==='gg-v3'/);
+  assert.match(source,/effectiveRating\(participant\)/);
+  assert.doesNotMatch(source,/Number\(rating\)-(Number\.isFinite\(ownGoals\)\?ownGoals:0\)/);
+});
