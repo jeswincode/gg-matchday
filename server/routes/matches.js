@@ -577,9 +577,15 @@ router.post(
         name,
         teamA,
         teamB,
-        participants,
         events,
       } = req.body;
+
+      const participants = calculateGGParticipantRatings(
+        req.body.participants,
+        events,
+        Number(req.body.teamA.score) + req.body.participants.filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0),
+        Number(req.body.teamB.score) + req.body.participants.filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0),
+      );
 
       const match =
         await Match.create({
@@ -715,9 +721,15 @@ router.put(
         name,
         teamA,
         teamB,
-        participants,
         events,
       } = req.body;
+
+      const participants = calculateGGParticipantRatings(
+        req.body.participants,
+        events,
+        Number(req.body.teamA.score) + req.body.participants.filter(p => p.team === "B").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0),
+        Number(req.body.teamB.score) + req.body.participants.filter(p => p.team === "A").reduce((sum, p) => sum + Number(p.ownGoals || 0), 0),
+      );
 
       match.date =
         date
