@@ -94,7 +94,7 @@ export function normalizePerformanceCodes(value=[]) {
     const current=selected.get(entry.category);
     if(!current||entry.level>current.level) selected.set(entry.category,entry);
   }
-  return [...selected.values()].sort((a,b)=>a.category.localeCompare(b.category)).map(entry=>entry.code);
+  return PERFORMANCE_CODE_CATEGORIES.flatMap(category => selected.has(category.key) ? [selected.get(category.key).code] : []);
 }
 
 export function goalPoints(goals){
@@ -120,7 +120,7 @@ export function assistPoints(assists){
 }
 
 function clamp(value){return Math.min(10,Math.max(4,value));}
-function round1(value){return Number(clamp(value).toFixed(1));}
+function round1(value){return Math.round((clamp(value) + Number.EPSILON) * 10) / 10;}
 
 function resultContext({team,teamACount,teamBCount,teamAScore,teamBScore}){
   const equal=teamACount===teamBCount;
