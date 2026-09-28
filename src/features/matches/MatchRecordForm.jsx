@@ -65,7 +65,7 @@ function PerformancePicker({ value = [], onChange, disabled }) {
   const selectedLabels = value.map(getPerformanceLabel).join(' · ');
 
   return (
-    <div className="gg-code-dropdown" ref={pickerRef}>
+    <div className={`gg-code-dropdown${open ? " is-open" : ""}`} ref={pickerRef}>
       <button
         type="button"
         className={`gg-code-trigger ${open ? 'open' : ''}`}

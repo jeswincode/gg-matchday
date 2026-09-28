@@ -323,3 +323,32 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+
+/* Ensure the open GG code picker sits above neighboring player rows. */
+.gg-code-cell { position: relative; z-index: 1; }
+.gg-code-dropdown { position: relative; z-index: 1; isolation: isolate; }
+.gg-code-dropdown.is-open { z-index: 10000; }
+.gg-code-menu {
+  z-index: 10001;
+  background: #10131a !important;
+  background-color: #10131a !important;
+  background-image: none !important;
+  opacity: 1 !important;
+  isolation: isolate;
+}
+.gg-code-menu-scroll,
+.gg-code-menu-header,
+.gg-code-menu-category {
+  background: #10131a !important;
+  background-color: #10131a !important;
+  background-image: none !important;
+}
+.gg-code-menu-category > div,
+.gg-code-menu-category button {
+  background: #10131a !important;
+  background-color: #10131a !important;
+}
+.gg-code-menu-category button.active {
+  background: var(--accent) !important;
+}
