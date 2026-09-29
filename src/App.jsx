@@ -90,11 +90,14 @@ function App() {
   const [archivePage,setArchivePage]=useState(1);
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
   const touchStartRef=useRef(null);
+  const [swipeOffset,setSwipeOffset]=useState(0);
+  const [swipeAnimating,setSwipeAnimating]=useState(false);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
 
   function isTouchInteractionExcluded(target) {
     if (!(target instanceof Element)) return false;
-    if (target.closest('button,input,select,textarea,[contenteditable="true"],[role="dialog"]')) return true;
+
+    if (target.closest('[role="dialog"]')) return true;
 
     let current=target;
     while (current && current !== document.body) {
@@ -111,10 +114,11 @@ function App() {
   }
 
   function handleAppTouchStart(event) {
-    if (event.touches.length !== 1) {
+    if (event.touches.length !== 1 || swipeAnimating) {
       touchStartRef.current=null;
       return;
     }
+
     touchStartRef.current={
       x:event.touches[0].clientX,
       y:event.touches[0].clientY,
@@ -122,25 +126,65 @@ function App() {
     };
   }
 
-  function handleAppTouchEnd(event) {
+  function handleAppTouchMove(event) {
     const start=touchStartRef.current;
-    touchStartRef.current=null;
-    if (!start || start.excluded || event.changedTouches.length !== 1) return;
+    if (!start || start.excluded || event.touches.length !== 1 || swipeAnimating) return;
 
-    const touch=event.changedTouches[0];
+    const touch=event.touches[0];
     const deltaX=touch.clientX-start.x;
     const deltaY=touch.clientY-start.y;
-    const threshold=56;
 
-    if (Math.abs(deltaX)<threshold || Math.abs(deltaX)<=Math.abs(deltaY)*1.25) return;
+    if (Math.abs(deltaX)<8 || Math.abs(deltaX)<=Math.abs(deltaY)*1.15) return;
 
     const currentIndex=TAB_ORDER.indexOf(activeTab);
     if (currentIndex<0) return;
 
     const nextIndex=deltaX<0 ? currentIndex+1 : currentIndex-1;
-    if (nextIndex<0 || nextIndex>=TAB_ORDER.length) return;
+    if (nextIndex<0 || nextIndex>=TAB_ORDER.length) {
+      setSwipeOffset(deltaX*0.2);
+      return;
+    }
 
-    setActiveTab(TAB_ORDER[nextIndex]);
+    event.preventDefault();
+    setSwipeOffset(deltaX);
+  }
+
+  function handleAppTouchEnd(event) {
+    const start=touchStartRef.current;
+    touchStartRef.current=null;
+
+    if (!start || start.excluded || event.changedTouches.length !== 1 || swipeAnimating) return;
+
+    const touch=event.changedTouches[0];
+    const deltaX=touch.clientX-start.x;
+    const deltaY=touch.clientY-start.y;
+    const threshold=Math.min(92, Math.max(56, window.innerWidth*0.16));
+
+    if (Math.abs(deltaX)<threshold || Math.abs(deltaX)<=Math.abs(deltaY)*1.2) {
+      setSwipeOffset(0);
+      return;
+    }
+
+    const currentIndex=TAB_ORDER.indexOf(activeTab);
+    if (currentIndex<0) {
+      setSwipeOffset(0);
+      return;
+    }
+
+    const nextIndex=deltaX<0 ? currentIndex+1 : currentIndex-1;
+    if (nextIndex<0 || nextIndex>=TAB_ORDER.length) {
+      setSwipeOffset(0);
+      return;
+    }
+
+    setSwipeAnimating(true);
+    setSwipeOffset(deltaX<0 ? -window.innerWidth : window.innerWidth);
+
+    window.setTimeout(()=>{
+      setActiveTab(TAB_ORDER[nextIndex]);
+      setSwipeOffset(0);
+      setSwipeAnimating(false);
+    },240);
   }
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
@@ -2203,8 +2247,18 @@ function App() {
   }
 
   return (
-    <main className="app" onTouchStart={handleAppTouchStart} onTouchEnd={handleAppTouchEnd}>
+    <main className="app" onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
 
+      <div
+        className="mobile-tab-stage"
+        style={{
+          transform:`translate3d(${swipeOffset}px,0,0)`,
+          transition:swipeAnimating
+            ? "transform 240ms cubic-bezier(.22,.8,.2,1)"
+            : "none",
+          willChange:swipeOffset!==0||swipeAnimating ? "transform" : "auto",
+        }}
+      >
       <header className="topbar">
         <div>
           <p className="eyebrow">
@@ -2520,6 +2574,8 @@ function App() {
           revokeEditor={revokeEditor}
         />
       )}
+
+      </div>
 
       {/* =====================================================
           NAVIGATION
