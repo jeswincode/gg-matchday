@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import DatabaseHealth from "../../components/DatabaseHealth";
 import AccessDenied from "../../components/ui/AccessDenied";
 import GGAdminPanel from "./GGAdminPanel";
@@ -21,6 +21,14 @@ export default function AdminPage({
     Object.fromEntries(players.map(player => [String(player._id), player.backgroundVideoUrl || ""]))
   );
   const [savingVideoId, setSavingVideoId] = useState(null);
+
+  useEffect(() => {
+    setVideoDrafts(
+      Object.fromEntries(
+        players.map(player => [String(player._id), player.backgroundVideoUrl || ""])
+      )
+    );
+  }, [players]);
   return (
     <section className="tab-content">
       {!isAdmin ? (
