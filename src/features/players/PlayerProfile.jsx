@@ -43,35 +43,36 @@ export default function PlayerProfile({
         ← Back to Players
       </button>
     
-      <section className="profile-hero card">
-    
-        <div className="profile-photo-wrap">
-    
-          {player.profileImage ? (
-            <img
-              src={
-                player.profileImage
-              }
-              alt={
-                player.name
-              }
-              className="profile-large-photo"
+      <section className={`profile-hero card profile-hero-media${player.backgroundVideoUrl ? " has-profile-video" : ""}`}>
+        <div className="profile-hero-backdrop" aria-hidden="true">
+          {player.backgroundVideoUrl ? (
+            <video
+              className="profile-hero-video"
+              src={player.backgroundVideoUrl}
+              poster={player.profileImage || undefined}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
             />
+          ) : player.profileImage ? (
+            <img className="profile-hero-image" src={player.profileImage} alt="" />
+          ) : null}
+          <div className="profile-hero-shade" />
+        </div>
+
+        <div className="profile-photo-wrap profile-hero-foreground">
+          {player.profileImage ? (
+            <img src={player.profileImage} alt={player.name} className="profile-large-photo" />
           ) : (
             <div className="profile-photo-fallback">
-              {
-                player.name
-                  ?.charAt(
-                    0
-                  )
-                  .toUpperCase()
-              }
+              {player.name?.charAt(0).toUpperCase()}
             </div>
           )}
-    
         </div>
-    
-        <div className="profile-heading">
+
+        <div className="profile-heading profile-hero-foreground">
     
           <p className="eyebrow">
             PLAYER PROFILE
