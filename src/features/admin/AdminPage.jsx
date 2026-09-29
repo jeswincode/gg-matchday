@@ -22,6 +22,8 @@ export default function AdminPage({
   );
   const [savingVideoId, setSavingVideoId] = useState(null);
 
+  // Player data is fetched asynchronously; sync draft state when that source of truth changes.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     setVideoDrafts(
       Object.fromEntries(
