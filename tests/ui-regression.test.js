@@ -112,17 +112,16 @@ test('Refined visual layer keeps viewport-fixed navigation stable and avoids tra
 });
 
 
-test('golden theme uses an inverted gold-surface and dark-ink palette',()=>{
-  const features=read('src/components/features.css');
+test('golden theme uses the refined dark hierarchy and cinematic overlay',()=>{
+  const gold=read('src/gold-theme-refined.css');
   const video=read('src/video-background.css');
-  assert.match(features,/data-theme="golden"/);
-  assert.match(features,/--bg:#8c6a2b/);
-  assert.match(features,/--panel:#b9964d/);
-  assert.match(features,/--text:#1a140a/);
-  assert.match(features,/--accent:#1b150b/);
+  assert.match(gold,/--bg:\s*#090805/);
+  assert.match(gold,/--panel:\s*#11100d/);
+  assert.match(gold,/--text:\s*#f6f1e7/);
+  assert.match(gold,/--accent:\s*#e3bc67/);
   assert.match(video,/html\[data-theme="golden"\] \.gg-video-overlay/);
+  assert.doesNotMatch(video,/rgba\(185,150,77/);
 });
-
 
 test('gold theme keeps the premium dark hierarchy with gold used as the accent',()=>{
   const gold=read('src/gold-theme-refined.css');
