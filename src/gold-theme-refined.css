@@ -1,7 +1,8 @@
 /* GG Matchday — Gold theme, premium dark parity
    Gold is the identity/accent; the UI hierarchy stays as clean and dark as Dark mode. */
 
-html[data-theme="golden"] {
+html[data-theme="golden"],
+:root[data-theme="golden"] {
   --bg: #090805;
   --panel: #11100d;
   --panel-soft: #17140e;
