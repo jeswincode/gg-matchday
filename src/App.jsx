@@ -2125,15 +2125,20 @@ function App() {
   // RENDER
   // =========================================================
 
-  if (experience === "startup") {
+  const activeExperience =
+    experience === "entry" && authUser && !authLoading
+      ? "welcome"
+      : experience;
+
+  if (activeExperience === "startup") {
     return <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
   }
 
-  if (experience === "entry") {
+  if (activeExperience === "entry") {
     return <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} message={message} />;
   }
 
-  if (experience === "welcome") {
+  if (activeExperience === "welcome") {
     return <WelcomeScreen user={authUser} onEnter={() => setExperience("app")} />;
   }
 
