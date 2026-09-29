@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import DatabaseHealth from "../../components/DatabaseHealth";
 import AccessDenied from "../../components/ui/AccessDenied";
 import GGAdminPanel from "./GGAdminPanel";
@@ -22,15 +22,6 @@ export default function AdminPage({
   );
   const [savingVideoId, setSavingVideoId] = useState(null);
 
-  // Player data is fetched asynchronously; sync draft state when that source of truth changes.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- async player data must hydrate editable drafts.
-    setVideoDrafts(
-      Object.fromEntries(
-        players.map(player => [String(player._id), player.backgroundVideoUrl || ""])
-      )
-    );
-  }, [players]);
   return (
     <section className="tab-content">
       {!isAdmin ? (
