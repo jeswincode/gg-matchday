@@ -2267,7 +2267,16 @@ function App() {
               <strong>Viewer mode</strong>
               <small>Public read-only access</small>
             </div>
-            <span className="account-entry-hint">Sign in from the Matchday entry screen</span>
+            <div className="account-entry-actions">
+              <span className="account-entry-hint">Read-only access</span>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setExperience("entry")}
+              >
+                Sign In
+              </button>
+            </div>
           </div>
         )}
 
