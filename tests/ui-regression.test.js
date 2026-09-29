@@ -110,3 +110,14 @@ test('Refined visual layer keeps viewport-fixed navigation stable and avoids tra
   assert.doesNotMatch(refined,/animation:\s*gg-app-enter/);
   assert.match(refined,/\.gg-backdrop\s*\{[\s\S]*?min-height:\s*100dvh/);
 });
+
+
+test('golden theme uses an inverted gold-surface and dark-ink palette',()=>{
+  const features=read('src/components/features.css');
+  const video=read('src/video-background.css');
+  assert.match(features,/data-theme="golden"[^}]*--bg:#8c6a2b/);
+  assert.match(features,/data-theme="golden"[^}]*--panel:#b9964d/);
+  assert.match(features,/data-theme="golden"[^}]*--text:#1a140a/);
+  assert.match(features,/data-theme="golden"[^}]*--accent:#1b150b/);
+  assert.match(video,/data-theme="golden" \.gg-video-overlay/);
+});
