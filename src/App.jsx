@@ -1,4 +1,4 @@
-import {lazy, Suspense, useCallback} from 'react';
+import {lazy, Suspense, useCallback, useRef} from 'react';
 import LeaderboardView from './components/Leaderboard';
 import Clasico from './components/Clasico';
 import {api, invalidate} from './lib/api';
@@ -81,7 +81,59 @@ function App() {
   const [overview,setOverview]=useState(null);
   const [archivePage,setArchivePage]=useState(1);
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
+  const touchStartRef=useRef(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
+
+  function isTouchInteractionExcluded(target) {
+    if (!(target instanceof Element)) return false;
+    if (target.closest('button,input,select,textarea,[contenteditable="true"],[role="dialog"]')) return true;
+
+    let current=target;
+    while (current && current !== document.body) {
+      if (current instanceof HTMLElement) {
+        const styles=window.getComputedStyle(current);
+        const canScrollHorizontally=current.scrollWidth>current.clientWidth+1 &&
+          (styles.overflowX==='auto'||styles.overflowX==='scroll');
+        if (canScrollHorizontally) return true;
+      }
+      current=current.parentElement;
+    }
+
+    return false;
+  }
+
+  function handleAppTouchStart(event) {
+    if (event.touches.length !== 1) {
+      touchStartRef.current=null;
+      return;
+    }
+    touchStartRef.current={
+      x:event.touches[0].clientX,
+      y:event.touches[0].clientY,
+      excluded:isTouchInteractionExcluded(event.target),
+    };
+  }
+
+  function handleAppTouchEnd(event) {
+    const start=touchStartRef.current;
+    touchStartRef.current=null;
+    if (!start || start.excluded || event.changedTouches.length !== 1) return;
+
+    const touch=event.changedTouches[0];
+    const deltaX=touch.clientX-start.x;
+    const deltaY=touch.clientY-start.y;
+    const threshold=56;
+
+    if (Math.abs(deltaX)<threshold || Math.abs(deltaX)<=Math.abs(deltaY)*1.25) return;
+
+    const currentIndex=TAB_ORDER.indexOf(activeTab);
+    if (currentIndex<0) return;
+
+    const nextIndex=deltaX<0 ? currentIndex+1 : currentIndex-1;
+    if (nextIndex<0 || nextIndex>=TAB_ORDER.length) return;
+
+    setActiveTab(TAB_ORDER[nextIndex]);
+  }
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
   useEffect(()=>{api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey]);
@@ -2143,7 +2195,7 @@ function App() {
   }
 
   return (
-    <main className="app">
+    <main className="app" onTouchStart={handleAppTouchStart} onTouchEnd={handleAppTouchEnd}>
 
       <header className="topbar">
         <div>
