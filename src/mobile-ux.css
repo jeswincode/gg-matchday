@@ -1224,3 +1224,20 @@
   .gg-match-player-stats .match-player-rating { grid-column:1 / -1; border-right:0; border-top:1px solid var(--border); background:var(--panel-soft); }
   .gg-match-player-stats .match-player-rating strong { color:var(--accent); font-size:20px; }
 }
+
+
+/* Instagram-style mobile tab paging: the complete app surface follows the finger. */
+@media (max-width: 760px) {
+  .app {
+    overflow-x: hidden;
+  }
+
+  .mobile-tab-stage {
+    width: 100%;
+    touch-action: pan-y;
+  }
+
+  .mobile-tab-stage > * {
+    max-width: 100%;
+  }
+}
