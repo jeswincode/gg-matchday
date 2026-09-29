@@ -79,7 +79,7 @@ test('Refined startup flow replaces the account-bar login with startup, entry, a
   assert.match(startup,/Continue with Google/);
   assert.match(startup,/Explore as Guest/);
   assert.match(startup,/ENTER MATCHDAY/);
-  assert.match(app,/Sign in from the Matchday entry screen/);
+  assert.match(app,/Read-only access/);
 });
 
 test('Player profile supports cinematic video, image, and global background fallback',()=>{
@@ -134,5 +134,5 @@ test('gold theme keeps the premium dark hierarchy with gold used as the accent',
 });
 
 
-test('guest mode keeps an explicit sign-in path after entering the app',()=>{const source=read('src/App.jsx');assert.match(source,/setExperience\("entry"\)/);assert.match(source,/>Sign In<\/button>/);});
+test('guest mode keeps an explicit sign-in path after entering the app',()=>{const source=read('src/App.jsx');assert.match(source,/setExperience\("entry"\)/);assert.match(source,/className="secondary-button"[\s\S]*?Sign In/);});
 test('admin player video inputs fall back to loaded player video URLs',()=>{const source=read('src/features/admin/AdminPage.jsx');assert.match(source,/videoDrafts\[id\] \?\? player\.backgroundVideoUrl \?\? ""/);});
