@@ -156,3 +156,16 @@ test('mobile calendar hides hover match popovers while preserving day details',(
   assert.match(calendar,/onClick=\{\(\)=>setSelectedDay\(day\)\}/);
   assert.match(calendar,/DAY DETAILS/);
 });
+
+
+test('mobile tab swipe visibly drags the full application stage and settles to the next tab',()=>{
+  const app=read('src/App.jsx');
+  const css=read('src/mobile-ux.css');
+  assert.match(app,/onTouchMove=\{handleAppTouchMove\}/);
+  assert.match(app,/setSwipeOffset\(deltaX\)/);
+  assert.match(app,/translate3d\(\$\{swipeOffset\}px,0,0\)/);
+  assert.match(app,/setSwipeOffset\(deltaX<0 \? -window\.innerWidth : window\.innerWidth\)/);
+  assert.match(app,/setActiveTab\(TAB_ORDER\[nextIndex\]\)/);
+  assert.match(css,/\.mobile-tab-stage\s*\{/);
+  assert.match(css,/touch-action:\s*pan-y/);
+});
