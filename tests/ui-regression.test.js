@@ -120,5 +120,5 @@ test('golden theme uses an inverted gold-surface and dark-ink palette',()=>{
   assert.match(features,/--panel:#b9964d/);
   assert.match(features,/--text:#1a140a/);
   assert.match(features,/--accent:#1b150b/);
-  assert.match(video,/data-theme="golden" \.gg-video-overlay/);
+  assert.match(video,/html\[data-theme="golden"\] \.gg-video-overlay/);
 });
