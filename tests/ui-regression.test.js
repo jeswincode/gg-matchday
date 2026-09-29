@@ -136,4 +136,4 @@ test('gold theme keeps the premium dark hierarchy with gold used as the accent',
 
 
 test('guest mode keeps an explicit sign-in path after entering the app',()=>{const source=read('src/App.jsx');assert.match(source,/setExperience\("entry"\)/);assert.match(source,/>Sign In<\/button>/);});
-test('admin player video drafts resync when the player list arrives',()=>{const source=read('src/features/admin/AdminPage.jsx');assert.match(source,/useEffect\(\(\)=>\{[\s\S]*setVideoDrafts\(/);assert.match(source,/\}, \[players\]\)/);});
+test('admin player video inputs fall back to loaded player video URLs',()=>{const source=read('src/features/admin/AdminPage.jsx');assert.match(source,/videoDrafts\[id\] \?\? player\.backgroundVideoUrl \?\? ""/);});
