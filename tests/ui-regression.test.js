@@ -72,7 +72,7 @@ test('mobile Record rows collapse non-participants and expose rating points on d
 test('Refined startup flow replaces the account-bar login with startup, entry, and welcome gates',()=>{
   const app=read('src/App.jsx');
   const startup=read('src/components/StartupExperience.jsx');
-  assert.match(app,/experience === "startup"/);
+  assert.match(app,/experience\s*,\s*setExperience\s*\]\s*=useState\('startup'\)/);
   assert.match(app,/activeExperience === "entry"/);
   assert.match(app,/activeExperience === "welcome"/);
   assert.match(app,/setExperience\("entry"\)/);
