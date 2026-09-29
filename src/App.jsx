@@ -46,6 +46,14 @@ const TABS = {
   ADMIN: "admin",
 };
 
+const TAB_ORDER = [
+  TABS.HOME,
+  TABS.RECORD,
+  TABS.LEADERBOARD,
+  TABS.CALENDAR,
+  TABS.PLAYERS,
+];
+
 function toNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
