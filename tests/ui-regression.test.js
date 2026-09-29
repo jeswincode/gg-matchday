@@ -79,7 +79,7 @@ test('Refined startup flow replaces the account-bar login with startup, entry, a
   assert.match(startup,/Continue with Google/);
   assert.match(startup,/Explore as Guest/);
   assert.match(startup,/ENTER MATCHDAY/);
-  assert.match(app,/Sign in from the Matchday entry screen/);
+  assert.match(app,/Read-only access/);
 });
 
 test('Player profile supports cinematic video, image, and global background fallback',()=>{
@@ -112,17 +112,16 @@ test('Refined visual layer keeps viewport-fixed navigation stable and avoids tra
 });
 
 
-test('golden theme uses an inverted gold-surface and dark-ink palette',()=>{
-  const features=read('src/components/features.css');
+test('golden theme uses the refined dark hierarchy and cinematic overlay',()=>{
+  const gold=read('src/gold-theme-refined.css');
   const video=read('src/video-background.css');
-  assert.match(features,/data-theme="golden"/);
-  assert.match(features,/--bg:#8c6a2b/);
-  assert.match(features,/--panel:#b9964d/);
-  assert.match(features,/--text:#1a140a/);
-  assert.match(features,/--accent:#1b150b/);
+  assert.match(gold,/--bg:\s*#090805/);
+  assert.match(gold,/--panel:\s*#11100d/);
+  assert.match(gold,/--text:\s*#f6f1e7/);
+  assert.match(gold,/--accent:\s*#e3bc67/);
   assert.match(video,/html\[data-theme="golden"\] \.gg-video-overlay/);
+  assert.doesNotMatch(video,/rgba\(185,150,77/);
 });
-
 
 test('gold theme keeps the premium dark hierarchy with gold used as the accent',()=>{
   const gold=read('src/gold-theme-refined.css');
@@ -133,3 +132,7 @@ test('gold theme keeps the premium dark hierarchy with gold used as the accent',
   assert.match(gold,/color-scheme:\s*dark/);
   assert.match(gold,/bottom-nav button\.active/);
 });
+
+
+test('guest mode keeps an explicit sign-in path after entering the app',()=>{const source=read('src/App.jsx');assert.match(source,/setExperience\("entry"\)/);assert.match(source,/className="secondary-button"[\s\S]*?Sign In/);});
+test('admin player video inputs fall back to loaded player video URLs',()=>{const source=read('src/features/admin/AdminPage.jsx');assert.match(source,/videoDrafts\[id\] \?\? player\.backgroundVideoUrl \?\? ""/);});

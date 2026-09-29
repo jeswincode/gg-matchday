@@ -21,6 +21,7 @@ export default function AdminPage({
     Object.fromEntries(players.map(player => [String(player._id), player.backgroundVideoUrl || ""]))
   );
   const [savingVideoId, setSavingVideoId] = useState(null);
+
   return (
     <section className="tab-content">
       {!isAdmin ? (
@@ -164,7 +165,7 @@ export default function AdminPage({
               <div className="gg-admin-video-list">
                 {players.map(player => {
                   const id = String(player._id);
-                  const value = videoDrafts[id] ?? "";
+                  const value = videoDrafts[id] ?? player.backgroundVideoUrl ?? "";
                   const unchanged = value === (player.backgroundVideoUrl || "");
                   return (
                     <div className="gg-admin-video-row" key={id}>
