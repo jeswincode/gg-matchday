@@ -9,6 +9,7 @@ import HomePage from './features/home/HomePage';
 import Calendar from './features/calendar/Calendar';
 import AdminPage from './features/admin/AdminPage';
 import MatchRecordForm from './features/matches/MatchRecordForm';
+import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
@@ -72,6 +73,7 @@ function localDateString(
 }
 
 function App() {
+  const [experience,setExperience]=useState('startup');
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
@@ -434,6 +436,20 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (experience === "entry" && authUser && !authLoading) {
+      setExperience("welcome");
+    }
+  }, [experience, authUser, authLoading]);
+
+  const finishStartup = useCallback(() => {
+    setExperience(authUser ? "welcome" : "entry");
+  }, [authUser]);
+
+  function enterGuestMode() {
+    setExperience("app");
+  }
+
   // =========================================================
   // INITIAL LOAD
   // =========================================================
@@ -773,6 +789,7 @@ function App() {
         );
       }
 
+      setExperience("entry");
       setMessage(
         "Signed out."
       );
@@ -2114,6 +2131,18 @@ function App() {
   // RENDER
   // =========================================================
 
+  if (experience === "startup") {
+    return <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
+  }
+
+  if (experience === "entry") {
+    return <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} message={message} />;
+  }
+
+  if (experience === "welcome") {
+    return <WelcomeScreen user={authUser} onEnter={() => setExperience("app")} />;
+  }
+
   return (
     <main className="app">
 
@@ -2235,27 +2264,11 @@ function App() {
           </>
         ) : (
           <div className="signed-out-account">
-
             <div>
-              <strong>
-                Viewer mode
-              </strong>
-
-              <small>
-                Public read-only access
-              </small>
+              <strong>Viewer mode</strong>
+              <small>Public read-only access</small>
             </div>
-
-            <button
-              type="button"
-              className="google-button"
-              onClick={
-                signIn
-              }
-            >
-              Continue with Google
-            </button>
-
+            <span className="account-entry-hint">Sign in from the Matchday entry screen</span>
           </div>
         )}
 
