@@ -169,3 +169,9 @@ test('mobile tab swipe visibly drags the full application stage and settles to t
   assert.match(css,/\.mobile-tab-stage\s*\{/);
   assert.match(css,/touch-action:\s*pan-y/);
 });
+
+
+test('decorative star background stylesheet is not loaded',()=>{
+  const main=read('src/main.jsx');
+  assert.doesNotMatch(main,/v1\.3-stars\.css/);
+});
