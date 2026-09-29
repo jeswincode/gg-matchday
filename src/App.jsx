@@ -197,6 +197,7 @@ function App() {
     jerseyNumber: "",
     dateOfBirth: "",
     bio: "",
+    backgroundVideoUrl: "",
   });
 
   const [
@@ -1049,9 +1050,47 @@ function App() {
       bio:
         player.bio ||
         "",
+      backgroundVideoUrl:
+        player.backgroundVideoUrl ||
+        "",
     });
 
 
+  }
+
+  async function updatePlayerBackgroundVideo(playerId, backgroundVideoUrl) {
+    if (!isAdmin) {
+      setMessage("Admin access required.");
+      throw new Error("Admin access required.");
+    }
+
+    const response = await authenticatedFetch(
+      `${API_URL}/players/${playerId}/background-video`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backgroundVideoUrl }),
+      },
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || "Could not update player background video.");
+    }
+
+    setPlayers(current =>
+      current.map(player =>
+        sameId(player._id, data._id) ? data : player,
+      ),
+    );
+
+    setSelectedPlayer(current =>
+      current && sameId(current._id, data._id) ? data : current,
+    );
+
+    invalidate();
+    setMessage(backgroundVideoUrl ? "Player background video updated." : "Player background video cleared.");
+    return data;
   }
 
   async function loadPlayerReview(
@@ -2387,6 +2426,8 @@ function App() {
       {activeTab === TABS.ADMIN && (
         <AdminPage
           isAdmin={isAdmin}
+          players={players}
+          onUpdatePlayerBackgroundVideo={updatePlayerBackgroundVideo}
           isSignedIn={isSignedIn}
           signIn={signIn}
           editorRequests={editorRequests}
