@@ -73,8 +73,8 @@ test('Refined startup flow replaces the account-bar login with startup, entry, a
   const app=read('src/App.jsx');
   const startup=read('src/components/StartupExperience.jsx');
   assert.match(app,/experience === "startup"/);
-  assert.match(app,/experience === "entry"/);
-  assert.match(app,/experience === "welcome"/);
+  assert.match(app,/activeExperience === "entry"/);
+  assert.match(app,/activeExperience === "welcome"/);
   assert.match(app,/setExperience\("entry"\)/);
   assert.match(startup,/Continue with Google/);
   assert.match(startup,/Explore as Guest/);
