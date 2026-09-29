@@ -45,14 +45,14 @@ body {
 
 /* Golden theme: shift the supplied blue stadium footage into a warm amber palette. */
 html[data-theme="golden"] .gg-video-background {
-  filter: hue-rotate(165deg) saturate(1.18) sepia(0.08) brightness(0.82);
+  filter: hue-rotate(165deg) saturate(1.05) sepia(0.12) brightness(1.02);
 }
 
 html[data-theme="golden"] .gg-video-overlay {
   background:
-    linear-gradient(180deg, rgba(20, 13, 5, 0.72) 0%, rgba(17, 11, 4, 0.68) 42%, rgba(9, 7, 3, 0.86) 100%),
-    radial-gradient(900px 520px at 50% 8%, rgba(233, 174, 58, 0.22), transparent 72%),
-    radial-gradient(760px 440px at 82% 68%, rgba(255, 198, 74, 0.12), transparent 72%);
+    linear-gradient(180deg, rgba(112, 82, 28, 0.60) 0%, rgba(139, 103, 39, 0.54) 46%, rgba(105, 76, 24, 0.70) 100%),
+    radial-gradient(900px 520px at 50% 8%, rgba(255, 228, 153, 0.18), transparent 72%),
+    radial-gradient(760px 440px at 82% 68%, rgba(255, 219, 119, 0.12), transparent 72%);
 }
 
 /* Keep the cinematic gold cast readable with the existing Golden theme surfaces. */
@@ -127,4 +127,23 @@ body::after {
   .gg-video-background {
     display: none;
   }
+}
+
+
+html[data-theme="golden"] .card,
+html[data-theme="golden"] .news-card,
+html[data-theme="golden"] .home-player-feature,
+html[data-theme="golden"] .account-bar,
+html[data-theme="golden"] .global-message,
+html[data-theme="golden"] .home-feature-card {
+  background: rgba(185, 150, 77, 0.88);
+  border-color: rgba(92, 67, 25, 0.68);
+  box-shadow: 0 18px 55px rgba(40, 26, 7, 0.22);
+}
+
+html[data-theme="golden"] .secondary-button,
+html[data-theme="golden"] .ghost-button {
+  background: rgba(208, 174, 100, 0.88);
+  border-color: rgba(92, 67, 25, 0.58);
+  color: #1a140a;
 }

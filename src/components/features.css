@@ -1,6 +1,20 @@
 /* GG Matchday: one theme system and one interaction language. */
 :root { --motion-fast:170ms;--motion-normal:300ms;--motion-emphasis:450ms;--ease:cubic-bezier(.2,.7,.2,1);--pitch:#111b20;--pitch-line:#34444a;--accent:#eef2f8; }
-:root[data-theme="golden"] {--bg:#100e0b;--panel:#1a1712;--panel-soft:#231e16;--border:#443824;--text:#f8f1e3;--muted:#b9ac93;--muted-2:#8d806d;--accent:#dfbc70;--accent-dark:#21190b;--pitch:#1c1c12;--pitch-line:#655638;--success:#a6ce98;--danger:#f19183;}
+:root[data-theme="golden"] {
+  --bg:#8c6a2b;
+  --panel:#b9964d;
+  --panel-soft:#d0ae64;
+  --border:#6f5222;
+  --text:#1a140a;
+  --muted:#5d461e;
+  --muted-2:#7a602a;
+  --accent:#1b150b;
+  --accent-dark:#e7c876;
+  --pitch:#8a6b2b;
+  --pitch-line:#b28f4d;
+  --success:#225c39;
+  --danger:#7a1f1f;
+}
 body,.card,.account-bar,.bottom-nav,input,select,textarea,button,.home-feature-card,.news-card,.gg-modal,.pr-modal,.pr-card {transition:background-color var(--motion-normal),color var(--motion-normal),border-color var(--motion-normal),transform var(--motion-fast) var(--ease);}
 .card,.news-card,.gallery-item,.account-bar,.home-feature-card,.gg-modal,.pr-modal,.pr-card {background:var(--panel);border-color:var(--border);color:var(--text);}
 input,textarea,select {background:var(--panel-soft);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;max-width:100%;}
@@ -18,3 +32,137 @@ label {font-size:.875rem;}small,.muted {color:var(--muted);}button {color:inheri
 @media(max-width:760px) {.gg-performance-head {display:none;}.gg-performance-row {grid-template-columns:1fr 1fr 1fr;gap:12px;}.gg-performance-row>div:first-child {grid-column:span 2;}.gg-performance-row>.team-switch {justify-self:end;}.gg-performance-row .counter::before {content:'G';color:var(--muted);font-size:.75rem;}.gg-performance-row .counter:nth-of-type(4)::before {content:'A';}.gg-rating-input {justify-self:end;}.gg-two-column {grid-template-columns:1fr;}.gg-podium {gap:8px;}.gg-podium .card {padding:14px 10px;}.gg-podium .gg-rating {font-size:2rem;}.gg-podium .gg-player-link img {display:none;}.gg-place .gg-player-link {font-size:.875rem;}.gg-modal {padding:20px;}.gg-backdrop {padding:12px;}.gg-match-score b {font-size:2.8rem;}.gg-pitch {height:620px;}.gg-header-actions {width:100%;}.gg-theme {flex:1;justify-content:center;}.gg-stats {grid-template-columns:repeat(3,1fr);}.gg-awards-entry {align-items:flex-start;}.gg-ranking {gap:10px;}}
 @media(max-width:480px) {.app {width:calc(100% - 24px);}.gg-modal {padding:16px;max-height:94dvh;}.gg-backdrop {padding:7px;}.gg-award-grid {grid-template-columns:1fr;}.gg-pitch {height:610px;}.gg-pitch-player {padding:6px 2px;}.gg-pitch-player img,.gg-avatar {width:28px;height:28px;}.gg-pitch-player strong {font-size:.875rem;}.gg-pitch-player small {font-size:.75rem;}.gg-pitch-empty small {display:none;}.gg-match-score {gap:8px;}.gg-match-score b {font-size:2.4rem;}.gg-match-score strong {font-size:.875rem;}.gg-secondary-tabs button {flex:1;padding:12px;}.gg-performance-row {padding:13px 6px;}.gg-performance-row .counter {gap:3px;}.gg-performance-row .counter button {width:28px;min-width:28px;}.gg-rating-input input {width:70px;padding:7px;}.gg-rating {font-size:2.8rem;}}
 @media(prefers-reduced-motion:reduce) {*,*::before,*::after {animation:none!important;transition:none!important;scroll-behavior:auto!important;}}
+
+/* Golden theme parity: the theme inverts the dark palette instead of merely tinting it.
+   Gold surfaces replace dark surfaces; the former gold accent becomes a dark ink accent. */
+html[data-theme="golden"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+html[data-theme="golden"] .topbar,
+html[data-theme="golden"] .account-bar,
+html[data-theme="golden"] .card,
+html[data-theme="golden"] .news-card,
+html[data-theme="golden"] .home-stat-card,
+html[data-theme="golden"] .home-player-feature,
+html[data-theme="golden"] .home-feature-card,
+html[data-theme="golden"] .profile-info-item,
+html[data-theme="golden"] .profile-stat,
+html[data-theme="golden"] .match-card,
+html[data-theme="golden"] .award-card,
+html[data-theme="golden"] .ranking-row,
+html[data-theme="golden"] .gg-modal,
+html[data-theme="golden"] .pr-modal,
+html[data-theme="golden"] .pr-card {
+  background: var(--panel);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html[data-theme="golden"] .topbar,
+html[data-theme="golden"] .account-bar {
+  box-shadow:
+    0 20px 70px rgba(40, 26, 7, .24),
+    0 0 55px rgba(255, 223, 139, .07);
+}
+
+html[data-theme="golden"] .home-hero {
+  background:
+    radial-gradient(circle at 85% 20%, rgba(255, 233, 171, .24), transparent 30%),
+    linear-gradient(135deg, rgba(200, 163, 89, .98), rgba(150, 112, 42, .96));
+  border-color: var(--border);
+}
+
+html[data-theme="golden"] .home-hero::after {
+  color: rgba(24, 18, 10, .10);
+}
+
+html[data-theme="golden"] .home-feature-card {
+  background:
+    linear-gradient(135deg, rgba(202, 167, 91, .98), rgba(153, 115, 47, .98));
+}
+
+html[data-theme="golden"] .secondary-button,
+html[data-theme="golden"] .ghost-button,
+html[data-theme="golden"] .google-button {
+  background: var(--panel-soft);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html[data-theme="golden"] .save-button,
+html[data-theme="golden"] .add-button,
+html[data-theme="golden"] .approve-button {
+  background: var(--accent);
+  color: var(--accent-dark);
+}
+
+html[data-theme="golden"] .danger-button {
+  background: rgba(80, 26, 13, .10);
+  color: var(--danger);
+  border-color: rgba(80, 26, 13, .22);
+}
+
+html[data-theme="golden"] .status-dot,
+html[data-theme="golden"] .gg-theme,
+html[data-theme="golden"] .bottom-nav {
+  background: rgba(188, 145, 61, .94);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+html[data-theme="golden"] .bottom-nav button.active {
+  background: var(--accent);
+  color: var(--accent-dark);
+  box-shadow: 0 0 30px rgba(34, 24, 10, .16);
+}
+
+html[data-theme="golden"] .gg-theme button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-dark);
+}
+
+html[data-theme="golden"] input,
+html[data-theme="golden"] select,
+html[data-theme="golden"] textarea {
+  background: var(--panel-soft);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+html[data-theme="golden"] .gg-rating,
+html[data-theme="golden"] .gg-medal,
+html[data-theme="golden"] .nav-button.active {
+  color: var(--accent);
+}
+
+html[data-theme="golden"] .perf-line,
+html[data-theme="golden"] .perf-bar i,
+html[data-theme="golden"] progress::-webkit-progress-value,
+html[data-theme="golden"] progress::-moz-progress-bar {
+  background: var(--accent);
+}
+
+html[data-theme="golden"] .perf-dot {
+  fill: var(--accent);
+}
+
+html[data-theme="golden"] .perf-chart {
+  color: var(--text);
+}
+
+html[data-theme="golden"] .result-W {
+  background: rgba(44, 112, 69, .18);
+  color: #1f5938;
+}
+
+html[data-theme="golden"] .result-D {
+  background: rgba(97, 75, 23, .20);
+  color: #4f3c16;
+}
+
+html[data-theme="golden"] .result-L {
+  background: rgba(126, 39, 39, .18);
+  color: #6e2424;
+}
