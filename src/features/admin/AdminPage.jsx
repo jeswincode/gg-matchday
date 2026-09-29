@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import DatabaseHealth from "../../components/DatabaseHealth";
 import AccessDenied from "../../components/ui/AccessDenied";
 import GGAdminPanel from "./GGAdminPanel";
@@ -17,12 +17,10 @@ export default function AdminPage({
   players = [],
   onUpdatePlayerBackgroundVideo,
 }) {
-  const [videoDrafts, setVideoDrafts] = useState({});
+  const [videoDrafts, setVideoDrafts] = useState(() =>
+    Object.fromEntries(players.map(player => [String(player._id), player.backgroundVideoUrl || ""]))
+  );
   const [savingVideoId, setSavingVideoId] = useState(null);
-
-  useEffect(() => {
-    setVideoDrafts(Object.fromEntries(players.map(player => [String(player._id), player.backgroundVideoUrl || ""])));
-  }, [players]);
   return (
     <section className="tab-content">
       {!isAdmin ? (
@@ -195,6 +193,7 @@ export default function AdminPage({
                           try {
                             setSavingVideoId(id);
                             await onUpdatePlayerBackgroundVideo(id, value.trim());
+                            setVideoDrafts(current => ({...current, [id]: value.trim()}));
                           } catch {
                             // App-level message reports the server error.
                           } finally {
