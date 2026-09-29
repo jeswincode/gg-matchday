@@ -102,3 +102,11 @@ test('Player background video management is admin-only at the API boundary',()=>
   assert.match(admin,/Video URL/);
   assert.match(admin,/onUpdatePlayerBackgroundVideo/);
 });
+
+
+test('Refined visual layer keeps viewport-fixed navigation stable and avoids transformed app ancestors',()=>{
+  const refined=read('src/refined-v2.css');
+  assert.match(refined,/\.app\s*\{[\s\S]*?animation:\s*gg-app-fade-in/);
+  assert.doesNotMatch(refined,/animation:\s*gg-app-enter/);
+  assert.match(refined,/\.gg-backdrop\s*\{[\s\S]*?min-height:\s*100dvh/);
+});
