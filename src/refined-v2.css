@@ -38,7 +38,9 @@ textarea:focus-visible {
 }
 
 .app {
-  animation: gg-app-enter 700ms cubic-bezier(.16, 1, .3, 1) both;
+  /* Keep viewport-fixed UI (bottom nav + modal backdrop) anchored to the viewport.
+     A transform on an ancestor would make fixed descendants scroll with it. */
+  animation: gg-app-fade-in 500ms ease both;
 }
 
 .topbar {
@@ -757,9 +759,9 @@ textarea:focus-visible {
   min-height: 42px;
 }
 
-@keyframes gg-app-enter {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes gg-app-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes gg-cinematic-in {
@@ -949,5 +951,30 @@ textarea:focus-visible {
 
   .profile-hero-media {
     min-height: 390px;
+  }
+}
+
+
+/* Desktop modal centering guard — performance analytics should sit in the viewport center,
+   not drift with page scroll. */
+.gg-backdrop {
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 20px;
+}
+
+.gg-modal {
+  margin: auto;
+  max-height: min(90dvh, 900px);
+}
+
+@media (max-width: 760px) {
+  .gg-backdrop {
+    padding: 14px;
+  }
+
+  .gg-modal {
+    max-height: calc(100dvh - 28px);
   }
 }
