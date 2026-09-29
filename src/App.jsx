@@ -436,12 +436,6 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (experience === "entry" && authUser && !authLoading) {
-      setExperience("welcome");
-    }
-  }, [experience, authUser, authLoading]);
-
   const finishStartup = useCallback(() => {
     setExperience(authUser ? "welcome" : "entry");
   }, [authUser]);
