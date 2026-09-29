@@ -68,3 +68,37 @@ test('mobile Record rows collapse non-participants and expose rating points on d
   assert.match(css,/\.gg-mobile-rating-details\s*\{[^}]*display:\s*block/s);
   assert.match(component,/className="gg-mobile-rating-details"/);
 });
+
+test('Refined startup flow replaces the account-bar login with startup, entry, and welcome gates',()=>{
+  const app=read('src/App.jsx');
+  const startup=read('src/components/StartupExperience.jsx');
+  assert.match(app,/experience\s*,\s*setExperience\s*\]\s*=useState\('startup'\)/);
+  assert.match(app,/activeExperience === "entry"/);
+  assert.match(app,/activeExperience === "welcome"/);
+  assert.match(app,/setExperience\("entry"\)/);
+  assert.match(startup,/Continue with Google/);
+  assert.match(startup,/Explore as Guest/);
+  assert.match(startup,/ENTER MATCHDAY/);
+  assert.match(app,/Sign in from the Matchday entry screen/);
+});
+
+test('Player profile supports cinematic video, image, and global background fallback',()=>{
+  const profile=read('src/features/players/PlayerProfile.jsx');
+  const model=read('server/models/Player.js');
+  assert.match(model,/backgroundVideoUrl:/);
+  assert.match(profile,/player\.backgroundVideoUrl/);
+  assert.match(profile,/profile-hero-video/);
+  assert.match(profile,/profile-hero-image/);
+  assert.match(profile,/poster=\{player\.profileImage \|\| undefined\}/);
+});
+
+test('Player background video management is admin-only at the API boundary',()=>{
+  const route=read('server/routes/players.js');
+  const admin=read('src/features/admin/AdminPage.jsx');
+  assert.match(route,/router\.patch\("\/:id\/background-video", requireAuth, requireAdmin/);
+  assert.match(route,/backgroundVideoUrl/);
+  assert.match(route,/valid http\(s\) URL/);
+  assert.match(admin,/Background Videos/);
+  assert.match(admin,/Video URL/);
+  assert.match(admin,/onUpdatePlayerBackgroundVideo/);
+});

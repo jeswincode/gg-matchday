@@ -17,6 +17,12 @@ const playerSchema = new mongoose.Schema(
       default: "",
     },
 
+    backgroundVideoUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     height: {
       type: Number,
       min: 0,

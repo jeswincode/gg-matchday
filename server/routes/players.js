@@ -4,7 +4,7 @@ import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
-import { requireAuth, requireEditor } from "../middleware/auth.js";
+import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
 import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
 
 const router = express.Router();
@@ -34,6 +34,22 @@ router.post("/", requireAuth, requireEditor, async (req, res) => {
     const player = await Player.create({ name: cleanName });
     res.status(201).json(player);
   } catch (error) { console.error("Error creating player:", error); res.status(500).json({ message: "Failed to create player." }); }
+});
+
+router.patch("/:id/background-video", requireAuth, requireAdmin, async (req, res) => {
+  if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
+  try {
+    const player = await Player.findById(req.params.id);
+    if (!player) return res.status(404).json({ message: "Player not found." });
+    const value = typeof req.body?.backgroundVideoUrl === "string" ? req.body.backgroundVideoUrl.trim() : "";
+    if (value && !/^https?:\/\/\S+$/i.test(value)) return res.status(400).json({ message: "Background video must be a valid http(s) URL." });
+    player.backgroundVideoUrl = value;
+    await player.save();
+    res.json(player);
+  } catch (error) {
+    console.error("Error updating player background video:", error);
+    res.status(500).json({ message: "Failed to update player background video." });
+  }
 });
 
 router.patch("/:id/preferred-positions", requireAuth, requireEditor, async (req, res) => {

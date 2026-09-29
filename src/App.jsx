@@ -9,6 +9,7 @@ import HomePage from './features/home/HomePage';
 import Calendar from './features/calendar/Calendar';
 import AdminPage from './features/admin/AdminPage';
 import MatchRecordForm from './features/matches/MatchRecordForm';
+import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
@@ -72,6 +73,7 @@ function localDateString(
 }
 
 function App() {
+  const [experience,setExperience]=useState('startup');
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
@@ -197,6 +199,7 @@ function App() {
     jerseyNumber: "",
     dateOfBirth: "",
     bio: "",
+    backgroundVideoUrl: "",
   });
 
   const [
@@ -432,6 +435,14 @@ function App() {
       unsubscribe();
     };
   }, []);
+
+  const finishStartup = useCallback(() => {
+    setExperience(authUser ? "welcome" : "entry");
+  }, [authUser]);
+
+  function enterGuestMode() {
+    setExperience("app");
+  }
 
   // =========================================================
   // INITIAL LOAD
@@ -772,6 +783,7 @@ function App() {
         );
       }
 
+      setExperience("entry");
       setMessage(
         "Signed out."
       );
@@ -1049,9 +1061,47 @@ function App() {
       bio:
         player.bio ||
         "",
+      backgroundVideoUrl:
+        player.backgroundVideoUrl ||
+        "",
     });
 
 
+  }
+
+  async function updatePlayerBackgroundVideo(playerId, backgroundVideoUrl) {
+    if (!isAdmin) {
+      setMessage("Admin access required.");
+      throw new Error("Admin access required.");
+    }
+
+    const response = await authenticatedFetch(
+      `${API_URL}/players/${playerId}/background-video`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ backgroundVideoUrl }),
+      },
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || "Could not update player background video.");
+    }
+
+    setPlayers(current =>
+      current.map(player =>
+        sameId(player._id, data._id) ? data : player,
+      ),
+    );
+
+    setSelectedPlayer(current =>
+      current && sameId(current._id, data._id) ? data : current,
+    );
+
+    invalidate();
+    setMessage(backgroundVideoUrl ? "Player background video updated." : "Player background video cleared.");
+    return data;
   }
 
   async function loadPlayerReview(
@@ -2075,6 +2125,23 @@ function App() {
   // RENDER
   // =========================================================
 
+  const activeExperience =
+    experience === "entry" && authUser && !authLoading
+      ? "welcome"
+      : experience;
+
+  if (activeExperience === "startup") {
+    return <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
+  }
+
+  if (activeExperience === "entry") {
+    return <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} message={message} />;
+  }
+
+  if (activeExperience === "welcome") {
+    return <WelcomeScreen user={authUser} onEnter={() => setExperience("app")} />;
+  }
+
   return (
     <main className="app">
 
@@ -2196,27 +2263,11 @@ function App() {
           </>
         ) : (
           <div className="signed-out-account">
-
             <div>
-              <strong>
-                Viewer mode
-              </strong>
-
-              <small>
-                Public read-only access
-              </small>
+              <strong>Viewer mode</strong>
+              <small>Public read-only access</small>
             </div>
-
-            <button
-              type="button"
-              className="google-button"
-              onClick={
-                signIn
-              }
-            >
-              Continue with Google
-            </button>
-
+            <span className="account-entry-hint">Sign in from the Matchday entry screen</span>
           </div>
         )}
 
@@ -2387,6 +2438,8 @@ function App() {
       {activeTab === TABS.ADMIN && (
         <AdminPage
           isAdmin={isAdmin}
+          players={players}
+          onUpdatePlayerBackgroundVideo={updatePlayerBackgroundVideo}
           isSignedIn={isSignedIn}
           signIn={signIn}
           editorRequests={editorRequests}
