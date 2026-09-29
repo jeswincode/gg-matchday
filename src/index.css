@@ -1649,6 +1649,12 @@ textarea:focus {
     translateX(-50%);
 }
 
+@media (max-width: 760px) {
+  .calendar-popover {
+    display: none !important;
+  }
+}
+
 .calendar-popover > div {
   padding:
     8px

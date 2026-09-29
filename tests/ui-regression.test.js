@@ -136,3 +136,23 @@ test('gold theme keeps the premium dark hierarchy with gold used as the accent',
 
 test('guest mode keeps an explicit sign-in path after entering the app',()=>{const source=read('src/App.jsx');assert.match(source,/setExperience\("entry"\)/);assert.match(source,/className="secondary-button"[\s\S]*?Sign In/);});
 test('admin player video inputs fall back to loaded player video URLs',()=>{const source=read('src/features/admin/AdminPage.jsx');assert.match(source,/videoDrafts\[id\] \?\? player\.backgroundVideoUrl \?\? ""/);});
+
+
+test('mobile navigation supports ordered horizontal tab swipes without wrapping',()=>{
+  const app=read('src/App.jsx');
+  assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*\]/);
+  assert.match(app,/touchStartRef=useRef\(null\)/);
+  assert.match(app,/const threshold=56/);
+  assert.match(app,/deltaX<0 \? currentIndex\+1 : currentIndex-1/);
+  assert.match(app,/nextIndex<0 \|\| nextIndex>=TAB_ORDER\.length/);
+  assert.match(app,/onTouchStart=\{handleAppTouchStart\}/);
+  assert.match(app,/onTouchEnd=\{handleAppTouchEnd\}/);
+});
+
+test('mobile calendar hides hover match popovers while preserving day details',()=>{
+  const css=read('src/index.css');
+  const calendar=read('src/features/calendar/Calendar.jsx');
+  assert.match(css,/@media \(max-width: 760px\) \{[\s\S]*?\.calendar-popover\s*\{[\s\S]*?display: none !important/s);
+  assert.match(calendar,/onClick=\{\(\)=>setSelectedDay\(day\)\}/);
+  assert.match(calendar,/DAY DETAILS/);
+});
