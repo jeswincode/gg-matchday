@@ -122,3 +122,14 @@ test('golden theme uses an inverted gold-surface and dark-ink palette',()=>{
   assert.match(features,/--accent:#1b150b/);
   assert.match(video,/html\[data-theme="golden"\] \.gg-video-overlay/);
 });
+
+
+test('gold theme keeps the premium dark hierarchy with gold used as the accent',()=>{
+  const gold=read('src/gold-theme-refined.css');
+  assert.match(gold,/--bg:\s*#090805/);
+  assert.match(gold,/--panel:\s*#11100d/);
+  assert.match(gold,/--text:\s*#f6f1e7/);
+  assert.match(gold,/--accent:\s*#e3bc67/);
+  assert.match(gold,/color-scheme:\s*dark/);
+  assert.match(gold,/bottom-nav button\.active/);
+});
