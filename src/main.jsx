@@ -2,7 +2,6 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './refined-v2.css'
-import './gold-theme-refined.css'
 import './v1.2-performance.js'
 import './v1.2-polish.css'
 import './v1.3-stars.css'
@@ -31,3 +30,5 @@ createRoot(document.getElementById('root')).render(
 import './mobile-ux.css'
 import './components/database-health.css';
 import './features/admin/gg-admin.css';
+
+import './gold-theme-refined.css';
