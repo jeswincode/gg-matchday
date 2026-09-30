@@ -1,5 +1,7 @@
 import {useEffect,useState} from "react";
+import {formatDate} from "../../lib/date";
 import {api} from "../../lib/api";
+import ProfileInsights from "../../components/ProfileInsights";
 
 function PlayerCard({ player, attributes, onShare }) {
   const labels = [["pace","PACE"],["shooting","SHOOTING"],["passing","PASSING"],["dribbling","DRIBBLING"],["defending","DEFENDING"],["physical","PHYSICAL"]];
@@ -51,6 +53,7 @@ export default function PlayerProfile({
     finally{setAttributesLoading(false);}
   };
   useEffect(()=>{
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- this effect synchronizes derived remote data for the active player.
     loadAttributes();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- player identity is the fetch key.
   },[player._id]);
