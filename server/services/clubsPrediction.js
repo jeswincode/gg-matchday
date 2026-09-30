@@ -1,6 +1,7 @@
 import Club from "../models/clubs/Club.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import Match from "../models/Match.js";
+import Player from "../models/Player.js";
 import { calculatePlayerAttributes } from "./playerAttributes.js";
 import { CLUB_PREDICTION_WEIGHTS } from "../config/clubsRules.js";
 
@@ -19,11 +20,14 @@ async function clubSnapshot(clubId, completedMatches) {
 
   const ovrValues = [];
   const ratingValues = [];
+  const players = await Player.find({ _id: { $in: club.memberIds || [] } }).select("_id position").lean();
+  const playerMap = new Map(players.map(player => [String(player._id), player]));
   for (const playerId of club.memberIds || []) {
     const matches = mainMatches.filter(match =>
       (match.participants || []).some(participant => String(participant.player?._id || participant.player) === String(playerId)),
     );
-    const attrs = calculatePlayerAttributes({ _id: playerId, position: "" }, matches);
+    const player = playerMap.get(String(playerId)) || { _id: playerId, position: "" };
+    const attrs = calculatePlayerAttributes(player, matches);
     if (attrs.ovr != null) ovrValues.push(attrs.ovr);
     for (const match of matches) {
       const participant = (match.participants || []).find(item => String(item.player?._id || item.player) === String(playerId));
