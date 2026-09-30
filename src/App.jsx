@@ -2691,12 +2691,7 @@ function App() {
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
       </Suspense>
     </main>
-  );
-
-  return (
-    <>
-      {modeTransitionLayer}
-    </>
+    {modeTransitionLayer}
   );
 }
 
