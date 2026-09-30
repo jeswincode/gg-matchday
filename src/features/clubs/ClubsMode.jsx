@@ -124,7 +124,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
     }
   };
 
-  const startCaptainVote = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/setup", { method: "POST" }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };\n\n  const captainVote = async (applicationId, candidatePlayerId) => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/vote", { method: "POST", body: { candidatePlayerId } }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };\n\n  const submitDetails = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/details", { method: "POST", body: { details: detailDrafts[applicationId] || "" } }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };\n\n  const proposeName = async applicationId => {
+  const startCaptainVote = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/setup", { method: "POST" }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+
+  const captainVote = async (applicationId, candidatePlayerId) => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/vote", { method: "POST", body: { candidatePlayerId } }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+
+  const submitDetails = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/details", { method: "POST", body: { details: detailDrafts[applicationId] || "" } }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+
+  const proposeName = async applicationId => {
     const name = String(clubNameDrafts[applicationId] || "").trim();
     setError("");
 
