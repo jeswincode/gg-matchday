@@ -43,7 +43,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [matchSubmitting, setMatchSubmitting] = useState(false);
   const [clubStats, setClubStats] = useState([]);
   const [clubHistory, setClubHistory] = useState([]);
-  const [clubDetailsLoading, setClubDetailsLoading] = useState(false);
   const [auctionState, setAuctionState] = useState(null);
   const [auctionLoading, setAuctionLoading] = useState(false);
   const [activeAuctionPlayer, setActiveAuctionPlayer] = useState("");
@@ -97,7 +96,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       return undefined;
     }
 
-    setClubDetailsLoading(true);
     Promise.all([
       api("/clubs/" + currentClub._id + "/stats"),
       api("/clubs/" + currentClub._id + "/history"),
@@ -110,9 +108,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       .catch(requestError => {
         if (active) setError(requestError.message || "Club details could not be loaded.");
       })
-      .finally(() => {
-        if (active) setClubDetailsLoading(false);
-      });
+      ;
 
     return () => {
       active = false;
@@ -910,7 +906,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
         </section>
       ) : activeSection === "myClub" ? (
         <section className="clubs-section clubs-my-club-panel">
-          {clubDetailsLoading ? (
+          {activeSection === "myClub" && currentClub && clubStats.length === 0 && clubHistory.length === 0 ? (
             <div className="clubs-empty">Loading your Club profile…</div>
           ) : !currentClub ? (
             <div className="clubs-empty">
