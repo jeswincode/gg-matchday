@@ -1,0 +1,176 @@
+.clubs-app {
+  min-height: 100vh;
+  padding: 28px max(18px, 4vw) 70px;
+  color: #f4eef0;
+  background:
+    radial-gradient(circle at 82% 8%, rgba(217,160,162,.10), transparent 28%),
+    radial-gradient(circle at 12% 72%, rgba(217,160,162,.055), transparent 30%),
+    #0c0c0e;
+}
+
+.clubs-topbar,
+.clubs-section-heading,
+.clubs-hero {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+}
+
+.clubs-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.clubs-eyebrow {
+  margin: 0 0 8px;
+  color: #d9a0a2;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.clubs-topbar h1,
+.clubs-hero h2,
+.clubs-section h2,
+.club-card h3 {
+  margin: 0;
+  letter-spacing: -.035em;
+}
+
+.clubs-topbar h1 { font-size: clamp(34px, 5vw, 58px); }
+.clubs-subtitle { max-width: 620px; color: #9e989c; line-height: 1.6; }
+
+.clubs-return-button,
+.clubs-nav button,
+.clubs-formation-card {
+  border: 1px solid #2a282b;
+  color: #e9e2e4;
+  background: #151519;
+}
+
+.clubs-return-button {
+  padding: 11px 15px;
+  border-radius: 13px;
+  white-space: nowrap;
+}
+
+.clubs-nav {
+  width: min(1180px, 100%);
+  margin: 0 auto 20px;
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+}
+
+.clubs-nav button {
+  padding: 10px 15px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.clubs-nav button.active {
+  color: #171214;
+  border-color: #d9a0a2;
+  background: #d9a0a2;
+}
+
+.clubs-hero {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 18px;
+  padding: clamp(22px, 4vw, 42px);
+  border: 1px solid #302b2d;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #151519, #101012);
+  box-shadow: 0 24px 80px rgba(0,0,0,.28);
+}
+
+.clubs-hero h2 { font-size: clamp(27px, 4vw, 44px); }
+.clubs-hero p:not(.clubs-eyebrow) { max-width: 680px; color: #9e989c; line-height: 1.7; }
+
+.clubs-balance-card {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 20px;
+  border: 1px solid #493638;
+  border-radius: 20px;
+  background: #191518;
+}
+.clubs-balance-card span,
+.clubs-balance-card small { color: #9e989c; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+.clubs-balance-card strong { margin: 7px 0; color: #e8b8b9; font-size: 42px; }
+
+.clubs-section {
+  width: min(1180px, 100%);
+  margin: 34px auto 0;
+}
+.clubs-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 15px; margin-bottom: 13px; }
+.clubs-section-heading > span { color: #80797d; font-size: 12px; }
+
+.clubs-formations,
+.clubs-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+
+.clubs-formation-card {
+  min-height: 112px;
+  padding: 16px;
+  border-radius: 17px;
+  text-align: left;
+}
+.clubs-formation-card:hover { border-color: #b87f82; transform: translateY(-2px); }
+.clubs-formation-card strong { display: block; color: #e8b8b9; font-size: 25px; }
+.clubs-formation-card span { display: block; margin-top: 7px; color: #858084; font-size: 10px; line-height: 1.4; }
+
+.club-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid #2a282b;
+  border-radius: 19px;
+  background: #151519;
+}
+.club-card-mark {
+  width: 45px;
+  height: 45px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: #171214;
+  background: #d9a0a2;
+  font-size: 12px;
+  font-weight: 900;
+}
+.club-card h3 { font-size: 17px; }
+.club-card span { color: #80797d; font-size: 11px; }
+.club-card > strong { color: #e8b8b9; }
+
+.clubs-empty {
+  display: grid;
+  gap: 5px;
+  padding: 30px;
+  border: 1px dashed #373135;
+  border-radius: 18px;
+  color: #8f888c;
+  text-align: center;
+}
+.clubs-empty strong { color: #ddd5d8; }
+
+@media (max-width: 850px) {
+  .clubs-hero { grid-template-columns: 1fr; }
+  .clubs-formations { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .clubs-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .clubs-app { padding: 17px 10px 45px; }
+  .clubs-topbar { align-items: stretch; flex-direction: column; }
+  .clubs-return-button { align-self: flex-start; }
+  .clubs-formations { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .clubs-hero { border-radius: 21px; }
+}
