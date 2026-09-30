@@ -1137,6 +1137,13 @@ router.post("/matches/:matchId/respond", requireAuth, async (req, res) => {
     }
 
     await match.save();
+    if (match.status === "accepted") {
+      try {
+        await generateClubMatchPrediction(match._id);
+      } catch (predictionError) {
+        console.error("Club prediction generation failed:", predictionError);
+      }
+    }
     return res.json(match);
   } catch (error) {
     console.error("Respond to club match error:", error);
