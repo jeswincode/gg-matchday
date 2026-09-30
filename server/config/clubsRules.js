@@ -29,6 +29,10 @@ export function validateClubMemberCount(memberIds) {
     throw new Error("Club members must be an array.");
   }
 
+  if (memberIds.length !== CLUB_MAX_MEMBERS) {
+    throw new Error("A club formation requires exactly " + CLUB_MAX_MEMBERS + " players.");
+  }
+
   const uniqueIds = [...new Set(memberIds.map(String))];
 
   if (uniqueIds.length !== CLUB_MAX_MEMBERS) {
