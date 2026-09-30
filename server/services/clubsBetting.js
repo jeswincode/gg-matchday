@@ -5,6 +5,23 @@ import ClubMatchBet from "../models/clubs/ClubMatchBet.js";
 import { CLUB_BETTING_MAX_STAKE, CLUB_BETTING_MIN_STAKE } from "../config/clubsRules.js";
 import { debitPlayerWallet, creditPlayerWallet, positiveMoney } from "./clubsEconomy.js";
 
+export function calculateBetPayouts(bets, winningClubId) {
+  const pool = bets.reduce((sum, bet) => sum + Number(bet.stake), 0);
+  const winners = bets.filter(bet => String(bet.clubId) === String(winningClubId));
+  const winningStake = winners.reduce((sum, bet) => sum + Number(bet.stake), 0);
+  if (!winningStake) return new Map();
+  const payouts = new Map();
+  let allocated = 0;
+  winners.forEach((bet, index) => {
+    const payout = index === winners.length - 1
+      ? Math.round((pool - allocated) * 100) / 100
+      : Math.floor((pool * Number(bet.stake) / winningStake) * 100) / 100;
+    allocated += payout;
+    payouts.set(String(bet._id), payout);
+  });
+  return payouts;
+}
+
 export async function placeClubMatchBet({ clubMatchId, playerId, clubId, stake, session }) {
   if (!mongoose.isValidObjectId(clubMatchId) || !mongoose.isValidObjectId(playerId) || !mongoose.isValidObjectId(clubId)) {
     throw new Error("Invalid betting details.");
@@ -102,9 +119,11 @@ export async function settleClubMatchBets({ clubMatchId, session }) {
     return { settled: bets.length, pool, refunded: pool };
   }
 
+  const payouts = calculateBetPayouts(bets, winningClubId);
+
   for (const bet of bets) {
     if (String(bet.clubId) === String(winningClubId)) {
-      const payout = Math.round((pool * Number(bet.stake) / winningStake) * 100) / 100;
+      const payout = payouts.get(String(bet._id));
       await creditPlayerWallet({
         playerId: bet.playerId,
         amount: payout,
