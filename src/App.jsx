@@ -83,7 +83,13 @@ function localDateString(
 
 function App() {
   const [experience,setExperience]=useState('startup');
-  const [productMode,setProductMode]=useState('matchday');
+  const [productMode,setProductMode]=useState(()=>{
+    try {
+      return new URLSearchParams(window.location.search).get("mode") === "clubs" ? "clubs" : "matchday";
+    } catch {
+      return "matchday";
+    }
+  });
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
@@ -2237,7 +2243,14 @@ function App() {
       : experience;
 
   if (productMode === "clubs") {
-    return <ClubsMode onReturnToMatchday={() => setProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />;
+    return <ClubsMode onReturnToMatchday={() => {
+      setProductMode("matchday");
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("mode");
+        window.history.replaceState({}, "", url);
+      } catch {}
+    }} authUser={backendUser} isAdmin={isAdmin} />;
   }
 
   if (activeExperience === "startup") {
@@ -2280,7 +2293,14 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>setProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>{
+          setProductMode("clubs");
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set("mode", "clubs");
+            window.history.replaceState({}, "", url);
+          } catch {}
+        }}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
