@@ -9,6 +9,7 @@ import HomePage from './features/home/HomePage';
 import Calendar from './features/calendar/Calendar';
 import AdminPage from './features/admin/AdminPage';
 import MatchRecordForm from './features/matches/MatchRecordForm';
+import ClubsMode from './features/clubs/ClubsMode';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
@@ -82,6 +83,7 @@ function localDateString(
 
 function App() {
   const [experience,setExperience]=useState('startup');
+  const [productMode,setProductMode]=useState('matchday');
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
@@ -2234,6 +2236,10 @@ function App() {
       ? "welcome"
       : experience;
 
+  if (productMode === "clubs") {
+    return <ClubsMode onReturnToMatchday={() => setProductMode("matchday")} />;
+  }
+
   if (activeExperience === "startup") {
     return <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
   }
@@ -2274,7 +2280,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>setProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
