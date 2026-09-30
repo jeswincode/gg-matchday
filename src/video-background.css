@@ -53,3 +53,12 @@ html[data-theme="golden"] .gg-video-overlay {
     linear-gradient(180deg, rgba(5,6,8,.68) 0%, rgba(5,6,8,.72) 48%, rgba(4,5,6,.86) 100%),
     radial-gradient(900px 520px at 50% 8%, rgba(227,188,103,.10), transparent 72%);
 }
+
+
+/* Clubs owns the full visual layer while active; Matchday footage stays mounted
+   for fast return but is fully hidden behind the Clubs surface. */
+html[data-product-mode="clubs"] .gg-video-background,
+html[data-product-mode="clubs"] .gg-video-overlay {
+  opacity: 0;
+  visibility: hidden;
+}
