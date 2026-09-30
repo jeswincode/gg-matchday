@@ -24,7 +24,6 @@ import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
 import PlayerWallet from "../models/clubs/PlayerWallet.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
-import JoinRequest from "../models/clubs/JoinRequest.js";
 import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { positiveMoney, activeCaptainApprovalComplete, validateRetention } from "../services/clubsEconomy.js";
