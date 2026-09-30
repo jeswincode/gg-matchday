@@ -230,8 +230,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   };
 
   const submitRenewal = async () => {
-    if (!currentClub?._id || retainedPlayers.length !== 2) {
-      setError("Select exactly two players to retain.");
+    if (!currentClub?._id) {
+      setError("Your Club is no longer active.");
       return;
     }
     setError("");
@@ -1237,7 +1237,14 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                         );
                       })}
                     </div>
-                    {renewalState.isCaptain && <button type="button" className="clubs-primary-button" disabled={busyId === "renewal" || retainedPlayers.length !== 2} onClick={submitRenewal}>{busyId === "renewal" ? "Submitting…" : "Submit Renewal Decision"}</button>}
+                    {renewalState.isCaptain && (
+  <>
+    <p className="clubs-match-hint">Retain 2 to continue. Jointly retaining fewer than 2 dissolves the Club at the renewal boundary.</p>
+    <button type="button" className="clubs-primary-button" disabled={busyId === "renewal"} onClick={submitRenewal}>
+      {busyId === "renewal" ? "Submitting…" : "Submit Renewal Decision"}
+    </button>
+  </>
+)}
                     {renewalState.decision && <div className="clubs-empty"><strong>{renewalState.decision.status === "applied" ? "Renewal applied." : "Renewal decision recorded."}</strong><span>Captain approvals: {renewalState.decision.captainApprovalIds?.length || 0}/{currentClub.captainIds?.length || 0}</span></div>}
                   </>
                 )}
