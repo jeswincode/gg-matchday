@@ -23,6 +23,8 @@ const clubMatchSchema = new mongoose.Schema(
     winnerClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
     clubAScore: { type: Number, min: 0, default: null },
     clubBScore: { type: Number, min: 0, default: null },
+    settlementStatus: { type: String, enum: ["pending", "settled"], default: "pending", index: true },
+    settlementAt: { type: Date, default: null },
     prediction: {
       clubAPercent: { type: Number, min: 0, max: 100, default: null },
       clubBPercent: { type: Number, min: 0, max: 100, default: null },
