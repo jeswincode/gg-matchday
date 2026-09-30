@@ -26,6 +26,7 @@ import ClubHistory from "../models/clubs/ClubHistory.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
 import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
+import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { positiveMoney, activeCaptainApprovalComplete, validateRetention } from "../services/clubsEconomy.js";
@@ -824,6 +825,65 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error("Error fetching clubs:", error);
     return res.status(500).json({ message: "Failed to fetch clubs." });
+  }
+});
+
+router.get("/:clubId/stats", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ message: "Invalid club id." });
+
+  try {
+    const club = await Club.findOne({ _id: req.params.clubId, status: "approved" })
+      .select("_id name formation memberIds captainIds balance")
+      .lean();
+    if (!club) return res.status(404).json({ message: "Club not found." });
+
+    const stats = await ClubPlayerStats.find({ clubId: club._id })
+      .populate("playerId", "name profileImage position")
+      .sort({ matches: -1, ratingTotal: -1 })
+      .lean();
+
+    return res.json({ club, stats });
+  } catch (error) {
+    console.error("Load club player stats error:", error);
+    return res.status(500).json({ message: "Failed to load club player stats." });
+  }
+});
+
+router.get("/:clubId/history", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ message: "Invalid club id." });
+
+  try {
+    const clubExists = await Club.exists({ _id: req.params.clubId, status: "approved" });
+    if (!clubExists) return res.status(404).json({ message: "Club not found." });
+
+    const history = await ClubHistory.find({ clubId: req.params.clubId })
+      .sort({ occurredAt: -1, createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    return res.json(history);
+  } catch (error) {
+    console.error("Load club history error:", error);
+    return res.status(500).json({ message: "Failed to load club history." });
+  }
+});
+
+router.get("/player/history/me", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+
+  try {
+    const [history, contracts] = await Promise.all([
+      ClubHistory.find({ playerId }).sort({ occurredAt: -1, createdAt: -1 }).limit(100).lean(),
+      ClubContract.find({ playerId }).sort({ startAt: -1 }).lean(),
+    ]);
+    return res.json({ history, contracts });
+  } catch (error) {
+    console.error("Load player Club history error:", error);
+    return res.status(500).json({ message: "Failed to load your Club history." });
   }
 });
 
