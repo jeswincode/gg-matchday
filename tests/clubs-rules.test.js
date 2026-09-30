@@ -192,3 +192,13 @@ test("V3 Club Match request expiry is the earlier of 24 hours or one hour before
   assert.equal(CLUB_MATCH_REQUEST_CUTOFF_MINUTES, 60);
   assert.equal(clubMatchRequestExpiry(created, kickoff).toISOString(), "2026-10-01T00:00:00.000Z");
 });
+
+
+test("V3 renewal allows zero, one or two retained players", () => {
+  const members = ["a", "b", "c", "d"];
+  assert.deepEqual(validateRetention(members, [], ["a"]), []);
+  assert.deepEqual(validateRetention(members, ["b"], ["a"]), ["b"]);
+  assert.deepEqual(validateRetention(members, ["a", "b"], ["a"]), ["a", "b"]);
+  assert.throws(() => validateRetention(members, ["b", "c"], ["a"]));
+  assert.throws(() => validateRetention(members, ["a", "b", "c"], ["a"]));
+});
