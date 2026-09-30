@@ -44,6 +44,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [clubStats, setClubStats] = useState([]);
   const [clubHistory, setClubHistory] = useState([]);
   const [clubDetailsLoading, setClubDetailsLoading] = useState(false);
+  const [auctionState, setAuctionState] = useState(null);
+  const [auctionLoading, setAuctionLoading] = useState(false);
+  const [activeAuctionPlayer, setActiveAuctionPlayer] = useState("");
+  const [selectedPlayerOffers, setSelectedPlayerOffers] = useState([]);
 
   useEffect(() => {
     let active = true;
@@ -84,6 +88,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
     };
   }, [authUser]);
   useEffect(() => {
+    if (authUser && activeSection === "auctions") {
+      refreshAuctionState();
+    }
+  }, [authUser, activeSection]);
+
+  useEffect(() => {
     let active = true;
     if (activeSection !== "myClub" || !currentClub?._id) {
       setClubStats([]);
@@ -116,6 +126,58 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const refreshClubMatches = async () => {
     const data = await api("/clubs/matches");
     setClubMatches(Array.isArray(data) ? data : []);
+  };
+
+  const refreshAuctionState = async () => {
+    if (!authUser) return;
+    try {
+      setAuctionLoading(true);
+      const data = await api("/clubs/auction/me");
+      setAuctionState(data || null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAuctionLoading(false);
+    }
+  };
+
+  const loadPlayerOffers = async playerId => {
+    setActiveAuctionPlayer(playerId);
+    try {
+      const data = await api("/clubs/auction/offers/" + playerId);
+      setSelectedPlayerOffers(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const chooseAuctionOffer = async offerId => {
+    setError("");
+    try {
+      setBusyId("auction-" + offerId);
+      await api("/clubs/auction/offers/" + offerId + "/choose", { method: "POST" });
+      await refreshAuctionState();
+      if (activeAuctionPlayer) await loadPlayerOffers(activeAuctionPlayer);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const approveAuctionOffer = async offerId => {
+    setError("");
+    try {
+      setBusyId("auction-" + offerId);
+      await api("/clubs/auction/offers/" + offerId + "/approve", { method: "POST" });
+      const clubsData = await api("/clubs");
+      setClubs(Array.isArray(clubsData) ? clubsData : []);
+      await refreshAuctionState();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const sendJoinRequest = async clubId => {
@@ -339,8 +401,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       <nav className="clubs-nav" aria-label="Clubs navigation">
         <button className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => setActiveSection("overview")}>Ultimate Clubs</button>
         <button className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => setActiveSection("myClub")}>My Club</button>
-        <button type="button">Players</button>
-        <button type="button">Auctions</button>
+        <button className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
+        <button className={activeSection === "auctions" ? "active" : ""} type="button" onClick={() => setActiveSection("auctions")}>Auctions</button>
         <button className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches</button>
       </nav>
 
