@@ -16,6 +16,9 @@ import {
   validateFormation,
   nextRenewalBoundary,
   selectCaptainCandidates,
+  auctionOfferExpiry,
+  validateAuctionBid,
+  clubMatchRequestExpiry,
   resolveCaptainVote,
 } from "../config/clubsRules.js";
 import { pingClubsDatabase, getClubsConnection } from "../config/clubsDatabase.js";
@@ -501,14 +504,15 @@ router.post("/auction/offers", requireAuth, async (req, res) => {
   const playerId = req.body?.playerId;
   if (!mongoose.isValidObjectId(clubId) || !mongoose.isValidObjectId(playerId)) return res.status(400).json({ message: "Valid club and player ids are required." });
   try {
-    const amount = positiveMoney(req.body?.amount);
     const state = await getUserClubCaptainState(req.user.playerProfile, clubId);
     if (!state?.isCaptain) return res.status(403).json({ message: "Only a club captain can make a signing offer." });
     if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Your club already has four players." });
     const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
     if (activeContract) return res.status(409).json({ message: "That player is already under an active club contract." });
+    const highest = await AuctionOffer.findOne({ playerId, status: "active", expiresAt: { $gt: new Date() } }).sort({ amount: -1 }).lean();
+    const amount = validateAuctionBid(req.body?.amount, highest?.amount || 0);
     if (state.club.balance < amount) return res.status(409).json({ message: "Your club does not have enough balance for that offer." });
-    const offer = await AuctionOffer.create({ clubId, playerId, amount, status: "active" });
+    const offer = await AuctionOffer.create({ clubId, playerId, amount, status: "active", expiresAt: auctionOfferExpiry() });
     return res.status(201).json(offer);
   } catch (error) {
     return res.status(400).json({ message: error.message || "Failed to create signing offer." });
@@ -525,7 +529,11 @@ router.post("/auction/offers/:offerId/choose", requireAuth, async (req, res) => 
     if (!offer) return res.status(404).json({ message: "Offer not found." });
     if (String(offer.playerId) !== String(playerId)) return res.status(403).json({ message: "Only the offered player can choose this offer." });
     if (offer.status !== "active") return res.status(409).json({ message: "This offer is no longer active." });
-    if (offer.expiresAt && offer.expiresAt <= new Date()) return res.status(409).json({ message: "This offer has expired." });
+    if (offer.expiresAt && offer.expiresAt <= new Date()) {
+      offer.status = "cancelled";
+      await offer.save();
+      return res.status(409).json({ message: "This offer has expired." });
+    }
     const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
     if (activeContract) return res.status(409).json({ message: "You must be outside an active club contract to sign." });
     offer.status = "chosenByPlayer";
@@ -1036,25 +1044,19 @@ router.post("/matches/:matchId/bets/settle", requireAuth, requireAdmin, async (r
 router.get("/matches", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
-    const filter = {};
-    if (req.query.clubId !== undefined) {
-      if (!mongoose.isValidObjectId(req.query.clubId)) {
-        return res.status(400).json({ message: "Invalid club id." });
-      }
-      filter.$or = [{ clubAId: req.query.clubId }, { clubBId: req.query.clubId }];
+    const now = new Date();
+    const stale = await ClubMatch.find({ status: "requested", scheduledAt: { $gt: now } }).select("_id createdAt scheduledAt").lean();
+    const expiredIds = stale.filter(item => now >= clubMatchRequestExpiry(item.createdAt, item.scheduledAt)).map(item => item._id);
+    if (expiredIds.length) {
+      await ClubMatch.updateMany({ _id: { $in: expiredIds } }, { $set: { status: "declined", responseDecision: "decline" } });
     }
-    const matches = await ClubMatch.find(filter)
-      .sort({ scheduledAt: -1, createdAt: -1 })
-      .limit(100)
-      .lean();
+    const matches = await ClubMatch.find({}).sort({ scheduledAt: -1 }).limit(100).lean();
     return res.json(matches);
   } catch (error) {
     console.error("Load club matches error:", error);
     return res.status(500).json({ message: "Failed to load club matches." });
   }
-});
-
-router.post("/matches", requireAuth, async (req, res) => {
+});router.post("/matches", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
@@ -1102,6 +1104,12 @@ router.post("/matches/:matchId/respond", requireAuth, async (req, res) => {
     const match = await ClubMatch.findById(req.params.matchId);
     if (!match) return res.status(404).json({ message: "Club match not found." });
     if (match.status !== "requested") return res.status(409).json({ message: "This club match is no longer awaiting a response." });
+    if (new Date() >= clubMatchRequestExpiry(match.createdAt, match.scheduledAt)) {
+      match.status = "declined";
+      match.responseDecision = "decline";
+      await match.save();
+      return res.status(409).json({ message: "This Club Match request has expired." });
+    }
 
     const accept = req.body?.accept;
     if (typeof accept !== "boolean") {
