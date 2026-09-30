@@ -94,10 +94,15 @@ The selectable 4-player formations are:
 - [x] One-review-per-relationship database constraint.
 - [x] Unit tests for locked formation, budget, contract-boundary and captain-vote rules.
 
+### Implementation progress
+- [x] Full formation/invite/4-way agreement backend workflow.
+- [x] Captain candidate calculation, four-way vote and co-captain state.
+- [x] Captain detail submission state and admin approval/rejection/resubmission backend foundation.
+- [x] Responsive Clubs formation/captain UI foundation.
+
 ### Not yet implemented
-- [ ] Full formation/invite/4-way agreement workflow.
-- [ ] Admin approval workflow and rejection/resubmission UI.
-- [ ] Captain voting UI/API and co-captain approval workflow.
+- [ ] Admin approval management UI.
+- [ ] Contract-cycle renewal job/workflow.
 - [ ] Contract-cycle renewal job/workflow.
 - [ ] Retention selection and release-to-pool workflow.
 - [ ] Auction/offer lifecycle and player selection.
