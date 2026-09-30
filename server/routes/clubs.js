@@ -38,7 +38,6 @@ import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
 import { generateClubMatchPrediction } from "../services/clubsPrediction.js";
 import { placeClubMatchBet, settleClubMatchBets } from "../services/clubsBetting.js";
 import {
-  positiveMoney,
   activeCaptainApprovalComplete,
   validateRetention,
   debitClubWallet,
