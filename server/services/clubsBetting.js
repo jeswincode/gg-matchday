@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
 import Club from "../models/clubs/Club.js";
+import ClubContract from "../models/clubs/ClubContract.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubMatchBet from "../models/clubs/ClubMatchBet.js";
 import { CLUB_BETTING_MAX_STAKE, CLUB_BETTING_MIN_STAKE } from "../config/clubsRules.js";
-import { debitClubWallet, creditClubWallet, positiveMoney } from "./clubsEconomy.js";
+import { debitPlayerWallet, creditPlayerWallet, positiveMoney } from "./clubsEconomy.js";
 
 export function calculateBetPayouts(bets, winningClubId) {
   const pool = bets.reduce((sum, bet) => sum + Number(bet.stake), 0);
@@ -30,13 +31,17 @@ export async function placeClubMatchBet({ clubMatchId, playerId, clubId, stake, 
   if (!match || match.status !== "accepted") throw new Error("Betting is available only for accepted Club Matches.");
   if (new Date(match.scheduledAt) <= new Date()) throw new Error("Betting is closed because the match has started.");
   if (![String(match.clubAId), String(match.clubBId)].includes(String(clubId))) throw new Error("Choose one of the two clubs in this fixture.");
-  const club = await Club.findOne({ _id: clubId, status: "approved", captainIds: playerId }).session(session).lean();
-  if (!club) throw new Error("Only a captain of the staking Club can place its Club bet.");
-  const existing = await ClubMatchBet.findOne({ clubMatchId, clubId }).session(session).lean();
-  if (existing) throw new Error("Your Club already has a bet on this Club Match.");
-  const debitedClub = await debitClubWallet({ clubId, amount: value, type: "betting_stake", description: "Club Match betting stake.", session, refs: { clubMatchId }, idempotencyKey: `club-bet-stake:${clubMatchId}:${clubId}` });
+  const playerContract = await ClubContract.findOne({ playerId, status: "active" }).session(session).lean();
+  if (playerContract && [String(match.clubAId), String(match.clubBId)].includes(String(playerContract.clubId))) {
+    throw new Error("You cannot bet on your own Club Match fixture.");
+  }
+  const club = await Club.findOne({ _id: clubId, status: "approved" }).session(session).lean();
+  if (!club) throw new Error("The selected Club is not available for betting.");
+  const existing = await ClubMatchBet.findOne({ clubMatchId, playerId }).session(session).lean();
+  if (existing) throw new Error("You already have a bet on this Club Match.");
+  const debitedPlayer = await debitPlayerWallet({ playerId, amount: value, type: "betting_stake", description: "Club Match betting stake.", session, refs: { clubId, clubMatchId }, idempotencyKey: `player-bet-stake:${clubMatchId}:${playerId}` });
   const bet = await ClubMatchBet.create([{ clubMatchId, playerId, clubId, stake: value }], { session }).then(rows => rows[0]);
-  return { bet, club: debitedClub };
+  return { bet, playerWallet: debitedPlayer };
 }
 export async function settleClubMatchBets({ clubMatchId, session }) {
   const match = await ClubMatch.findById(clubMatchId).session(session);
@@ -53,8 +58,8 @@ export async function settleClubMatchBets({ clubMatchId, session }) {
 
   if (!winningClubId) {
     for (const bet of bets) {
-      await creditClubWallet({
-        clubId: bet.clubId,
+      await creditPlayerWallet({
+        playerId: bet.playerId,
         amount: bet.stake,
         type: "betting_refund",
         description: "Club Match betting refund.",
@@ -75,8 +80,8 @@ export async function settleClubMatchBets({ clubMatchId, session }) {
 
   if (!winningStake) {
     for (const bet of bets) {
-      await creditClubWallet({
-        clubId: bet.clubId,
+      await creditPlayerWallet({
+        playerId: bet.playerId,
         amount: bet.stake,
         type: "betting_refund",
         description: "Club Match betting refund because no winning bets were placed.",
@@ -97,8 +102,8 @@ export async function settleClubMatchBets({ clubMatchId, session }) {
   for (const bet of bets) {
     if (String(bet.clubId) === String(winningClubId)) {
       const payout = payouts.get(String(bet._id));
-      await creditClubWallet({
-        clubId: bet.clubId,
+      await creditPlayerWallet({
+        playerId: bet.playerId,
         amount: payout,
         type: "betting_win",
         description: "Club Match betting payout.",
