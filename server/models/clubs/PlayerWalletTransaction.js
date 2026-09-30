@@ -18,6 +18,7 @@ const playerWalletTransactionSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     balanceAfter: { type: Number, min: 0, required: true },
     description: { type: String, trim: true, maxlength: 240, default: "" },
+    idempotencyKey: { type: String, trim: true, maxlength: 180, default: null },
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
     mainMatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
     clubMatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
@@ -27,5 +28,6 @@ const playerWalletTransactionSchema = new mongoose.Schema(
 );
 
 playerWalletTransactionSchema.index({ playerId: 1, createdAt: -1 });
+playerWalletTransactionSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 
 export default getClubsConnection().model("PlayerWalletTransaction", playerWalletTransactionSchema);
