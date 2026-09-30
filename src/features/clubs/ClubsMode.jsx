@@ -549,8 +549,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   useEffect(() => {
     if (activeSection !== "matches") return undefined;
-    refreshMatchMarkets(clubMatches);
+    const timer = setTimeout(() => {
+      refreshMatchMarkets(clubMatches);
+    }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- match list is the explicit market refresh source.
+    return () => clearTimeout(timer);
   }, [activeSection, clubMatches]);
 
   useEffect(() => {
