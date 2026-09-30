@@ -745,20 +745,33 @@ router.post("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
     const state = await getUserClubCaptainState(playerId, clubId);
     if (!state?.isCaptain) return res.status(403).json({ message: "Only club captains can decide renewals." });
     if (state.club.memberIds.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Renewal requires a four-player club." });
+
     const retained = validateRetention(state.club.memberIds, req.body?.retainedPlayerIds, state.club.captainIds);
     const activeContracts = await ClubContract.find({ clubId, status: "active" }).sort({ endAt: 1 }).lean();
     if (activeContracts.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "The club does not have four active contracts to renew." });
     const boundaryAt = activeContracts[0].endAt;
     if (new Date() < new Date(boundaryAt)) return res.status(409).json({ message: "This club's renewal boundary has not arrived yet." });
+
     let decision = await ClubRenewalDecision.findOne({ clubId, boundaryAt });
     if (!decision) {
-      decision = await ClubRenewalDecision.create({ clubId, boundaryAt, retainedPlayerIds: retained, captainApprovalIds: [playerId] });
+      decision = await ClubRenewalDecision.create({
+        clubId,
+        boundaryAt,
+        retainedPlayerIds: retained,
+        captainApprovalIds: [playerId],
+      });
     } else {
-      if (JSON.stringify(decision.retainedPlayerIds.map(String).sort()) !== JSON.stringify(retained.map(String).sort())) return res.status(409).json({ message: "Both captains must approve the same retained players." });
+      if (JSON.stringify(decision.retainedPlayerIds.map(String).sort()) !== JSON.stringify(retained.map(String).sort())) {
+        return res.status(409).json({ message: "Both captains must approve the same retained players." });
+      }
       decision.captainApprovalIds = [...new Set([...decision.captainApprovalIds.map(String), String(playerId)])];
       await decision.save();
     }
-    if (!activeCaptainApprovalComplete(state.club.captainIds, decision.captainApprovalIds)) return res.json({ status: decision.status, decision });
+
+    if (!activeCaptainApprovalComplete(state.club.captainIds, decision.captainApprovalIds)) {
+      return res.json({ status: decision.status, decision });
+    }
+
     const connection = getClubsConnection();
     const session = await connection.startSession();
     try {
@@ -768,20 +781,71 @@ router.post("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
         if (!club) throw new Error("Club not found.");
         const contracts = await ClubContract.find({ clubId, status: "active" }).session(session);
         const retainedSet = new Set(retained);
+
         for (const contract of contracts) {
           contract.status = retainedSet.has(String(contract.playerId)) ? "expired" : "released";
           await contract.save({ session });
         }
+
+        if (retained.length < 2) {
+          club.memberIds = [];
+          club.captainIds = [];
+          club.status = "archived";
+          await club.save({ session });
+          for (const releasedId of contracts.map(contract => contract.playerId)) {
+            await ClubHistory.create([{
+              clubId,
+              playerId: releasedId,
+              eventType: "memberReleased",
+              description: "Player contract ended at renewal; Club dissolved because fewer than two players were jointly retained.",
+              metadata: { boundaryAt, retainedPlayerIds: retained },
+            }], { session });
+          }
+          await ClubHistory.create([{
+            clubId,
+            eventType: "archived",
+            description: "Club archived at contract renewal because fewer than two players were jointly retained.",
+            metadata: { boundaryAt, retainedPlayerIds: retained },
+          }], { session });
+          decision.status = "applied";
+          decision.appliedAt = new Date();
+          await decision.save({ session });
+          updated = club;
+          return;
+        }
+
         const nextEnd = new Date(Date.UTC(boundaryAt.getUTCFullYear(), boundaryAt.getUTCMonth() + 2, 1));
-        const newContracts = [];
-        for (const retainedId of retained) newContracts.push({ clubId, playerId: retainedId, startAt: boundaryAt, endAt: nextEnd, signingAmount: 0, source: "renewal", renewalNumber: (contracts.find(c=>String(c.playerId)===String(retainedId))?.renewalNumber||0)+1 });
+        const newContracts = retained.map(retainedId => ({
+          clubId,
+          playerId: retainedId,
+          startAt: boundaryAt,
+          endAt: nextEnd,
+          signingAmount: 0,
+          source: "renewal",
+          renewalNumber: (contracts.find(c => String(c.playerId) === String(retainedId))?.renewalNumber || 0) + 1,
+        }));
         await ClubContract.create(newContracts, { session });
         club.memberIds = retained;
         club.captainIds = club.captainIds.filter(id => retainedSet.has(String(id)));
         if (!club.captainIds.length) throw new Error("At least one captain must remain for renewal.");
         await club.save({ session });
-        for (const releasedId of contracts.filter(c => !retainedSet.has(String(c.playerId))).map(c=>c.playerId)) await ClubHistory.create([{ clubId, playerId: releasedId, eventType: "memberReleased", description: "Player released at contract renewal." }], { session });
-        await ClubHistory.create([{ clubId, eventType: "formationChanged", description: "Club roster renewed with two retained players.", metadata: { boundaryAt, retainedPlayerIds: retained } }], { session });
+
+        for (const releasedId of contracts.filter(c => !retainedSet.has(String(c.playerId))).map(c => c.playerId)) {
+          await ClubHistory.create([{
+            clubId,
+            playerId: releasedId,
+            eventType: "memberReleased",
+            description: "Player released at contract renewal.",
+            metadata: { boundaryAt, retainedPlayerIds: retained },
+          }], { session });
+        }
+        await ClubHistory.create([{
+          clubId,
+          eventType: "formationChanged",
+          description: "Club roster renewed with retained players.",
+          metadata: { boundaryAt, retainedPlayerIds: retained },
+        }], { session });
+
         decision.status = "applied";
         decision.appliedAt = new Date();
         await decision.save({ session });
