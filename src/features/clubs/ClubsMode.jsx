@@ -1004,19 +1004,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           <small>{clubName(match.clubAId)} · {clubName(match.clubBId)}</small>
                         </div>
                         {match.status === "accepted" &&
+                        authUser &&
                         !matchMarkets[String(match._id)]?.bet &&
-                        [match.clubAId, match.clubBId].some(id =>
-                          clubs.find(club => String(club._id) === String(id))?.captainIds?.some(captainId => String(captainId) === currentPlayerId)
-                        ) && (
+                        !(currentClub && [String(match.clubAId), String(match.clubBId)].includes(String(currentClub._id))) && (
                           <div className="clubs-bet-form">
                             <select
                               value={betDrafts[match._id]?.clubId || ""}
                               onChange={event => setBetDrafts(current => ({ ...current, [match._id]: { ...(current[match._id] || {}), clubId: event.target.value } }))}
                             >
-                              <option value="">Club stake</option>
-                              {[match.clubAId, match.clubBId]
-                                .filter(id => clubs.find(club => String(club._id) === String(id))?.captainIds?.some(captainId => String(captainId) === currentPlayerId))
-                                .map(id => <option key={String(id)} value={id}>{clubName(id)}</option>)}
+                              <option value="">Choose club</option>
+                              {[match.clubAId, match.clubBId].map(id => <option key={String(id)} value={id}>{clubName(id)}</option>)}
                             </select>
                             <input
                               type="number"
@@ -1033,7 +1030,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           </div>
                         )}
                         {matchMarkets[String(match._id)]?.bet && (
-                          <small className="clubs-match-bet-status">Your Club stake: {matchMarkets[String(match._id)].bet.stake} credits · {matchMarkets[String(match._id)].bet.status}</small>
+                          <small className="clubs-match-bet-status">Your bet: {matchMarkets[String(match._id)].bet.stake} credits on {clubName(matchMarkets[String(match._id)].bet.clubId)} · {matchMarkets[String(match._id)].bet.status}</small>
                         )}
                       </div>
                     )}
