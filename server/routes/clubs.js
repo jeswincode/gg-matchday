@@ -23,6 +23,7 @@ import { calculatePlayerAttributes } from "../services/playerAttributes.js";
 import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
 import PlayerWallet from "../models/clubs/PlayerWallet.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
+import PlayerReview from "../models/clubs/PlayerReview.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
 import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
@@ -867,7 +868,7 @@ router.get("/reviews/eligible/me", requireAuth, async (req, res) => {
     return res.json(candidates
       .filter(candidate => !existingKeys.has(String(candidate.playerId) + ":" + candidate.relationship))
       .map(candidate => ({ ...candidate, player: playerMap.get(String(candidate.playerId)) || null })));
-  } catch (error) {
+  } catch {
     return res.status(500).json({ message: "Failed to load eligible reviews." });
   }
 });
@@ -883,7 +884,7 @@ router.get("/reviews/me", requireAuth, async (req, res) => {
       .populate("reviewedPlayerId", "name profileImage position")
       .lean();
     return res.json(reviews);
-  } catch (error) {
+  } catch {
     return res.status(500).json({ message: "Failed to load your reviews." });
   }
 });
@@ -898,7 +899,7 @@ router.get("/reviews/player/:playerId", async (req, res) => {
       .populate("reviewerPlayerId", "name profileImage position")
       .lean();
     return res.json(reviews);
-  } catch (error) {
+  } catch {
     return res.status(500).json({ message: "Failed to load player reviews." });
   }
 });
