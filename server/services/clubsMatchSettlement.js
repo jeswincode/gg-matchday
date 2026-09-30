@@ -1,10 +1,7 @@
 import mongoose from "mongoose";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubContract from "../models/clubs/ClubContract.js";
-import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import Match from "../models/Match.js";
-import Club from "../models/clubs/Club.js";
-import ClubHistory from "../models/clubs/ClubHistory.js";
 import { CLUB_REWARDS } from "../config/clubsRules.js";
 import { creditClubMatchReward, creditClubWallet, creditPlayerMatchReward } from "./clubsEconomy.js";
 
@@ -82,7 +79,6 @@ export async function settleClubMatchRewards({ clubMatchId, session }) {
     });
 
     const isA = String(contract.clubId) === String(clubMatch.clubAId);
-    const ownScore = isA ? scoreA : scoreB;
     const opponentScore = isA ? scoreB : scoreA;
     if (opponentScore === 0) {
       await creditPlayerMatchReward({
