@@ -2690,8 +2690,8 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
       </Suspense>
+      {modeTransitionLayer}
     </main>
-    {modeTransitionLayer}
   );
 }
 
