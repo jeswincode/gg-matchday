@@ -549,12 +549,27 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   useEffect(() => {
     if (activeSection !== "matches") return undefined;
-    const timer = setTimeout(() => {
-      refreshMatchMarkets(clubMatches);
-    }, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- match list is the explicit market refresh source.
-    return () => clearTimeout(timer);
-  }, [activeSection, clubMatches]);
+    let active = true;
+    const refresh = async () => {
+      const accepted = clubMatches.filter(match => ["accepted", "completed"].includes(match.status));
+      const entries = await Promise.all(accepted.map(async match => {
+        try {
+          const [prediction, bet] = await Promise.all([
+            api("/clubs/matches/" + match._id + "/prediction"),
+            authUser ? api("/clubs/matches/" + match._id + "/bets/me") : Promise.resolve(null),
+          ]);
+          return [String(match._id), { prediction, bet }];
+        } catch {
+          return [String(match._id), { prediction: match.prediction || null, bet: null }];
+        }
+      }));
+      if (active) setMatchMarkets(Object.fromEntries(entries));
+    };
+    refresh();
+    return () => {
+      active = false;
+    };
+  }, [activeSection, clubMatches, authUser]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "reviews") return undefined;
