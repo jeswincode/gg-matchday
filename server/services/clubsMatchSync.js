@@ -41,7 +41,10 @@ export function inferClubSides(mainMatch, contractMap, clubMatch) {
 
 export async function attachMainMatchToClubMatch(mainMatch) {
   if (!mainMatch?._id) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
-  const playerIds = [...new Set((mainMatch.participants || []).map(p => idOf(p.player)).filter(Boolean))];
+
+  const playerIds = [...new Set(
+    (mainMatch.participants || []).map(p => idOf(p.player)).filter(Boolean),
+  )];
   if (!playerIds.length) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
 
   const contractMap = await findContractMap(playerIds, mainMatch.date);
@@ -52,41 +55,75 @@ export async function attachMainMatchToClubMatch(mainMatch) {
   const dayEnd = new Date(dayStart);
   dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 
+  const linked = [];
+  const affectedClubIds = new Set();
+
+  const existingLinked = await ClubMatch.find({
+    mainMatchId: mainMatch._id,
+    status: "completed",
+  }).lean();
+
   const candidates = await ClubMatch.find({
     status: "accepted",
     scheduledAt: { $gte: dayStart, $lt: dayEnd },
     mainMatchId: null,
   }).lean();
 
-  const linked = [];
+  const scoreFor = (clubMatch, inference) => {
+    const scoreA = Number(mainMatch.teamA?.score || 0);
+    const scoreB = Number(mainMatch.teamB?.score || 0);
+    return {
+      clubAScore: inference.clubAIsSideA ? scoreA : scoreB,
+      clubBScore: inference.clubAIsSideA ? scoreB : scoreA,
+      winnerClubId: scoreA === scoreB
+        ? null
+        : (inference.clubAIsSideA
+          ? (scoreA > scoreB ? clubMatch.clubAId : clubMatch.clubBId)
+          : (scoreB > scoreA ? clubMatch.clubAId : clubMatch.clubBId)),
+    };
+  };
+
+  for (const clubMatch of existingLinked) {
+    const inference = inferClubSides(mainMatch, contractMap, clubMatch);
+    if (!inference) continue;
+    const updated = await ClubMatch.findOneAndUpdate(
+      { _id: clubMatch._id, mainMatchId: mainMatch._id, status: "completed" },
+      { $set: scoreFor(clubMatch, inference) },
+      { new: true },
+    );
+    if (updated) {
+      linked.push(updated);
+      affectedClubIds.add(String(updated.clubAId));
+      affectedClubIds.add(String(updated.clubBId));
+    }
+  }
+
   for (const clubMatch of candidates) {
     const inference = inferClubSides(mainMatch, contractMap, clubMatch);
     if (!inference) continue;
-    const scoreA = Number(mainMatch.teamA?.score || 0);
-    const scoreB = Number(mainMatch.teamB?.score || 0);
-    const winnerClubId = scoreA === scoreB
-      ? null
-      : (inference.clubAIsSideA
-        ? (scoreA > scoreB ? clubMatch.clubAId : clubMatch.clubBId)
-        : (scoreB > scoreA ? clubMatch.clubAId : clubMatch.clubBId));
-
     const updated = await ClubMatch.findOneAndUpdate(
       { _id: clubMatch._id, status: "accepted", mainMatchId: null },
-      { $set: {
-        status: "completed",
-        mainMatchId: mainMatch._id,
-        clubAScore: inference.clubAIsSideA ? scoreA : scoreB,
-        clubBScore: inference.clubAIsSideA ? scoreB : scoreA,
-        winnerClubId,
-      }},
+      {
+        $set: {
+          status: "completed",
+          mainMatchId: mainMatch._id,
+          ...scoreFor(clubMatch, inference),
+        },
+      },
       { new: true },
     );
-    if (updated) linked.push(updated);
+    if (updated) {
+      linked.push(updated);
+      affectedClubIds.add(String(updated.clubAId));
+      affectedClubIds.add(String(updated.clubBId));
+      break;
+    }
   }
 
-  const affectedClubIds = [...new Set(linked.flatMap(item => [String(item.clubAId), String(item.clubBId)]))];
   for (const clubId of affectedClubIds) {
-    const linkedClubMatch = linked.find(item => String(item.clubAId) === clubId || String(item.clubBId) === clubId);
+    const linkedClubMatch = linked.find(
+      item => String(item.clubAId) === clubId || String(item.clubBId) === clubId,
+    );
     await rebuildClubPlayerStats(clubId);
     await ClubHistory.findOneAndUpdate(
       { clubId, relatedMainMatchId: mainMatch._id, eventType: "matchPlayed" },
@@ -102,14 +139,22 @@ export async function attachMainMatchToClubMatch(mainMatch) {
           },
           occurredAt: new Date(mainMatch.date),
         },
-        $setOnInsert: { clubId, relatedMainMatchId: mainMatch._id, eventType: "matchPlayed" },
+        $setOnInsert: {
+          clubId,
+          relatedMainMatchId: mainMatch._id,
+          eventType: "matchPlayed",
+        },
       },
       { upsert: true },
     );
   }
-  return { linked: linked.length > 0, clubMatchIds: linked.map(item => String(item._id)), affectedClubIds };
-}
 
+  return {
+    linked: linked.length > 0,
+    clubMatchIds: linked.map(item => String(item._id)),
+    affectedClubIds: [...affectedClubIds],
+  };
+}
 export async function rebuildClubPlayerStats(clubId) {
   const completedClubMatches = await ClubMatch.find({
     status: "completed",
