@@ -862,27 +862,30 @@ router.post("/reviews", requireAuth, async (req, res) => {
       "participants.player": { $all: [reviewerPlayerId, reviewedPlayerId] },
     }).select("_id participants date").lean();
 
-    let relationship = null;
-    let clubId = null;
-    let eligibilityMatchCount = 0;
+    const eligibleRelationships = new Map();
     for (const mainMatch of mainMatches) {
       const reviewer = mainMatch.participants.find(p => String(p.player) === String(reviewerPlayerId));
       const reviewed = mainMatch.participants.find(p => String(p.player) === String(reviewedPlayerId));
       if (!reviewer || !reviewed) continue;
       const clubMatch = reviewerMatches.find(item => String(item.mainMatchId) === String(mainMatch._id));
       if (!clubMatch) continue;
-      if (reviewer.team === reviewed.team) {
-        relationship = "teammate";
-        clubId = reviewer.team === "A" ? clubMatch.clubAId : clubMatch.clubBId;
-      } else {
-        relationship = "opponent";
-        clubId = null;
-      }
-      eligibilityMatchCount += 1;
-      if (eligibilityMatchCount > 0 && relationship) break;
+      const relationship = reviewer.team === reviewed.team ? "teammate" : "opponent";
+      const clubId = relationship === "teammate"
+        ? (reviewer.team === "A" ? clubMatch.clubAId : clubMatch.clubBId)
+        : null;
+      const current = eligibleRelationships.get(relationship) || { clubId, count: 0 };
+      current.count += 1;
+      eligibleRelationships.set(relationship, current);
     }
-    if (!relationship) return res.status(403).json({ message: "You may review only players you have actually played with or against in a completed Club Match." });
+    if (!eligibleRelationships.size) {
+      return res.status(403).json({ message: "You may review only players you have actually played with or against in a completed Club Match." });
+    }
 
+    const relationship = String(req.body?.relationship || "");
+    if (!["teammate", "opponent"].includes(relationship) || !eligibleRelationships.has(relationship)) {
+      return res.status(403).json({ message: "Choose a relationship you have actually established in a completed Club Match." });
+    }
+    const eligibility = eligibleRelationships.get(relationship);
     const existing = await PlayerReview.findOne({ reviewerPlayerId, reviewedPlayerId, relationship });
     if (existing) return res.status(409).json({ message: "You have already submitted this type of review for this player." });
 
@@ -892,8 +895,8 @@ router.post("/reviews", requireAuth, async (req, res) => {
       relationship,
       stars,
       observation,
-      clubId,
-      eligibilityMatchCount,
+      clubId: eligibility.clubId,
+      eligibilityMatchCount: eligibility.count,
     });
     return res.status(201).json(review);
   } catch (error) {
