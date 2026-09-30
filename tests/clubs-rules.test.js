@@ -7,6 +7,12 @@ import {
   validateRetention,
 } from "../server/services/clubsEconomy.js";
 import {
+  CLUB_BETTING_MIN_STAKE,
+  CLUB_BETTING_MAX_STAKE,
+  CLUB_PREDICTION_WEIGHTS,
+  CLUB_REWARDS,
+} from "../server/config/clubsRules.js";
+import {
   CLUB_FORMATIONS,
   CLUB_MAX_MEMBERS,
   CLUB_STARTING_BALANCE,
@@ -107,4 +113,27 @@ test("renewal retention validation requires exactly two members and at least one
     () => validateRetention(["a", "b", "c", "d"], ["a", "b", "c"], ["a"]),
     /exactly two/i,
   );
+});
+
+
+test("V3 Clubs economy rules expose the locked betting and reward values", () => {
+  assert.equal(CLUB_BETTING_MIN_STAKE, 10);
+  assert.equal(CLUB_BETTING_MAX_STAKE, 100);
+  assert.equal(CLUB_PREDICTION_WEIGHTS.averagePlayerOvr, 0.30);
+  assert.equal(CLUB_PREDICTION_WEIGHTS.recentForm, 0.25);
+  assert.equal(CLUB_PREDICTION_WEIGHTS.averageMatchRating, 0.20);
+  assert.equal(CLUB_PREDICTION_WEIGHTS.record, 0.15);
+  assert.equal(CLUB_PREDICTION_WEIGHTS.headToHead, 0.10);
+  assert.equal(Object.values(CLUB_PREDICTION_WEIGHTS).reduce((sum, value) => sum + value, 0), 1);
+  assert.deepEqual(CLUB_REWARDS, {
+    matchWin: 100,
+    matchDraw: 50,
+    playerAppearance: 10,
+    motm: 25,
+    cleanSheet: 10,
+    firstMatch: 25,
+    fiveAppearances: 50,
+    tenAppearances: 100,
+    firstWin: 50,
+  });
 });
