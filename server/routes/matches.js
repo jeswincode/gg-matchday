@@ -10,6 +10,9 @@ import Player from "../models/Player.js";
 import News from "../models/News.js";
 import { calculateGGParticipantRatings } from "../services/ratings/match.js";
 import { syncClubStatsForMatch } from "../services/clubsMatchSync.js";
+import { getClubsConnection } from "../config/clubsDatabase.js";
+import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
+import { settleClubMatchBets } from "../services/clubsBetting.js";
 
 import {
   requireAuth,
@@ -21,6 +24,20 @@ import {
 } from "../services/aiNews.js";
 
 const router = express.Router();
+
+async function settleLinkedClubMatches(syncResult) {
+  for (const clubMatchId of syncResult?.clubMatchIds || []) {
+    const session = await getClubsConnection().startSession();
+    try {
+      await session.withTransaction(async () => {
+        await settleClubMatchRewards({ clubMatchId, session });
+        await settleClubMatchBets({ clubMatchId, session });
+      });
+    } finally {
+      await session.endSession();
+    }
+  }
+}
 
 // ==================================================
 // VALIDATION
@@ -603,7 +620,12 @@ router.post(
         );
 
       scheduleHistory();
-      try { await syncClubStatsForMatch(populatedMatch); } catch (syncError) { console.error("Clubs match sync failed:", syncError); }
+      try {
+        const syncResult = await syncClubStatsForMatch(populatedMatch);
+        await settleLinkedClubMatches(syncResult);
+      } catch (syncError) {
+        console.error("Clubs match sync/settlement failed:", syncError);
+      }
       res.status(
         201
       ).json({
@@ -748,7 +770,12 @@ router.put(
         );
 
       scheduleHistory();
-      try { await syncClubStatsForMatch(match); } catch (syncError) { console.error("Clubs match sync failed:", syncError); }
+      try {
+        const syncResult = await syncClubStatsForMatch(match);
+        await settleLinkedClubMatches(syncResult);
+      } catch (syncError) {
+        console.error("Clubs match sync/settlement failed:", syncError);
+      }
       res.json({
         match:
           populatedMatch,
