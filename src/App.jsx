@@ -105,7 +105,10 @@ function App() {
 
   const switchProductMode=useCallback((nextMode)=>{
     if(nextMode===productMode || modeTransition) return;
-    setModeTransition(nextMode==="clubs" ? "to-clubs" : "to-matchday");
+    const transition = nextMode === "clubs"
+      ? "to-clubs"
+      : `to-matchday-${theme}`;
+    setModeTransition(transition);
     setProductMode(nextMode);
     try{
       const url=new URL(window.location.href);
@@ -211,6 +214,7 @@ function App() {
     },240);
   }
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
+  useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
   useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
   useEffect(()=>{api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey]);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
