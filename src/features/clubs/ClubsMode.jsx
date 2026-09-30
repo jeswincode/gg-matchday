@@ -56,6 +56,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [reviewCandidates, setReviewCandidates] = useState([]);
   const [reviewForm, setReviewForm] = useState({ candidateKey: "", stars: 5, observation: "" });
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [matchMarkets, setMatchMarkets] = useState({});
+  const [betDrafts, setBetDrafts] = useState({});
 
   useEffect(() => {
     let active = true;
@@ -162,9 +164,53 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
   };
 
+  const refreshMatchMarkets = async matches => {
+    const accepted = (matches || []).filter(match => ["accepted", "completed"].includes(match.status));
+    const entries = await Promise.all(accepted.map(async match => {
+      try {
+        const [prediction, bet] = await Promise.all([
+          api("/clubs/matches/" + match._id + "/prediction"),
+          authUser ? api("/clubs/matches/" + match._id + "/bets/me") : Promise.resolve(null),
+        ]);
+        return [String(match._id), { prediction, bet }];
+      } catch {
+        return [String(match._id), { prediction: match.prediction || null, bet: null }];
+      }
+    }));
+    setMatchMarkets(Object.fromEntries(entries));
+  };
+
+  const placeBet = async match => {
+    const draft = betDrafts[match._id] || {};
+    if (!draft.clubId || !draft.stake) {
+      setError("Choose a club and stake before placing your bet.");
+      return;
+    }
+    try {
+      setBusyId("bet-" + match._id);
+      await api("/clubs/matches/" + match._id + "/bets", {
+        method: "POST",
+        body: { clubId: draft.clubId, stake: Number(draft.stake) },
+      });
+      const [bet, walletData] = await Promise.all([
+        api("/clubs/matches/" + match._id + "/bets/me"),
+        api("/clubs/wallet/me"),
+      ]);
+      setMatchMarkets(current => ({ ...current, [String(match._id)]: { ...(current[String(match._id)] || {}), bet } }));
+      setWallet(walletData);
+      setBetDrafts(current => ({ ...current, [match._id]: { clubId: "", stake: "" } }));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const refreshClubMatches = async () => {
     const data = await api("/clubs/matches");
-    setClubMatches(Array.isArray(data) ? data : []);
+    const next = Array.isArray(data) ? data : [];
+    setClubMatches(next);
+    if (activeSection === "matches") await refreshMatchMarkets(next);
   };
 
   const refreshRenewalState = async clubId => {
@@ -500,6 +546,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Section entry is the explicit refresh trigger.
   }, [isAdmin, activeSection]);
+
+  useEffect(() => {
+    if (activeSection !== "matches") return undefined;
+    refreshMatchMarkets(clubMatches);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- match list is the explicit market refresh source.
+  }, [activeSection, clubMatches]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "reviews") return undefined;
@@ -926,6 +978,42 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     </>}
                     {["requested", "accepted"].includes(match.status) && isRequestingClub && <button type="button" className="clubs-secondary-button" disabled={busyId === match._id} onClick={() => cancelClubMatch(match._id)}>Cancel request</button>}
                     {match.status === "completed" && <span className="clubs-match-linked">Linked to Matchday</span>}
+                    {["accepted", "completed"].includes(match.status) && (
+                      <div className="clubs-match-market">
+                        <div className="clubs-prediction">
+                          <span>PREDICTION</span>
+                          <strong>{matchMarkets[String(match._id)]?.prediction?.clubAPercent ?? match.prediction?.clubAPercent ?? "—"}% — {matchMarkets[String(match._id)]?.prediction?.clubBPercent ?? match.prediction?.clubBPercent ?? "—"}%</strong>
+                          <small>{clubName(match.clubAId)} · {clubName(match.clubBId)}</small>
+                        </div>
+                        {match.status === "accepted" && !matchMarkets[String(match._id)]?.bet && (
+                          <div className="clubs-bet-form">
+                            <select
+                              value={betDrafts[match._id]?.clubId || ""}
+                              onChange={event => setBetDrafts(current => ({ ...current, [match._id]: { ...(current[match._id] || {}), clubId: event.target.value } }))}
+                            >
+                              <option value="">Bet on club</option>
+                              <option value={match.clubAId}>{clubName(match.clubAId)}</option>
+                              <option value={match.clubBId}>{clubName(match.clubBId)}</option>
+                            </select>
+                            <input
+                              type="number"
+                              min="10"
+                              max="100"
+                              step="1"
+                              placeholder="10–100"
+                              value={betDrafts[match._id]?.stake || ""}
+                              onChange={event => setBetDrafts(current => ({ ...current, [match._id]: { ...(current[match._id] || {}), stake: event.target.value } }))}
+                            />
+                            <button type="button" className="clubs-primary-button" disabled={busyId === "bet-" + match._id} onClick={() => placeBet(match)}>
+                              {busyId === "bet-" + match._id ? "Placing…" : "Place Bet"}
+                            </button>
+                          </div>
+                        )}
+                        {matchMarkets[String(match._id)]?.bet && (
+                          <small className="clubs-match-bet-status">Your bet: {matchMarkets[String(match._id)].bet.stake} credits · {matchMarkets[String(match._id)].bet.status}</small>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </article>
               );
