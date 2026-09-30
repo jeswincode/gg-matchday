@@ -564,8 +564,14 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
       if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has four players.");
       const activeContract = await ClubContract.findOne({ playerId: offer.playerId, status: "active" }).session(session);
       if (activeContract) throw new Error("That player is already in an active club.");
+      const approvalIds = [...new Set([...offer.captainApprovalIds.map(String), String(playerId)])];
+      offer.captainApprovalIds = approvalIds;
+      if (!activeCaptainApprovalComplete(club.captainIds, approvalIds)) {
+        await offer.save({ session });
+        result = { offer, club, pendingCaptainApproval: true };
+        return;
+      }
       if (club.balance < offer.amount) throw new Error("The club does not have enough balance.");
-      if (!activeCaptainApprovalComplete(club.captainIds, [...offer.captainApprovalIds, playerId])) throw new Error("All club captains must approve this signing.");
       const now = new Date();
       const endAt = nextRenewalBoundary(now);
       const updatedClub = await Club.findOneAndUpdate(
@@ -594,7 +600,7 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
       });
       await ClubContract.create([{ clubId: club._id, playerId: offer.playerId, startAt: now, endAt, signingAmount: offer.amount, source: "auction", renewalNumber: 0 }], { session });
       await ClubHistory.create([{ clubId: club._id, playerId: offer.playerId, eventType: "memberJoined", description: "Player joined the club through a signing offer.", metadata: { auctionOfferId: offer._id, signingAmount: offer.amount } }], { session });
-      offer.captainApprovalIds = [...new Set([...offer.captainApprovalIds.map(String), String(playerId)])];
+      offer.captainApprovalIds = approvalIds;
       offer.captainApprovedAt = now;
       offer.status = "approved";
       await offer.save({ session });
