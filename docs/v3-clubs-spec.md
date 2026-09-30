@@ -112,8 +112,8 @@ The selectable 4-player formations are:
 - [ ] Club-vs-club betting settlement; stake/draw/cancellation rules remain open.
 - [ ] Club-vs-club prediction engine; exact weighting remains open.
 - [x] Player Reviews API/UI and eligibility checks against main Match data.
-- [ ] Player Attributes/OVR calculation and traceable evidence.
-- [ ] GG Player Card generation/sharing.
+- [x] Player Attributes/OVR calculation and traceable evidence.
+- [x] GG Player Card generation/sharing.
 - [x] Clubs mode navigation and charcoal/rose-gold visual system.
 - [x] Ultimate Clubs page.
 - [ ] Full responsive mobile QA for all new Clubs screens.
