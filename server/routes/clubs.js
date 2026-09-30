@@ -122,8 +122,8 @@ router.get("/meta", (req, res) => {
     formations: CLUB_FORMATIONS,
     activeClubPolicy: "one-active-club-per-player",
     captainPolicy: "top-two-ovr-candidates; four-player vote; tie creates two co-captains",
-    bettingPolicy: "club-to-club only; winning club receives the full two-club stake pot",
-    playerRewardPolicy: "signing payments and individual club-match awards; betting does not pay players",
+    bettingPolicy: "one bet per player per fixture; 10-100 credits; pooled winner payout; draw/cancellation/no-winner refunds; club members cannot bet on their own fixture",
+    playerRewardPolicy: "10 appearance; 25 MOTM; 10 clean sheet; betting wins are paid from the pooled stake pot",
     reviewPolicy: "one teammate review and one opponent review per reviewer/reviewed relationship",
   });
 });
