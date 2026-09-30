@@ -988,7 +988,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           <strong>{matchMarkets[String(match._id)]?.prediction?.clubAPercent ?? match.prediction?.clubAPercent ?? "—"}% — {matchMarkets[String(match._id)]?.prediction?.clubBPercent ?? match.prediction?.clubBPercent ?? "—"}%</strong>
                           <small>{clubName(match.clubAId)} · {clubName(match.clubBId)}</small>
                         </div>
-                        {match.status === "accepted" && !matchMarkets[String(match._id)]?.bet && (
+                        {match.status === "accepted" &&
+                        !matchMarkets[String(match._id)]?.bet &&
+                        [match.clubAId, match.clubBId].some(id =>
+                          clubs.find(club => String(club._id) === String(id))?.captainIds?.some(captainId => String(captainId) === currentPlayerId)
+                        ) && (
                           <div className="clubs-bet-form">
                             <select
                               value={betDrafts[match._id]?.clubId || ""}
