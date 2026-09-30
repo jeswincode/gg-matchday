@@ -144,12 +144,6 @@ router.post("/formation", requireAuth, async (req, res) => {
       });
     }
 
-    if (memberIds.some(id => String(id) === String(founderPlayerId) && invitedIds.length > 0)) {
-      return res.status(400).json({
-        message: "Choose three different players besides yourself.",
-      });
-    }
-
     const [players, activeContract, existingFormation] = await Promise.all([
       Player.find({ _id: { $in: memberIds } }).select("_id name").lean(),
       getActiveContract(memberIds),
