@@ -48,6 +48,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [auctionLoading, setAuctionLoading] = useState(false);
   const [activeAuctionPlayer, setActiveAuctionPlayer] = useState("");
   const [selectedPlayerOffers, setSelectedPlayerOffers] = useState([]);
+  const [joinDecisionReason, setJoinDecisionReason] = useState({});
 
   useEffect(() => {
     let active = true;
@@ -158,6 +159,25 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       await api("/clubs/auction/offers/" + offerId + "/choose", { method: "POST" });
       await refreshAuctionState();
       if (activeAuctionPlayer) await loadPlayerOffers(activeAuctionPlayer);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const respondToJoinRequest = async (requestId, accept) => {
+    setError("");
+    try {
+      setBusyId("join-" + requestId);
+      await api("/clubs/join-requests/" + requestId + "/respond", {
+        method: "POST",
+        body: { accept, reason: joinDecisionReason[requestId] || "" },
+      });
+      const data = await api("/clubs/join-requests/me");
+      setJoinRequests(Array.isArray(data) ? data : []);
+      const clubsData = await api("/clubs");
+      setClubs(Array.isArray(clubsData) ? clubsData : []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -448,6 +468,43 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
                 {isMember && <span>Current club</span>}
                 {full && !isMember && <span>Squad full</span>}
               </article>;
+            })}
+          </div>
+        </section>
+      )}
+
+      {authUser && joinRequests.some(request => request.clubId) && (
+        <section className="clubs-section">
+          <div className="clubs-section-heading">
+            <div><p className="clubs-eyebrow">CLUB REQUESTS</p><h2>Join requests</h2></div>
+            <span>{joinRequests.length}</span>
+          </div>
+          <div className="clubs-application-list">
+            {joinRequests.map(request => {
+              const requester = players.find(player => String(player._id) === String(request.playerId));
+              const club = clubs.find(item => String(item._id) === String(request.clubId));
+              const isCaptain = club?.captainIds?.some(id => String(id) === currentPlayerId);
+              return (
+                <article className="clubs-application" key={request._id}>
+                  <div>
+                    <p className="clubs-eyebrow">{isCaptain ? "CAPTAIN ACTION" : "YOUR REQUEST"}</p>
+                    <h3>{requester?.name || "Player"} · {club?.name || "Club"}</h3>
+                    <span>{isCaptain ? "Player wants to join your club." : request.status}</span>
+                  </div>
+                  {isCaptain && request.status === "pending" && (
+                    <div className="clubs-application-actions">
+                      <input
+                        value={joinDecisionReason[request._id] || ""}
+                        onChange={event => setJoinDecisionReason(current => ({ ...current, [request._id]: event.target.value }))}
+                        placeholder="Optional rejection reason"
+                        maxLength={500}
+                      />
+                      <button type="button" className="clubs-primary-button" disabled={busyId === "join-" + request._id} onClick={() => respondToJoinRequest(request._id, true)}>Approve</button>
+                      <button type="button" className="clubs-secondary-button" disabled={busyId === "join-" + request._id} onClick={() => respondToJoinRequest(request._id, false)}>Reject</button>
+                    </div>
+                  )}
+                </article>
+              );
             })}
           </div>
         </section>
