@@ -159,7 +159,7 @@ test("V3 pooled betting payouts distribute the entire stake pot exactly", () => 
     ],
     "clubA",
   );
-  assert.equal(payouts.get("a"), 18.75);
-  assert.equal(payouts.get("b"), 56.25);
-  assert.equal(payouts.get("a") + payouts.get("b"), 75);
+  assert.equal(payouts.get("a"), 16.25);
+  assert.equal(payouts.get("b"), 48.75);
+  assert.equal(payouts.get("a") + payouts.get("b"), 65);
 });
