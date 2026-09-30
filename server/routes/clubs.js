@@ -1116,7 +1116,7 @@ router.get("/matches", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const now = new Date();
-    const stale = await ClubMatch.find({ status: "requested", scheduledAt: { $gt: now } }).select("_id createdAt scheduledAt").lean();
+    const stale = await ClubMatch.find({ status: "requested" }).select("_id createdAt scheduledAt").lean();
     const expiredIds = stale.filter(item => now >= clubMatchRequestExpiry(item.createdAt, item.scheduledAt)).map(item => item._id);
     if (expiredIds.length) {
       await ClubMatch.updateMany({ _id: { $in: expiredIds } }, { $set: { status: "declined", responseDecision: "decline" } });
