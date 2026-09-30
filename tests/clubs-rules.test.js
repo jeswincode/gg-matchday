@@ -113,7 +113,7 @@ test("captain approval helper requires every active captain", () => {
   assert.equal(activeCaptainApprovalComplete(["a", "b"], ["b", "a", "b"]), true);
 });
 
-test("renewal retention validation requires exactly two members and at least one captain", () => {
+test("renewal retention validation allows zero, one or two members and requires a captain when two are retained", () => {
   assert.deepEqual(validateRetention(["a", "b", "c", "d"], ["a", "c"], ["a", "b"]), ["a", "c"]);
   assert.throws(
     () => validateRetention(["a", "b", "c", "d"], ["c", "d"], ["a", "b"]),
