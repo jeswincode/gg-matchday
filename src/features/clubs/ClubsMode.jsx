@@ -495,6 +495,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   useEffect(() => {
     if (!isAdmin || activeSection !== "admin") return undefined;
+    // Remote admin data is intentionally refreshed when the Admin section opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- Section entry is the explicit refresh trigger.
     refreshAdminApplications();
     return undefined;
   }, [isAdmin, activeSection]);
