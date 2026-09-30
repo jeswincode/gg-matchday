@@ -28,6 +28,13 @@ export const CLUB_PREDICTION_WEIGHTS = Object.freeze({
 export const CLUB_BETTING_MIN_STAKE = 10;
 export const CLUB_BETTING_MAX_STAKE = 100;
 
+export const CLUB_AUCTION_OFFER_DURATION_HOURS = 48;
+export const CLUB_AUCTION_MIN_BID = 25;
+export const CLUB_AUCTION_BID_INCREMENT = 5;
+
+export const CLUB_MATCH_REQUEST_TTL_HOURS = 24;
+export const CLUB_MATCH_REQUEST_CUTOFF_MINUTES = 60;
+
 export const CLUB_REWARDS = Object.freeze({
   matchWin: 100,
   matchDraw: 50,
@@ -63,6 +70,33 @@ export function validateClubMemberCount(memberIds) {
   }
 
   return uniqueIds;
+}
+
+export function auctionOfferExpiry(createdAt = new Date()) {
+  const created = new Date(createdAt);
+  return new Date(created.getTime() + CLUB_AUCTION_OFFER_DURATION_HOURS * 60 * 60 * 1000);
+}
+
+export function validateAuctionBid(amount, highestActiveBid = 0) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value < CLUB_AUCTION_MIN_BID) {
+    throw new Error(`The minimum auction bid is ${CLUB_AUCTION_MIN_BID} credits.`);
+  }
+  const minimumNextBid = highestActiveBid > 0
+    ? Number(highestActiveBid) + CLUB_AUCTION_BID_INCREMENT
+    : CLUB_AUCTION_MIN_BID;
+  if (value < minimumNextBid) {
+    throw new Error(`The next auction bid must be at least ${minimumNextBid} credits.`);
+  }
+  return Math.round(value * 100) / 100;
+}
+
+export function clubMatchRequestExpiry(createdAt, scheduledAt) {
+  const created = new Date(createdAt);
+  const scheduled = new Date(scheduledAt);
+  const ttl = new Date(created.getTime() + CLUB_MATCH_REQUEST_TTL_HOURS * 60 * 60 * 1000);
+  const kickoffCutoff = new Date(scheduled.getTime() - CLUB_MATCH_REQUEST_CUTOFF_MINUTES * 60 * 1000);
+  return ttl < kickoffCutoff ? ttl : kickoffCutoff;
 }
 
 export function validateFormation(formation) {
