@@ -6,7 +6,7 @@ import ClubFormationApplication from "../models/clubs/ClubFormationApplication.j
 import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   CLUB_FORMATIONS,
   CLUB_MAX_MEMBERS,
