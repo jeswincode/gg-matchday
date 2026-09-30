@@ -2390,3 +2390,95 @@ textarea:focus {
 .gg-player-card-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;color:#827b80;font-size:10px}
 @media(max-width:760px){.profile-attributes-grid{grid-template-columns:repeat(3,1fr)}.gg-player-card-attrs{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:480px){.profile-attributes-summary{grid-template-columns:1fr}.profile-attributes-grid{grid-template-columns:repeat(2,1fr)}.gg-player-card-top{align-items:flex-start}.gg-player-card-footer{align-items:stretch;flex-direction:column}}
+
+
+/* =========================================================
+   MATCHDAY <-> CLUBS PRODUCT TRANSITION
+========================================================= */
+
+.product-mode-transition{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  pointer-events:none;
+  overflow:hidden;
+  isolation:isolate;
+}
+
+.product-mode-transition::before{
+  content:"";
+  position:absolute;
+  inset:-15%;
+  background:linear-gradient(135deg,#15171b 0%,#201b20 42%,#9b6476 100%);
+  opacity:.96;
+  transform:translateY(110%);
+  animation:productModeCover .72s cubic-bezier(.76,0,.24,1) both;
+}
+
+.product-mode-wave{
+  position:absolute;
+  left:-12%;
+  width:124%;
+  height:46%;
+  min-height:260px;
+  border-radius:50% 50% 0 0 / 28% 28% 0 0;
+  background:#111318;
+  box-shadow:0 -18px 60px rgba(201,135,154,.18);
+  transform:translateY(120%);
+  animation:productModeWaveIn .72s cubic-bezier(.76,0,.24,1) both;
+}
+
+.product-mode-wave--one{
+  bottom:-17%;
+  animation-delay:.02s;
+}
+
+.product-mode-wave--two{
+  bottom:-23%;
+  background:#8f5c70;
+  opacity:.78;
+  animation-delay:.08s;
+}
+
+.product-mode-wave--three{
+  bottom:-29%;
+  background:#c4879c;
+  opacity:.5;
+  animation-delay:.14s;
+}
+
+.product-mode-transition--to-matchday::before{
+  background:linear-gradient(135deg,#080a0f 0%,#11151d 54%,#c4879c 100%);
+}
+
+.product-mode-transition--to-matchday .product-mode-wave--one{
+  background:#080a0f;
+}
+
+.product-mode-transition--to-matchday .product-mode-wave--two{
+  background:#252b36;
+}
+
+.product-mode-transition--to-matchday .product-mode-wave--three{
+  background:#9b6476;
+}
+
+@keyframes productModeCover{
+  0%{transform:translateY(110%);}
+  42%{transform:translateY(0);}
+  100%{transform:translateY(-110%);}
+}
+
+@keyframes productModeWaveIn{
+  0%{transform:translateY(120%) rotate(-1deg);}
+  38%{transform:translateY(0) rotate(0deg);}
+  100%{transform:translateY(-145%) rotate(1deg);}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .product-mode-transition::before,
+  .product-mode-wave{
+    animation-duration:.01ms;
+    animation-iteration-count:1;
+  }
+}
