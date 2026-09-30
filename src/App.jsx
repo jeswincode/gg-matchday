@@ -119,7 +119,7 @@ function App() {
       // URL history is optional in restricted browser environments.
     }
     window.setTimeout(()=>setModeTransition(null),720);
-  },[modeTransition,productMode]);
+  },[modeTransition,productMode,theme]);
 
   function isTouchInteractionExcluded(target) {
     if (!(target instanceof Element)) return false;
