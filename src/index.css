@@ -2369,3 +2369,24 @@ textarea:focus {
     min-height: 62px;
   }
 }
+
+.profile-attributes-summary,.profile-attributes-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.profile-attributes-summary>div,.profile-attributes-grid>div{padding:14px;border:1px solid #2b292b;border-radius:14px;background:#141416}
+.profile-attributes-summary span,.profile-attributes-grid span{display:block;color:#888186;font-size:10px;letter-spacing:.1em}
+.profile-attributes-summary strong{display:block;margin-top:5px;font-size:22px;color:#e8b8b9}
+.profile-attributes-grid{grid-template-columns:repeat(6,minmax(0,1fr))}
+.profile-attributes-grid strong{display:block;margin-top:5px}
+.gg-player-card{overflow:hidden;background:linear-gradient(145deg,#191417,#101012);border-color:#4a3639}
+.gg-player-card-top{display:flex;justify-content:space-between;gap:20px;align-items:center}
+.gg-player-card-top h3{margin:2px 0;font-size:26px}
+.gg-player-card-top span{color:#928b90;font-size:11px}
+.gg-player-card-ovr{text-align:center;min-width:76px}
+.gg-player-card-ovr strong{display:block;color:#e8b8b9;font-size:42px;line-height:1}
+.gg-player-card-ovr span{font-size:10px;letter-spacing:.15em}
+.gg-player-card-attrs{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:18px}
+.gg-player-card-attrs div{text-align:center;padding:12px 5px;border:1px solid #30292b;border-radius:12px}
+.gg-player-card-attrs span{display:block;color:#817a7e;font-size:9px}
+.gg-player-card-attrs strong{font-size:18px}
+.gg-player-card-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;color:#827b80;font-size:10px}
+@media(max-width:760px){.profile-attributes-grid{grid-template-columns:repeat(3,1fr)}.gg-player-card-attrs{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){.profile-attributes-summary{grid-template-columns:1fr}.profile-attributes-grid{grid-template-columns:repeat(2,1fr)}.gg-player-card-top{align-items:flex-start}.gg-player-card-footer{align-items:stretch;flex-direction:column}}
