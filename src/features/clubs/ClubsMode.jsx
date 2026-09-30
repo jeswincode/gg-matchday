@@ -721,7 +721,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             <div className="clubs-invite-grid">
               <label><span>YOUR CLUB</span><select value={offerClub} onChange={e => setOfferClub(e.target.value)}><option value="">Choose club</option>{clubs.filter(c => c.memberIds?.some(id => String(id) === currentPlayerId) && c.captainIds?.some(id => String(id) === currentPlayerId)).map(c => <option key={c._id} value={c._id}>{c.name}</option>)}</select></label>
               <label><span>PLAYER</span><select value={offerPlayer} onChange={e => setOfferPlayer(e.target.value)}><option value="">Choose player</option>{players.filter(p => String(p._id) !== currentPlayerId).map(p => <option key={p._id} value={p._id}>{p.name}</option>)}</select></label>
-              <label><span>OFFER</span><input type="number" min="1" value={offerAmount} onChange={e => setOfferAmount(e.target.value)} placeholder="Credits" /></label>
+              <label><span>OFFER</span><input type="number" min="25" step="5" value={offerAmount} onChange={e => setOfferAmount(e.target.value)} placeholder="Min 25 · +5" /></label>
             </div>
             <button className="clubs-primary-button" type="submit" disabled={busyId === "offer"}>{busyId === "offer" ? "Sending…" : "Send Signing Offer"}</button>
           </form>
