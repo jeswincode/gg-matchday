@@ -18,6 +18,7 @@ import profileRequestRoutes from "./routes/profileRequests.js";
 import immersiveNewsRoutes from "./routes/immersiveNews.js";
 import systemRoutes from "./routes/system.js";
 import ggAdminRoutes from "./routes/ggAdmin.js";
+import clubsRoutes from "./routes/clubs.js";
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use("/api/system", systemRoutes);
 app.use("/api/admin/gg", ggAdminRoutes);
 app.use("/api/profile-requests", profileSecurityRoutes);
 app.use("/api/profile-requests", profileRequestRoutes);
+app.use("/api/clubs", clubsRoutes);
 
 app.get("/api/health", async (req, res) => {
   try {
