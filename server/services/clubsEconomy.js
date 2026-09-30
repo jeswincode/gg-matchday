@@ -148,3 +148,24 @@ export async function creditClubMatchReward({ clubId, amount, description = "", 
     idempotencyKey,
   });
 }
+
+export async function debitPlayerWallet({ playerId, amount, type = "betting_stake", description = "", session, refs = {}, idempotencyKey = null }) {
+  const value = positiveMoney(amount);
+  const wallet = await PlayerWallet.findOneAndUpdate(
+    { playerId, balance: { $gte: value } },
+    { $inc: { balance: -value } },
+    { new: true, session },
+  );
+  if (!wallet) throw new Error("Player wallet has insufficient balance.");
+  await createPlayerLedgerEntry({
+    playerId,
+    type,
+    amount: -value,
+    balanceAfter: wallet.balance,
+    description,
+    session,
+    ...refs,
+    idempotencyKey,
+  });
+  return wallet;
+}
