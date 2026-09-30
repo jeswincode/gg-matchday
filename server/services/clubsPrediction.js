@@ -62,6 +62,34 @@ async function clubSnapshot(clubId, completedMatches) {
   };
 }
 
+export function calculatePredictionPercentages(a, b) {
+  const normalizedOvrA = clamp(Number(a.averagePlayerOvr) / 99);
+  const normalizedOvrB = clamp(Number(b.averagePlayerOvr) / 99);
+  const ovrTotal = normalizedOvrA + normalizedOvrB || 1;
+  const ovrA = normalizedOvrA / ovrTotal;
+  const ovrB = normalizedOvrB / ovrTotal;
+  const ratingTotal = Number(a.averageMatchRating || 0) + Number(b.averageMatchRating || 0) || 1;
+  const ratingA = Number(a.averageMatchRating || 0) / ratingTotal;
+  const ratingB = Number(b.averageMatchRating || 0) / ratingTotal;
+  const h2hA = clamp(Number(a.headToHead ?? 0.5));
+  const h2hB = 1 - h2hA;
+  const scoreA =
+    CLUB_PREDICTION_WEIGHTS.averagePlayerOvr * ovrA +
+    CLUB_PREDICTION_WEIGHTS.recentForm * clamp(a.recentForm) +
+    CLUB_PREDICTION_WEIGHTS.averageMatchRating * ratingA +
+    CLUB_PREDICTION_WEIGHTS.record * clamp(a.record) +
+    CLUB_PREDICTION_WEIGHTS.headToHead * h2hA;
+  const scoreB =
+    CLUB_PREDICTION_WEIGHTS.averagePlayerOvr * ovrB +
+    CLUB_PREDICTION_WEIGHTS.recentForm * clamp(b.recentForm) +
+    CLUB_PREDICTION_WEIGHTS.averageMatchRating * ratingB +
+    CLUB_PREDICTION_WEIGHTS.record * clamp(b.record) +
+    CLUB_PREDICTION_WEIGHTS.headToHead * h2hB;
+  const total = scoreA + scoreB || 1;
+  const clubAPercent = Math.round((scoreA / total) * 100);
+  return { clubAPercent, clubBPercent: 100 - clubAPercent };
+}
+
 export async function generateClubMatchPrediction(clubMatchId) {
   const clubMatch = await ClubMatch.findById(clubMatchId);
   if (!clubMatch) throw new Error("Club match not found.");
@@ -100,32 +128,13 @@ export async function generateClubMatchPrediction(clubMatchId) {
     }, 0) / headToHead.length;
   }
 
-  const normalizedOvrA = clamp(a.averagePlayerOvr / 99);
-  const normalizedOvrB = clamp(b.averagePlayerOvr / 99);
-  const ovrTotal = normalizedOvrA + normalizedOvrB || 1;
-  const ovrA = normalizedOvrA / ovrTotal;
-  const ovrB = normalizedOvrB / ovrTotal;
-  const ratingTotal = a.averageMatchRating + b.averageMatchRating || 1;
-  const ratingA = a.averageMatchRating / ratingTotal;
-  const ratingB = b.averageMatchRating / ratingTotal;
+  const prediction = calculatePredictionPercentages(
+    { ...a, headToHead: h2hA },
+    { ...b, headToHead: h2hA },
+  );
 
-  const scoreA =
-    CLUB_PREDICTION_WEIGHTS.averagePlayerOvr * ovrA +
-    CLUB_PREDICTION_WEIGHTS.recentForm * a.recentForm +
-    CLUB_PREDICTION_WEIGHTS.averageMatchRating * ratingA +
-    CLUB_PREDICTION_WEIGHTS.record * a.record +
-    CLUB_PREDICTION_WEIGHTS.headToHead * h2hA;
-  const scoreB =
-    CLUB_PREDICTION_WEIGHTS.averagePlayerOvr * ovrB +
-    CLUB_PREDICTION_WEIGHTS.recentForm * b.recentForm +
-    CLUB_PREDICTION_WEIGHTS.averageMatchRating * ratingB +
-    CLUB_PREDICTION_WEIGHTS.record * b.record +
-    CLUB_PREDICTION_WEIGHTS.headToHead * (1 - h2hA);
-
-  const total = scoreA + scoreB || 1;
   clubMatch.prediction = {
-    clubAPercent: Math.round((scoreA / total) * 100),
-    clubBPercent: Math.round((scoreB / total) * 100),
+    ...prediction,
     generatedAt: new Date(),
   };
   await clubMatch.save();
