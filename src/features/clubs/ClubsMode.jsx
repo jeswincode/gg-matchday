@@ -15,10 +15,12 @@ function statusLabel(status) {
   }[status] || status;
 }
 
-export default function ClubsMode({ onReturnToMatchday, authUser }) {
+export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = false }) {
   const [clubs, setClubs] = useState([]);
   const [players, setPlayers] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [adminApplications, setAdminApplications] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [formationLoading, setFormationLoading] = useState(false);
@@ -117,6 +119,33 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       active = false;
     };
   }, [activeSection, currentClub?._id]);
+
+  const refreshAdminApplications = async () => {
+    if (!isAdmin) return;
+    try {
+      setAdminLoading(true);
+      const data = await api("/clubs/admin/applications");
+      setAdminApplications(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const respondToAdminApplication = async (applicationId, action) => {
+    try {
+      setBusyId("admin-" + applicationId);
+      await api("/clubs/admin/applications/" + applicationId + "/" + action, { method: "POST" });
+      await refreshAdminApplications();
+      const clubsData = await api("/clubs");
+      setClubs(Array.isArray(clubsData) ? clubsData : []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const refreshReviews = async () => {
     if (!authUser) return;
@@ -465,6 +494,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   };
 
   useEffect(() => {
+    if (!isAdmin || activeSection !== "admin") return undefined;
+    refreshAdminApplications();
+    return undefined;
+  }, [isAdmin, activeSection]);
+
+  useEffect(() => {
     if (!authUser || activeSection !== "reviews") return undefined;
     let active = true;
     api("/clubs/reviews/eligible/me")
@@ -535,6 +570,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
         <button className={activeSection === "auctions" ? "active" : ""} type="button" onClick={() => setActiveSection("auctions")}>Auctions</button>
         <button className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches</button>
         <button className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
+        {isAdmin && <button className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => setActiveSection("admin")}>Admin</button>}
       </nav>
 
       {error && <div className="clubs-error" role="alert">{error}</div>}
@@ -961,6 +997,36 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
                 )}
               </section>
             </>
+          )}
+        </section>
+      ) : activeSection === "admin" ? (
+        <section className="clubs-section">
+          <div className="clubs-section-heading">
+            <div><p className="clubs-eyebrow">CLUB ADMIN</p><h2>Formation approvals</h2></div>
+            <span>{adminLoading ? "Loading…" : adminApplications.length}</span>
+          </div>
+          {!isAdmin ? (
+            <div className="clubs-empty">Admin access is required.</div>
+          ) : adminLoading ? (
+            <div className="clubs-empty">Loading formation applications…</div>
+          ) : adminApplications.length === 0 ? (
+            <div className="clubs-empty">No formation applications are waiting for admin action.</div>
+          ) : (
+            <div className="clubs-application-list">
+              {adminApplications.map(application => (
+                <article className="clubs-application" key={application._id}>
+                  <div>
+                    <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
+                    <h3>{application.proposedName || "Unnamed club"}</h3>
+                    <span>{application.memberIds?.length || 0}/4 members · {application.formation}</span>
+                  </div>
+                  <div className="clubs-application-actions">
+                    <button type="button" className="clubs-primary-button" disabled={busyId === "admin-" + application._id} onClick={() => respondToAdminApplication(application._id, "approve")}>Approve</button>
+                    <button type="button" className="clubs-secondary-button" disabled={busyId === "admin-" + application._id} onClick={() => respondToAdminApplication(application._id, "reject")}>Reject</button>
+                  </div>
+                </article>
+              ))}
+            </div>
           )}
         </section>
       ) : activeSection === "reviews" ? (
