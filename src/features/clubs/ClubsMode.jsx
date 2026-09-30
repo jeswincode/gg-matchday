@@ -35,10 +35,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [offerPlayer, setOfferPlayer] = useState("");
   const [offerAmount, setOfferAmount] = useState("");
   const [offerClub, setOfferClub] = useState("");
+  const [activeSection, setActiveSection] = useState("overview");
+  const [clubMatches, setClubMatches] = useState([]);
+  const [matchClubA, setMatchClubA] = useState("");
+  const [matchClubB, setMatchClubB] = useState("");
+  const [matchScheduledAt, setMatchScheduledAt] = useState("");
+  const [matchSubmitting, setMatchSubmitting] = useState(false);
 
   useEffect(() => {
     let active = true;
-    const requests = [api("/clubs/meta"), api("/clubs"), api("/players")];
+    const requests = [api("/clubs/meta"), api("/clubs"), api("/players"), api("/clubs/matches")];
     if (authUser) requests.push(api("/clubs/formation/me"));
 
     Promise.all(requests)
@@ -47,14 +53,19 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
         setMeta(results[0]);
         setClubs(Array.isArray(results[1]) ? results[1] : []);
         setPlayers(Array.isArray(results[2]) ? results[2] : []);
-        setApplications(authUser && Array.isArray(results[3]) ? results[3] : []);
+        setClubMatches(Array.isArray(results[3]) ? results[3] : []);
+        setApplications(authUser && Array.isArray(results[4]) ? results[4] : []);
+
         if (authUser) {
-          Promise.all([api("/clubs/wallet/me"), api("/clubs/join-requests/me")]).then(([walletData, joinData]) => {
-            if (!active) return;
-            setWallet(walletData);
-            setJoinRequests(Array.isArray(joinData) ? joinData : []);
-          }).catch(() => {});
+          Promise.all([api("/clubs/wallet/me"), api("/clubs/join-requests/me")])
+            .then(([walletData, joinData]) => {
+              if (!active) return;
+              setWallet(walletData);
+              setJoinRequests(Array.isArray(joinData) ? joinData : []);
+            })
+            .catch(() => {});
         }
+
         setError("");
       })
       .catch(requestError => {
@@ -65,38 +76,122 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
         if (active) setLoading(false);
       });
 
-    const sendJoinRequest = async clubId => {
+    return () => {
+      active = false;
+    };
+  }, [authUser]);
+  const refreshClubMatches = async () => {
+    const data = await api("/clubs/matches");
+    setClubMatches(Array.isArray(data) ? data : []);
+  };
+
+  const sendJoinRequest = async clubId => {
     setError("");
     try {
       setBusyId(clubId);
       await api("/clubs/join-requests", { method: "POST", body: { clubId } });
       const data = await api("/clubs/join-requests/me");
       setJoinRequests(Array.isArray(data) ? data : []);
-    } catch (e) { setError(e.message); } finally { setBusyId(null); }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const makeOffer = async event => {
     event.preventDefault();
     setError("");
-    if (!offerClub || !offerPlayer || !offerAmount) { setError("Choose a club, player and offer amount."); return; }
+    if (!offerClub || !offerPlayer || !offerAmount) {
+      setError("Choose a club, player and offer amount.");
+      return;
+    }
     try {
       setBusyId("offer");
-      await api("/clubs/auction/offers", { method: "POST", body: { clubId: offerClub, playerId: offerPlayer, amount: Number(offerAmount) } });
-      setOfferPlayer(""); setOfferAmount("");
-    } catch (e) { setError(e.message); } finally { setBusyId(null); }
+      await api("/clubs/auction/offers", {
+        method: "POST",
+        body: { clubId: offerClub, playerId: offerPlayer, amount: Number(offerAmount) },
+      });
+      setOfferPlayer("");
+      setOfferAmount("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  return () => {
-      active = false;
-    };
-  }, [authUser]);
+  const requestClubMatch = async event => {
+    event.preventDefault();
+    setError("");
+    if (!matchClubA || !matchClubB || !matchScheduledAt) {
+      setError("Choose two clubs and a future match date.");
+      return;
+    }
+    if (matchClubA === matchClubB) {
+      setError("Choose two different clubs.");
+      return;
+    }
+    try {
+      setMatchSubmitting(true);
+      await api("/clubs/matches", {
+        method: "POST",
+        body: { clubAId: matchClubA, clubBId: matchClubB, scheduledAt: new Date(matchScheduledAt).toISOString() },
+      });
+      setMatchClubB("");
+      setMatchScheduledAt("");
+      await refreshClubMatches();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setMatchSubmitting(false);
+    }
+  };
+
+  const respondToClubMatch = async (matchId, accept) => {
+    setError("");
+    try {
+      setBusyId(matchId);
+      await api("/clubs/matches/" + matchId + "/respond", { method: "POST", body: { accept } });
+      await refreshClubMatches();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const cancelClubMatch = async matchId => {
+    setError("");
+    try {
+      setBusyId(matchId);
+      await api("/clubs/matches/" + matchId + "/cancel", { method: "POST" });
+      await refreshClubMatches();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const clubName = clubId =>
+    clubs.find(club => String(club._id) === String(clubId))?.name || "Unknown club";
+  const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
+  const myCaptainClubs = clubs.filter(club =>
+    club.memberIds?.some(id => String(id) === currentPlayerId) &&
+    club.captainIds?.some(id => String(id) === currentPlayerId),
+  );
+  const minMatchDateTime = (() => {
+    const date = new Date(Date.now() + 60 * 1000);
+    const offset = date.getTimezoneOffset() * 60 * 1000;
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  })();
 
   const formations = useMemo(
     () => meta?.formations?.length ? meta.formations : formationLabels,
     [meta],
   );
 
-  const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
 
   const availablePlayers = useMemo(
     () => players.filter(player => String(player._id) !== currentPlayerId),
@@ -202,15 +297,17 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       </header>
 
       <nav className="clubs-nav" aria-label="Clubs navigation">
-        <button className="active" type="button">Ultimate Clubs</button>
+        <button className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => setActiveSection("overview")}>Ultimate Clubs</button>
         <button type="button" disabled>My Club</button>
         <button type="button">Players</button>
         <button type="button">Auctions</button>
-        <button type="button" disabled>Matches</button>
+        <button className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches</button>
       </nav>
 
       {error && <div className="clubs-error" role="alert">{error}</div>}
 
+      {activeSection === "overview" ? (
+        <>
       <section className="clubs-hero">
         <div>
           <p className="clubs-eyebrow">THE CLUBS WORLD</p>
@@ -476,6 +573,59 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
           </div>
         )}
       </section>
+
+        </>
+      ) : (
+      <section className="clubs-section clubs-matches-panel">
+        <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUB MATCHES</p><h2>Schedule & fixtures</h2></div><span>{clubMatches.length} recorded</span></div>
+        {authUser && myCaptainClubs.length > 0 && (
+          <form className="clubs-create-form clubs-match-form" onSubmit={requestClubMatch}>
+            <div className="clubs-invite-grid">
+              <label><span>YOUR CLUB</span><select value={matchClubA} onChange={event => setMatchClubA(event.target.value)}>
+                <option value="">Choose your club</option>
+                {myCaptainClubs.map(club => <option key={club._id} value={club._id}>{club.name}</option>)}
+              </select></label>
+              <label><span>OPPONENT CLUB</span><select value={matchClubB} onChange={event => setMatchClubB(event.target.value)}>
+                <option value="">Choose opponent</option>
+                {clubs.filter(club => String(club._id) !== String(matchClubA)).map(club => <option key={club._id} value={club._id}>{club.name}</option>)}
+              </select></label>
+              <label><span>SCHEDULED FOR</span><input type="datetime-local" min={minMatchDateTime} value={matchScheduledAt} onChange={event => setMatchScheduledAt(event.target.value)} /></label>
+            </div>
+            <button type="submit" className="clubs-primary-button" disabled={matchSubmitting}>{matchSubmitting ? "Sending request…" : "Request Club Match"}</button>
+          </form>
+        )}
+        {authUser && myCaptainClubs.length === 0 && <div className="clubs-empty clubs-match-note"><strong>You need an approved club captain role to request a fixture.</strong><span>Incoming club-match requests will still appear below.</span></div>}
+        {clubMatches.length === 0 ? (
+          <div className="clubs-empty"><strong>No club fixtures yet.</strong><span>Accepted fixtures remain linked to the normal GG Match Record when played.</span></div>
+        ) : (
+          <div className="clubs-application-list clubs-match-list">
+            {clubMatches.map(match => {
+              const isReceivingClub = myCaptainClubs.some(club => String(club._id) === String(match.clubBId));
+              const isRequestingClub = myCaptainClubs.some(club => String(club._id) === String(match.requestedByClubId));
+              const hasCaptainResponse = match.status === "requested" && match.captainResponses?.length > 0;
+              return (
+                <article className="clubs-application clubs-match-card" key={match._id}>
+                  <div>
+                    <p className="clubs-eyebrow">{match.status}</p>
+                    <h3>{clubName(match.clubAId)} <span className="clubs-match-vs">vs</span> {clubName(match.clubBId)}</h3>
+                    <span>{new Date(match.scheduledAt).toLocaleString()} · {match.status === "completed" ? String(match.clubAScore) + "–" + String(match.clubBScore) : match.status === "accepted" ? "Accepted · waiting for Matchday record" : "Awaiting response"}</span>
+                    {match.status === "requested" && isReceivingClub && <small className="clubs-match-hint">{hasCaptainResponse ? "A captain response is recorded; receiving captains must agree." : "Captain response required."}</small>}
+                  </div>
+                  <div className="clubs-application-actions">
+                    {match.status === "requested" && isReceivingClub && <>
+                      <button type="button" className="clubs-primary-button" disabled={busyId === match._id} onClick={() => respondToClubMatch(match._id, true)}>Accept</button>
+                      <button type="button" className="clubs-secondary-button" disabled={busyId === match._id} onClick={() => respondToClubMatch(match._id, false)}>Decline</button>
+                    </>}
+                    {["requested", "accepted"].includes(match.status) && isRequestingClub && <button type="button" className="clubs-secondary-button" disabled={busyId === match._id} onClick={() => cancelClubMatch(match._id)}>Cancel request</button>}
+                    {match.status === "completed" && <span className="clubs-match-linked">Linked to Matchday</span>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+      )}
     </main>
   );
 }

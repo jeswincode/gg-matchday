@@ -25,6 +25,7 @@ import PlayerWallet from "../models/clubs/PlayerWallet.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
 import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
+import ClubMatch from "../models/clubs/ClubMatch.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { positiveMoney, activeCaptainApprovalComplete, validateRetention } from "../services/clubsEconomy.js";
@@ -682,10 +683,19 @@ router.get("/matches", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const filter = {};
-    if (mongoose.isValidObjectId(req.query.clubId)) filter.$or = [{ clubAId: req.query.clubId }, { clubBId: req.query.clubId }];
-    const matches = await (await import("../models/clubs/ClubMatch.js")).default.find(filter).sort({ scheduledAt: -1 }).limit(50).lean();
+    if (req.query.clubId !== undefined) {
+      if (!mongoose.isValidObjectId(req.query.clubId)) {
+        return res.status(400).json({ message: "Invalid club id." });
+      }
+      filter.$or = [{ clubAId: req.query.clubId }, { clubBId: req.query.clubId }];
+    }
+    const matches = await ClubMatch.find(filter)
+      .sort({ scheduledAt: -1, createdAt: -1 })
+      .limit(100)
+      .lean();
     return res.json(matches);
   } catch (error) {
+    console.error("Load club matches error:", error);
     return res.status(500).json({ message: "Failed to load club matches." });
   }
 });
@@ -695,22 +705,35 @@ router.post("/matches", requireAuth, async (req, res) => {
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
   const { clubAId, clubBId, scheduledAt } = req.body || {};
+
   if (!mongoose.isValidObjectId(clubAId) || !mongoose.isValidObjectId(clubBId) || String(clubAId) === String(clubBId)) {
     return res.status(400).json({ message: "Choose two different valid clubs." });
   }
-  const ClubMatch = (await import("../models/clubs/ClubMatch.js")).default;
+
   try {
     const requestedClub = await Club.findOne({ _id: clubAId, status: "approved" }).lean();
     const receivingClub = await Club.findOne({ _id: clubBId, status: "approved" }).lean();
     if (!requestedClub || !receivingClub) return res.status(404).json({ message: "Both clubs must exist and be approved." });
+
     if (!requestedClub.memberIds.some(id => String(id) === String(playerId)) || !requestedClub.captainIds.some(id => String(id) === String(playerId))) {
       return res.status(403).json({ message: "Only a captain of the requesting club can schedule a club match." });
     }
+
     const date = new Date(scheduledAt);
-    if (Number.isNaN(date.getTime()) || date <= new Date()) return res.status(400).json({ message: "Choose a valid future match date." });
-    const match = await ClubMatch.create({ clubAId, clubBId, requestedByClubId: clubAId, scheduledAt: date, status: "requested" });
+    if (Number.isNaN(date.getTime()) || date <= new Date()) {
+      return res.status(400).json({ message: "Choose a valid future match date." });
+    }
+
+    const match = await ClubMatch.create({
+      clubAId,
+      clubBId,
+      requestedByClubId: clubAId,
+      scheduledAt: date,
+      status: "requested",
+    });
     return res.status(201).json(match);
   } catch (error) {
+    console.error("Create club match request error:", error);
     return res.status(400).json({ message: error.message || "Failed to request the club match." });
   }
 });
@@ -719,19 +742,46 @@ router.post("/matches/:matchId/respond", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
-  const ClubMatch = (await import("../models/clubs/ClubMatch.js")).default;
+  if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
+
   try {
     const match = await ClubMatch.findById(req.params.matchId);
     if (!match) return res.status(404).json({ message: "Club match not found." });
     if (match.status !== "requested") return res.status(409).json({ message: "This club match is no longer awaiting a response." });
-    const isReceivingClub = String(match.clubBId) === String(await Club.findOne({ _id: match.clubBId, memberIds: playerId }).then(c => c?._id || ""));
-    if (!isReceivingClub) return res.status(403).json({ message: "Only a player from the receiving club can respond." });
-    const club = await Club.findOne({ _id: match.clubBId, status: "approved" }).lean();
-    if (!club?.captainIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only a captain of the receiving club can respond." });
-    match.status = req.body?.accept === true ? "accepted" : "declined";
+
+    const accept = req.body?.accept;
+    if (typeof accept !== "boolean") {
+      return res.status(400).json({ message: "Respond with accept=true or accept=false." });
+    }
+
+    const receivingClub = await Club.findOne({ _id: match.clubBId, status: "approved" }).lean();
+    if (!receivingClub) return res.status(404).json({ message: "Receiving club not found." });
+    if (!receivingClub.captainIds.some(id => String(id) === String(playerId))) {
+      return res.status(403).json({ message: "Only a captain of the receiving club can respond." });
+    }
+
+    const captainIds = receivingClub.captainIds.map(String);
+    const decision = accept ? "accept" : "decline";
+    const response = match.captainResponses.find(item => String(item.captainId) === String(playerId));
+    if (response) response.decision = decision;
+    else match.captainResponses.push({ captainId: playerId, decision });
+
+    const captainResponses = match.captainResponses.filter(item => captainIds.includes(String(item.captainId)));
+    const allCaptainsResponded = captainIds.every(id => captainResponses.some(item => String(item.captainId) === id));
+    const allAgreed = allCaptainsResponded && new Set(captainResponses.map(item => item.decision)).size === 1;
+
+    if (captainIds.length === 1 || allAgreed) {
+      match.status = (captainResponses[0]?.decision || decision) === "accept" ? "accepted" : "declined";
+      match.responseDecision = match.status === "accepted" ? "accept" : "decline";
+    } else {
+      match.status = "requested";
+      match.responseDecision = null;
+    }
+
     await match.save();
     return res.json(match);
   } catch (error) {
+    console.error("Respond to club match error:", error);
     return res.status(400).json({ message: error.message || "Failed to respond to club match." });
   }
 });
@@ -740,17 +790,21 @@ router.post("/matches/:matchId/cancel", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
-  const ClubMatch = (await import("../models/clubs/ClubMatch.js")).default;
+  if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
+
   try {
     const match = await ClubMatch.findById(req.params.matchId);
     if (!match) return res.status(404).json({ message: "Club match not found." });
-    const club = await Club.findOne({ _id: match.requestedByClubId, status: "approved" }).lean();
-    if (!club?.captainIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only a captain of the requesting club can cancel this match." });
+    const requestingClub = await Club.findOne({ _id: match.requestedByClubId, status: "approved" }).lean();
+    if (!requestingClub?.captainIds.some(id => String(id) === String(playerId))) {
+      return res.status(403).json({ message: "Only a captain of the requesting club can cancel this match." });
+    }
     if (!["requested", "accepted"].includes(match.status)) return res.status(409).json({ message: "This club match cannot be cancelled now." });
     match.status = "cancelled";
     await match.save();
     return res.json(match);
   } catch (error) {
+    console.error("Cancel club match error:", error);
     return res.status(400).json({ message: error.message || "Failed to cancel club match." });
   }
 });

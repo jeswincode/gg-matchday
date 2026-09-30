@@ -7,7 +7,7 @@ import Match from "../models/Match.js";
 
 const idOf = value => String(value?._id || value);
 
-function winnerForClub(scoreA, scoreB, isA) {
+export function winnerForClub(scoreA, scoreB, isA) {
   if (scoreA === scoreB) return "draw";
   if (isA) return scoreA > scoreB ? "win" : "loss";
   return scoreB > scoreA ? "win" : "loss";
@@ -22,13 +22,14 @@ async function findContractMap(playerIds, date) {
   return new Map(contracts.map(contract => [idOf(contract.playerId), contract]));
 }
 
-function inferClubSides(mainMatch, contractMap, clubMatch) {
+export function inferClubSides(mainMatch, contractMap, clubMatch) {
   const allowed = new Set([String(clubMatch.clubAId), String(clubMatch.clubBId)]);
   const sideClubIds = { A: new Set(), B: new Set() };
   for (const participant of mainMatch.participants || []) {
     const contract = contractMap.get(idOf(participant.player));
     if (!contract || !allowed.has(String(contract.clubId))) return null;
-    sideClubIds[participant.team]?.add(String(contract.clubId));
+    if (!["A", "B"].includes(participant.team)) return null;
+    sideClubIds[participant.team].add(String(contract.clubId));
   }
   if (!sideClubIds.A.size || !sideClubIds.B.size) return null;
   if (sideClubIds.A.size !== 1 || sideClubIds.B.size !== 1) return null;
@@ -85,14 +86,21 @@ export async function attachMainMatchToClubMatch(mainMatch) {
 
   const affectedClubIds = [...new Set(linked.flatMap(item => [String(item.clubAId), String(item.clubBId)]))];
   for (const clubId of affectedClubIds) {
+    const linkedClubMatch = linked.find(item => String(item.clubAId) === clubId || String(item.clubBId) === clubId);
     await rebuildClubPlayerStats(clubId);
     await ClubHistory.findOneAndUpdate(
       { clubId, relatedMainMatchId: mainMatch._id, eventType: "matchPlayed" },
       {
         $set: {
+          relatedClubMatchId: linkedClubMatch?._id || null,
           description: "Club statistics synced from the normal GG Match Record.",
-          metadata: { mainMatchId: String(mainMatch._id) },
-          occurredAt: new Date(),
+          metadata: {
+            mainMatchId: String(mainMatch._id),
+            clubMatchId: String(linkedClubMatch?._id || ""),
+            clubAScore: Number(linkedClubMatch?.clubAScore ?? 0),
+            clubBScore: Number(linkedClubMatch?.clubBScore ?? 0),
+          },
+          occurredAt: new Date(mainMatch.date),
         },
         $setOnInsert: { clubId, relatedMainMatchId: mainMatch._id, eventType: "matchPlayed" },
       },
@@ -159,7 +167,7 @@ export async function rebuildClubPlayerStats(clubId) {
       stats.push({
         clubId: new mongoose.Types.ObjectId(clubId),
         playerId: new mongoose.Types.ObjectId(playerId),
-        matchesPlayed, wins, draws, losses, goals, assists, motm,
+        matches: matchesPlayed, wins, draws, losses, goals, assists, motm,
         ratingTotal, ratedMatches, lastMainMatchId, lastPlayedAt,
       });
     }

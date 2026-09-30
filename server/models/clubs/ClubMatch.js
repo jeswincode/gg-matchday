@@ -7,6 +7,12 @@ const clubMatchSchema = new mongoose.Schema(
     clubBId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     requestedByClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true },
     scheduledAt: { type: Date, required: true },
+    captainResponses: [{
+      captainId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true },
+      decision: { type: String, enum: ["accept", "decline"], required: true },
+      _id: false,
+    }],
+    responseDecision: { type: String, enum: ["accept", "decline"], default: null },
     status: {
       type: String,
       enum: ["requested", "accepted", "declined", "cancelled", "completed"],
