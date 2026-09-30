@@ -417,6 +417,58 @@ router.get("/clubs/:clubId/wallet", requireAuth, async (req, res) => {
   return res.json({ club: state.club, transactions });
 });
 
+router.get("/auction/me", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+
+  try {
+    const [ownOffers, captainClubs] = await Promise.all([
+      AuctionOffer.find({
+        playerId,
+        status: { $in: ["active", "chosenByPlayer", "approved"] },
+      })
+        .sort({ createdAt: -1 })
+        .lean(),
+      Club.find({
+        status: "approved",
+        captainIds: playerId,
+      })
+        .select("_id name balance memberIds captainIds")
+        .lean(),
+    ]);
+
+    const incomingOffers = await AuctionOffer.find({
+      clubId: { $in: captainClubs.map(club => club._id) },
+      status: "chosenByPlayer",
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const playerIds = [
+      ...new Set([
+        ...ownOffers.map(offer => String(offer.playerId)),
+        ...incomingOffers.map(offer => String(offer.playerId)),
+      ]),
+    ];
+    const offeredPlayers = playerIds.length
+      ? await Player.find({ _id: { $in: playerIds } })
+          .select("_id name position profileImage jerseyNumber")
+          .lean()
+      : [];
+
+    return res.json({
+      ownOffers,
+      incomingOffers,
+      offeredPlayers,
+      captainClubs,
+    });
+  } catch (error) {
+    console.error("Load auction state error:", error);
+    return res.status(500).json({ message: "Failed to load your auction state." });
+  }
+});
+
 router.get("/auction/eligible-players", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const active = await ClubContract.find({ status: "active" }).select("playerId").lean();
