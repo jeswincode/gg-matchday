@@ -17,6 +17,29 @@ export const CLUB_STATUSES = Object.freeze([
   "archived",
 ]);
 
+export const CLUB_PREDICTION_WEIGHTS = Object.freeze({
+  averagePlayerOvr: 0.30,
+  recentForm: 0.25,
+  averageMatchRating: 0.20,
+  record: 0.15,
+  headToHead: 0.10,
+});
+
+export const CLUB_BETTING_MIN_STAKE = 10;
+export const CLUB_BETTING_MAX_STAKE = 100;
+
+export const CLUB_REWARDS = Object.freeze({
+  matchWin: 100,
+  matchDraw: 50,
+  playerAppearance: 10,
+  motm: 25,
+  cleanSheet: 10,
+  firstMatch: 25,
+  fiveAppearances: 50,
+  tenAppearances: 100,
+  firstWin: 50,
+});
+
 export function normalizeClubName(name) {
   return String(name || "")
     .trim()
