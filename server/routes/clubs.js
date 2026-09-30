@@ -767,12 +767,16 @@ router.post("/matches/:matchId/respond", requireAuth, async (req, res) => {
     else match.captainResponses.push({ captainId: playerId, decision });
 
     const captainResponses = match.captainResponses.filter(item => captainIds.includes(String(item.captainId)));
+    const anyDecline = captainResponses.some(item => item.decision === "decline");
     const allCaptainsResponded = captainIds.every(id => captainResponses.some(item => String(item.captainId) === id));
     const allAgreed = allCaptainsResponded && new Set(captainResponses.map(item => item.decision)).size === 1;
 
-    if (captainIds.length === 1 || allAgreed) {
-      match.status = (captainResponses[0]?.decision || decision) === "accept" ? "accepted" : "declined";
-      match.responseDecision = match.status === "accepted" ? "accept" : "decline";
+    if (anyDecline) {
+      match.status = "declined";
+      match.responseDecision = "decline";
+    } else if (captainIds.length === 1 || allAgreed) {
+      match.status = "accepted";
+      match.responseDecision = "accept";
     } else {
       match.status = "requested";
       match.responseDecision = null;
