@@ -1165,9 +1165,21 @@ router.post("/matches/:matchId/cancel", requireAuth, async (req, res) => {
       return res.status(403).json({ message: "Only a captain of the requesting club can cancel this match." });
     }
     if (!["requested", "accepted"].includes(match.status)) return res.status(409).json({ message: "This club match cannot be cancelled now." });
-    match.status = "cancelled";
-    await match.save();
-    return res.json(match);
+    const session = await getClubsConnection().startSession();
+    try {
+      let cancelled;
+      await session.withTransaction(async () => {
+        cancelled = await ClubMatch.findByIdAndUpdate(
+          match._id,
+          { $set: { status: "cancelled" } },
+          { new: true, session },
+        );
+        await settleClubMatchBets({ clubMatchId: match._id, session });
+      });
+      return res.json(cancelled);
+    } finally {
+      await session.endSession();
+    }
   } catch (error) {
     console.error("Cancel club match error:", error);
     return res.status(400).json({ message: error.message || "Failed to cancel club match." });
