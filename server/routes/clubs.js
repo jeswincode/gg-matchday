@@ -807,6 +807,101 @@ router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, r
   }
 });
 
+router.get("/reviews/me", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  try {
+    const reviews = await PlayerReview.find({ reviewerPlayerId: playerId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate("reviewedPlayerId", "name profileImage position")
+      .lean();
+    return res.json(reviews);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to load your reviews." });
+  }
+});
+
+router.get("/reviews/player/:playerId", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.playerId)) return res.status(400).json({ message: "Invalid player id." });
+  try {
+    const reviews = await PlayerReview.find({ reviewedPlayerId: req.params.playerId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate("reviewerPlayerId", "name profileImage position")
+      .lean();
+    return res.json(reviews);
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to load player reviews." });
+  }
+});
+
+router.post("/reviews", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const reviewerPlayerId = requireLinkedPlayer(req, res);
+  if (!reviewerPlayerId) return;
+  const reviewedPlayerId = req.body?.reviewedPlayerId;
+  const stars = Number(req.body?.stars);
+  const observation = String(req.body?.observation || "").trim();
+  if (!mongoose.isValidObjectId(reviewedPlayerId)) return res.status(400).json({ message: "Choose a valid player to review." });
+  if (String(reviewerPlayerId) === String(reviewedPlayerId)) return res.status(400).json({ message: "You cannot review yourself." });
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return res.status(400).json({ message: "Stars must be a whole number from 1 to 5." });
+  if (!observation || observation.length > 1000) return res.status(400).json({ message: "Write an observation between 1 and 1000 characters." });
+
+  try {
+    const reviewerMatches = await ClubMatch.find({ status: "completed", mainMatchId: { $ne: null } })
+      .select("_id clubAId clubBId mainMatchId")
+      .lean();
+    const mainMatchIds = reviewerMatches.map(match => match.mainMatchId);
+    if (!mainMatchIds.length) return res.status(403).json({ message: "You have no completed Club Matches eligible for reviews." });
+
+    const mainMatches = await Match.find({
+      _id: { $in: mainMatchIds },
+      "participants.player": { $all: [reviewerPlayerId, reviewedPlayerId] },
+    }).select("_id participants date").lean();
+
+    let relationship = null;
+    let clubId = null;
+    let eligibilityMatchCount = 0;
+    for (const mainMatch of mainMatches) {
+      const reviewer = mainMatch.participants.find(p => String(p.player) === String(reviewerPlayerId));
+      const reviewed = mainMatch.participants.find(p => String(p.player) === String(reviewedPlayerId));
+      if (!reviewer || !reviewed) continue;
+      const clubMatch = reviewerMatches.find(item => String(item.mainMatchId) === String(mainMatch._id));
+      if (!clubMatch) continue;
+      if (reviewer.team === reviewed.team) {
+        relationship = "teammate";
+        clubId = reviewer.team === "A" ? clubMatch.clubAId : clubMatch.clubBId;
+      } else {
+        relationship = "opponent";
+        clubId = null;
+      }
+      eligibilityMatchCount += 1;
+      if (eligibilityMatchCount > 0 && relationship) break;
+    }
+    if (!relationship) return res.status(403).json({ message: "You may review only players you have actually played with or against in a completed Club Match." });
+
+    const existing = await PlayerReview.findOne({ reviewerPlayerId, reviewedPlayerId, relationship });
+    if (existing) return res.status(409).json({ message: "You have already submitted this type of review for this player." });
+
+    const review = await PlayerReview.create({
+      reviewerPlayerId,
+      reviewedPlayerId,
+      relationship,
+      stars,
+      observation,
+      clubId,
+      eligibilityMatchCount,
+    });
+    return res.status(201).json(review);
+  } catch (error) {
+    if (error?.code === 11000) return res.status(409).json({ message: "You have already submitted this type of review for this player." });
+    return res.status(400).json({ message: error.message || "Failed to submit review." });
+  }
+});
+
 router.get("/matches", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
