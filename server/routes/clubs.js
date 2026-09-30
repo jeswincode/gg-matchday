@@ -31,6 +31,8 @@ import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
+import { generateClubMatchPrediction } from "../services/clubsPrediction.js";
+import { placeClubMatchBet, settleClubMatchBets } from "../services/clubsBetting.js";
 import {
   positiveMoney,
   activeCaptainApprovalComplete,
@@ -792,17 +794,12 @@ router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, r
   try {
     let result;
     await session.withTransaction(async () => {
-      result = await settleClubMatchRewards({
-        clubMatchId: req.params.matchId,
-        clubReward: req.body?.clubReward ?? 0,
-        motmReward: req.body?.motmReward ?? 0,
-        playerReward: req.body?.playerReward ?? 0,
-        session,
-      });
+      result = await settleClubMatchRewards({ clubMatchId: req.params.matchId, session });
+      await settleClubMatchBets({ clubMatchId: req.params.matchId, session });
     });
     return res.json(result);
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Failed to settle Club Match rewards." });
+    return res.status(400).json({ message: error.message || "Failed to settle Club Match economy." });
   } finally {
     await session.endSession();
   }
@@ -968,6 +965,70 @@ router.post("/reviews", requireAuth, async (req, res) => {
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ message: "You have already submitted this type of review for this player." });
     return res.status(400).json({ message: error.message || "Failed to submit review." });
+  }
+});
+
+router.get("/matches/:matchId/prediction", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
+  try {
+    const prediction = await generateClubMatchPrediction(req.params.matchId);
+    return res.json(prediction);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to generate prediction." });
+  }
+});
+
+router.get("/matches/:matchId/bets/me", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
+  const bet = await ClubMatchBet.findOne({ clubMatchId: req.params.matchId, playerId }).lean();
+  return res.json(bet || null);
+});
+
+router.post("/matches/:matchId/bets", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.matchId) || !mongoose.isValidObjectId(req.body?.clubId)) {
+    return res.status(400).json({ message: "Invalid betting details." });
+  }
+  const session = await getClubsConnection().startSession();
+  try {
+    let bet;
+    await session.withTransaction(async () => {
+      bet = await placeClubMatchBet({
+        clubMatchId: req.params.matchId,
+        playerId,
+        clubId: req.body.clubId,
+        stake: req.body.stake,
+        session,
+      });
+    });
+    return res.status(201).json(bet);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to place Club Match bet." });
+  } finally {
+    await session.endSession();
+  }
+});
+
+router.post("/matches/:matchId/bets/settle", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
+  const session = await getClubsConnection().startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await settleClubMatchBets({ clubMatchId: req.params.matchId, session });
+    });
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to settle Club Match bets." });
+  } finally {
+    await session.endSession();
   }
 });
 
