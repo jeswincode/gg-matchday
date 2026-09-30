@@ -1,146 +1,175 @@
 import mongoose from "mongoose";
 import ClubContract from "../models/clubs/ClubContract.js";
+import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
+import Match from "../models/Match.js";
 
-function matchWinnerForSide(match, side) {
-  const a = Number(match.teamA?.score || 0);
-  const b = Number(match.teamB?.score || 0);
-  if (a === b) return "draw";
-  return side === "A" ? (a > b ? "win" : "loss") : (b > a ? "win" : "loss");
+const idOf = value => String(value?._id || value);
+
+function winnerForClub(scoreA, scoreB, isA) {
+  if (scoreA === scoreB) return "draw";
+  if (isA) return scoreA > scoreB ? "win" : "loss";
+  return scoreB > scoreA ? "win" : "loss";
 }
 
-function inContract(contract, date) {
-  const time = new Date(date).getTime();
-  return new Date(contract.startAt).getTime() <= time && time < new Date(contract.endAt).getTime();
-}
-
-function numeric(value) {
-  return Number.isFinite(Number(value)) ? Number(value) : null;
-}
-
-export async function syncClubStatsForMatch(match, { connection = null } = {}) {
-  if (!match?._id) return { affectedClubIds: [], synced: false };
-
-  const participants = match.participants || [];
-  const playerIds = [...new Set(participants.map(p => String(p.player?._id || p.player)).filter(Boolean))];
-  if (!playerIds.length) return { affectedClubIds: [], synced: false };
-
+async function findContractMap(playerIds, date) {
   const contracts = await ClubContract.find({
     playerId: { $in: playerIds.map(id => new mongoose.Types.ObjectId(id)) },
-    startAt: { $lte: match.date },
-    endAt: { $gt: match.date },
+    startAt: { $lte: date },
+    endAt: { $gt: date },
+  }).lean();
+  return new Map(contracts.map(contract => [idOf(contract.playerId), contract]));
+}
+
+function inferClubSides(mainMatch, contractMap, clubMatch) {
+  const allowed = new Set([String(clubMatch.clubAId), String(clubMatch.clubBId)]);
+  const sideClubIds = { A: new Set(), B: new Set() };
+  for (const participant of mainMatch.participants || []) {
+    const contract = contractMap.get(idOf(participant.player));
+    if (!contract || !allowed.has(String(contract.clubId))) return null;
+    sideClubIds[participant.team]?.add(String(contract.clubId));
+  }
+  if (!sideClubIds.A.size || !sideClubIds.B.size) return null;
+  if (sideClubIds.A.size !== 1 || sideClubIds.B.size !== 1) return null;
+  const clubA = String(clubMatch.clubAId), clubB = String(clubMatch.clubBId);
+  if (sideClubIds.A.has(clubA) && sideClubIds.B.has(clubB)) return { clubAIsSideA: true };
+  if (sideClubIds.A.has(clubB) && sideClubIds.B.has(clubA)) return { clubAIsSideA: false };
+  return null;
+}
+
+export async function attachMainMatchToClubMatch(mainMatch) {
+  if (!mainMatch?._id) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
+  const playerIds = [...new Set((mainMatch.participants || []).map(p => idOf(p.player)).filter(Boolean))];
+  if (!playerIds.length) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
+
+  const contractMap = await findContractMap(playerIds, mainMatch.date);
+  if (contractMap.size < 2) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
+
+  const dayStart = new Date(mainMatch.date);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+  const candidates = await ClubMatch.find({
+    status: "accepted",
+    scheduledAt: { $gte: dayStart, $lt: dayEnd },
+    mainMatchId: null,
   }).lean();
 
-  const byPlayer = new Map(contracts.map(c => [String(c.playerId), c]));
-  const clubIds = [...new Set(contracts.map(c => String(c.clubId)))];
+  const linked = [];
+  for (const clubMatch of candidates) {
+    const inference = inferClubSides(mainMatch, contractMap, clubMatch);
+    if (!inference) continue;
+    const scoreA = Number(mainMatch.teamA?.score || 0);
+    const scoreB = Number(mainMatch.teamB?.score || 0);
+    const winnerClubId = scoreA === scoreB
+      ? null
+      : (inference.clubAIsSideA
+        ? (scoreA > scoreB ? clubMatch.clubAId : clubMatch.clubBId)
+        : (scoreB > scoreA ? clubMatch.clubAId : clubMatch.clubBId));
 
-  if (!clubIds.length) return { affectedClubIds: [], synced: false };
-
-  const allClubContracts = await ClubContract.find({
-    clubId: { $in: clubIds.map(id => new mongoose.Types.ObjectId(id)) },
-  }).lean();
-
-  const contractPlayers = new Map();
-  for (const contract of allClubContracts) {
-    const list = contractPlayers.get(String(contract.clubId)) || [];
-    if (!list.some(item => String(item.playerId) === String(contract.playerId))) list.push(contract);
-    else list.push(contract);
-    contractPlayers.set(String(contract.clubId), list);
+    const updated = await ClubMatch.findOneAndUpdate(
+      { _id: clubMatch._id, status: "accepted", mainMatchId: null },
+      { $set: {
+        status: "completed",
+        mainMatchId: mainMatch._id,
+        clubAScore: inference.clubAIsSideA ? scoreA : scoreB,
+        clubBScore: inference.clubAIsSideA ? scoreB : scoreA,
+        winnerClubId,
+      }},
+      { new: true },
+    );
+    if (updated) linked.push(updated);
   }
 
-  const allPlayerIds = [...new Set(allClubContracts.map(c => String(c.playerId)))];
-  const Match = (await import("../models/Match.js")).default;
-  const allMatches = await Match.find({
-    "participants.player": { $in: allPlayerIds.map(id => new mongoose.Types.ObjectId(id)) },
-  }).sort({ date: 1, createdAt: 1 }).lean();
+  const affectedClubIds = [...new Set(linked.flatMap(item => [String(item.clubAId), String(item.clubBId)]))];
+  for (const clubId of affectedClubIds) {
+    await rebuildClubPlayerStats(clubId);
+    await ClubHistory.findOneAndUpdate(
+      { clubId, relatedMainMatchId: mainMatch._id, eventType: "matchPlayed" },
+      {
+        $set: {
+          description: "Club statistics synced from the normal GG Match Record.",
+          metadata: { mainMatchId: String(mainMatch._id) },
+          occurredAt: new Date(),
+        },
+        $setOnInsert: { clubId, relatedMainMatchId: mainMatch._id, eventType: "matchPlayed" },
+      },
+      { upsert: true },
+    );
+  }
+  return { linked: linked.length > 0, clubMatchIds: linked.map(item => String(item._id)), affectedClubIds };
+}
 
-  const affected = [];
-  for (const clubId of clubIds) {
-    const playerContracts = contractPlayers.get(clubId) || [];
-    const statsDocs = [];
+export async function rebuildClubPlayerStats(clubId) {
+  const completedClubMatches = await ClubMatch.find({
+    status: "completed",
+    $or: [{ clubAId: clubId }, { clubBId: clubId }],
+    mainMatchId: { $ne: null },
+  }).sort({ scheduledAt: 1, createdAt: 1 }).lean();
 
-    for (const playerId of [...new Set(playerContracts.map(c => String(c.playerId)))]) {
-      const playerMatches = allMatches.filter(m =>
-        (m.participants || []).some(p =>
-          String(p.player?._id || p.player) === playerId &&
-          playerContracts.some(c => String(c.playerId) === playerId && inContract(c, m.date))
-        )
+  const contracts = await ClubContract.find({ clubId }).lean();
+  const matchIds = completedClubMatches.map(item => item.mainMatchId);
+  const mainMatches = matchIds.length ? await Match.find({ _id: { $in: matchIds } }).lean() : [];
+  const mainMatchById = new Map(mainMatches.map(match => [String(match._id), match]));
+  const playerIds = [...new Set(contracts.map(contract => String(contract.playerId)))];
+  const stats = [];
+
+  for (const playerId of playerIds) {
+    let matchesPlayed = 0, wins = 0, draws = 0, losses = 0;
+    let goals = 0, assists = 0, motm = 0, ratingTotal = 0, ratedMatches = 0;
+    let lastMainMatchId = null, lastPlayedAt = null;
+
+    for (const clubMatch of completedClubMatches) {
+      const mainMatch = mainMatchById.get(String(clubMatch.mainMatchId));
+      if (!mainMatch) continue;
+      const contract = contracts.find(item =>
+        String(item.playerId) === playerId &&
+        new Date(item.startAt) <= new Date(mainMatch.date) &&
+        new Date(item.endAt) > new Date(mainMatch.date),
       );
+      if (!contract) continue;
 
-      if (!playerMatches.length) continue;
+      const participant = (mainMatch.participants || []).find(item => idOf(item.player) === playerId);
+      if (!participant) continue;
 
-      let matchesPlayed = 0, wins = 0, draws = 0, losses = 0;
-      let goals = 0, assists = 0, motm = 0, ratingTotal = 0, ratedMatches = 0;
-      let lastMainMatchId = null, lastPlayedAt = null;
+      matchesPlayed += 1;
+      const isA = String(clubMatch.clubAId) === String(clubId);
+      const outcome = winnerForClub(Number(clubMatch.clubAScore || 0), Number(clubMatch.clubBScore || 0), isA);
+      if (outcome === "win") wins += 1;
+      else if (outcome === "draw") draws += 1;
+      else losses += 1;
 
-      for (const m of playerMatches) {
-        const p = m.participants.find(item => String(item.player?._id || item.player) === playerId);
-        if (!p) continue;
-        const contract = playerContracts.find(c => String(c.playerId) === playerId && inContract(c, m.date));
-        if (!contract) continue;
+      goals += (mainMatch.events || []).filter(event => event.type === "goal" && idOf(event.player) === playerId).length;
+      assists += (mainMatch.events || []).filter(event => event.type === "assist" && idOf(event.player) === playerId).length;
+      if (idOf(mainMatch.motmWinner) === playerId) motm += 1;
 
-        matchesPlayed += 1;
-        const outcome = matchWinnerForSide(m, p.team);
-        if (outcome === "win") wins += 1;
-        else if (outcome === "draw") draws += 1;
-        else losses += 1;
-
-        goals += (m.events || []).filter(e => e.type === "goal" && String(e.player?._id || e.player) === playerId).length;
-        assists += (m.events || []).filter(e => e.type === "assist" && String(e.player?._id || e.player) === playerId).length;
-        if (String(m.motmWinner?._id || m.motmWinner || "") === playerId) motm += 1;
-
-        const rating = numeric(p.rating);
-        if (rating !== null) {
-          ratingTotal += rating;
-          ratedMatches += 1;
-        }
-
-        if (!lastPlayedAt || new Date(m.date) > new Date(lastPlayedAt)) {
-          lastPlayedAt = m.date;
-          lastMainMatchId = m._id;
-        }
+      if (Number.isFinite(Number(participant.rating))) {
+        ratingTotal += Number(participant.rating);
+        ratedMatches += 1;
       }
+      if (!lastPlayedAt || new Date(mainMatch.date) > new Date(lastPlayedAt)) {
+        lastPlayedAt = mainMatch.date;
+        lastMainMatchId = mainMatch._id;
+      }
+    }
 
-      statsDocs.push({
+    if (matchesPlayed) {
+      stats.push({
         clubId: new mongoose.Types.ObjectId(clubId),
         playerId: new mongoose.Types.ObjectId(playerId),
         matchesPlayed, wins, draws, losses, goals, assists, motm,
-        ratingTotal, ratedMatches,
-        lastMainMatchId, lastPlayedAt,
+        ratingTotal, ratedMatches, lastMainMatchId, lastPlayedAt,
       });
     }
-
-    await ClubPlayerStats.deleteMany({ clubId });
-
-    if (statsDocs.length) await ClubPlayerStats.insertMany(statsDocs, { ordered: true });
-
-    const currentClubPlayers = participants
-      .filter(p => {
-        const contract = byPlayer.get(String(p.player?._id || p.player));
-        return contract && String(contract.clubId) === clubId;
-      })
-      .map(p => String(p.player?._id || p.player));
-
-    await ClubHistory.findOneAndUpdate(
-      { clubId, relatedMainMatchId: match._id, eventType: "matchPlayed" },
-      {
-        $set: {
-          description: "Club player statistics synced from the normal GG Match Record.",
-          metadata: {
-            playerIds: currentClubPlayers,
-            teamAScore: Number(match.teamA?.score || 0),
-            teamBScore: Number(match.teamB?.score || 0),
-          },
-          occurredAt: new Date(),
-        },
-        $setOnInsert: { clubId, relatedMainMatchId: match._id, eventType: "matchPlayed" },
-      },
-      { upsert: true }
-    );
-
-    affected.push(clubId);
   }
 
-  return { affectedClubIds: affected, synced: true };
+  await ClubPlayerStats.deleteMany({ clubId });
+  if (stats.length) await ClubPlayerStats.insertMany(stats);
+  return stats;
+}
+
+export async function syncClubStatsForMatch(mainMatch) {
+  return attachMainMatchToClubMatch(mainMatch);
 }
