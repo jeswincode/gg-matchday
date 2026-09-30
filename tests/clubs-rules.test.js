@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  positiveMoney,
+  nonNegativeMoney,
+  activeCaptainApprovalComplete,
+  validateRetention,
+} from "../server/services/clubsEconomy.js";
+import {
   CLUB_FORMATIONS,
   CLUB_MAX_MEMBERS,
   CLUB_STARTING_BALANCE,
@@ -75,5 +81,30 @@ test("captain candidates are the top two by OVR and a vote tie creates two capta
       ],
     ),
     ["b", "d"],
+  );
+});
+
+test("wallet amount validation normalizes money and rejects invalid values", () => {
+  assert.equal(positiveMoney("12.345"), 12.35);
+  assert.equal(nonNegativeMoney(0), 0);
+  assert.throws(() => positiveMoney(0), /greater than zero/i);
+  assert.throws(() => nonNegativeMoney(-1), /zero or greater/i);
+});
+
+test("captain approval helper requires every active captain", () => {
+  assert.equal(activeCaptainApprovalComplete(["a"], ["a"]), true);
+  assert.equal(activeCaptainApprovalComplete(["a", "b"], ["a"]), false);
+  assert.equal(activeCaptainApprovalComplete(["a", "b"], ["b", "a", "b"]), true);
+});
+
+test("renewal retention validation requires exactly two members and at least one captain", () => {
+  assert.deepEqual(validateRetention(["a", "b", "c", "d"], ["a", "c"], ["a", "b"]), ["a", "c"]);
+  assert.throws(
+    () => validateRetention(["a", "b", "c", "d"], ["c", "d"], ["a", "b"]),
+    /captain/i,
+  );
+  assert.throws(
+    () => validateRetention(["a", "b", "c", "d"], ["a", "b", "c"], ["a"]),
+    /exactly two/i,
   );
 });
