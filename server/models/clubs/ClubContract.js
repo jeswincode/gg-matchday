@@ -4,7 +4,7 @@ import { getClubsConnection } from "../../config/clubsDatabase.js";
 const contractSchema = new mongoose.Schema(
   {
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
-    playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, index: true },
+    playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true },
     startAt: { type: Date, required: true },
     endAt: { type: Date, required: true },
     status: { type: String, enum: ["active", "expired", "released", "transferred"], default: "active", index: true },
