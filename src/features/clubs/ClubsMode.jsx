@@ -41,6 +41,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [matchClubB, setMatchClubB] = useState("");
   const [matchScheduledAt, setMatchScheduledAt] = useState("");
   const [matchSubmitting, setMatchSubmitting] = useState(false);
+  const [clubStats, setClubStats] = useState([]);
+  const [clubHistory, setClubHistory] = useState([]);
+  const [clubDetailsLoading, setClubDetailsLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -80,6 +83,36 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       active = false;
     };
   }, [authUser]);
+  useEffect(() => {
+    let active = true;
+    if (activeSection !== "myClub" || !currentClub?._id) {
+      setClubStats([]);
+      setClubHistory([]);
+      return undefined;
+    }
+
+    setClubDetailsLoading(true);
+    Promise.all([
+      api("/clubs/" + currentClub._id + "/stats"),
+      api("/clubs/" + currentClub._id + "/history"),
+    ])
+      .then(([statsData, historyData]) => {
+        if (!active) return;
+        setClubStats(Array.isArray(statsData?.stats) ? statsData.stats : []);
+        setClubHistory(Array.isArray(historyData) ? historyData : []);
+      })
+      .catch(requestError => {
+        if (active) setError(requestError.message || "Club details could not be loaded.");
+      })
+      .finally(() => {
+        if (active) setClubDetailsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeSection, currentClub?._id]);
+
   const refreshClubMatches = async () => {
     const data = await api("/clubs/matches");
     setClubMatches(Array.isArray(data) ? data : []);
@@ -180,7 +213,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const myCaptainClubs = clubs.filter(club =>
     club.memberIds?.some(id => String(id) === currentPlayerId) &&
     club.captainIds?.some(id => String(id) === currentPlayerId),
+  );  const currentClub = useMemo(
+    () => clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null,
+    [clubs, currentPlayerId],
   );
+
   const minMatchDateTime = (() => {
     const date = new Date(Date.now() + 60 * 1000);
     const offset = date.getTimezoneOffset() * 60 * 1000;
@@ -298,7 +335,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
 
       <nav className="clubs-nav" aria-label="Clubs navigation">
         <button className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => setActiveSection("overview")}>Ultimate Clubs</button>
-        <button type="button" disabled>My Club</button>
+        <button className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => setActiveSection("myClub")}>My Club</button>
         <button type="button">Players</button>
         <button type="button">Auctions</button>
         <button className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches</button>
@@ -625,7 +662,78 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
           </div>
         )}
       </section>
-      )}
-    </main>
-  );
-}
+      ) : activeSection === "myClub" ? (
+        <section className="clubs-section clubs-my-club-panel">
+          {clubDetailsLoading ? (
+            <div className="clubs-empty">Loading your Club profile…</div>
+          ) : !currentClub ? (
+            <div className="clubs-empty">
+              <strong>You are not currently under a Club contract.</strong>
+              <span>Your previous Club history remains preserved in the Clubs database.</span>
+            </div>
+          ) : (
+            <>
+              <section className="clubs-my-club-hero">
+                <div>
+                  <p className="clubs-eyebrow">MY CLUB</p>
+                  <h2>{currentClub.name}</h2>
+                  <span>{currentClub.formation} · {currentClub.memberIds?.length || 0}/4 players</span>
+                </div>
+                <div className="clubs-my-club-balance">
+                  <span>BALANCE</span>
+                  <strong>{currentClub.balance ?? 0}</strong>
+                  <small>Club credits</small>
+                </div>
+              </section>
+
+              <section className="clubs-subsection">
+                <div className="clubs-section-heading">
+                  <div><p className="clubs-eyebrow">ROSTER</p><h3>Club players</h3></div>
+                  <span>{currentClub.captainIds?.length || 0} captain(s)</span>
+                </div>
+                <div className="clubs-roster-list">
+                  {(currentClub.memberIds || []).map(playerId => {
+                    const player = players.find(item => String(item._id) === String(playerId));
+                    const stat = clubStats.find(item => String(item.playerId?._id || item.playerId) === String(playerId));
+                    const average = stat?.ratedMatches ? (Number(stat.ratingTotal) / Number(stat.ratedMatches)).toFixed(2) : "—";
+                    const isCaptain = currentClub.captainIds?.some(id => String(id) === String(playerId));
+                    return (
+                      <article className="clubs-roster-row" key={String(playerId)}>
+                        <div>
+                          <strong>{player?.name || "Club player"}</strong>
+                          <span>{player?.position || "Player"}{isCaptain ? " · Captain" : ""}</span>
+                        </div>
+                        <div className="clubs-roster-stat"><strong>{average}</strong><span>AVG</span></div>
+                        <div className="clubs-roster-stat"><strong>{stat?.matches ?? 0}</strong><span>MATCHES</span></div>
+                        <div className="clubs-roster-stat"><strong>{stat?.wins ?? 0}</strong><span>WINS</span></div>
+                        <div className="clubs-roster-stat"><strong>{stat?.goals ?? 0}</strong><span>GOALS</span></div>
+                        <div className="clubs-roster-stat"><strong>{stat?.assists ?? 0}</strong><span>ASSISTS</span></div>
+                        <div className="clubs-roster-stat"><strong>{stat?.motm ?? 0}</strong><span>MOTM</span></div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="clubs-subsection">
+                <div className="clubs-section-heading">
+                  <div><p className="clubs-eyebrow">PERMANENT HISTORY</p><h3>Club timeline</h3></div>
+                  <span>{clubHistory.length} events</span>
+                </div>
+                {clubHistory.length === 0 ? (
+                  <div className="clubs-empty">No Club history events recorded yet.</div>
+                ) : (
+                  <div className="clubs-history-list">
+                    {clubHistory.map(event => (
+                      <article className="clubs-history-row" key={String(event._id)}>
+                        <time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString()}</time>
+                        <div><strong>{event.eventType}</strong><span>{event.description || "Club history event recorded."}</span></div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </section>
+      )
