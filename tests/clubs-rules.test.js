@@ -37,11 +37,11 @@ test("a club application requires exactly four unique members", () => {
   );
   assert.throws(
     () => validateClubMemberCount(["a", "b", "c"]),
-    /between 1 and 4/i,
+    /exactly 4/i,
   );
   assert.throws(
     () => validateClubMemberCount(["a", "b", "c", "d", "e"]),
-    /between 1 and 4/i,
+    /exactly 4/i,
   );
 });
 
