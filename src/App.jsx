@@ -100,7 +100,23 @@ function App() {
   const touchStartRef=useRef(null);
   const [swipeOffset,setSwipeOffset]=useState(0);
   const [swipeAnimating,setSwipeAnimating]=useState(false);
+  const [modeTransition,setModeTransition]=useState(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
+
+  const switchProductMode=useCallback((nextMode)=>{
+    if(nextMode===productMode || modeTransition) return;
+    setModeTransition(nextMode==="clubs" ? "to-clubs" : "to-matchday");
+    setProductMode(nextMode);
+    try{
+      const url=new URL(window.location.href);
+      if(nextMode==="clubs") url.searchParams.set("mode","clubs");
+      else url.searchParams.delete("mode");
+      window.history.replaceState({}, "", url);
+    }catch{
+      // URL history is optional in restricted browser environments.
+    }
+    window.setTimeout(()=>setModeTransition(null),720);
+  },[modeTransition,productMode]);
 
   function isTouchInteractionExcluded(target) {
     if (!(target instanceof Element)) return false;
@@ -2242,17 +2258,21 @@ function App() {
       ? "welcome"
       : experience;
 
+  const modeTransitionLayer = modeTransition ? (
+    <div className={`product-mode-transition product-mode-transition--${modeTransition}`} aria-hidden="true">
+      <span className="product-mode-wave product-mode-wave--one" />
+      <span className="product-mode-wave product-mode-wave--two" />
+      <span className="product-mode-wave product-mode-wave--three" />
+    </div>
+  ) : null;
+
   if (productMode === "clubs") {
-    return <ClubsMode onReturnToMatchday={() => {
-      setProductMode("matchday");
-      try {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("mode");
-        window.history.replaceState({}, "", url);
-      } catch {
-        // URL history is optional in restricted browser environments.
-      }
-    }} authUser={backendUser} isAdmin={isAdmin} />;
+    return (
+      <>
+        <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
+        {modeTransitionLayer}
+      </>
+    );
   }
 
   if (activeExperience === "startup") {
@@ -2295,16 +2315,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>{
-          setProductMode("clubs");
-          try {
-            const url = new URL(window.location.href);
-            url.searchParams.set("mode", "clubs");
-            window.history.replaceState({}, "", url);
-          } catch {
-            // URL history is optional in restricted browser environments.
-          }
-        }}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2680,6 +2691,12 @@ function App() {
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
       </Suspense>
     </main>
+  );
+
+  return (
+    <>
+      {modeTransitionLayer}
+    </>
   );
 }
 
