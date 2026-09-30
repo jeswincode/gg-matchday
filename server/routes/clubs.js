@@ -4,6 +4,7 @@ import Club from "../models/clubs/Club.js";
 import ClubContract from "../models/clubs/ClubContract.js";
 import ClubFormationApplication from "../models/clubs/ClubFormationApplication.js";
 import Player from "../models/Player.js";
+import Match from "../models/Match.js";
 import User from "../models/User.js";
 import { requireAuth } from "../middleware/auth.js";
 import {
@@ -15,6 +16,10 @@ import {
   validateFormation,
 } from "../config/clubsRules.js";
 import { pingClubsDatabase, getClubsConnection } from "../config/clubsDatabase.js";
+import { calculatePlayerAttributes } from "../services/playerAttributes.js";
+import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
+import PlayerWallet from "../models/clubs/PlayerWallet.js";
+import ClubHistory from "../models/clubs/ClubHistory.js";
 
 const router = express.Router();
 
@@ -413,6 +418,184 @@ router.get("/:id", async (req, res) => {
   } catch (error) {
     console.error("Error fetching club:", error);
     return res.status(500).json({ message: "Failed to fetch club." });
+  }
+});
+
+
+async function calculateClubOVRs(memberIds) {
+  const players = await Player.find({ _id: { $in: memberIds } }).select("_id position").lean();
+  const matches = await Match.find({ "participants.player": { $in: memberIds } }).lean();
+  const result = new Map();
+  for (const player of players) {
+    const data = calculatePlayerAttributes(player, matches);
+    result.set(String(player._id), data.ovr);
+  }
+  return result;
+}
+
+router.post("/formation/:id/captain/setup", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  try {
+    const application = await ClubFormationApplication.findById(req.params.id);
+    if (!application) return res.status(404).json({ message: "Club formation application not found." });
+    if (!application.memberIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only club members can start the captain vote." });
+    if (application.status !== "pendingCaptainVoteSetup") return res.status(409).json({ message: "The captain vote is not ready to be started." });
+    const ovrByPlayerId = await calculateClubOVRs(application.memberIds);
+    const candidates = selectCaptainCandidates(application.memberIds, ovrByPlayerId);
+    application.captainCandidates = candidates;
+    application.captainVotes = [];
+    application.status = "captainVote";
+    await application.save();
+    return res.json(application);
+  } catch (error) {
+    console.error("Captain vote setup error:", error);
+    return res.status(500).json({ message: "Failed to prepare the captain vote." });
+  }
+});
+
+router.post("/formation/:id/captain/vote", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  try {
+    const application = await ClubFormationApplication.findById(req.params.id);
+    if (!application) return res.status(404).json({ message: "Club formation application not found." });
+    if (application.status !== "captainVote") return res.status(409).json({ message: "The captain vote is not active." });
+    if (!application.memberIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only the four club members can vote." });
+    const candidatePlayerId = String(req.body?.candidatePlayerId || "");
+    if (!application.captainCandidates.some(id => String(id) === candidatePlayerId)) return res.status(400).json({ message: "Vote for one of the two eligible captain candidates." });
+    if (application.captainVotes.some(v => String(v.voterPlayerId) === String(playerId))) return res.status(409).json({ message: "You have already voted." });
+    application.captainVotes.push({ voterPlayerId: playerId, candidatePlayerId });
+    if (application.captainVotes.length === CLUB_MAX_MEMBERS) {
+      const elected = resolveCaptainVote(application.captainCandidates, application.captainVotes);
+      application.electedCaptainIds = elected;
+      application.status = "pendingAdminApproval";
+    }
+    await application.save();
+    return res.json(application);
+  } catch (error) {
+    console.error("Captain vote error:", error);
+    return res.status(500).json({ message: "Failed to record the captain vote." });
+  }
+});
+
+router.post("/formation/:id/details", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  try {
+    const application = await ClubFormationApplication.findById(req.params.id);
+    if (!application) return res.status(404).json({ message: "Club formation application not found." });
+    if (application.status !== "pendingAdminApproval") return res.status(409).json({ message: "Captain voting must be completed before club details are submitted." });
+    if (!application.electedCaptainIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only the elected captain(s) can submit club details." });
+    if (application.electedCaptainIds.length === 2 && application.detailsApprovedBy?.some(id => String(id) === String(playerId))) return res.status(409).json({ message: "You have already approved these club details." });
+    const details = String(req.body?.details || "").trim();
+    const formation = validateFormation(req.body?.formation || application.formation);
+    application.details = details;
+    application.formation = formation;
+    application.detailsApprovedBy = [...new Set([...(application.detailsApprovedBy || []).map(String), String(playerId)])];
+    if (application.electedCaptainIds.every(id => application.detailsApprovedBy.some(approved => String(approved) === String(id)))) {
+      application.status = "pendingAdminApproval";
+    }
+    await application.save();
+    return res.json(application);
+  } catch (error) {
+    console.error("Club details submission error:", error);
+    return res.status(400).json({ message: error.message || "Failed to save club details." });
+  }
+});
+
+router.post("/formation/:id/resubmit", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  try {
+    const application = await ClubFormationApplication.findById(req.params.id);
+    if (!application) return res.status(404).json({ message: "Club formation application not found." });
+    if (!application.memberIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only club members can resubmit this application." });
+    if (application.status !== "rejected") return res.status(409).json({ message: "Only rejected applications can be resubmitted." });
+    application.status = "pendingAdminApproval";
+    application.rejectionReason = "";
+    await application.save();
+    return res.json(application);
+  } catch (error) {
+    console.error("Club resubmission error:", error);
+    return res.status(500).json({ message: "Failed to resubmit the club application." });
+  }
+});
+
+router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const applications = await ClubFormationApplication.find({ status: "pendingAdminApproval" }).sort({ createdAt: 1 }).lean();
+  return res.json(applications);
+});
+
+router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const application = await ClubFormationApplication.findById(req.params.id);
+    if (!application) return res.status(404).json({ message: "Club formation application not found." });
+    if (application.status !== "pendingAdminApproval") return res.status(409).json({ message: "Only pending applications can be rejected." });
+    const reason = String(req.body?.reason || "").trim();
+    if (!reason) return res.status(400).json({ message: "A rejection reason is required." });
+    application.rejectionReason = reason;
+    application.status = "rejected";
+    await application.save();
+    return res.json(application);
+  } catch (error) {
+    console.error("Club application rejection error:", error);
+    return res.status(500).json({ message: "Failed to reject the club application." });
+  }
+});
+
+router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const session = await getClubsConnection().startSession();
+  try {
+    let createdClub;
+    await session.withTransaction(async () => {
+      const application = await ClubFormationApplication.findById(req.params.id).session(session);
+      if (!application) throw new Error("Club formation application not found.");
+      if (application.status !== "pendingAdminApproval") throw new Error("Only pending applications can be approved.");
+      if (application.electedCaptainIds.length < 1) throw new Error("The club must have at least one elected captain.");
+      const activeContracts = await ClubContract.find({ playerId: { $in: application.memberIds }, status: "active" }).session(session);
+      if (activeContracts.length) throw new Error("A selected player is already in an active club.");
+      const normalized = normalizeClubName(application.proposedName);
+      const duplicate = await Club.findOne({ nameNormalized: normalized }).session(session);
+      if (duplicate) throw new Error("That club name is already permanently registered.");
+      const now = new Date();
+      const endAt = nextRenewalBoundary(now);
+      const [club] = await Club.create([{
+        name: application.proposedName,
+        nameNormalized: normalized,
+        description: application.details,
+        formation: application.formation,
+        memberIds: application.memberIds,
+        captainIds: application.electedCaptainIds,
+        balance: CLUB_STARTING_BALANCE,
+        status: "approved",
+        approvedAt: now,
+      }], { session });
+      for (const playerId of application.memberIds) {
+        await ClubContract.create([{ clubId: club._id, playerId, startAt: now, endAt, signingAmount: 0, source: "formation", renewalNumber: 0 }], { session });
+        await PlayerWallet.updateOne({ playerId }, { $setOnInsert: { playerId, balance: 0 } }, { upsert: true, session });
+      }
+      await ClubWalletTransaction.create([{ clubId: club._id, type: "starting_balance", amount: CLUB_STARTING_BALANCE, balanceAfter: CLUB_STARTING_BALANCE, description: "Club starting balance." }], { session });
+      await ClubHistory.create([{ clubId: club._id, eventType: "formed", description: "Club approved and officially formed.", metadata: { formationApplicationId: application._id } }, { clubId: club._id, eventType: "adminApproved", description: "Club application approved by admin." }], { session });
+      application.status = "approved";
+      application.approvedClubId = club._id;
+      application.rejectionReason = "";
+      await application.save({ session });
+      createdClub = club;
+    });
+    return res.status(201).json(createdClub);
+  } catch (error) {
+    console.error("Club application approval error:", error);
+    return res.status(400).json({ message: error.message || "Failed to approve the club application." });
+  } finally {
+    await session.endSession();
   }
 });
 
