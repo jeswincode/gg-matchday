@@ -27,6 +27,7 @@ import PlayerReview from "../models/clubs/PlayerReview.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
 import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
+import ClubMatchBet from "../models/clubs/ClubMatchBet.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
