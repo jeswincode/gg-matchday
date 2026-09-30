@@ -20,6 +20,7 @@ const clubHistorySchema = new mongoose.Schema(
         "walletTransaction",
         "adminApproved",
         "adminRejected",
+        "archived",
       ],
       required: true,
     },
