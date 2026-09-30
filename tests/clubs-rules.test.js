@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { calculatePredictionPercentages } from "../server/services/clubsPrediction.js";
+import { calculateBetPayouts } from "../server/services/clubsBetting.js";
 import {
   positiveMoney,
   nonNegativeMoney,
@@ -136,4 +138,28 @@ test("V3 Clubs economy rules expose the locked betting and reward values", () =>
     tenAppearances: 100,
     firstWin: 50,
   });
+});
+
+
+test("V3 prediction percentages use locked weights and total 100%", () => {
+  const result = calculatePredictionPercentages(
+    { averagePlayerOvr: 90, recentForm: 1, averageMatchRating: 0.9, record: 1, headToHead: 1 },
+    { averagePlayerOvr: 70, recentForm: 0, averageMatchRating: 0.5, record: 0, headToHead: 1 },
+  );
+  assert.equal(result.clubAPercent + result.clubBPercent, 100);
+  assert.ok(result.clubAPercent > result.clubBPercent);
+});
+
+test("V3 pooled betting payouts distribute the entire stake pot exactly", () => {
+  const payouts = calculateBetPayouts(
+    [
+      { _id: "a", clubId: "clubA", stake: 10 },
+      { _id: "b", clubId: "clubA", stake: 30 },
+      { _id: "c", clubId: "clubB", stake: 25 },
+    ],
+    "clubA",
+  );
+  assert.equal(payouts.get("a"), 18.75);
+  assert.equal(payouts.get("b"), 56.25);
+  assert.equal(payouts.get("a") + payouts.get("b"), 75);
 });
