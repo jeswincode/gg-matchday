@@ -121,7 +121,7 @@ test("renewal retention validation allows zero, one or two members and requires 
   );
   assert.throws(
     () => validateRetention(["a", "b", "c", "d"], ["a", "b", "c"], ["a"]),
-    /exactly two/i,
+    /zero, one, or two/i,
   );
 });
 
