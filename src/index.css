@@ -2447,19 +2447,19 @@ textarea:focus {
   animation-delay:.14s;
 }
 
-.product-mode-transition--to-matchday::before{
+ .product-mode-transition--to-matchday-dark::before, .product-mode-transition--to-matchday-golden::before{
   background:linear-gradient(135deg,#080a0f 0%,#11151d 54%,#c4879c 100%);
 }
 
-.product-mode-transition--to-matchday .product-mode-wave--one{
+ .product-mode-transition--to-matchday-dark .product-mode-wave--one{
   background:#080a0f;
 }
 
-.product-mode-transition--to-matchday .product-mode-wave--two{
+ .product-mode-transition--to-matchday-dark .product-mode-wave--two{
   background:#252b36;
 }
 
-.product-mode-transition--to-matchday .product-mode-wave--three{
+ .product-mode-transition--to-matchday-dark .product-mode-wave--three{
   background:#9b6476;
 }
 
@@ -2481,4 +2481,20 @@ textarea:focus {
     animation-duration:.01ms;
     animation-iteration-count:1;
   }
+}
+
+
+/* Returning from Clubs follows the destination Matchday theme. */
+.product-mode-transition--to-matchday-golden::before{
+  background:linear-gradient(135deg,#17140c 0%,#2a2110 54%,#d8ad57 100%);
+}
+.product-mode-transition--to-matchday-golden .product-mode-wave--one{
+  background:#17140c;
+  box-shadow:0 -18px 60px rgba(227,188,103,.18);
+}
+.product-mode-transition--to-matchday-golden .product-mode-wave--two{
+  background:#8f7130;
+}
+.product-mode-transition--to-matchday-golden .product-mode-wave--three{
+  background:#d8ad57;
 }
