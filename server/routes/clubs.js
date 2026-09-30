@@ -672,6 +672,32 @@ router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) =
   }
 });
 
+router.get("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  try {
+    const club = await Club.findOne({ _id: req.params.clubId, status: "approved" })
+      .select("_id name memberIds captainIds")
+      .lean();
+    if (!club) return res.status(404).json({ message: "Club not found." });
+    if (!club.memberIds.some(id => String(id) === String(playerId))) {
+      return res.status(403).json({ message: "You are not a member of this club." });
+    }
+    const contracts = await ClubContract.find({ clubId: club._id, status: "active" })
+      .sort({ endAt: 1 })
+      .lean();
+    const boundaryAt = contracts[0]?.endAt || null;
+    const decision = boundaryAt
+      ? await ClubRenewalDecision.findOne({ clubId: club._id, boundaryAt }).lean()
+      : null;
+    return res.json({ club, contracts, boundaryAt, decision, isCaptain: club.captainIds.some(id => String(id) === String(playerId)) });
+  } catch (error) {
+    console.error("Load club renewal state error:", error);
+    return res.status(500).json({ message: "Failed to load club renewal state." });
+  }
+});
+
 router.post("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
