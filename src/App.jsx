@@ -2237,7 +2237,7 @@ function App() {
       : experience;
 
   if (productMode === "clubs") {
-    return <ClubsMode onReturnToMatchday={() => setProductMode("matchday")} />;
+    return <ClubsMode onReturnToMatchday={() => setProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />;
   }
 
   if (activeExperience === "startup") {
