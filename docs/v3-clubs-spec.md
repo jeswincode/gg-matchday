@@ -100,24 +100,23 @@ The selectable 4-player formations are:
 - [x] Captain detail submission state and admin approval/rejection/resubmission backend foundation.
 - [x] Responsive Clubs formation/captain UI foundation.
 
-### Not yet implemented
-- [ ] Admin approval management UI.
-- [ ] Contract-cycle renewal job/workflow.
-- [ ] Contract-cycle renewal job/workflow.
-- [ ] Retention selection and release-to-pool workflow.
-- [ ] Auction/offer lifecycle and player selection.
-- [ ] Join-request lifecycle.
-- [ ] Player and club wallet mutation services with atomic balance/ledger updates.
-- [ ] Club-match scheduling and acceptance UI.
-- [ ] Sync from main Match Record into Clubs data.
-- [ ] Club reward/MOTM settlement.
-- [ ] Club-vs-club prediction engine.
-- [ ] Player Reviews UI/API and eligibility checks against main Match data.
+### Remaining implementation
+- [x] Admin approval management UI.
+- [x] Contract renewal state, captain retention decisions and release workflow foundation.
+- [x] Auction/offer lifecycle and player selection.
+- [x] Join-request lifecycle.
+- [x] Player and club wallet mutation services with atomic balance/ledger updates.
+- [x] Club-match scheduling and acceptance UI.
+- [x] Sync from main Match Record into Clubs data.
+- [x] Protected Club reward/MOTM settlement service and endpoint; exact reward amounts remain configurable pending product decisions.
+- [ ] Club-vs-club betting settlement; stake/draw/cancellation rules remain open.
+- [ ] Club-vs-club prediction engine; exact weighting remains open.
+- [x] Player Reviews API/UI and eligibility checks against main Match data.
 - [ ] Player Attributes/OVR calculation and traceable evidence.
 - [ ] GG Player Card generation/sharing.
-- [ ] Clubs mode navigation and charcoal/rose-gold visual system.
-- [ ] Ultimate Clubs page.
-- [ ] Responsive mobile QA for all new Clubs screens.
+- [x] Clubs mode navigation and charcoal/rose-gold visual system.
+- [x] Ultimate Clubs page.
+- [ ] Full responsive mobile QA for all new Clubs screens.
 
 ### Open product decisions
 - Auction timing/round duration, bid increment and minimum bid.
