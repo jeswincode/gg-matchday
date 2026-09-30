@@ -16,7 +16,6 @@ async function clubSnapshot(clubId, completedMatches) {
     .map(match => match.mainMatchId)
     .filter(Boolean);
   const mainMatches = matchIds.length ? await Match.find({ _id: { $in: matchIds } }).lean() : [];
-  const mainById = new Map(mainMatches.map(match => [String(match._id), match]));
 
   const ovrValues = [];
   const ratingValues = [];
