@@ -1,3 +1,8 @@
+import Club from "../models/clubs/Club.js";
+import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
+import PlayerWallet from "../models/clubs/PlayerWallet.js";
+import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
+
 export function positiveMoney(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) throw new Error("Amount must be greater than zero.");
@@ -27,4 +32,112 @@ export function validateRetention(memberIds, retainedPlayerIds, captainIds) {
     throw new Error("At least one existing captain must be retained at contract renewal.");
   }
   return retained;
+}
+
+async function createClubLedgerEntry({ clubId, type, amount, balanceAfter, description, session, mainMatchId = null, clubMatchId = null, auctionOfferId = null }) {
+  return ClubWalletTransaction.create([{
+    clubId,
+    type,
+    amount,
+    balanceAfter,
+    description,
+    mainMatchId,
+    clubMatchId,
+    auctionOfferId,
+  }], { session }).then(rows => rows[0]);
+}
+
+async function createPlayerLedgerEntry({ playerId, type, amount, balanceAfter, description, session, clubId = null, mainMatchId = null, clubMatchId = null, auctionOfferId = null }) {
+  return PlayerWalletTransaction.create([{
+    playerId,
+    type,
+    amount,
+    balanceAfter,
+    description,
+    clubId,
+    mainMatchId,
+    clubMatchId,
+    auctionOfferId,
+  }], { session }).then(rows => rows[0]);
+}
+
+export async function creditClubWallet({ clubId, amount, type = "adjustment", description = "", session, refs = {} }) {
+  const value = positiveMoney(amount);
+  const updated = await Club.findOneAndUpdate(
+    { _id: clubId },
+    { $inc: { balance: value } },
+    { new: true, session },
+  );
+  if (!updated) throw new Error("Club wallet target not found.");
+  await createClubLedgerEntry({
+    clubId,
+    type,
+    amount: value,
+    balanceAfter: updated.balance,
+    description,
+    session,
+    ...refs,
+  });
+  return updated;
+}
+
+export async function debitClubWallet({ clubId, amount, type = "expense", description = "", session, refs = {} }) {
+  const value = positiveMoney(amount);
+  const updated = await Club.findOneAndUpdate(
+    { _id: clubId, balance: { $gte: value } },
+    { $inc: { balance: -value } },
+    { new: true, session },
+  );
+  if (!updated) throw new Error("Club wallet has insufficient balance or the club no longer exists.");
+  await createClubLedgerEntry({
+    clubId,
+    type,
+    amount: -value,
+    balanceAfter: updated.balance,
+    description,
+    session,
+    ...refs,
+  });
+  return updated;
+}
+
+export async function creditPlayerWallet({ playerId, amount, type = "adjustment", description = "", session, refs = {} }) {
+  const value = positiveMoney(amount);
+  const wallet = await PlayerWallet.findOneAndUpdate(
+    { playerId },
+    { $inc: { balance: value }, $setOnInsert: { playerId } },
+    { upsert: true, new: true, session },
+  );
+  await createPlayerLedgerEntry({
+    playerId,
+    type,
+    amount: value,
+    balanceAfter: wallet.balance,
+    description,
+    session,
+    ...refs,
+  });
+  return wallet;
+}
+
+export async function creditPlayerMatchReward({ playerId, amount, description = "", session, clubId = null, mainMatchId = null, clubMatchId = null }) {
+  return creditPlayerWallet({
+    playerId,
+    amount,
+    type: "individual_match_reward",
+    description,
+    session,
+    refs: { clubId, mainMatchId, clubMatchId },
+  });
+}
+
+export async function creditClubMatchReward({ clubId, amount, description = "", session, mainMatchId = null, clubMatchId = null }) {
+  return creditClubWallet({
+    clubId,
+    amount,
+    type: "match_reward",
+    description,
+    session,
+    refs: { mainMatchId, clubMatchId },
+  });
 }
