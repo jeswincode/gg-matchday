@@ -210,14 +210,17 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const clubName = clubId =>
     clubs.find(club => String(club._id) === String(clubId))?.name || "Unknown club";
   const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
-  const myCaptainClubs = clubs.filter(club =>
-    club.memberIds?.some(id => String(id) === currentPlayerId) &&
-    club.captainIds?.some(id => String(id) === currentPlayerId),
-  );  const currentClub = useMemo(
+  const currentClub = useMemo(
     () => clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null,
     [clubs, currentPlayerId],
   );
-
+  const myCaptainClubs = useMemo(
+    () => clubs.filter(club =>
+      club.memberIds?.some(id => String(id) === currentPlayerId) &&
+      club.captainIds?.some(id => String(id) === currentPlayerId),
+    ),
+    [clubs, currentPlayerId],
+  );
   const minMatchDateTime = (() => {
     const date = new Date(Date.now() + 60 * 1000);
     const offset = date.getTimezoneOffset() * 60 * 1000;
