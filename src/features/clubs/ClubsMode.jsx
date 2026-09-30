@@ -1002,4 +1002,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
             </>
           )}
         </section>
-      )
+      ) : null}
+    </main>
+  );
+}
