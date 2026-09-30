@@ -34,7 +34,7 @@ export function validateRetention(memberIds, retainedPlayerIds, captainIds) {
   return retained;
 }
 
-async function createClubLedgerEntry({ clubId, type, amount, balanceAfter, description, session, mainMatchId = null, clubMatchId = null, auctionOfferId = null }) {
+async function createClubLedgerEntry({ clubId, type, amount, balanceAfter, description, session, mainMatchId = null, clubMatchId = null, auctionOfferId = null, idempotencyKey = null }) {
   return ClubWalletTransaction.create([{
     clubId,
     type,
@@ -44,10 +44,11 @@ async function createClubLedgerEntry({ clubId, type, amount, balanceAfter, descr
     mainMatchId,
     clubMatchId,
     auctionOfferId,
+    idempotencyKey,
   }], { session }).then(rows => rows[0]);
 }
 
-async function createPlayerLedgerEntry({ playerId, type, amount, balanceAfter, description, session, clubId = null, mainMatchId = null, clubMatchId = null, auctionOfferId = null }) {
+async function createPlayerLedgerEntry({ playerId, type, amount, balanceAfter, description, session, clubId = null, mainMatchId = null, clubMatchId = null, auctionOfferId = null, idempotencyKey = null }) {
   return PlayerWalletTransaction.create([{
     playerId,
     type,
@@ -58,10 +59,11 @@ async function createPlayerLedgerEntry({ playerId, type, amount, balanceAfter, d
     mainMatchId,
     clubMatchId,
     auctionOfferId,
+    idempotencyKey,
   }], { session }).then(rows => rows[0]);
 }
 
-export async function creditClubWallet({ clubId, amount, type = "adjustment", description = "", session, refs = {} }) {
+export async function creditClubWallet({ clubId, amount, type = "adjustment", description = "", session, refs = {}, idempotencyKey = null }) {
   const value = positiveMoney(amount);
   const updated = await Club.findOneAndUpdate(
     { _id: clubId },
@@ -77,11 +79,12 @@ export async function creditClubWallet({ clubId, amount, type = "adjustment", de
     description,
     session,
     ...refs,
+    idempotencyKey,
   });
   return updated;
 }
 
-export async function debitClubWallet({ clubId, amount, type = "expense", description = "", session, refs = {} }) {
+export async function debitClubWallet({ clubId, amount, type = "expense", description = "", session, refs = {}, idempotencyKey = null }) {
   const value = positiveMoney(amount);
   const updated = await Club.findOneAndUpdate(
     { _id: clubId, balance: { $gte: value } },
@@ -97,11 +100,12 @@ export async function debitClubWallet({ clubId, amount, type = "expense", descri
     description,
     session,
     ...refs,
+    idempotencyKey,
   });
   return updated;
 }
 
-export async function creditPlayerWallet({ playerId, amount, type = "adjustment", description = "", session, refs = {} }) {
+export async function creditPlayerWallet({ playerId, amount, type = "adjustment", description = "", session, refs = {}, idempotencyKey = null }) {
   const value = positiveMoney(amount);
   const wallet = await PlayerWallet.findOneAndUpdate(
     { playerId },
@@ -116,11 +120,12 @@ export async function creditPlayerWallet({ playerId, amount, type = "adjustment"
     description,
     session,
     ...refs,
+    idempotencyKey,
   });
   return wallet;
 }
 
-export async function creditPlayerMatchReward({ playerId, amount, description = "", session, clubId = null, mainMatchId = null, clubMatchId = null }) {
+export async function creditPlayerMatchReward({ playerId, amount, description = "", session, clubId = null, mainMatchId = null, clubMatchId = null, idempotencyKey = null }) {
   return creditPlayerWallet({
     playerId,
     amount,
@@ -128,10 +133,11 @@ export async function creditPlayerMatchReward({ playerId, amount, description = 
     description,
     session,
     refs: { clubId, mainMatchId, clubMatchId },
+    idempotencyKey,
   });
 }
 
-export async function creditClubMatchReward({ clubId, amount, description = "", session, mainMatchId = null, clubMatchId = null }) {
+export async function creditClubMatchReward({ clubId, amount, description = "", session, mainMatchId = null, clubMatchId = null, idempotencyKey = null }) {
   return creditClubWallet({
     clubId,
     amount,
@@ -139,5 +145,6 @@ export async function creditClubMatchReward({ clubId, amount, description = "", 
     description,
     session,
     refs: { mainMatchId, clubMatchId },
+    idempotencyKey,
   });
 }
