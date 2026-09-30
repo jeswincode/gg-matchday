@@ -51,6 +51,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [renewalState, setRenewalState] = useState(null);
   const [retainedPlayers, setRetainedPlayers] = useState([]);
   const [renewalLoading, setRenewalLoading] = useState(false);
+  const [reviewCandidates, setReviewCandidates] = useState([]);
+  const [reviewForm, setReviewForm] = useState({ candidateKey: "", stars: 5, observation: "" });
+  const [reviewLoading, setReviewLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -114,6 +117,46 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       active = false;
     };
   }, [activeSection, currentClub?._id]);
+
+  const refreshReviews = async () => {
+    if (!authUser) return;
+    try {
+      setReviewLoading(true);
+      const data = await api("/clubs/reviews/eligible/me");
+      setReviewCandidates(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
+  const submitReview = async event => {
+    event.preventDefault();
+    const candidate = reviewCandidates.find(item => item.playerId === reviewForm.candidateKey?.split(":")[0] && item.relationship === reviewForm.candidateKey?.split(":")[1]);
+    if (!candidate) {
+      setError("Choose an eligible teammate or opponent.");
+      return;
+    }
+    try {
+      setBusyId("review");
+      await api("/clubs/reviews", {
+        method: "POST",
+        body: {
+          reviewedPlayerId: candidate.playerId,
+          relationship: candidate.relationship,
+          stars: Number(reviewForm.stars),
+          observation: reviewForm.observation,
+        },
+      });
+      setReviewForm({ candidateKey: "", stars: 5, observation: "" });
+      await refreshReviews();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const refreshClubMatches = async () => {
     const data = await api("/clubs/matches");
@@ -422,6 +465,21 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   };
 
   useEffect(() => {
+    if (!authUser || activeSection !== "reviews") return undefined;
+    let active = true;
+    api("/clubs/reviews/eligible/me")
+      .then(data => {
+        if (active) setReviewCandidates(Array.isArray(data) ? data : []);
+      })
+      .catch(e => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authUser, activeSection]);
+
+  useEffect(() => {
     if (!authUser || activeSection !== "auctions") return undefined;
     let active = true;
     api("/clubs/auction/me")
@@ -476,6 +534,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
         <button className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
         <button className={activeSection === "auctions" ? "active" : ""} type="button" onClick={() => setActiveSection("auctions")}>Auctions</button>
         <button className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches</button>
+        <button className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
       </nav>
 
       {error && <div className="clubs-error" role="alert">{error}</div>}
@@ -902,6 +961,45 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
                 )}
               </section>
             </>
+          )}
+        </section>
+      ) : activeSection === "reviews" ? (
+        <section className="clubs-section">
+          <div className="clubs-section-heading">
+            <div><p className="clubs-eyebrow">PLAYER REVIEWS</p><h2>Review players you actually played with or against</h2></div>
+            <span>{reviewLoading ? "Loading…" : reviewCandidates.length}</span>
+          </div>
+          {!authUser ? (
+            <div className="clubs-empty">Sign in to write player reviews.</div>
+          ) : reviewLoading ? (
+            <div className="clubs-empty">Loading eligible players…</div>
+          ) : reviewCandidates.length === 0 ? (
+            <div className="clubs-empty">No eligible reviews right now. Complete a Club Match with another player first.</div>
+          ) : (
+            <form className="clubs-review-form" onSubmit={submitReview}>
+              <label>
+                Player
+                <select value={reviewForm.candidateKey} onChange={event => setReviewForm(current => ({ ...current, candidateKey: event.target.value }))} required>
+                  <option value="">Choose a player</option>
+                  {reviewCandidates.map(candidate => (
+                    <option key={candidate.playerId + ":" + candidate.relationship} value={candidate.playerId + ":" + candidate.relationship}>
+                      {candidate.player?.name || "Player"} · {candidate.relationship} · {candidate.matchCount} match{candidate.matchCount === 1 ? "" : "es"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Stars
+                <select value={reviewForm.stars} onChange={event => setReviewForm(current => ({ ...current, stars: Number(event.target.value) }))}>
+                  {[1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{"★".repeat(value)} ({value}/5)</option>)}
+                </select>
+              </label>
+              <label>
+                Observation
+                <textarea value={reviewForm.observation} onChange={event => setReviewForm(current => ({ ...current, observation: event.target.value }))} maxLength={1000} rows={5} placeholder="Write a useful observation about their play." required />
+              </label>
+              <button type="submit" className="clubs-primary-button" disabled={busyId === "review"}>{busyId === "review" ? "Submitting…" : "Submit review"}</button>
+            </form>
           )}
         </section>
       ) : activeSection === "myClub" ? (
