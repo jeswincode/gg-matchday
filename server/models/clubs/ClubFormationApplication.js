@@ -26,7 +26,7 @@ const applicationSchema = new mongoose.Schema(
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
       validate: {
         validator: value => Array.isArray(value) && value.length === CLUB_MAX_MEMBERS && new Set(value.map(String)).size === value.length,
-        message: `Club formation requires exactly ${CLUB_MAX_MEMBERS} mutually agreed players.`,
+        message: "Club formation requires exactly " + CLUB_MAX_MEMBERS + " mutually agreed players.",
       },
     },
     memberApprovals: { type: [approvalSchema], default: [] },
@@ -48,6 +48,7 @@ const applicationSchema = new mongoose.Schema(
       enum: [
         "pendingMutualAgreement",
         "pendingName",
+        "pendingCaptainVoteSetup",
         "captainVote",
         "pendingAdminApproval",
         "rejected",
