@@ -4,7 +4,7 @@ import { getClubsConnection } from "../../config/clubsDatabase.js";
 const clubMatchBetSchema = new mongoose.Schema(
   {
     clubMatchId: { type: mongoose.Schema.Types.ObjectId, ref: "ClubMatch", required: true, index: true },
-    playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, index: true },
+    playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: false, index: true },
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     stake: { type: Number, min: 0, required: true },
     payout: { type: Number, min: 0, default: 0 },
@@ -15,6 +15,6 @@ const clubMatchBetSchema = new mongoose.Schema(
   { timestamps: true, collection: "clubMatchBets" },
 );
 
-clubMatchBetSchema.index({ clubMatchId: 1, playerId: 1 }, { unique: true });
+clubMatchBetSchema.index({ clubMatchId: 1, clubId: 1 }, { unique: true });
 
 export default getClubsConnection().model("ClubMatchBet", clubMatchBetSchema);
