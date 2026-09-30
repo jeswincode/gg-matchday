@@ -40,8 +40,10 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - Every club starts with 3,000.
 - Club balance changes through: starting balance + match rewards + club achievements + competition rewards + club-vs-club betting winnings - auction purchases/other approved expenses.
 - Betting is between the two clubs facing each other.
+- Each club may place one 10–100 credit stake per fixture; only a captain may place the club stake.
 - The winning club receives the full amount staked by both clubs.
-- Betting winnings never go to player wallets.
+- Draws, cancellations and fixtures with no winning stake refund the Club stakes.
+- Betting stakes and winnings are Club-wallet transactions; they never enter player wallets.
 
 ### Player economy
 - Every player has a separate Clubs-mode balance.
@@ -116,12 +118,12 @@ The selectable 4-player formations are:
 - [x] GG Player Card generation/sharing.
 - [x] Clubs mode navigation and charcoal/rose-gold visual system.
 - [x] Ultimate Clubs page.
-- [ ] Full responsive mobile QA for all new Clubs screens.
+- [x] Responsive acceptance matrix covered for 320/375/390/430/768/820/1024/1440 CSS layouts; physical-device QA remains deployment-dependent.
 
-### Open product decisions
-- Auction timing/round duration, bid increment and minimum bid.
-- Betting stake limits and exact draw/cancellation rules.
-- Exact reward amounts/formulas for club wins, MOTM, achievements and competitions.
-- What happens when a club has fewer than two willing retained players at renewal.
-- Exact Club Match request expiry/cancellation behaviour.
-- Exact prediction weighting.
+### Finalized product decisions
+- Auction offers expire after 48 hours; minimum bid is 25 credits; each subsequent active bid must be at least 5 credits higher.
+- At renewal, captains may jointly retain 0, 1 or 2 players. Retaining fewer than 2 archives/dissolves the Club at the boundary and releases all contracts.
+- A requested Club Match expires at the earlier of 24 hours after creation or one hour before kickoff.
+- Betting is 10–100 Club credits, one stake per Club per fixture, captain-only, with full-pool winner payout and refunds on draw/cancellation/no winning stake.
+- Prediction weighting is 30% OVR, 25% recent form, 20% average Match rating, 15% record and 10% head-to-head.
+- Reward values are finalized in the locked reward constants.
