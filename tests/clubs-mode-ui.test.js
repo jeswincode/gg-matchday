@@ -8,7 +8,7 @@ test("Clubs mode uses the locked rose-gold identity and formation set", () => {
 
   assert.match(component, /Ultimate Clubs/);
   for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"]) {
-    assert.match(component, new RegExp(formation.replace("-", "\-")));
+    assert.match(component, new RegExp(formation));
   }
   assert.match(styles, /#d9a0a2/i);
   assert.match(styles, /#0c0c0e/i);
