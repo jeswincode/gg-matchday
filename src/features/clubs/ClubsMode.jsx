@@ -734,7 +734,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       </section>
 
         </>
-      ) : (
+      ) : activeSection === "matches" ? (
       <section className="clubs-section clubs-matches-panel">
         <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUB MATCHES</p><h2>Schedule & fixtures</h2></div><span>{clubMatches.length} recorded</span></div>
         {authUser && myCaptainClubs.length > 0 && (
