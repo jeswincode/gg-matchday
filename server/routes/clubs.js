@@ -23,6 +23,11 @@ import { calculatePlayerAttributes } from "../services/playerAttributes.js";
 import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
 import PlayerWallet from "../models/clubs/PlayerWallet.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
+import AuctionOffer from "../models/clubs/AuctionOffer.js";
+import JoinRequest from "../models/clubs/JoinRequest.js";
+import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
+import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
+import { positiveMoney, activeCaptainApprovalComplete, validateRetention } from "../services/clubsEconomy.js";
 
 const router = express.Router();
 
@@ -383,6 +388,192 @@ router.post("/formation/:id/name", requireAuth, async (req, res) => {
     return res.status(500).json({
       message: "Failed to propose the club name.",
     });
+  }
+});
+
+async function getUserClubCaptainState(playerId, clubId) {
+  const club = await Club.findOne({ _id: clubId, status: "approved" }).lean();
+  if (!club) return null;
+  const isCaptain = club.captainIds.some(id => String(id) === String(playerId));
+  return { club, isCaptain };
+}
+
+router.get("/wallet/me", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  const wallet = await PlayerWallet.findOneAndUpdate({ playerId }, { $setOnInsert: { playerId, balance: 0 } }, { upsert: true, new: true }).lean();
+  const transactions = await PlayerWalletTransaction.find({ playerId }).sort({ createdAt: -1 }).limit(25).lean();
+  return res.json({ wallet, transactions });
+});
+
+router.get("/clubs/:clubId/wallet", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const state = await getUserClubCaptainState(req.user?.playerProfile, req.params.clubId);
+  if (!state) return res.status(404).json({ message: "Club not found." });
+  const transactions = await ClubWalletTransaction.find({ clubId: req.params.clubId }).sort({ createdAt: -1 }).limit(25).lean();
+  return res.json({ club: state.club, transactions });
+});
+
+router.get("/auction/eligible-players", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const active = await ClubContract.find({ status: "active" }).select("playerId").lean();
+  const activeIds = active.map(item => item.playerId);
+  const players = await Player.find(activeIds.length ? { _id: { $nin: activeIds } } : {}).select("_id name position profileImage jerseyNumber").sort({ name: 1 }).lean();
+  return res.json(players);
+});
+
+router.get("/auction/offers/:playerId", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.playerId)) return res.status(400).json({ message: "Invalid player id." });
+  const offers = await AuctionOffer.find({ playerId: req.params.playerId, status: { $in: ["active", "chosenByPlayer", "approved"] } }).sort({ amount: -1, createdAt: 1 }).lean();
+  return res.json(offers);
+});
+
+router.post("/auction/offers", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const clubId = req.body?.clubId;
+  const playerId = req.body?.playerId;
+  if (!mongoose.isValidObjectId(clubId) || !mongoose.isValidObjectId(playerId)) return res.status(400).json({ message: "Valid club and player ids are required." });
+  try {
+    const amount = positiveMoney(req.body?.amount);
+    const state = await getUserClubCaptainState(req.user.playerProfile, clubId);
+    if (!state?.isCaptain) return res.status(403).json({ message: "Only a club captain can make a signing offer." });
+    if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Your club already has four players." });
+    const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
+    if (activeContract) return res.status(409).json({ message: "That player is already under an active club contract." });
+    if (state.club.balance < amount) return res.status(409).json({ message: "Your club does not have enough balance for that offer." });
+    const offer = await AuctionOffer.create({ clubId, playerId, amount, status: "active" });
+    return res.status(201).json(offer);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to create signing offer." });
+  }
+});
+
+router.post("/auction/offers/:offerId/choose", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.offerId)) return res.status(400).json({ message: "Invalid offer id." });
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  try {
+    const offer = await AuctionOffer.findById(req.params.offerId);
+    if (!offer) return res.status(404).json({ message: "Offer not found." });
+    if (String(offer.playerId) !== String(playerId)) return res.status(403).json({ message: "Only the offered player can choose this offer." });
+    if (offer.status !== "active") return res.status(409).json({ message: "This offer is no longer active." });
+    if (offer.expiresAt && offer.expiresAt <= new Date()) return res.status(409).json({ message: "This offer has expired." });
+    const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
+    if (activeContract) return res.status(409).json({ message: "You must be outside an active club contract to sign." });
+    offer.status = "chosenByPlayer";
+    offer.playerChosenAt = new Date();
+    await AuctionOffer.updateMany({ playerId, _id: { $ne: offer._id }, status: "active" }, { $set: { status: "rejectedByPlayer" } });
+    await offer.save();
+    return res.json(offer);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to choose the signing offer." });
+  }
+});
+
+router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.offerId)) return res.status(400).json({ message: "Invalid offer id." });
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  const connection = getClubsConnection();
+  const session = await connection.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const offer = await AuctionOffer.findById(req.params.offerId).session(session);
+      if (!offer) throw new Error("Offer not found.");
+      if (!["chosenByPlayer"].includes(offer.status)) throw new Error("The player must choose this offer before captain approval.");
+      const club = await Club.findOne({ _id: offer.clubId, status: "approved" }).session(session);
+      if (!club) throw new Error("Club not found.");
+      if (!club.captainIds.some(id => String(id) === String(playerId))) throw new Error("Only an elected captain can approve the signing.");
+      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has four players.");
+      const activeContract = await ClubContract.findOne({ playerId: offer.playerId, status: "active" }).session(session);
+      if (activeContract) throw new Error("That player is already in an active club.");
+      if (club.balance < offer.amount) throw new Error("The club does not have enough balance.");
+      if (!activeCaptainApprovalComplete(club.captainIds, [...offer.captainApprovalIds, playerId])) throw new Error("All club captains must approve this signing.");
+      const now = new Date();
+      const endAt = nextRenewalBoundary(now);
+      const updatedClub = await Club.findOneAndUpdate({ _id: club._id, balance: { $gte: offer.amount }, memberIds: { $not: { $size: CLUB_MAX_MEMBERS } } }, { $inc: { balance: -offer.amount }, $push: { memberIds: offer.playerId } }, { new: true, session });
+      if (!updatedClub) throw new Error("The club changed before this signing could be completed.");
+      const wallet = await PlayerWallet.findOneAndUpdate({ playerId: offer.playerId }, { $inc: { balance: offer.amount }, $setOnInsert: { playerId: offer.playerId } }, { upsert: true, new: true, session });
+      await PlayerWalletTransaction.create([{ playerId: offer.playerId, type: "signing_payment", amount: offer.amount, balanceAfter: wallet.balance, description: "Club signing payment.", clubId: club._id, auctionOfferId: offer._id }], { session });
+      await ClubWalletTransaction.create([{ clubId: club._id, type: "auction_purchase", amount: -offer.amount, balanceAfter: updatedClub.balance, description: "Player signing payment.", auctionOfferId: offer._id }], { session });
+      await ClubContract.create([{ clubId: club._id, playerId: offer.playerId, startAt: now, endAt, signingAmount: offer.amount, source: "auction", renewalNumber: 0 }], { session });
+      await ClubHistory.create([{ clubId: club._id, playerId: offer.playerId, eventType: "memberJoined", description: "Player joined the club through a signing offer.", metadata: { auctionOfferId: offer._id, signingAmount: offer.amount } }], { session });
+      offer.captainApprovalIds = [...new Set([...offer.captainApprovalIds.map(String), String(playerId)])];
+      offer.captainApprovedAt = now;
+      offer.status = "approved";
+      await offer.save({ session });
+      result = { offer, club: updatedClub };
+    });
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to approve the signing." });
+  } finally {
+    await session.endSession();
+  }
+});
+
+router.post("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  const clubId = req.params.clubId;
+  try {
+    const state = await getUserClubCaptainState(playerId, clubId);
+    if (!state?.isCaptain) return res.status(403).json({ message: "Only club captains can decide renewals." });
+    if (state.club.memberIds.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Renewal requires a four-player club." });
+    const retained = validateRetention(state.club.memberIds, req.body?.retainedPlayerIds, state.club.captainIds);
+    const activeContracts = await ClubContract.find({ clubId, status: "active" }).sort({ endAt: 1 }).lean();
+    if (activeContracts.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "The club does not have four active contracts to renew." });
+    const boundaryAt = activeContracts[0].endAt;
+    if (new Date() < new Date(boundaryAt)) return res.status(409).json({ message: "This club's renewal boundary has not arrived yet." });
+    let decision = await ClubRenewalDecision.findOne({ clubId, boundaryAt });
+    if (!decision) {
+      decision = await ClubRenewalDecision.create({ clubId, boundaryAt, retainedPlayerIds: retained, captainApprovalIds: [playerId] });
+    } else {
+      if (JSON.stringify(decision.retainedPlayerIds.map(String).sort()) !== JSON.stringify(retained.map(String).sort())) return res.status(409).json({ message: "Both captains must approve the same retained players." });
+      decision.captainApprovalIds = [...new Set([...decision.captainApprovalIds.map(String), String(playerId)])];
+      await decision.save();
+    }
+    if (!activeCaptainApprovalComplete(state.club.captainIds, decision.captainApprovalIds)) return res.json({ status: decision.status, decision });
+    const connection = getClubsConnection();
+    const session = await connection.startSession();
+    try {
+      let updated;
+      await session.withTransaction(async () => {
+        const club = await Club.findById(clubId).session(session);
+        if (!club) throw new Error("Club not found.");
+        const contracts = await ClubContract.find({ clubId, status: "active" }).session(session);
+        const retainedSet = new Set(retained);
+        for (const contract of contracts) {
+          contract.status = retainedSet.has(String(contract.playerId)) ? "expired" : "released";
+          await contract.save({ session });
+        }
+        const nextEnd = new Date(Date.UTC(boundaryAt.getUTCFullYear(), boundaryAt.getUTCMonth() + 2, 1));
+        const newContracts = [];
+        for (const retainedId of retained) newContracts.push({ clubId, playerId: retainedId, startAt: boundaryAt, endAt: nextEnd, signingAmount: 0, source: "renewal", renewalNumber: (contracts.find(c=>String(c.playerId)===String(retainedId))?.renewalNumber||0)+1 });
+        await ClubContract.create(newContracts, { session });
+        club.memberIds = retained;
+        club.captainIds = club.captainIds.filter(id => retainedSet.has(String(id)));
+        if (!club.captainIds.length) throw new Error("At least one captain must remain for renewal.");
+        await club.save({ session });
+        for (const releasedId of contracts.filter(c => !retainedSet.has(String(c.playerId))).map(c=>c.playerId)) await ClubHistory.create([{ clubId, playerId: releasedId, eventType: "memberReleased", description: "Player released at contract renewal." }], { session });
+        await ClubHistory.create([{ clubId, eventType: "formationChanged", description: "Club roster renewed with two retained players.", metadata: { boundaryAt, retainedPlayerIds: retained } }], { session });
+        decision.status = "applied";
+        decision.appliedAt = new Date();
+        await decision.save({ session });
+        updated = club;
+      });
+      return res.json({ status: "applied", club: updated, decision });
+    } finally {
+      await session.endSession();
+    }
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to apply club renewal." });
   }
 });
 
