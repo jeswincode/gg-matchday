@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import Match from "../models/Match.js";
-import Club from "../models/clubs/Club.js";
 import { creditClubMatchReward, creditPlayerMatchReward } from "./clubsEconomy.js";
 
 export async function settleClubMatchRewards({
