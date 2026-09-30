@@ -28,6 +28,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [selectedPlayers, setSelectedPlayers] = useState(["", "", ""]);
   const [formation, setFormation] = useState("1-2-1");
   const [clubNameDrafts, setClubNameDrafts] = useState({});
+  const [detailDrafts, setDetailDrafts] = useState({});
+  const [busyId, setBusyId] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -122,7 +124,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
     }
   };
 
-  const proposeName = async applicationId => {
+  const startCaptainVote = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/setup", { method: "POST" }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };\n\n  const captainVote = async (applicationId, candidatePlayerId) => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/vote", { method: "POST", body: { candidatePlayerId } }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };\n\n  const submitDetails = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/details", { method: "POST", body: { details: detailDrafts[applicationId] || "" } }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };\n\n  const proposeName = async applicationId => {
     const name = String(clubNameDrafts[applicationId] || "").trim();
     setError("");
 
@@ -305,23 +307,28 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
 
                     {canName && (
                       <div className="clubs-name-proposal">
-                        <input
-                          value={clubNameDrafts[application._id] || ""}
-                          onChange={event => setClubNameDrafts(current => ({
-                            ...current,
-                            [application._id]: event.target.value,
-                          }))}
-                          placeholder="Propose the permanent club name"
-                          maxLength={80}
-                        />
-                        <button
-                          type="button"
-                          className="clubs-primary-button"
-                          disabled={nameSavingId === application._id}
-                          onClick={() => proposeName(application._id)}
-                        >
+                        <input value={clubNameDrafts[application._id] || ""} onChange={event => setClubNameDrafts(current => ({ ...current, [application._id]: event.target.value }))} placeholder="Propose the permanent club name" maxLength={80} />
+                        <button type="button" className="clubs-primary-button" disabled={nameSavingId === application._id} onClick={() => proposeName(application._id)}>
                           {nameSavingId === application._id ? "Saving…" : "Propose Name"}
                         </button>
+                      </div>
+                    )}
+                    {application.status === "pendingCaptainVoteSetup" && (
+                      <button type="button" className="clubs-primary-button" disabled={busyId === application._id} onClick={() => startCaptainVote(application._id)}>Start Captain Vote</button>
+                    )}
+                    {application.status === "captainVote" && (
+                      <div className="clubs-application-actions">
+                        {(application.captainCandidates || []).map(candidate => (
+                          <button key={candidate} type="button" className="clubs-primary-button" disabled={busyId === application._id || application.captainVotes?.some(v => String(v.voterPlayerId) === currentPlayerId)} onClick={() => captainVote(application._id, candidate)}>
+                            Vote {candidate === currentPlayerId ? "for yourself" : candidate.slice(-6)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {application.status === "pendingAdminApproval" && (
+                      <div className="clubs-name-proposal">
+                        <input value={detailDrafts[application._id] || ""} onChange={event => setDetailDrafts(current => ({ ...current, [application._id]: event.target.value }))} placeholder="Club details / identity" maxLength={500} />
+                        <button type="button" className="clubs-primary-button" disabled={busyId === application._id} onClick={() => submitDetails(application._id)}>Approve Details</button>
                       </div>
                     )}
                   </article>
