@@ -92,22 +92,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
     };
   }, [authUser]);
   useEffect(() => {
-    if (authUser && activeSection === "auctions") {
-      refreshAuctionState();
-    }
-  }, [authUser, activeSection]);
-
-  useEffect(() => {
-    if (authUser && activeSection === "myClub" && currentClub?._id) {
-      refreshRenewalState(currentClub._id);
-    }
-  }, [authUser, activeSection, currentClub?._id]);
-
-  useEffect(() => {
     let active = true;
     if (activeSection !== "myClub" || !currentClub?._id) {
-      setClubStats([]);
-      setClubHistory([]);
       return undefined;
     }
 
@@ -339,23 +325,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const clubName = clubId =>
     clubs.find(club => String(club._id) === String(clubId))?.name || "Unknown club";
   const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
-  const currentClub = useMemo(
-    () => clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null,
-    [clubs, currentPlayerId],
+  const currentClub =
+    clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null;
+  const myCaptainClubs = clubs.filter(club =>
+    club.memberIds?.some(id => String(id) === currentPlayerId) &&
+    club.captainIds?.some(id => String(id) === currentPlayerId),
   );
-  const myCaptainClubs = useMemo(
-    () => clubs.filter(club =>
-      club.memberIds?.some(id => String(id) === currentPlayerId) &&
-      club.captainIds?.some(id => String(id) === currentPlayerId),
-    ),
-    [clubs, currentPlayerId],
-  );
-  const minMatchDateTime = (() => {
-    const date = new Date(Date.now() + 60 * 1000);
-    const offset = date.getTimezoneOffset() * 60 * 1000;
-    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-  })();
-
   const formations = useMemo(
     () => meta?.formations?.length ? meta.formations : formationLabels,
     [meta],
@@ -449,6 +424,40 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       setNameSavingId(null);
     }
   };
+
+  useEffect(() => {
+    if (!authUser || activeSection !== "auctions") return undefined;
+    let active = true;
+    api("/clubs/auction/me")
+      .then(data => {
+        if (active) setAuctionState(data || null);
+      })
+      .catch(e => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authUser, activeSection]);
+
+  useEffect(() => {
+    if (!authUser || activeSection !== "myClub" || !currentClub?._id) return undefined;
+    let active = true;
+    api("/clubs/" + currentClub._id + "/renewal")
+      .then(data => {
+        if (!active) return;
+        setRenewalState(data || null);
+        if (retainedPlayers.length === 0 && data?.club?.memberIds) {
+          setRetainedPlayers(data.club.memberIds.slice(0, 2).map(String));
+        }
+      })
+      .catch(e => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authUser, activeSection, currentClub?._id, retainedPlayers.length]);
 
   return (
     <main className="clubs-app">
@@ -795,7 +804,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
                 <option value="">Choose opponent</option>
                 {clubs.filter(club => String(club._id) !== String(matchClubA)).map(club => <option key={club._id} value={club._id}>{club.name}</option>)}
               </select></label>
-              <label><span>SCHEDULED FOR</span><input type="datetime-local" min={minMatchDateTime} value={matchScheduledAt} onChange={event => setMatchScheduledAt(event.target.value)} /></label>
+              <label><span>SCHEDULED FOR</span><input type="datetime-local" value={matchScheduledAt} onChange={event => setMatchScheduledAt(event.target.value)} /></label>
             </div>
             <button type="submit" className="clubs-primary-button" disabled={matchSubmitting}>{matchSubmitting ? "Sending request…" : "Request Club Match"}</button>
           </form>
