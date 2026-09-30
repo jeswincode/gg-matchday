@@ -727,6 +727,74 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
           </div>
         )}
       </section>
+      ) : activeSection === "players" ? (
+        <section className="clubs-section">
+          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">PLAYER MARKET</p><h2>Available players</h2></div><span>{players.length}</span></div>
+          <div className="clubs-application-list">
+            {players.map(player => (
+              <article className="clubs-application" key={player._id}>
+                <div>
+                  <p className="clubs-eyebrow">{player.position || "PLAYER"}</p>
+                  <h3>{player.name}</h3>
+                  <span>{player.jerseyNumber ? "#" + player.jerseyNumber + " · " : ""}Open to Club approaches</span>
+                </div>
+                <button type="button" className="clubs-secondary-button" onClick={() => loadPlayerOffers(player._id)}>View offers</button>
+              </article>
+            ))}
+          </div>
+          {activeAuctionPlayer && (
+            <div className="clubs-subsection">
+              <div className="clubs-section-heading"><div><p className="clubs-eyebrow">OFFERS</p><h3>Signing offers</h3></div><span>{selectedPlayerOffers.length}</span></div>
+              {selectedPlayerOffers.length === 0 ? <div className="clubs-empty">No active signing offers for this player.</div> : (
+                <div className="clubs-application-list">
+                  {selectedPlayerOffers.map(offer => (
+                    <article className="clubs-application" key={offer._id}>
+                      <div><p className="clubs-eyebrow">{offer.status}</p><h3>{offer.amount} credits</h3><span>Club {clubName(offer.clubId)}</span></div>
+                      {offer.status === "active" && String(offer.playerId) === currentPlayerId && <button type="button" className="clubs-primary-button" disabled={busyId === "auction-" + offer._id} onClick={() => chooseAuctionOffer(offer._id)}>Choose offer</button>}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      ) : activeSection === "auctions" ? (
+        <section className="clubs-section">
+          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">AUCTION DESK</p><h2>Your signing activity</h2></div><span>{auctionLoading ? "Loading…" : ""}</span></div>
+          {!authUser ? <div className="clubs-empty">Sign in to view your signing activity.</div> : auctionLoading ? <div className="clubs-empty">Loading auction activity…</div> : (
+            <>
+              <section className="clubs-subsection">
+                <div className="clubs-section-heading"><div><p className="clubs-eyebrow">YOUR OFFERS</p><h3>Offers made to you</h3></div><span>{auctionState?.ownOffers?.length || 0}</span></div>
+                {(auctionState?.ownOffers || []).length === 0 ? <div className="clubs-empty">No active signing offers for you.</div> : (
+                  <div className="clubs-application-list">
+                    {auctionState.ownOffers.map(offer => (
+                      <article className="clubs-application" key={offer._id}>
+                        <div><p className="clubs-eyebrow">{offer.status}</p><h3>{offer.amount} credits</h3><span>{clubName(offer.clubId)} · {offer.status === "active" ? "Your decision is required" : "Offer selected"}</span></div>
+                        {offer.status === "active" && <button type="button" className="clubs-primary-button" disabled={busyId === "auction-" + offer._id} onClick={() => chooseAuctionOffer(offer._id)}>Choose this club</button>}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+              <section className="clubs-subsection">
+                <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CAPTAIN APPROVALS</p><h3>Players who chose your club</h3></div><span>{auctionState?.incomingOffers?.length || 0}</span></div>
+                {(auctionState?.incomingOffers || []).length === 0 ? <div className="clubs-empty">No player-selected offers are waiting for captain approval.</div> : (
+                  <div className="clubs-application-list">
+                    {auctionState.incomingOffers.map(offer => {
+                      const player = auctionState.offeredPlayers?.find(item => String(item._id) === String(offer.playerId));
+                      const club = auctionState.captainClubs?.find(item => String(item._id) === String(offer.clubId));
+                      const approved = (offer.captainApprovalIds || []).some(id => String(id) === currentPlayerId);
+                      return <article className="clubs-application" key={offer._id}>
+                        <div><p className="clubs-eyebrow">{player?.position || "PLAYER"}</p><h3>{player?.name || "Player"} · {offer.amount} credits</h3><span>{club?.name || clubName(offer.clubId)} · {approved ? "Your approval recorded" : "Captain approval needed"}</span></div>
+                        {!approved && <button type="button" className="clubs-primary-button" disabled={busyId === "auction-" + offer._id} onClick={() => approveAuctionOffer(offer._id)}>Approve signing</button>}
+                      </article>;
+                    })}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </section>
       ) : activeSection === "myClub" ? (
         <section className="clubs-section clubs-my-club-panel">
           {clubDetailsLoading ? (
