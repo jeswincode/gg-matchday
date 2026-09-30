@@ -29,6 +29,7 @@ import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
+import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
 import {
   positiveMoney,
   activeCaptainApprovalComplete,
@@ -780,6 +781,29 @@ router.post("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
     }
   } catch (error) {
     return res.status(400).json({ message: error.message || "Failed to apply club renewal." });
+  }
+});
+
+router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
+  const session = await getClubsConnection().startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await settleClubMatchRewards({
+        clubMatchId: req.params.matchId,
+        clubReward: req.body?.clubReward ?? 0,
+        motmReward: req.body?.motmReward ?? 0,
+        playerReward: req.body?.playerReward ?? 0,
+        session,
+      });
+    });
+    return res.json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to settle Club Match rewards." });
+  } finally {
+    await session.endSession();
   }
 });
 
