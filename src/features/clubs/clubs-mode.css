@@ -23,3 +23,13 @@
 .clubs-history-row strong,.clubs-history-row span{display:block}
 .clubs-history-row span{margin-top:3px;color:#a19a9e;font-size:11px;line-height:1.5}
 @media(max-width:760px){.clubs-my-club-hero{grid-template-columns:1fr}.clubs-roster-row{grid-template-columns:1fr 1fr 1fr}.clubs-roster-row>div:first-child{grid-column:1/-1}.clubs-history-row{grid-template-columns:1fr;gap:4px}}
+
+
+.clubs-match-market{grid-column:1/-1;margin-top:12px;padding-top:12px;border-top:1px solid #29262a;display:grid;gap:9px}
+.clubs-prediction{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.clubs-prediction span{color:#d9a0a2;font-size:9px;font-weight:850;letter-spacing:.12em}
+.clubs-prediction strong{font-size:17px}
+.clubs-prediction small,.clubs-match-bet-status{color:#80797d;font-size:10px}
+.clubs-bet-form{display:grid;grid-template-columns:minmax(150px,1fr) 110px auto;gap:8px}
+.clubs-bet-form select,.clubs-bet-form input{padding:11px 12px;border:1px solid #2e2b2d;border-radius:11px;background:#111114;color:#f1eaec}
+@media(max-width:620px){.clubs-bet-form{grid-template-columns:1fr}.clubs-bet-form button{width:100%}}
