@@ -2249,7 +2249,9 @@ function App() {
         const url = new URL(window.location.href);
         url.searchParams.delete("mode");
         window.history.replaceState({}, "", url);
-      } catch {}
+      } catch {
+        // URL history is optional in restricted browser environments.
+      }
     }} authUser={backendUser} isAdmin={isAdmin} />;
   }
 
@@ -2299,7 +2301,9 @@ function App() {
             const url = new URL(window.location.href);
             url.searchParams.set("mode", "clubs");
             window.history.replaceState({}, "", url);
-          } catch {}
+          } catch {
+            // URL history is optional in restricted browser environments.
+          }
         }}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
