@@ -43,6 +43,8 @@ const applicationSchema = new mongoose.Schema(
       default: [],
     },
     captainVotes: { type: [voteSchema], default: [] },
+    electedCaptainIds: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }], default: [] },
+    detailsApprovedBy: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }], default: [] },
     status: {
       type: String,
       enum: [
