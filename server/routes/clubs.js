@@ -807,6 +807,71 @@ router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, r
   }
 });
 
+router.get("/reviews/eligible/me", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  try {
+    const clubMatches = await ClubMatch.find({ status: "completed", mainMatchId: { $ne: null } })
+      .select("_id clubAId clubBId mainMatchId")
+      .lean();
+    const mainMatchIds = clubMatches.map(item => item.mainMatchId);
+    if (!mainMatchIds.length) return res.json([]);
+
+    const matches = await Match.find({
+      _id: { $in: mainMatchIds },
+      "participants.player": playerId,
+    }).select("_id participants date").lean();
+
+    const candidateMap = new Map();
+    for (const match of matches) {
+      const reviewer = match.participants.find(p => String(p.player) === String(playerId));
+      if (!reviewer) continue;
+      const clubMatch = clubMatches.find(item => String(item.mainMatchId) === String(match._id));
+      if (!clubMatch) continue;
+      for (const participant of match.participants) {
+        const targetId = String(participant.player);
+        if (targetId === String(playerId)) continue;
+        const relationship = participant.team === reviewer.team ? "teammate" : "opponent";
+        const clubId = relationship === "teammate"
+          ? (reviewer.team === "A" ? clubMatch.clubAId : clubMatch.clubBId)
+          : null;
+        const key = targetId + ":" + relationship;
+        const current = candidateMap.get(key) || {
+          playerId: participant.player,
+          relationship,
+          clubId,
+          matchCount: 0,
+        };
+        current.matchCount += 1;
+        candidateMap.set(key, current);
+      }
+    }
+
+    const candidates = [...candidateMap.values()];
+    const existing = candidates.length
+      ? await PlayerReview.find({
+          reviewerPlayerId: playerId,
+          $or: candidates.map(candidate => ({
+            reviewedPlayerId: candidate.playerId,
+            relationship: candidate.relationship,
+          })),
+        }).select("reviewedPlayerId relationship").lean()
+      : [];
+    const existingKeys = new Set(existing.map(item => String(item.reviewedPlayerId) + ":" + item.relationship));
+    const playerIds = [...new Set(candidates.map(candidate => String(candidate.playerId)))];
+    const players = playerIds.length
+      ? await Player.find({ _id: { $in: playerIds } }).select("_id name profileImage position").lean()
+      : [];
+    const playerMap = new Map(players.map(player => [String(player._id), player]));
+    return res.json(candidates
+      .filter(candidate => !existingKeys.has(String(candidate.playerId) + ":" + candidate.relationship))
+      .map(candidate => ({ ...candidate, player: playerMap.get(String(candidate.playerId)) || null })));
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to load eligible reviews." });
+  }
+});
+
 router.get("/reviews/me", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
