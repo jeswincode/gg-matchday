@@ -1457,7 +1457,14 @@ router.post("/formation/:id/resubmit", requireAuth, async (req, res) => {
     if (!application) return res.status(404).json({ message: "Club formation application not found." });
     if (!application.memberIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only club members can resubmit this application." });
     if (application.status !== "rejected") return res.status(409).json({ message: "Only rejected applications can be resubmitted." });
-    application.status = "pendingAdminApproval";
+    application.status = "pendingName";
+    application.proposedName = "";
+    application.proposedNameNormalized = "";
+    application.details = "";
+    application.captainCandidates = [];
+    application.captainVotes = [];
+    application.electedCaptainIds = [];
+    application.detailsApprovedBy = [];
     application.rejectionReason = "";
     await application.save();
     return res.json(application);
