@@ -14,7 +14,8 @@ async function startServer(){
     scheduleHistory();
     setInterval(scheduleHistory,86400000).unref();
 
-    const server=app.listen(process.env.PORT||5000,'0.0.0.0',()=>console.log('GG Matchday API is ready'));
+    const port=Number(process.env.PORT)||5000;
+    const server=app.listen(port,'0.0.0.0',()=>console.log(`GG Matchday API is ready on port ${port}`));
 
     const shutdown=async(signal)=>{
       console.log(`GG Matchday shutting down (${signal})`);
