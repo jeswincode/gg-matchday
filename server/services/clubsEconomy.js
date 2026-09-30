@@ -24,12 +24,14 @@ export function activeCaptainApprovalComplete(captainIds, approvalIds) {
 export function validateRetention(memberIds, retainedPlayerIds, captainIds) {
   const members = new Set((memberIds || []).map(String));
   const retained = [...new Set((retainedPlayerIds || []).map(String))];
-  if (members.size !== 4 || retained.length !== 2 || retained.some(id => !members.has(id))) {
-    throw new Error("A four-player club must retain exactly two of its current players.");
+  if (members.size !== 4 || retained.length > 2 || retained.some(id => !members.has(id))) {
+    throw new Error("A four-player club may retain zero, one, or two current players.");
   }
-  const captains = new Set((captainIds || []).map(String));
-  if (![...retained].some(id => captains.has(id))) {
-    throw new Error("At least one existing captain must be retained at contract renewal.");
+  if (retained.length === 2) {
+    const captains = new Set((captainIds || []).map(String));
+    if (![...retained].some(id => captains.has(id))) {
+      throw new Error("At least one existing captain must be retained when two players are retained.");
+    }
   }
   return retained;
 }
