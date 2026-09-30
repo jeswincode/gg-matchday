@@ -29,7 +29,13 @@ import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
-import { positiveMoney, activeCaptainApprovalComplete, validateRetention } from "../services/clubsEconomy.js";
+import {
+  positiveMoney,
+  activeCaptainApprovalComplete,
+  validateRetention,
+  debitClubWallet,
+  creditPlayerWallet,
+} from "../services/clubsEconomy.js";
 
 const router = express.Router();
 
@@ -550,18 +556,37 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
       if (!activeCaptainApprovalComplete(club.captainIds, [...offer.captainApprovalIds, playerId])) throw new Error("All club captains must approve this signing.");
       const now = new Date();
       const endAt = nextRenewalBoundary(now);
-      const updatedClub = await Club.findOneAndUpdate({ _id: club._id, balance: { $gte: offer.amount }, memberIds: { $not: { $size: CLUB_MAX_MEMBERS } } }, { $inc: { balance: -offer.amount }, $push: { memberIds: offer.playerId } }, { new: true, session });
+      const updatedClub = await Club.findOneAndUpdate(
+        { _id: club._id, status: "approved", memberIds: { $not: { $size: CLUB_MAX_MEMBERS } } },
+        { $push: { memberIds: offer.playerId } },
+        { new: true, session },
+      );
       if (!updatedClub) throw new Error("The club changed before this signing could be completed.");
-      const wallet = await PlayerWallet.findOneAndUpdate({ playerId: offer.playerId }, { $inc: { balance: offer.amount }, $setOnInsert: { playerId: offer.playerId } }, { upsert: true, new: true, session });
-      await PlayerWalletTransaction.create([{ playerId: offer.playerId, type: "signing_payment", amount: offer.amount, balanceAfter: wallet.balance, description: "Club signing payment.", clubId: club._id, auctionOfferId: offer._id }], { session });
-      await ClubWalletTransaction.create([{ clubId: club._id, type: "auction_purchase", amount: -offer.amount, balanceAfter: updatedClub.balance, description: "Player signing payment.", auctionOfferId: offer._id }], { session });
+      const debitedClub = await debitClubWallet({
+        clubId: club._id,
+        amount: offer.amount,
+        type: "auction_purchase",
+        description: "Player signing payment.",
+        session,
+        refs: { auctionOfferId: offer._id },
+        idempotencyKey: "auction:" + offer._id,
+      });
+      await creditPlayerWallet({
+        playerId: offer.playerId,
+        amount: offer.amount,
+        type: "signing_payment",
+        description: "Club signing payment.",
+        session,
+        refs: { clubId: club._id, auctionOfferId: offer._id },
+        idempotencyKey: "auction:" + offer._id,
+      });
       await ClubContract.create([{ clubId: club._id, playerId: offer.playerId, startAt: now, endAt, signingAmount: offer.amount, source: "auction", renewalNumber: 0 }], { session });
       await ClubHistory.create([{ clubId: club._id, playerId: offer.playerId, eventType: "memberJoined", description: "Player joined the club through a signing offer.", metadata: { auctionOfferId: offer._id, signingAmount: offer.amount } }], { session });
       offer.captainApprovalIds = [...new Set([...offer.captainApprovalIds.map(String), String(playerId)])];
       offer.captainApprovedAt = now;
       offer.status = "approved";
       await offer.save({ session });
-      result = { offer, club: updatedClub };
+      result = { offer, club: debitedClub };
     });
     return res.json(result);
   } catch (error) {
