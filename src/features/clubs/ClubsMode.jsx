@@ -999,8 +999,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                               onChange={event => setBetDrafts(current => ({ ...current, [match._id]: { ...(current[match._id] || {}), clubId: event.target.value } }))}
                             >
                               <option value="">Club stake</option>
-                              <option value={match.clubAId}>{clubName(match.clubAId)}</option>
-                              <option value={match.clubBId}>{clubName(match.clubBId)}</option>
+                              {[match.clubAId, match.clubBId]
+                                .filter(id => clubs.find(club => String(club._id) === String(id))?.captainIds?.some(captainId => String(captainId) === currentPlayerId))
+                                .map(id => <option key={String(id)} value={id}>{clubName(id)}</option>)}
                             </select>
                             <input
                               type="number"
