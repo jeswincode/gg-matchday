@@ -1057,7 +1057,15 @@ router.get("/matches/:matchId/bets/me", requireAuth, async (req, res) => {
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
   if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
-  const bet = await ClubMatchBet.findOne({ clubMatchId: req.params.matchId, playerId }).lean();
+  const match = await ClubMatch.findById(req.params.matchId).lean();
+  if (!match) return res.status(404).json({ message: "Club Match not found." });
+  const captainClubs = await Club.find({
+    _id: { $in: [match.clubAId, match.clubBId] },
+    status: "approved",
+    captainIds: playerId,
+  }).select("_id name").lean();
+  const clubIds = captainClubs.map(club => club._id);
+  const bet = clubIds.length ? await ClubMatchBet.findOne({ clubMatchId: req.params.matchId, clubId: { $in: clubIds } }).lean() : null;
   return res.json(bet || null);
 });
 
