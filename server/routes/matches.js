@@ -9,6 +9,7 @@ import Match from "../models/Match.js";
 import Player from "../models/Player.js";
 import News from "../models/News.js";
 import { calculateGGParticipantRatings } from "../services/ratings/match.js";
+import { syncClubStatsForMatch } from "../services/clubsMatchSync.js";
 
 import {
   requireAuth,
@@ -602,6 +603,7 @@ router.post(
         );
 
       scheduleHistory();
+      try { await syncClubStatsForMatch(populatedMatch); } catch (syncError) { console.error("Clubs match sync failed:", syncError); }
       res.status(
         201
       ).json({
@@ -746,6 +748,7 @@ router.put(
         );
 
       scheduleHistory();
+      try { await syncClubStatsForMatch(match); } catch (syncError) { console.error("Clubs match sync failed:", syncError); }
       res.json({
         match:
           populatedMatch,
