@@ -994,7 +994,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                               value={betDrafts[match._id]?.clubId || ""}
                               onChange={event => setBetDrafts(current => ({ ...current, [match._id]: { ...(current[match._id] || {}), clubId: event.target.value } }))}
                             >
-                              <option value="">Bet on club</option>
+                              <option value="">Club stake</option>
                               <option value={match.clubAId}>{clubName(match.clubAId)}</option>
                               <option value={match.clubBId}>{clubName(match.clubBId)}</option>
                             </select>
@@ -1013,7 +1013,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           </div>
                         )}
                         {matchMarkets[String(match._id)]?.bet && (
-                          <small className="clubs-match-bet-status">Your bet: {matchMarkets[String(match._id)].bet.stake} credits · {matchMarkets[String(match._id)].bet.status}</small>
+                          <small className="clubs-match-bet-status">Your Club stake: {matchMarkets[String(match._id)].bet.stake} credits · {matchMarkets[String(match._id)].bet.status}</small>
                         )}
                       </div>
                     )}
