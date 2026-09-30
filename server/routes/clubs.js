@@ -25,6 +25,7 @@ import PlayerWallet from "../models/clubs/PlayerWallet.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
 import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
+import JoinRequest from "../models/clubs/JoinRequest.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { positiveMoney, activeCaptainApprovalComplete, validateRetention } from "../services/clubsEconomy.js";
 
@@ -511,6 +512,107 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
     return res.json(result);
   } catch (error) {
     return res.status(400).json({ message: error.message || "Failed to approve the signing." });
+  } finally {
+    await session.endSession();
+  }
+});
+
+router.get("/join-requests/me", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  const requests = await JoinRequest.find({
+    $or: [{ playerId }, { clubId: { $in: (await Club.find({ memberIds: playerId }).select("_id").lean()).map(c => c._id) } }],
+    status: "pending",
+  }).sort({ createdAt: -1 }).lean();
+  return res.json(requests);
+});
+
+router.post("/join-requests", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  const clubId = req.body?.clubId;
+  if (!mongoose.isValidObjectId(clubId)) return res.status(400).json({ message: "Valid club id is required." });
+  try {
+    const club = await Club.findOne({ _id: clubId, status: "approved" }).lean();
+    if (!club) return res.status(404).json({ message: "Club not found." });
+    if (club.memberIds.some(id => String(id) === String(playerId))) return res.status(409).json({ message: "You are already in this club." });
+    if (club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "That club currently has four players." });
+    const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
+    if (activeContract) return res.status(409).json({ message: "You can join another club only after your current contract ends." });
+    const pending = await JoinRequest.findOne({ playerId, clubId, status: "pending" }).lean();
+    if (pending) return res.status(409).json({ message: "You already have a pending join request for this club." });
+    const request = await JoinRequest.create({ playerId, clubId, status: "pending", effectiveStartAt: new Date() });
+    return res.status(201).json(request);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to send join request." });
+  }
+});
+
+router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const captainId = requireLinkedPlayer(req, res);
+  if (!captainId) return;
+  if (!mongoose.isValidObjectId(req.params.requestId)) return res.status(400).json({ message: "Invalid join request id." });
+  const session = await getClubsConnection().startSession();
+  try {
+    let response;
+    await session.withTransaction(async () => {
+      const request = await JoinRequest.findById(req.params.requestId).session(session);
+      if (!request) throw new Error("Join request not found.");
+      if (request.status !== "pending") throw new Error("This join request is no longer pending.");
+      const club = await Club.findOne({ _id: request.clubId, status: "approved" }).session(session);
+      if (!club) throw new Error("Club not found.");
+      if (!club.captainIds.some(id => String(id) === String(captainId))) throw new Error("Only a club captain can approve or reject join requests.");
+      if (req.body?.accept !== true) {
+        request.status = "rejected";
+        request.rejectionReason = String(req.body?.reason || "The club declined the join request.").trim().slice(0, 500);
+        await request.save({ session });
+        response = { request, club };
+        return;
+      }
+      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has four players.");
+      const activeContract = await ClubContract.findOne({ playerId: request.playerId, status: "active" }).session(session);
+      if (activeContract) throw new Error("That player already has an active club contract.");
+      request.captainApprovalIds = [...new Set([...request.captainApprovalIds.map(String), String(captainId)])];
+      if (!activeCaptainApprovalComplete(club.captainIds, request.captainApprovalIds)) {
+        await request.save({ session });
+        response = { request, club, pendingCaptainApproval: true };
+        return;
+      }
+      const now = new Date();
+      const startAt = now;
+      const endAt = nextRenewalBoundary(now);
+      const updatedClub = await Club.findOneAndUpdate(
+        { _id: club._id, status: "approved", memberIds: { $not: { $elemMatch: { $eq: request.playerId } } } },
+        { $push: { memberIds: request.playerId } },
+        { new: true, session },
+      );
+      if (!updatedClub) throw new Error("The club changed before the player could join.");
+      await ClubContract.create([{
+        clubId: club._id,
+        playerId: request.playerId,
+        startAt,
+        endAt,
+        signingAmount: 0,
+        source: "joinRequest",
+        renewalNumber: 0,
+      }], { session });
+      request.status = "approved";
+      request.effectiveStartAt = startAt;
+      await request.save({ session });
+      await ClubHistory.create([{
+        clubId: club._id,
+        playerId: request.playerId,
+        eventType: "memberJoined",
+        description: "Player joined the club through an approved join request.",
+      }], { session });
+      response = { request, club: updatedClub, pendingCaptainApproval: false };
+    });
+    return res.json(response);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || "Failed to respond to join request." });
   } finally {
     await session.endSession();
   }
