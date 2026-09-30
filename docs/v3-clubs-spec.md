@@ -40,10 +40,13 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - Every club starts with 3,000.
 - Club balance changes through: starting balance + match rewards + club achievements + competition rewards + club-vs-club betting winnings - auction purchases/other approved expenses.
 - Betting is between the two clubs facing each other.
-- Each club may place one 10–100 credit stake per fixture; only a captain may place the club stake.
-- The winning club receives the full amount staked by both clubs.
-- Draws, cancellations and fixtures with no winning stake refund the Club stakes.
-- Betting stakes and winnings are Club-wallet transactions; they never enter player wallets.
+- Betting is 10–100 credits per user per fixture; a user may place one active bet per fixture.
+- A user may not bet on their own Club's fixture.
+- Betting locks when the scheduled match begins.
+- The winning outcome receives the full stake pool, split proportionally among winning bets.
+- Incorrect bets lose their stake; draws, cancellations and completed fixtures with no valid winning stake refund the stake.
+- Betting has no GG Match rating effect.
+- Betting stakes and winnings are Player-wallet transactions; they never enter Club wallets.
 
 ### Player economy
 - Every player has a separate Clubs-mode balance.
@@ -124,6 +127,6 @@ The selectable 4-player formations are:
 - Auction offers expire after 48 hours; minimum bid is 25 credits; each subsequent active bid must be at least 5 credits higher.
 - At renewal, captains may jointly retain 0, 1 or 2 players. Retaining fewer than 2 archives/dissolves the Club at the boundary and releases all contracts.
 - A requested Club Match expires at the earlier of 24 hours after creation or one hour before kickoff.
-- Betting is 10–100 Club credits, one stake per Club per fixture, captain-only, with full-pool winner payout and refunds on draw/cancellation/no winning stake.
+- Betting is 10–100 credits per user per fixture, one active bet per user, with full-pool winner payout proportional to winning stakes and refunds on draw/cancellation/no valid winner.
 - Prediction weighting is 30% OVR, 25% recent form, 20% average Match rating, 15% record and 10% head-to-head.
 - Reward values are finalized in the locked reward constants.
