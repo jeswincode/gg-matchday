@@ -65,3 +65,13 @@ test("Clubs mode exposes functional My Club stats and history", async () => {
   assert.match(source, /PERMANENT HISTORY/);
   assert.match(source, /Club players/);
 });
+
+
+test("Clubs UI exposes player reviews navigation and submission form", () => {
+  const source = readFileSync(new URL("../src/features/clubs/ClubsMode.jsx", import.meta.url), "utf8");
+  assert.match(source, /activeSection === "reviews"/);
+  assert.match(source, /reviews\/eligible\/me/);
+  assert.match(source, /Submit review/);
+  assert.match(source, /teammate/);
+  assert.match(source, /opponent/);
+});
