@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
 import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
 import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
+import { calculatePlayerAttributes } from "../services/playerAttributes.js";
 
 const router = express.Router();
 const invalidId = id => !mongoose.isValidObjectId(id);
@@ -13,6 +14,40 @@ const invalidId = id => !mongoose.isValidObjectId(id);
 router.get("/", async (req, res) => {
   try { const players = await Player.find().sort({ name: 1 }); res.json(players); }
   catch (error) { console.error("Error fetching players:", error); res.status(500).json({ message: "Failed to fetch players." }); }
+});
+
+router.get("/:id/attributes", async (req, res) => {
+  if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
+  try {
+    const player = await Player.findById(req.params.id).lean();
+    if (!player) return res.status(404).json({ message: "Player not found." });
+    const matches = await Match.find({ "participants.player": player._id })
+      .sort({ date: 1, createdAt: 1 })
+      .select("_id date participants events teamA teamB")
+      .lean();
+    const calculated = calculatePlayerAttributes(player, matches);
+    const ratedMatches = matches.filter(match =>
+      (match.participants || []).some(participant =>
+        String(participant.player?._id || participant.player) === String(player._id) &&
+        Number.isFinite(Number(participant.rating))
+      ),
+    ).length;
+    return res.json({
+      playerId: player._id,
+      playerName: player.name,
+      position: primaryPositionCode(player.position) || player.position || "",
+      ...calculated,
+      evidence: {
+        matchesAnalyzed: matches.length,
+        ratedMatches,
+        source: "GG Match Record",
+        derived: true,
+      },
+    });
+  } catch (error) {
+    console.error("Error calculating player attributes:", error);
+    return res.status(500).json({ message: "Failed to calculate player attributes." });
+  }
 });
 
 router.get("/:id", async (req, res) => {
