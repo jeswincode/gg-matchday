@@ -13,6 +13,7 @@ import { syncClubStatsForMatch } from "../services/clubsMatchSync.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
 import { settleClubMatchBets } from "../services/clubsBetting.js";
+import ClubMatch from "../models/clubs/ClubMatch.js";
 
 import {
   requireAuth,
@@ -668,6 +669,9 @@ router.put(
       const previous = await Match.findById(req.params.id);
       if (!previous) return res.status(404).json({message:"Match not found."});
       if (await Vote.exists({match:previous._id})) return res.status(409).json({message:"Matches with votes are locked to preserve final votes and recognition."});
+      if (await ClubMatch.exists({ mainMatchId: previous._id, settlementStatus: "settled" })) {
+        return res.status(409).json({ message: "This Match Record is locked because its linked Club Match economy has already been settled." });
+      }
       try { prepareMatch(req.body, previous); } catch (error) { return res.status(400).json({ message: error.message }); }
       const validationError =
         await validateMatchData(
@@ -814,6 +818,9 @@ router.delete(
   ) => {
     try {
       if (await Vote.exists({match:req.params.id})) return res.status(409).json({message:"Matches with votes cannot be deleted."});
+      if (await ClubMatch.exists({ mainMatchId: req.params.id, settlementStatus: "settled" })) {
+        return res.status(409).json({ message: "This Match Record cannot be deleted because its linked Club Match economy has already been settled." });
+      }
       const match =
         await Match.findByIdAndDelete(
           req.params.id
