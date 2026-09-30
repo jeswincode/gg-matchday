@@ -33,6 +33,13 @@ test("winner mapping follows the club side", () => {
   assert.equal(winnerForClub(2, 2, true), "draw");
 });
 
+test("match sync reconciles already-linked Match edits", async () => {
+  const fs = await import("node:fs/promises");
+  const source = await fs.readFile("server/services/clubsMatchSync.js", "utf8");
+  assert.match(source, /mainMatchId: mainMatch\\.\_id, status: "completed"/);
+  assert.match(source, /status: "accepted", mainMatchId: null/);
+});
+
 test("stats sync writes the schema field named matches", async () => {
   const fs = await import("node:fs/promises");
   const modelSource = await fs.readFile("server/models/clubs/ClubPlayerStats.js", "utf8");
