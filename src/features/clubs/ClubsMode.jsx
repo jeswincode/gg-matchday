@@ -95,31 +95,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       active = false;
     };
   }, [authUser]);
-  useEffect(() => {
-    let active = true;
-    if (activeSection !== "myClub" || !currentClub?._id) {
-      return undefined;
-    }
-
-    Promise.all([
-      api("/clubs/" + currentClub._id + "/stats"),
-      api("/clubs/" + currentClub._id + "/history"),
-    ])
-      .then(([statsData, historyData]) => {
-        if (!active) return;
-        setClubStats(Array.isArray(statsData?.stats) ? statsData.stats : []);
-        setClubHistory(Array.isArray(historyData) ? historyData : []);
-      })
-      .catch(requestError => {
-        if (active) setError(requestError.message || "Club details could not be loaded.");
-      })
-      ;
-
-    return () => {
-      active = false;
-    };
-  }, [activeSection, currentClub?._id]);
-
   const refreshAdminApplications = async () => {
     if (!isAdmin) return;
     try {
@@ -403,6 +378,30 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     () => meta?.formations?.length ? meta.formations : formationLabels,
     [meta],
   );
+
+  useEffect(() => {
+    let active = true;
+    if (activeSection !== "myClub" || !currentClub?._id) {
+      return undefined;
+    }
+
+    Promise.all([
+      api("/clubs/" + currentClub._id + "/stats"),
+      api("/clubs/" + currentClub._id + "/history"),
+    ])
+      .then(([statsData, historyData]) => {
+        if (!active) return;
+        setClubStats(Array.isArray(statsData?.stats) ? statsData.stats : []);
+        setClubHistory(Array.isArray(historyData) ? historyData : []);
+      })
+      .catch(requestError => {
+        if (active) setError(requestError.message || "Club details could not be loaded.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeSection, currentClub?._id]);
 
 
   const availablePlayers = useMemo(
