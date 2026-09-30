@@ -49,6 +49,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [activeAuctionPlayer, setActiveAuctionPlayer] = useState("");
   const [selectedPlayerOffers, setSelectedPlayerOffers] = useState([]);
   const [joinDecisionReason, setJoinDecisionReason] = useState({});
+  const [renewalState, setRenewalState] = useState(null);
+  const [retainedPlayers, setRetainedPlayers] = useState([]);
+  const [renewalLoading, setRenewalLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -95,6 +98,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   }, [authUser, activeSection]);
 
   useEffect(() => {
+    if (authUser && activeSection === "myClub" && currentClub?._id) {
+      refreshRenewalState(currentClub._id);
+    }
+  }, [authUser, activeSection, currentClub?._id]);
+
+  useEffect(() => {
     let active = true;
     if (activeSection !== "myClub" || !currentClub?._id) {
       setClubStats([]);
@@ -127,6 +136,44 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const refreshClubMatches = async () => {
     const data = await api("/clubs/matches");
     setClubMatches(Array.isArray(data) ? data : []);
+  };
+
+  const refreshRenewalState = async clubId => {
+    if (!clubId || !authUser) return;
+    try {
+      setRenewalLoading(true);
+      const data = await api("/clubs/" + clubId + "/renewal");
+      setRenewalState(data || null);
+      if (!retainedPlayers.length && data?.club?.memberIds) {
+        setRetainedPlayers(data.club.memberIds.slice(0, 2).map(String));
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRenewalLoading(false);
+    }
+  };
+
+  const submitRenewal = async () => {
+    if (!currentClub?._id || retainedPlayers.length !== 2) {
+      setError("Select exactly two players to retain.");
+      return;
+    }
+    setError("");
+    try {
+      setBusyId("renewal");
+      await api("/clubs/" + currentClub._id + "/renewal", {
+        method: "POST",
+        body: { retainedPlayerIds: retainedPlayers },
+      });
+      await refreshRenewalState(currentClub._id);
+      const clubsData = await api("/clubs");
+      setClubs(Array.isArray(clubsData) ? clubsData : []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const refreshAuctionState = async () => {
@@ -903,6 +950,35 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
                     );
                   })}
                 </div>
+              </section>
+
+              <section className="clubs-subsection">
+                <div className="clubs-section-heading">
+                  <div><p className="clubs-eyebrow">CONTRACT RENEWAL</p><h3>Retain two players</h3></div>
+                  <span>{renewalLoading ? "Loading…" : renewalState?.boundaryAt ? new Date(renewalState.boundaryAt).toLocaleDateString() : "—"}</span>
+                </div>
+                {renewalLoading ? (
+                  <div className="clubs-empty">Loading renewal status…</div>
+                ) : !renewalState?.boundaryAt ? (
+                  <div className="clubs-empty">No active four-player renewal cycle is available.</div>
+                ) : (
+                  <>
+                    <div className="clubs-application-list">
+                      {(currentClub.memberIds || []).map(playerId => {
+                        const player = players.find(item => String(item._id) === String(playerId));
+                        const retained = retainedPlayers.includes(String(playerId));
+                        return (
+                          <article className="clubs-application" key={String(playerId)}>
+                            <div><p className="clubs-eyebrow">{currentClub.captainIds?.some(id => String(id) === String(playerId)) ? "CAPTAIN" : "PLAYER"}</p><h3>{player?.name || "Club player"}</h3><span>{retained ? "Selected to retain" : "Selected for release if both captains agree"}</span></div>
+                            {renewalState.isCaptain && <button type="button" className={retained ? "clubs-primary-button" : "clubs-secondary-button"} onClick={() => setRetainedPlayers(current => retained ? current.filter(id => id !== String(playerId)) : current.length < 2 ? [...current, String(playerId)] : current)}>{retained ? "Retain" : "Select"}</button>}
+                          </article>
+                        );
+                      })}
+                    </div>
+                    {renewalState.isCaptain && <button type="button" className="clubs-primary-button" disabled={busyId === "renewal" || retainedPlayers.length !== 2} onClick={submitRenewal}>{busyId === "renewal" ? "Submitting…" : "Submit Renewal Decision"}</button>}
+                    {renewalState.decision && <div className="clubs-empty"><strong>{renewalState.decision.status === "applied" ? "Renewal applied." : "Renewal decision recorded."}</strong><span>Captain approvals: {renewalState.decision.captainApprovalIds?.length || 0}/{currentClub.captainIds?.length || 0}</span></div>}
+                  </>
+                )}
               </section>
 
               <section className="clubs-subsection">
