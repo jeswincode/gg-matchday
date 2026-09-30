@@ -31,8 +31,8 @@ export function validateClubMemberCount(memberIds) {
 
   const uniqueIds = [...new Set(memberIds.map(String))];
 
-  if (uniqueIds.length < 1 || uniqueIds.length > CLUB_MAX_MEMBERS) {
-    throw new Error(`A club must have between 1 and ${CLUB_MAX_MEMBERS} members.`);
+  if (uniqueIds.length !== CLUB_MAX_MEMBERS) {
+    throw new Error("A club formation requires exactly " + CLUB_MAX_MEMBERS + " unique players.");
   }
 
   return uniqueIds;
@@ -81,7 +81,7 @@ export function contractWindow(startDate) {
 
 export function selectCaptainCandidates(members, ovrByPlayerId) {
   const rows = [...(members || [])]
-    .map((playerId) => ({
+    .map(playerId => ({
       playerId: String(playerId),
       ovr: Number(ovrByPlayerId?.get(String(playerId)) ?? -Infinity),
     }))
@@ -101,11 +101,16 @@ export function resolveCaptainVote(candidates, votes) {
   }
 
   const ranked = [...allowed]
-    .map(playerId => ({ playerId, votes: counts.get(playerId) || 0 }))
+    .map(playerId => ({
+      playerId,
+      votes: counts.get(playerId) || 0,
+    }))
     .sort((a, b) => b.votes - a.votes || a.playerId.localeCompare(b.playerId));
 
   if (!ranked.length) return [];
 
   const topVotes = ranked[0].votes;
-  return ranked.filter(row => row.votes === topVotes).map(row => row.playerId);
+  return ranked
+    .filter(row => row.votes === topVotes)
+    .map(row => row.playerId);
 }
