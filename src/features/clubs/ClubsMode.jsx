@@ -30,6 +30,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
   const [clubNameDrafts, setClubNameDrafts] = useState({});
   const [detailDrafts, setDetailDrafts] = useState({});
   const [busyId, setBusyId] = useState(null);
+  const [wallet, setWallet] = useState(null);
+  const [joinRequests, setJoinRequests] = useState([]);
+  const [offerPlayer, setOfferPlayer] = useState("");
+  const [offerAmount, setOfferAmount] = useState("");
+  const [offerClub, setOfferClub] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -43,6 +48,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
         setClubs(Array.isArray(results[1]) ? results[1] : []);
         setPlayers(Array.isArray(results[2]) ? results[2] : []);
         setApplications(authUser && Array.isArray(results[3]) ? results[3] : []);
+        if (authUser) {
+          Promise.all([api("/clubs/wallet/me"), api("/clubs/join-requests/me")]).then(([walletData, joinData]) => {
+            if (!active) return;
+            setWallet(walletData);
+            setJoinRequests(Array.isArray(joinData) ? joinData : []);
+          }).catch(() => {});
+        }
         setError("");
       })
       .catch(requestError => {
@@ -53,7 +65,28 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
         if (active) setLoading(false);
       });
 
-    return () => {
+    const sendJoinRequest = async clubId => {
+    setError("");
+    try {
+      setBusyId(clubId);
+      await api("/clubs/join-requests", { method: "POST", body: { clubId } });
+      const data = await api("/clubs/join-requests/me");
+      setJoinRequests(Array.isArray(data) ? data : []);
+    } catch (e) { setError(e.message); } finally { setBusyId(null); }
+  };
+
+  const makeOffer = async event => {
+    event.preventDefault();
+    setError("");
+    if (!offerClub || !offerPlayer || !offerAmount) { setError("Choose a club, player and offer amount."); return; }
+    try {
+      setBusyId("offer");
+      await api("/clubs/auction/offers", { method: "POST", body: { clubId: offerClub, playerId: offerPlayer, amount: Number(offerAmount) } });
+      setOfferPlayer(""); setOfferAmount("");
+    } catch (e) { setError(e.message); } finally { setBusyId(null); }
+  };
+
+  return () => {
       active = false;
     };
   }, [authUser]);
@@ -171,8 +204,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
       <nav className="clubs-nav" aria-label="Clubs navigation">
         <button className="active" type="button">Ultimate Clubs</button>
         <button type="button" disabled>My Club</button>
-        <button type="button" disabled>Players</button>
-        <button type="button" disabled>Auctions</button>
+        <button type="button">Players</button>
+        <button type="button">Auctions</button>
         <button type="button" disabled>Matches</button>
       </nav>
 
@@ -192,6 +225,48 @@ export default function ClubsMode({ onReturnToMatchday, authUser }) {
           <small>starting credits</small>
         </div>
       </section>
+
+      {authUser && (
+        <section className="clubs-section">
+          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUBS WALLET</p><h2>Your Clubs balance</h2></div></div>
+          <div className="clubs-empty">
+            <strong>{wallet?.wallet?.balance ?? 0} credits</strong>
+            <span>Signing payments and individual club rewards are tracked separately from Matchday GG ratings.</span>
+          </div>
+        </section>
+      )}
+
+      {authUser && clubs.length > 0 && (
+        <section className="clubs-section">
+          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">JOIN A CLUB</p><h2>Available clubs</h2></div><span>{clubs.length}</span></div>
+          <div className="clubs-application-list">
+            {clubs.map(club => {
+              const isMember = club.memberIds?.some(id => String(id) === currentPlayerId);
+              const full = (club.memberIds?.length || 0) >= 4;
+              return <article className="clubs-application" key={club._id}>
+                <div><p className="clubs-eyebrow">{club.formation}</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/4 players · {club.balance} credits</span></div>
+                {!isMember && !full && <button type="button" className="clubs-primary-button" disabled={busyId === club._id} onClick={() => sendJoinRequest(club._id)}>{busyId === club._id ? "Sending…" : "Request to Join"}</button>}
+                {isMember && <span>Current club</span>}
+                {full && !isMember && <span>Squad full</span>}
+              </article>;
+            })}
+          </div>
+        </section>
+      )}
+
+      {authUser && (
+        <section className="clubs-section">
+          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">SIGNING MARKET</p><h2>Make a player offer</h2></div></div>
+          <form className="clubs-create-form" onSubmit={makeOffer}>
+            <div className="clubs-invite-grid">
+              <label><span>YOUR CLUB</span><select value={offerClub} onChange={e => setOfferClub(e.target.value)}><option value="">Choose club</option>{clubs.filter(c => c.memberIds?.some(id => String(id) === currentPlayerId) && c.captainIds?.some(id => String(id) === currentPlayerId)).map(c => <option key={c._id} value={c._id}>{c.name}</option>)}</select></label>
+              <label><span>PLAYER</span><select value={offerPlayer} onChange={e => setOfferPlayer(e.target.value)}><option value="">Choose player</option>{players.filter(p => String(p._id) !== currentPlayerId).map(p => <option key={p._id} value={p._id}>{p.name}</option>)}</select></label>
+              <label><span>OFFER</span><input type="number" min="1" value={offerAmount} onChange={e => setOfferAmount(e.target.value)} placeholder="Credits" /></label>
+            </div>
+            <button className="clubs-primary-button" type="submit" disabled={busyId === "offer"}>{busyId === "offer" ? "Sending…" : "Send Signing Offer"}</button>
+          </form>
+        </section>
+      )}
 
       {authUser ? (
         <section className="clubs-section">
