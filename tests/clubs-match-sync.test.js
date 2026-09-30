@@ -55,3 +55,13 @@ test("Clubs mode exposes a functional Matches panel", async () => {
   assert.match(source, /\/clubs\/matches/);
   assert.match(source, /Request Club Match/);
 });
+
+test("Clubs mode exposes functional My Club stats and history", async () => {
+  const fs = await import("node:fs/promises");
+  const source = await fs.readFile("src/features/clubs/ClubsMode.jsx", "utf8");
+  assert.match(source, /activeSection === "myClub"/);
+  assert.match(source, /\/clubs\/" \+ currentClub\._id \+ "\/stats/);
+  assert.match(source, /\/clubs\/" \+ currentClub\._id \+ "\/history/);
+  assert.match(source, /PERMANENT HISTORY/);
+  assert.match(source, /Club players/);
+});
