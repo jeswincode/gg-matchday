@@ -108,9 +108,9 @@ The selectable 4-player formations are:
 - [x] Player and club wallet mutation services with atomic balance/ledger updates.
 - [x] Club-match scheduling and acceptance UI.
 - [x] Sync from main Match Record into Clubs data.
-- [x] Protected Club reward/MOTM settlement service and endpoint; exact reward amounts remain configurable pending product decisions.
-- [ ] Club-vs-club betting settlement; stake/draw/cancellation rules remain open.
-- [ ] Club-vs-club prediction engine; exact weighting remains open.
+- [x] Protected and automatic Club reward/MOTM settlement: 100 win, 50 draw, 10 appearance, 25 MOTM, 10 clean sheet, plus 25/50/100/50 Club achievement milestones.
+- [x] Club-vs-club betting settlement: 10–100 credits, pooled winner payout, draw/cancellation/no-winner refunds.
+- [x] Club-vs-club prediction engine: 30% OVR, 25% recent form, 20% average Match rating, 15% record, 10% head-to-head.
 - [x] Player Reviews API/UI and eligibility checks against main Match data.
 - [x] Player Attributes/OVR calculation and traceable evidence.
 - [x] GG Player Card generation/sharing.
