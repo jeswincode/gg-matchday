@@ -1,0 +1,3 @@
+export function Status({loading,error,empty}){return <div className={loading?'loading-panel':'empty-state'} role={error?'alert':'status'}>{loading?'Loading…':error||empty}</div>;}
+export function PlayerButton({player,onPlayer}){return <button className="gg-player-link" onClick={()=>onPlayer?.(player.playerId||player._id)}>{player.profileImage&&<img src={player.profileImage} alt="" loading="lazy"/>}<span>{player.name||player.playerName}</span></button>;}
+export function StatGrid({stats}){return <div className="gg-stats">{Object.entries(stats).map(([label,value])=><div key={label}><strong>{value??'—'}</strong><span>{label}</span></div>)}</div>;}

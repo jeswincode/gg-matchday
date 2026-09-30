@@ -1,0 +1,217 @@
+/* GG Matchday — Gold theme, premium dark parity
+   Gold is the identity/accent; the UI hierarchy stays as clean and dark as Dark mode. */
+
+html[data-theme="golden"],
+:root[data-theme="golden"] {
+  --bg: #090805;
+  --panel: #11100d;
+  --panel-soft: #17140e;
+  --border: #342a19;
+  --text: #f6f1e7;
+  --muted: #a99f8c;
+  --muted-2: #706758;
+  --accent: #e3bc67;
+  --accent-dark: #161008;
+  --success: #65c98b;
+  --danger: #f08383;
+  --pitch: #11130f;
+  --pitch-line: #4c422f;
+  color-scheme: dark;
+}
+
+html[data-theme="golden"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+html[data-theme="golden"] .topbar {
+  background:
+    radial-gradient(circle at 82% 10%, rgba(227,188,103,.11), transparent 28%),
+    linear-gradient(135deg, rgba(12,15,19,.96), rgba(9,8,5,.94));
+  border-color: rgba(227,188,103,.16);
+}
+
+html[data-theme="golden"] .topbar::before {
+  background: radial-gradient(circle, rgba(227,188,103,.12), transparent 65%);
+}
+
+html[data-theme="golden"] .account-bar,
+html[data-theme="golden"] .card,
+html[data-theme="golden"] .home-stat-card,
+html[data-theme="golden"] .news-card,
+html[data-theme="golden"] .home-player-feature,
+html[data-theme="golden"] .profile-info-item,
+html[data-theme="golden"] .profile-stat,
+html[data-theme="golden"] .match-card,
+html[data-theme="golden"] .award-card,
+html[data-theme="golden"] .ranking-row,
+html[data-theme="golden"] .gg-modal,
+html[data-theme="golden"] .pr-modal,
+html[data-theme="golden"] .pr-card {
+  background: rgba(15, 15, 15, .90);
+  border-color: rgba(227,188,103,.15);
+  color: var(--text);
+  box-shadow:
+    0 18px 60px rgba(0,0,0,.26),
+    inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+html[data-theme="golden"] .account-bar {
+  backdrop-filter: blur(20px);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,.24),
+    0 0 45px rgba(227,188,103,.04);
+}
+
+html[data-theme="golden"] .home-hero {
+  background:
+    radial-gradient(circle at 82% 18%, rgba(227,188,103,.13), transparent 28%),
+    linear-gradient(135deg, rgba(12,18,30,.94), rgba(9,9,8,.96));
+  border-color: rgba(227,188,103,.16);
+}
+
+html[data-theme="golden"] .home-hero::after {
+  color: rgba(227,188,103,.055);
+}
+
+html[data-theme="golden"] .home-feature-card {
+  background:
+    radial-gradient(circle at 88% 10%, rgba(227,188,103,.11), transparent 28%),
+    linear-gradient(135deg, rgba(19,18,14,.96), rgba(10,10,10,.94));
+}
+
+html[data-theme="golden"] .home-feature-card::after {
+  border-color: rgba(227,188,103,.10);
+  box-shadow:
+    0 0 0 35px rgba(227,188,103,.02),
+    0 0 0 70px rgba(227,188,103,.012);
+}
+
+html[data-theme="golden"] .secondary-button,
+html[data-theme="golden"] .ghost-button {
+  background: rgba(22,19,13,.82);
+  border-color: rgba(227,188,103,.18);
+  color: var(--text);
+}
+
+html[data-theme="golden"] .secondary-button:hover:not(:disabled),
+html[data-theme="golden"] .ghost-button:hover:not(:disabled) {
+  border-color: rgba(227,188,103,.34);
+  box-shadow: 0 12px 34px rgba(0,0,0,.24);
+}
+
+html[data-theme="golden"] .save-button,
+html[data-theme="golden"] .add-button,
+html[data-theme="golden"] .approve-button {
+  background: linear-gradient(135deg, #e8c878, #c99b43);
+  color: #171107;
+  box-shadow: 0 12px 35px rgba(227,188,103,.10);
+}
+
+html[data-theme="golden"] .danger-button {
+  background: rgba(126,41,41,.10);
+  color: #f08b8b;
+  border-color: rgba(240,131,131,.18);
+}
+
+html[data-theme="golden"] .status-dot,
+html[data-theme="golden"] .gg-theme {
+  background: rgba(14,15,16,.92);
+  border-color: rgba(227,188,103,.16);
+}
+
+html[data-theme="golden"] .status-dot span {
+  background: #72d79a;
+}
+
+html[data-theme="golden"] .gg-theme button[aria-pressed="true"],
+html[data-theme="golden"] .bottom-nav button.active {
+  background: var(--accent);
+  color: var(--accent-dark);
+  border-color: transparent;
+  box-shadow: 0 0 30px rgba(227,188,103,.12);
+}
+
+html[data-theme="golden"] .bottom-nav {
+  background: rgba(10,10,9,.90);
+  border-color: rgba(227,188,103,.16);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,.42),
+    0 0 55px rgba(227,188,103,.05);
+}
+
+html[data-theme="golden"] input,
+html[data-theme="golden"] select,
+html[data-theme="golden"] textarea {
+  background: #15130f;
+  color: var(--text);
+  border-color: rgba(227,188,103,.16);
+}
+
+html[data-theme="golden"] input:focus,
+html[data-theme="golden"] select:focus,
+html[data-theme="golden"] textarea:focus {
+  border-color: rgba(227,188,103,.48);
+  box-shadow: 0 0 0 3px rgba(227,188,103,.07);
+}
+
+html[data-theme="golden"] .gg-rating,
+html[data-theme="golden"] .gg-medal,
+html[data-theme="golden"] .nav-button.active {
+  color: var(--accent);
+}
+
+html[data-theme="golden"] .perf-line {
+  stroke: var(--accent);
+}
+
+html[data-theme="golden"] .perf-dot {
+  fill: var(--accent);
+}
+
+html[data-theme="golden"] .perf-bar i,
+html[data-theme="golden"] progress::-webkit-progress-value,
+html[data-theme="golden"] progress::-moz-progress-bar {
+  background: var(--accent);
+}
+
+html[data-theme="golden"] .result-W {
+  background: rgba(48,117,70,.18);
+  color: #96e0ad;
+}
+
+html[data-theme="golden"] .result-D {
+  background: rgba(153,118,41,.16);
+  color: #e3c26d;
+}
+
+html[data-theme="golden"] .result-L {
+  background: rgba(126,39,39,.16);
+  color: #f0a0a0;
+}
+
+/* Keep the player hero cinematic, but let gold appear as a light accent rather than a filter. */
+html[data-theme="golden"] .profile-hero-media {
+  border-color: rgba(227,188,103,.16);
+  background: #070807;
+}
+
+html[data-theme="golden"] .profile-hero-shade {
+  background:
+    linear-gradient(180deg, rgba(4,6,7,.14), rgba(4,6,7,.48) 50%, rgba(4,5,5,.94) 100%),
+    linear-gradient(90deg, rgba(4,5,5,.72), transparent 58%);
+}
+
+html[data-theme="golden"] .account-user img,
+html[data-theme="golden"] .account-user > span,
+html[data-theme="golden"] .gg-welcome-avatar {
+  box-shadow:
+    0 0 0 2px rgba(227,188,103,.14),
+    0 10px 30px rgba(0,0,0,.24);
+}
+
+@media (max-width: 760px) {
+  html[data-theme="golden"] .bottom-nav {
+    background: rgba(9,9,8,.94);
+  }
+}

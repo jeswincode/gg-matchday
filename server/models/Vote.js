@@ -1,0 +1,2 @@
+import mongoose from "mongoose";
+const schema=new mongoose.Schema({match:{type:mongoose.Schema.Types.ObjectId,ref:'Match',required:true},voter:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true},player:{type:mongoose.Schema.Types.ObjectId,ref:'Player',required:true}},{timestamps:true});schema.index({match:1,voter:1},{unique:true});schema.index({match:1,player:1});export default mongoose.model('Vote',schema);

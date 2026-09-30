@@ -1,0 +1,15 @@
+const sections=[
+['What is GG MATCHDAY?','GG MATCHDAY is a football journal and statistics platform built to record, preserve and explore matches played by the GG community. It turns match records into player statistics, ratings, awards, history and a living football archive.'],
+['Home','The Home page is the main dashboard. It highlights latest matches and news, key football statistics, player comparisons and important snapshots from the GG MATCHDAY database.'],
+['Record','Editors and admins can record matches here. A match stores the date, teams, participants, positions, goals, assists, own goals and player ratings. Final scores are derived from match events, including own goals.'],
+['Leaderboard','The Leaderboard turns recorded matches into player rankings. It includes performance, goals, assists, wins, clean sheets, GG Rating and other career statistics.'],
+['Calendar','Calendar organizes the match archive by date. Opening a match shows its detailed teams, score, events, participants and performance information.'],
+['Players','Player profiles contain football identity and career information alongside accumulated match statistics. Player Comparisons lets you compare two or three players across goals, assists, styles, results, ratings and trends.'],
+['Ratings and GG Rating','GG Rating combines 40% average recorded match rating, 20% offensive rating, 20% defensive rating and 20% result score. Offensive and defensive ratings use absolute performance rates rather than player-pool benchmarks.'],
+['Awards and Hall of Fame','Awards and Hall of Fame recognize long-term achievements including goals, assists, wins, clean sheets, GG Rating and Player of the Match achievements, with defined tie-breakers.'],
+['Community Chat','Community Chat is the temporary social space for GG users. Each user can send up to 3 messages per calendar month. Chat messages remain visible for 5 days and are automatically removed from the database after expiry.'],
+['Notifications','Notifications are official GG MATCHDAY announcements from the admin, such as new features, fixes and version additions. Each notification remains for 5 days, is then permanently deleted, and unread status is tracked separately for each user.'],
+['Themes','GG MATCHDAY currently has two themes: Dark and Gold. The interface, including notification indicators, follows the selected theme.'],
+['Keeping records accurate','Match data is the foundation of the website. Scores, goals, assists, own goals, ratings, awards and player statistics are connected, so official records should be corrected carefully by editors and admins.']
+];
+export default function GGOverview(){return <div className="gg-overview"><div className="gg-overview-hero"><span>✦</span><div><strong>GG MATCHDAY GUIDEBOOK</strong><p>Everything you need to know about the website, its sections and how the GG football database works.</p></div></div><div className="gg-overview-list">{sections.map(([title,body],i)=><article className="gg-overview-section" key={title}><span>{String(i+1).padStart(2,'0')}</span><div><h3>{title}</h3><p>{body}</p></div></article>)}</div></div>}
