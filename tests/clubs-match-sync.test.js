@@ -72,6 +72,23 @@ test("Clubs mode exposes a functional Matches panel", async () => {
   assert.match(source, /Request Club Match/);
 });
 
+test("Club renewal frontend paths match the mounted Clubs router", async () => {
+  const [routeSource, uiSource] = await Promise.all([
+    fs.readFile("server/routes/clubs.js", "utf8"),
+    fs.readFile("src/features/clubs/ClubsMode.jsx", "utf8"),
+  ]);
+  assert.match(routeSource, /router\.get\("\/:clubId\/renewal"/);
+  assert.match(routeSource, /router\.post\("\/:clubId\/renewal"/);
+  assert.match(uiSource, /\/clubs\/" \+ currentClub\._id \+ "\/renewal/);
+  assert.doesNotMatch(routeSource, /router\.(?:get|post)\("\/clubs\/\:clubId\/renewal"/);
+});
+
+test("Club prediction mirrors head-to-head probability between both clubs", async () => {
+  const source = await fs.readFile("server/services/clubsPrediction.js", "utf8");
+  assert.match(source, /\{ \.\.\.a, headToHead: h2hA \}/);
+  assert.match(source, /\{ \.\.\.b, headToHead: 1 - h2hA \}/);
+});
+
 test("Clubs mode exposes functional My Club stats and history", async () => {
   const fs = await import("node:fs/promises");
   const source = await fs.readFile("src/features/clubs/ClubsMode.jsx", "utf8");
