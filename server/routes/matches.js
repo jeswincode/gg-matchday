@@ -825,7 +825,7 @@ router.delete(
     try {
       if (await Vote.exists({match:req.params.id})) return res.status(409).json({message:"Matches with votes cannot be deleted."});
       if (await hasLinkedClubMatch(req.params.id)) {
-        return res.status(409).json({ message: "This Match Record cannot be deleted because its linked Club Match economy has already been settled." });
+        return res.status(409).json({ message: "This Match Record cannot be deleted because it has a linked Club Match. The Club Match must remain linked to its Match Record." });
       }
       const match =
         await Match.findByIdAndDelete(
