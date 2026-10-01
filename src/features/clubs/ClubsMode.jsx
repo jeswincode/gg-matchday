@@ -474,13 +474,15 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     [meta],
   );
 
+  const currentClubMemberKey = (currentClub?.memberIds || []).map(String).join(",");
+
   useEffect(() => {
     let active = true;
     if (activeSection !== "myClub" || !currentClub?._id) {
       return undefined;
     }
 
-    const memberIds = (currentClub.memberIds || []).map(String);
+    const memberIds = currentClubMemberKey.split(",").filter(Boolean);
 
     Promise.all([
       api("/clubs/" + currentClub._id + "/stats"),
@@ -501,13 +503,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       })
       .catch(requestError => {
         if (active) setError(requestError.message || "Club details could not be loaded.");
-      })
-      ;
+      });
 
     return () => {
       active = false;
     };
-  }, [activeSection, currentClub?._id]);
+  }, [activeSection, currentClub?._id, currentClubMemberKey]);
 
 
   const availablePlayers = useMemo(
