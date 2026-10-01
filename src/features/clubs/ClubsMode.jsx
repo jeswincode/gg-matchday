@@ -1165,7 +1165,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </div>
           )}
         </section>
-        </>
       ) : activeSection === "myClub" && myClubSubsection === "auctions" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading"><div><p className="clubs-eyebrow">AUCTION DESK</p><h2>Your signing activity</h2></div><span>{auctionLoading ? "Loading…" : ""}</span></div>
