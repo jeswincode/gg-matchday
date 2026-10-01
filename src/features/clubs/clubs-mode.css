@@ -1403,3 +1403,23 @@ html[data-product-mode="clubs"] #root > footer {
     font-size: 6px;
   }
 }
+
+
+.clubs-nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: currentColor;
+  color: #111416;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-nav-badge {
+  color: #1a1409;
+}
