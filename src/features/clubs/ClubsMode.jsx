@@ -4,6 +4,54 @@ import "./clubs-mode.css";
 
 const formationLabels = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
 
+const formationSlots = {
+  "1-2-1": [
+    { x: 50, y: 84 },
+    { x: 33, y: 55 },
+    { x: 67, y: 55 },
+    { x: 50, y: 23 },
+  ],
+  "2-1-1": [
+    { x: 34, y: 77 },
+    { x: 66, y: 77 },
+    { x: 50, y: 50 },
+    { x: 50, y: 23 },
+  ],
+  "1-3": [
+    { x: 50, y: 78 },
+    { x: 23, y: 36 },
+    { x: 50, y: 32 },
+    { x: 77, y: 36 },
+  ],
+  "3-1": [
+    { x: 22, y: 76 },
+    { x: 50, y: 80 },
+    { x: 78, y: 76 },
+    { x: 50, y: 25 },
+  ],
+  "2-2": [
+    { x: 34, y: 76 },
+    { x: 66, y: 76 },
+    { x: 34, y: 31 },
+    { x: 66, y: 31 },
+  ],
+};
+
+function playerInitials(name = "") {
+  return String(name).trim().split(/\\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "GG";
+}
+
+function positionCode(position = "") {
+  const value = String(position || "").trim().toUpperCase();
+  if (value.includes("GK")) return "GK";
+  if (value.includes("CB")) return "CB";
+  if (value.includes("CDM")) return "CDM";
+  if (value.includes("CAM")) return "CAM";
+  if (value.includes("ST")) return "ST";
+  if (value.includes("CF")) return "CF";
+  return value.split(/\\s+/)[0] || "—";
+}
+
 function statusLabel(status) {
   return {
     pendingMutualAgreement: "Waiting for all four players",
@@ -45,6 +93,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [matchSubmitting, setMatchSubmitting] = useState(false);
   const [clubStats, setClubStats] = useState([]);
   const [clubHistory, setClubHistory] = useState([]);
+  const [playerAttributes, setPlayerAttributes] = useState({});
+  const [attributesLoading, setAttributesLoading] = useState(false);
   const [auctionState, setAuctionState] = useState(null);
   const [auctionLoading, setAuctionLoading] = useState(false);
   const [activeAuctionPlayer, setActiveAuctionPlayer] = useState("");
@@ -431,17 +481,31 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       return undefined;
     }
 
+    const memberIds = (currentClub.memberIds || []).map(String);
+    setAttributesLoading(true);
+
     Promise.all([
       api("/clubs/" + currentClub._id + "/stats"),
       api("/clubs/" + currentClub._id + "/history"),
+      ...memberIds.map(playerId =>
+        api("/players/" + playerId + "/attributes").catch(() => null),
+      ),
     ])
-      .then(([statsData, historyData]) => {
+      .then(([statsData, historyData, ...attributeRows]) => {
         if (!active) return;
         setClubStats(Array.isArray(statsData?.stats) ? statsData.stats : []);
         setClubHistory(Array.isArray(historyData) ? historyData : []);
+        const nextAttributes = {};
+        memberIds.forEach((playerId, index) => {
+          if (attributeRows[index]) nextAttributes[playerId] = attributeRows[index];
+        });
+        setPlayerAttributes(nextAttributes);
       })
       .catch(requestError => {
         if (active) setError(requestError.message || "Club details could not be loaded.");
+      })
+      .finally(() => {
+        if (active) setAttributesLoading(false);
       });
 
     return () => {
@@ -481,7 +545,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setFormationLoading(true);
       await api("/clubs/formation", {
         method: "POST",
-        body: { playerIds: ids, formation },
+        body: { playerIds: ids },
       });
       setSelectedPlayers(["", "", ""]);
       await refreshApplications();
@@ -620,6 +684,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     };
   }, [authUser, activeSection, currentClub?._id, retainedPlayers.length]);
 
+  const clubOvrValues = (currentClub?.memberIds || [])
+    .map(id => Number(playerAttributes[String(id)]?.ovr))
+    .filter(Number.isFinite);
+  const clubOvr = clubOvrValues.length
+    ? Math.round(clubOvrValues.reduce((sum, value) => sum + value, 0) / clubOvrValues.length)
+    : null;
+
   return (
     <main className="clubs-app">
       <header className="clubs-topbar">
@@ -627,7 +698,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <p className="clubs-eyebrow">GG MATCHDAY / CLUBS</p>
           <h1>Ultimate Clubs</h1>
           <p className="clubs-subtitle">
-            Build a four-player club, compete, earn, sign and create your club history.
+            Your Club world — squad identity, player market, matchday economy and competitive history.
           </p>
         </div>
         <button type="button" className="clubs-return-button" onClick={onReturnToMatchday}>
@@ -652,9 +723,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       <section className="clubs-hero">
         <div>
           <p className="clubs-eyebrow">THE CLUBS WORLD</p>
-          <h2>Four players. One identity.</h2>
+          <h2>Build your football world.</h2>
           <p>
-            Four players must agree before the club can move forward. The football result will continue to come from the normal GG Match Record.
+            Form a four-player Club, discover squads, sign players, schedule Club Matches and build a permanent history. Your football performance still comes from the normal GG Match Record.
           </p>
         </div>
         <div className="clubs-balance-card">
@@ -682,7 +753,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               const isMember = club.memberIds?.some(id => String(id) === currentPlayerId);
               const full = (club.memberIds?.length || 0) >= 4;
               return <article className="clubs-application" key={club._id}>
-                <div><p className="clubs-eyebrow">{club.formation}</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/4 players · {club.balance} credits</span></div>
+                <div><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/4 players · {club.balance} credits</span></div>
                 {!isMember && !full && <button type="button" className="clubs-primary-button" disabled={busyId === club._id} onClick={() => sendJoinRequest(club._id)}>{busyId === club._id ? "Sending…" : "Request to Join"}</button>}
                 {isMember && <span>Current club</span>}
                 {full && !isMember && <span>Squad full</span>}
@@ -780,13 +851,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               ))}
             </div>
 
-            <div className="clubs-create-actions">
-              <label>
-                <span>STARTING FORMATION</span>
-                <select value={formation} onChange={event => setFormation(event.target.value)}>
-                  {formations.map(value => <option value={value} key={value}>{value}</option>)}
-                </select>
-              </label>
+            <div className="clubs-create-actions clubs-create-actions--single">
+              <div className="clubs-create-note">
+                <strong>Squad layout comes later.</strong>
+                <span>Formation is a viewer choice inside My Club. Your four players agree first; the pitch layout never changes the Club itself.</span>
+              </div>
               <button type="submit" className="clubs-primary-button" disabled={formationLoading}>
                 {formationLoading ? "Sending invites…" : "Start Club Formation"}
               </button>
@@ -894,30 +963,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
       )}
-
-      <section className="clubs-section">
-        <div className="clubs-section-heading">
-          <div>
-            <p className="clubs-eyebrow">FORMATION</p>
-            <h2>Choose your shape</h2>
-          </div>
-          <span>4 players</span>
-        </div>
-
-        <div className="clubs-formations">
-          {formations.map(value => (
-            <button
-              type="button"
-              key={value}
-              className={formation === value ? "clubs-formation-card active" : "clubs-formation-card"}
-              onClick={() => setFormation(value)}
-            >
-              <strong>{value}</strong>
-              <span>Selectable club formation</span>
-            </button>
-          ))}
-        </div>
-      </section>
 
       <section className="clubs-section">
         <div className="clubs-section-heading">
@@ -1180,111 +1225,245 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </section>
       ) : activeSection === "myClub" ? (
         <section className="clubs-section clubs-my-club-panel">
-          {activeSection === "myClub" && currentClub && clubStats.length === 0 && clubHistory.length === 0 ? (
-            <div className="clubs-empty">Loading your Club profile…</div>
-          ) : !currentClub ? (
-            <div className="clubs-empty">
+          {!currentClub ? (
+            <div className="clubs-empty clubs-empty--hero">
+              <span className="clubs-empty-icon">⚽</span>
               <strong>You are not currently under a Club contract.</strong>
-              <span>Your previous Club history remains preserved in the Clubs database.</span>
+              <span>Your previous Club history remains preserved. Explore the Clubs world to form a squad or join an existing Club.</span>
+              <button type="button" className="clubs-primary-button" onClick={() => setActiveSection("overview")}>Explore Clubs</button>
             </div>
           ) : (
             <>
-              <section className="clubs-my-club-hero">
-                <div>
-                  <p className="clubs-eyebrow">MY CLUB</p>
-                  <h2>{currentClub.name}</h2>
-                  <span>{currentClub.formation} · {currentClub.memberIds?.length || 0}/4 players</span>
+              <header className="clubs-command-header">
+                <div className="clubs-command-title">
+                  <p className="clubs-eyebrow">MY CLUB / SQUAD HQ</p>
+                  <div className="clubs-title-row">
+                    <div className="clubs-club-crest" aria-hidden="true">GG</div>
+                    <div>
+                      <h2>{currentClub.name}</h2>
+                      <span>{currentClub.memberIds?.length || 0}/4 players · {currentClub.captainIds?.length || 0} captain(s)</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="clubs-my-club-balance">
-                  <span>BALANCE</span>
+                <div className="clubs-command-balance">
+                  <span>CLUB BALANCE</span>
                   <strong>{currentClub.balance ?? 0}</strong>
-                  <small>Club credits</small>
+                  <small>credits</small>
                 </div>
-              </section>
+              </header>
 
-              <section className="clubs-subsection">
-                <div className="clubs-section-heading">
-                  <div><p className="clubs-eyebrow">ROSTER</p><h3>Club players</h3></div>
-                  <span>{currentClub.captainIds?.length || 0} captain(s)</span>
-                </div>
-                <div className="clubs-roster-list">
-                  {(currentClub.memberIds || []).map(playerId => {
-                    const player = players.find(item => String(item._id) === String(playerId));
-                    const stat = clubStats.find(item => String(item.playerId?._id || item.playerId) === String(playerId));
-                    const average = stat?.ratedMatches ? (Number(stat.ratingTotal) / Number(stat.ratedMatches)).toFixed(2) : "—";
-                    const isCaptain = currentClub.captainIds?.some(id => String(id) === String(playerId));
-                    return (
-                      <article className="clubs-roster-row" key={String(playerId)}>
-                        <div>
-                          <strong>{player?.name || "Club player"}</strong>
-                          <span>{player?.position || "Player"}{isCaptain ? " · Captain" : ""}</span>
-                        </div>
-                        <div className="clubs-roster-stat"><strong>{average}</strong><span>AVG</span></div>
-                        <div className="clubs-roster-stat"><strong>{stat?.matches ?? 0}</strong><span>MATCHES</span></div>
-                        <div className="clubs-roster-stat"><strong>{stat?.wins ?? 0}</strong><span>WINS</span></div>
-                        <div className="clubs-roster-stat"><strong>{stat?.goals ?? 0}</strong><span>GOALS</span></div>
-                        <div className="clubs-roster-stat"><strong>{stat?.assists ?? 0}</strong><span>ASSISTS</span></div>
-                        <div className="clubs-roster-stat"><strong>{stat?.motm ?? 0}</strong><span>MOTM</span></div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
+              <div className="clubs-command-grid">
+                <section className="clubs-squad-panel">
+                  <div className="clubs-squad-panel-head">
+                    <div>
+                      <p className="clubs-eyebrow">SQUAD VIEW</p>
+                      <h3>Your four-player field</h3>
+                    </div>
+                    <span>{attributesLoading ? "Refreshing OVR…" : "Viewer layout"}</span>
+                  </div>
 
-              <section className="clubs-subsection">
-                <div className="clubs-section-heading">
-                  <div><p className="clubs-eyebrow">CONTRACT RENEWAL</p><h3>Retain two players</h3></div>
-                  <span>{renewalLoading ? "Loading…" : renewalState?.boundaryAt ? new Date(renewalState.boundaryAt).toLocaleDateString() : "—"}</span>
-                </div>
-                {renewalLoading ? (
-                  <div className="clubs-empty">Loading renewal status…</div>
-                ) : !renewalState?.boundaryAt ? (
-                  <div className="clubs-empty">No active four-player renewal cycle is available.</div>
-                ) : (
-                  <>
-                    <div className="clubs-application-list">
-                      {(currentClub.memberIds || []).map(playerId => {
+                  <div className="clubs-pitch-wrap">
+                    <div className="clubs-pitch">
+                      <div className="clubs-pitch-mark clubs-pitch-mark--half"></div>
+                      <div className="clubs-pitch-mark clubs-pitch-mark--box clubs-pitch-mark--top"></div>
+                      <div className="clubs-pitch-mark clubs-pitch-mark--box clubs-pitch-mark--bottom"></div>
+                      <div className="clubs-pitch-circle"></div>
+                      <div className="clubs-pitch-dot clubs-pitch-dot--top"></div>
+                      <div className="clubs-pitch-dot clubs-pitch-dot--bottom"></div>
+
+                      {(currentClub.memberIds || []).map((playerId, index) => {
                         const player = players.find(item => String(item._id) === String(playerId));
-                        const retained = retainedPlayers.includes(String(playerId));
+                        const attribute = playerAttributes[String(playerId)];
+                        const slot = (formationSlots[formation] || formationSlots["1-2-1"])[index];
+                        const stats = attribute?.attributes || {};
+                        const statItems = [
+                          ["PAC", stats.pace],
+                          ["SHO", stats.shooting],
+                          ["PAS", stats.passing],
+                          ["DRI", stats.dribbling],
+                          ["DEF", stats.defending],
+                          ["PHY", stats.physical],
+                        ];
                         return (
-                          <article className="clubs-application" key={String(playerId)}>
-                            <div><p className="clubs-eyebrow">{currentClub.captainIds?.some(id => String(id) === String(playerId)) ? "CAPTAIN" : "PLAYER"}</p><h3>{player?.name || "Club player"}</h3><span>{retained ? "Selected to retain" : "Selected for release if both captains agree"}</span></div>
-                            {renewalState.isCaptain && <button type="button" className={retained ? "clubs-primary-button" : "clubs-secondary-button"} onClick={() => setRetainedPlayers(current => retained ? current.filter(id => id !== String(playerId)) : current.length < 2 ? [...current, String(playerId)] : current)}>{retained ? "Retain" : "Select"}</button>}
-                          </article>
+                          <button
+                            type="button"
+                            className="clubs-field-card"
+                            key={String(playerId)}
+                            style={{
+                              "--slot-x": slot?.x + "%",
+                              "--slot-y": slot?.y + "%",
+                              "--card-index": index,
+                            }}
+                            title={player?.name || "Club player"}
+                          >
+                            <span className="clubs-field-card-glow" aria-hidden="true"></span>
+                            <span className="clubs-field-card-topline">
+                              <strong>{attribute?.ovr ?? "—"}</strong>
+                              <span>{positionCode(player?.position)}</span>
+                            </span>
+                            <span className="clubs-field-card-face">
+                              {player?.profileImage ? (
+                                <img src={player.profileImage} alt="" />
+                              ) : (
+                                <span>{playerInitials(player?.name)}</span>
+                              )}
+                            </span>
+                            <span className="clubs-field-card-name">{player?.name || "Club player"}</span>
+                            <span className="clubs-field-card-meta">
+                              {player?.jerseyNumber != null ? "#" + player.jerseyNumber : "GG Player"}
+                            </span>
+                            <span className="clubs-field-card-stats">
+                              {statItems.map(([label, value]) => (
+                                <span key={label}><b>{value == null ? "—" : Math.round(value)}</b><small>{label}</small></span>
+                              ))}
+                            </span>
+                          </button>
                         );
                       })}
                     </div>
-                    {renewalState.isCaptain && (
-  <>
-    <p className="clubs-match-hint">Retain 2 to continue. Jointly retaining fewer than 2 dissolves the Club at the renewal boundary.</p>
-    <button type="button" className="clubs-primary-button" disabled={busyId === "renewal"} onClick={submitRenewal}>
-      {busyId === "renewal" ? "Submitting…" : "Submit Renewal Decision"}
-    </button>
-  </>
-)}
-                    {renewalState.decision && <div className="clubs-empty"><strong>{renewalState.decision.status === "applied" ? "Renewal applied." : "Renewal decision recorded."}</strong><span>Captain approvals: {renewalState.decision.captainApprovalIds?.length || 0}/{currentClub.captainIds?.length || 0}</span></div>}
-                  </>
-                )}
-              </section>
 
-              <section className="clubs-subsection">
-                <div className="clubs-section-heading">
-                  <div><p className="clubs-eyebrow">PERMANENT HISTORY</p><h3>Club timeline</h3></div>
-                  <span>{clubHistory.length} events</span>
-                </div>
-                {clubHistory.length === 0 ? (
-                  <div className="clubs-empty">No Club history events recorded yet.</div>
-                ) : (
-                  <div className="clubs-history-list">
-                    {clubHistory.map(event => (
-                      <article className="clubs-history-row" key={String(event._id)}>
-                        <time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString()}</time>
-                        <div><strong>{event.eventType}</strong><span>{event.description || "Club history event recorded."}</span></div>
-                      </article>
-                    ))}
+                    <div className="clubs-formation-control" aria-label="Squad formation view">
+                      <div>
+                        <span>VIEW FORMATION</span>
+                        <strong>{formation}</strong>
+                      </div>
+                      <div className="clubs-formation-pills">
+                        {formations.map(value => (
+                          <button
+                            type="button"
+                            key={value}
+                            className={formation === value ? "active" : ""}
+                            onClick={() => setFormation(value)}
+                            aria-pressed={formation === value}
+                          >
+                            {value}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </section>
+                </section>
+
+                <aside className="clubs-squad-rail">
+                  <div className="clubs-squad-panel-head">
+                    <div>
+                      <p className="clubs-eyebrow">PLAYER IDENTITY</p>
+                      <h3>Squad cards</h3>
+                    </div>
+                    <span>{currentClub.memberIds?.length || 0}</span>
+                  </div>
+                  <div className="clubs-roster-premium">
+                    {(currentClub.memberIds || []).map(playerId => {
+                      const player = players.find(item => String(item._id) === String(playerId));
+                      const attribute = playerAttributes[String(playerId)];
+                      const stat = clubStats.find(item => String(item.playerId?._id || item.playerId) === String(playerId));
+                      const average = stat?.ratedMatches ? (Number(stat.ratingTotal) / Number(stat.ratedMatches)).toFixed(2) : "—";
+                      const captain = currentClub.captainIds?.some(id => String(id) === String(playerId));
+                      return (
+                        <article className="clubs-roster-premium-row" key={String(playerId)} data-captain={captain ? "true" : "false"}>
+                          <div className="clubs-roster-avatar">
+                            {player?.profileImage ? <img src={player.profileImage} alt="" /> : playerInitials(player?.name)}
+                          </div>
+                          <div className="clubs-roster-primary">
+                            <strong>{player?.name || "Club player"}</strong>
+                            <span>{positionCode(player?.position)} {captain ? "· CAPTAIN" : "· PLAYER"}</span>
+                          </div>
+                          <div className="clubs-roster-ovr">
+                            <strong>{attribute?.ovr ?? "—"}</strong>
+                            <span>OVR</span>
+                          </div>
+                          <div className="clubs-roster-rating">
+                            <strong>{average}</strong>
+                            <span>AVG</span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <div className="clubs-squad-stat-strip">
+                    <div><strong>{clubOvr ?? "—"}</strong><span>TEAM OVR</span></div>
+                    <div><strong>{clubStats.reduce((sum, row) => sum + Number(row.matches || 0), 0)}</strong><span>MATCHES</span></div>
+                    <div><strong>{clubStats.reduce((sum, row) => sum + Number(row.goals || 0), 0)}</strong><span>GOALS</span></div>
+                    <div><strong>{clubStats.reduce((sum, row) => sum + Number(row.motm || 0), 0)}</strong><span>MOTM</span></div>
+                  </div>
+                </aside>
+              </div>
+
+              <div className="clubs-myclub-lower-grid">
+                <section className="clubs-subsection clubs-renewal-panel">
+                  <div className="clubs-section-heading">
+                    <div><p className="clubs-eyebrow">CONTRACT CONTROL</p><h3>Renewal room</h3></div>
+                    <span>{renewalLoading ? "Loading…" : renewalState?.boundaryAt ? new Date(renewalState.boundaryAt).toLocaleDateString() : "—"}</span>
+                  </div>
+                  {renewalLoading ? (
+                    <div className="clubs-empty">Loading renewal state…</div>
+                  ) : !renewalState?.boundaryAt ? (
+                    <div className="clubs-empty">No active renewal boundary is available.</div>
+                  ) : (
+                    <>
+                      <div className="clubs-renewal-copy">
+                        <strong>{renewalState.isCaptain ? "Captain control" : "Squad view"}</strong>
+                        <span>Captains jointly decide who is retained at the contract boundary.</span>
+                      </div>
+                      <div className="clubs-renewal-list">
+                        {(currentClub.memberIds || []).map(playerId => {
+                          const player = players.find(item => String(item._id) === String(playerId));
+                          const retained = retainedPlayers.includes(String(playerId));
+                          return (
+                            <article className="clubs-renewal-row" key={String(playerId)}>
+                              <span>{playerInitials(player?.name)}</span>
+                              <div><strong>{player?.name || "Club player"}</strong><small>{retained ? "Selected to retain" : "Selected for release if captains agree"}</small></div>
+                              {renewalState.isCaptain && (
+                                <button
+                                  type="button"
+                                  className={retained ? "clubs-primary-button is-retained" : "clubs-secondary-button"}
+                                  onClick={() => setRetainedPlayers(current => retained ? current.filter(id => id !== String(playerId)) : current.length < 2 ? [...current, String(playerId)] : current)}
+                                >
+                                  {retained ? "Retain" : "Select"}
+                                </button>
+                              )}
+                            </article>
+                          );
+                        })}
+                      </div>
+                      {renewalState.isCaptain && (
+                        <div className="clubs-renewal-action">
+                          <span>Retaining fewer than 2 dissolves the Club at the boundary.</span>
+                          <button type="button" className="clubs-primary-button" disabled={busyId === "renewal"} onClick={submitRenewal}>
+                            {busyId === "renewal" ? "Submitting…" : "Submit Renewal Decision"}
+                          </button>
+                        </div>
+                      )}
+                      {renewalState.decision && (
+                        <div className="clubs-empty">
+                          <strong>{renewalState.decision.status === "applied" ? "Renewal applied." : "Renewal decision recorded."}</strong>
+                          <span>Captain approvals: {renewalState.decision.captainApprovalIds?.length || 0}/{currentClub.captainIds?.length || 0}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </section>
+
+                <section className="clubs-subsection">
+                  <div className="clubs-section-heading">
+                    <div><p className="clubs-eyebrow">PERMANENT HISTORY</p><h3>Club timeline</h3></div>
+                    <span>{clubHistory.length} events</span>
+                  </div>
+                  {clubHistory.length === 0 ? (
+                    <div className="clubs-empty">No Club history events recorded yet.</div>
+                  ) : (
+                    <div className="clubs-history-list">
+                      {clubHistory.map(event => (
+                        <article className="clubs-history-row" key={String(event._id)}>
+                          <time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString()}</time>
+                          <div><strong>{event.eventType}</strong><span>{event.description || "Club history event recorded."}</span></div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </div>
             </>
           )}
         </section>
