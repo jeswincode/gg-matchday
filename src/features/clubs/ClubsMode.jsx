@@ -485,6 +485,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     club.memberIds?.some(id => String(id) === currentPlayerId) &&
     club.captainIds?.some(id => String(id) === currentPlayerId),
   );
+  const incomingMatchRequests = useMemo(
+    () => clubMatches.filter(match =>
+      match.status === "requested" &&
+      myCaptainClubs.some(club => String(club._id) === String(match.clubBId)),
+    ),
+    [clubMatches, myCaptainClubs],
+  );
   const formations = useMemo(
     () => meta?.formations?.length ? meta.formations : formationLabels,
     [meta],
@@ -726,7 +733,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         <button aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => setActiveSection("myClub")}>My Club</button>
         <button aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
         <button aria-current={activeSection === "auctions" ? "page" : undefined} className={activeSection === "auctions" ? "active" : ""} type="button" onClick={() => setActiveSection("auctions")}>Auctions</button>
-        <button aria-current={activeSection === "matches" ? "page" : undefined} className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches</button>
+        <button aria-current={activeSection === "matches" ? "page" : undefined} className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge" aria-label={incomingMatchRequests.length + " incoming match request" + (incomingMatchRequests.length === 1 ? "" : "s")}>{incomingMatchRequests.length}</span>}</button>
         <button aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
         {isAdmin && <button aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => setActiveSection("admin")}>Admin</button>}
       </nav>
