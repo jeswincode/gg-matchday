@@ -76,3 +76,42 @@ test("Clubs UI exposes player reviews navigation and submission form", () => {
   assert.match(source, /teammate/);
   assert.match(source, /opponent/);
 });
+
+
+test("side inference requires a supported 2v2, 3v3 or 4v4 Club Match size", () => {
+  const mainMatch = {
+    participants: [
+      { player: oid(ids.p1), team: "A" },
+      { player: oid(ids.p2), team: "B" },
+    ],
+  };
+  const contracts = new Map([
+    [ids.p1, contract(ids.clubA)],
+    [ids.p2, contract(ids.clubB)],
+  ]);
+  assert.equal(
+    inferClubSides(mainMatch, contracts, { clubAId: ids.clubA, clubBId: ids.clubB }),
+    null,
+  );
+});
+
+test("side inference accepts a valid 2v2 Club Match", () => {
+  const mainMatch = {
+    participants: [
+      { player: oid(ids.p1), team: "A" },
+      { player: oid(ids.p2), team: "A" },
+      { player: oid(ids.p3), team: "B" },
+      { player: oid(ids.p4), team: "B" },
+    ],
+  };
+  const contracts = new Map([
+    [ids.p1, contract(ids.clubA)],
+    [ids.p2, contract(ids.clubA)],
+    [ids.p3, contract(ids.clubB)],
+    [ids.p4, contract(ids.clubB)],
+  ]);
+  assert.deepEqual(
+    inferClubSides(mainMatch, contracts, { clubAId: ids.clubA, clubBId: ids.clubB }),
+    { clubAIsSideA: true },
+  );
+});
