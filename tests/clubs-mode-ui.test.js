@@ -10,6 +10,7 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(component, /Player History/);
   assert.match(component, /Ultimate Clubs sections/);
   assert.match(component, /My Club sections/);
+  assert.match(component, /clubs-subnav/);
   const topLevelNav = component.slice(component.indexOf('<nav className="clubs-nav"'), component.indexOf("</nav>") + 6);
   assert.ok(!topLevelNav.includes(">Auctions</button>"));
   assert.ok(!topLevelNav.includes(">Matches</button>"));
@@ -20,4 +21,6 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(styles, /clubs-pitch/);
   assert.match(styles, /clubs-field-card/);
   assert.match(styles, /data-theme="golden"/);
+  assert.match(styles, /\.clubs-subnav\s*\{/);
+  assert.match(styles, /\.clubs-subnav button\.active/);
 });
