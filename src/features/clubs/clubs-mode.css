@@ -40,6 +40,10 @@
    The Clubs surface intentionally diverges from Matchday V2.
 ========================================================= */
 
+html[data-product-mode="clubs"] {
+  scrollbar-gutter: stable;
+}
+
 .clubs-app {
   --clubs-bg: #0b0c0d;
   --clubs-panel: #151718;
