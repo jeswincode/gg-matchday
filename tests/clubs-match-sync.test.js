@@ -14,9 +14,24 @@ test("side inference maps Match sides to the two scheduled clubs", () => {
 });
 
 test("side inference handles reversed Match sides", () => {
-  const mainMatch = { participants: [{ player: oid(ids.p1), team: "A" }, { player: oid(ids.p2), team: "B" }] };
-  const contracts = new Map([[ids.p1, contract(ids.clubB)], [ids.p2, contract(ids.clubA)]]);
-  assert.deepEqual(inferClubSides(mainMatch, contracts, { clubAId: ids.clubA, clubBId: ids.clubB }), { clubAIsSideA: false });
+  const mainMatch = {
+    participants: [
+      { player: oid(ids.p1), team: "A" },
+      { player: oid(ids.p2), team: "A" },
+      { player: oid(ids.p3), team: "B" },
+      { player: oid(ids.p4), team: "B" },
+    ],
+  };
+  const contracts = new Map([
+    [ids.p1, contract(ids.clubB)],
+    [ids.p2, contract(ids.clubB)],
+    [ids.p3, contract(ids.clubA)],
+    [ids.p4, contract(ids.clubA)],
+  ]);
+  assert.deepEqual(
+    inferClubSides(mainMatch, contracts, { clubAId: ids.clubA, clubBId: ids.clubB }),
+    { clubAIsSideA: false },
+  );
 });
 
 test("side inference rejects mixed-club and non-club participants", () => {
