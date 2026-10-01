@@ -86,6 +86,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [offerAmount, setOfferAmount] = useState("");
   const [offerClub, setOfferClub] = useState("");
   const [activeSection, setActiveSection] = useState("overview");
+  const [ultimateSubsection, setUltimateSubsection] = useState("overview");
+  const [myClubSubsection, setMyClubSubsection] = useState("squad");
   const [playersSubsection, setPlayersSubsection] = useState("directory");
   const [playerHistory, setPlayerHistory] = useState(null);
   const [playerHistoryLoading, setPlayerHistoryLoading] = useState(false);
@@ -643,7 +645,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [isAdmin, activeSection]);
 
   useEffect(() => {
-    if (activeSection !== "matches") return undefined;
+    if (activeSection !== "overview" || ultimateSubsection !== "matches") return undefined;
     let active = true;
     const refresh = async () => {
       const accepted = clubMatches.filter(match => ["accepted", "completed"].includes(match.status));
@@ -664,7 +666,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [activeSection, clubMatches, authUser]);
+  }, [activeSection, ultimateSubsection, clubMatches, authUser]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "reviews") return undefined;
@@ -679,10 +681,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection]);
+  }, [authUser, activeSection, myClubSubsection]);
 
   useEffect(() => {
-    if (!authUser || activeSection !== "auctions") return undefined;
+    if (!authUser || activeSection !== "myClub" || myClubSubsection !== "auctions") return undefined;
     let active = true;
     api("/clubs/auction/me")
       .then(data => {
@@ -697,7 +699,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [authUser, activeSection]);
 
   useEffect(() => {
-    if (!authUser || activeSection !== "myClub" || !currentClub?._id) return undefined;
+    if (!authUser || activeSection !== "myClub" || myClubSubsection !== "squad" || !currentClub?._id) return undefined;
     let active = true;
     api("/clubs/" + currentClub._id + "/renewal")
       .then(data => {
@@ -713,7 +715,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection, currentClub?._id, retainedPlayers.length]);
+  }, [authUser, activeSection, myClubSubsection, currentClub?._id, retainedPlayers.length]);
 
   const clubOvrValues = (currentClub?.memberIds || [])
     .map(id => Number(playerAttributes[String(id)]?.ovr))
@@ -738,8 +740,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       </header>
 
       <nav className="clubs-nav" aria-label="Clubs navigation">
-        <button aria-current={["overview","matches"].includes(activeSection) ? "page" : undefined} className={["overview","matches"].includes(activeSection) ? "active" : ""} type="button" onClick={() => setActiveSection("overview")}>Ultimate Clubs</button>
-        <button aria-current={["myClub","auctions"].includes(activeSection) ? "page" : undefined} className={["myClub","auctions"].includes(activeSection) ? "active" : ""} type="button" onClick={() => setActiveSection("myClub")}>My Club</button>
+        <button aria-current={activeSection === "overview" ? "page" : undefined} className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("overview"); }}>Ultimate Clubs</button>
+        <button aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => { setActiveSection("myClub"); setMyClubSubsection("squad"); }}>My Club</button>
         <button aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
 
         <button aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
@@ -751,11 +753,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
       {activeSection === "overview" ? (
         <>
-      <div className="clubs-section-tabs" role="tablist" aria-label="Ultimate Clubs sections">
-        <button type="button" role="tab" aria-selected="true" className="active">Overview</button>
-        <button type="button" role="tab" aria-selected="false" onClick={() => setActiveSection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
-      </div>
-      <section className="clubs-hero">
+      <div className="clubs-section-tabs" role="tablist" aria-label="Ultimate Clubs sections"><button type="button" role="tab" aria-selected={ultimateSubsection === "overview"} className={ultimateSubsection === "overview" ? "active" : ""} onClick={() => setUltimateSubsection("overview")}>Overview</button><button type="button" role="tab" aria-selected={ultimateSubsection === "matches"} className={ultimateSubsection === "matches" ? "active" : ""} onClick={() => setUltimateSubsection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button></div>
+      {ultimateSubsection === "overview" && <section className="clubs-hero">
         <div>
           <p className="clubs-eyebrow">THE CLUBS WORLD</p>
           <h2>Build your football world.</h2>
@@ -1033,11 +1032,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       </section>
 
         </>
-      ) : activeSection === "matches" ? (
-      <div className="clubs-section-tabs" role="tablist" aria-label="Ultimate Clubs sections">
-        <button type="button" role="tab" aria-selected="false" onClick={() => setActiveSection("overview")}>Overview</button>
-        <button type="button" role="tab" aria-selected="true" className="active">Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
-      </div>
+      ) : activeSection === "overview" && ultimateSubsection === "matches" ? (
       <section className="clubs-section clubs-matches-panel">
         <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUB MATCHES</p><h2>Schedule & fixtures</h2></div><span>{clubMatches.length} recorded</span></div>
         {authUser && myCaptainClubs.length > 0 && (
@@ -1170,12 +1165,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </div>
           )}
         </section>
-      ) : activeSection === "auctions" ? (
-        <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections">
-        <button type="button" role="tab" aria-selected="false" onClick={() => setActiveSection("myClub")}>Squad & History</button>
-        <button type="button" role="tab" aria-selected="true" className="active">Auctions</button>
-      </div>
-      <section className="clubs-section">
+      ) : activeSection === "myClub" && myClubSubsection === "auctions" ? (
+        <section className="clubs-section">
           <div className="clubs-section-heading"><div><p className="clubs-eyebrow">AUCTION DESK</p><h2>Your signing activity</h2></div><span>{auctionLoading ? "Loading…" : ""}</span></div>
           {!authUser ? <div className="clubs-empty">Sign in to view your signing activity.</div> : auctionLoading ? <div className="clubs-empty">Loading auction activity…</div> : (
             <>
@@ -1281,11 +1272,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
       ) : activeSection === "myClub" ? (
-        <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections">
-        <button type="button" role="tab" aria-selected="true" className="active">Squad & History</button>
-        <button type="button" role="tab" aria-selected="false" onClick={() => setActiveSection("auctions")}>Auctions</button>
-      </div>
-      <section className="clubs-section clubs-my-club-panel">
+        <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections"><button type="button" role="tab" aria-selected={myClubSubsection === "squad"} className={myClubSubsection === "squad" ? "active" : ""} onClick={() => setMyClubSubsection("squad")}>Squad & History</button><button type="button" role="tab" aria-selected={myClubSubsection === "auctions"} className={myClubSubsection === "auctions" ? "active" : ""} onClick={() => setMyClubSubsection("auctions")}>Auctions</button></div>
+      {myClubSubsection === "squad" && <section className="clubs-section clubs-my-club-panel">
           {!currentClub ? (
             <div className="clubs-empty clubs-empty--hero">
               <span className="clubs-empty-icon">⚽</span>
