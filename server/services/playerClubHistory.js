@@ -1,5 +1,3 @@
-import mongoose from "mongoose";
-
 const EARNING_TYPES = new Set([
   "signing_payment",
   "motm_reward",
