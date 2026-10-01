@@ -903,7 +903,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     <div>
                       <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
                       <h3>{application.proposedName || "Unnamed club"}</h3>
-                      <span>{application.memberIds?.length || 0}/4 members · {application.formation}</span>
+                      <span>{application.memberIds?.length || 0}/4 members · four-player squad</span>
                       {application.rejectionReason && (
                         <small className="clubs-rejection">{application.rejectionReason}</small>
                       )}
@@ -988,7 +988,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 <div>
                   <p className="clubs-eyebrow">OFFICIAL CLUB</p>
                   <h3>{club.name}</h3>
-                  <span>{club.formation} · {club.memberIds?.length || 0}/4 players</span>
+                  <span>{club.memberIds?.length || 0}/4 players · viewer formations in My Club</span>
                 </div>
                 <strong>{club.balance ?? 3000}</strong>
               </article>
