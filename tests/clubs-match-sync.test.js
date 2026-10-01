@@ -64,7 +64,7 @@ test("Clubs mode exposes functional My Club stats and history", async () => {
   assert.match(source, /\/clubs\/" \+ currentClub\._id \+ "\/stats/);
   assert.match(source, /\/clubs\/" \+ currentClub\._id \+ "\/history/);
   assert.match(source, /PERMANENT HISTORY/);
-  assert.match(source, /Club players/);
+  assert.match(source, /Club player/);
 });
 
 
