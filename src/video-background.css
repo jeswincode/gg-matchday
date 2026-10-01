@@ -46,7 +46,7 @@ body {
 /* Golden theme: shift the supplied blue stadium footage into a warm amber palette. */
 /* Matchday footage should remain clearly visible while the UI stays readable. */
 .gg-video-background {
-  filter: brightness(1.13) contrast(1.06) saturate(1.08);
+  filter: brightness(1.02) contrast(1.06) saturate(1.08);
 }
 
 .gg-video-overlay {
@@ -58,7 +58,7 @@ body {
 
 /* Golden theme keeps the same visible footage, with a warm cinematic grade. */
 html[data-theme="golden"] .gg-video-background {
-  filter: hue-rotate(165deg) saturate(0.92) sepia(0.05) brightness(0.97) contrast(1.05);
+  filter: hue-rotate(165deg) saturate(0.92) sepia(0.05) brightness(0.87) contrast(1.05);
 }
 
 html[data-theme="golden"] .gg-video-overlay {
