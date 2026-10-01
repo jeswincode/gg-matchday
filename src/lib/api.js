@@ -1,5 +1,5 @@
 import {auth} from '../firebase';
-export const API_URL=import.meta.env.VITE_API_URL||'http://localhost:10000/api';
+export const API_URL=import.meta.env.VITE_API_URL||'http://localhost:5000/api';
 const cache=new Map(),pending=new Map();
 export function invalidate(){cache.clear();window.dispatchEvent(new Event('gg-data-changed'));}
 export async function authenticatedFetch(url,options={}){
