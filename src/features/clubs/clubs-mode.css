@@ -1271,3 +1271,34 @@ html[data-theme="golden"][data-product-mode="clubs"] .clubs-footer::after {
     animation: none !important;
   }
 }
+
+/* ---------- Document-level continuity ---------- */
+html[data-product-mode="clubs"],
+html[data-product-mode="clubs"] body,
+html[data-product-mode="clubs"] #root {
+  min-height: 100%;
+  background:
+    radial-gradient(920px 640px at 88% -10%, rgba(125,160,176,.075), transparent 68%),
+    radial-gradient(720px 540px at 6% 76%, rgba(91,125,138,.045), transparent 70%),
+    linear-gradient(180deg, #0d0f10 0%, #090a0b 100%);
+}
+
+html[data-theme="golden"][data-product-mode="clubs"],
+html[data-theme="golden"][data-product-mode="clubs"] body,
+html[data-theme="golden"][data-product-mode="clubs"] #root {
+  background:
+    radial-gradient(920px 640px at 88% -10%, rgba(228,189,107,.09), transparent 68%),
+    radial-gradient(720px 540px at 6% 76%, rgba(193,151,67,.045), transparent 70%),
+    linear-gradient(180deg, #16120d 0%, #0d0b08 100%);
+}
+
+html[data-product-mode="clubs"] .clubs-app {
+  min-height: 100dvh;
+  padding-bottom: max(84px, calc(56px + env(safe-area-inset-bottom)));
+}
+
+/* A legacy/global footer must never create a second visual layer under Clubs. */
+html[data-product-mode="clubs"] body > footer,
+html[data-product-mode="clubs"] #root > footer {
+  display: none !important;
+}
