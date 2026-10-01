@@ -26,10 +26,10 @@ import {
 
 const router = express.Router();
 
-async function hasSettledClubMatch(mainMatchId) {
+async function hasLinkedClubMatch(mainMatchId, { settledOnly = false } = {}) {
   const connection = getClubsConnection();
   if (connection.readyState !== 1) return false;
-  return Boolean(await ClubMatch.exists({ mainMatchId, settlementStatus: "settled" }));
+  return Boolean(await ClubMatch.exists({ mainMatchId, ...(settledOnly ? { settlementStatus: "settled" } : {}) }));
 }
 
 async function settleLinkedClubMatches(syncResult) {
@@ -675,8 +675,8 @@ router.put(
       const previous = await Match.findById(req.params.id);
       if (!previous) return res.status(404).json({message:"Match not found."});
       if (await Vote.exists({match:previous._id})) return res.status(409).json({message:"Matches with votes are locked to preserve final votes and recognition."});
-      if (await hasSettledClubMatch(previous._id)) {
-        return res.status(409).json({ message: "This Match Record is locked because its linked Club Match economy has already been settled." });
+      if (await hasLinkedClubMatch(previous._id, { settledOnly: true })) {
+        return res.status(409).json({ message: "This Match Record is locked because it has a linked Club Match. The Club Match must remain linked to its Match Record." });
       }
       try { prepareMatch(req.body, previous); } catch (error) { return res.status(400).json({ message: error.message }); }
       const validationError =
@@ -824,7 +824,7 @@ router.delete(
   ) => {
     try {
       if (await Vote.exists({match:req.params.id})) return res.status(409).json({message:"Matches with votes cannot be deleted."});
-      if (await hasSettledClubMatch(req.params.id)) {
+      if (await hasLinkedClubMatch(req.params.id)) {
         return res.status(409).json({ message: "This Match Record cannot be deleted because its linked Club Match economy has already been settled." });
       }
       const match =
