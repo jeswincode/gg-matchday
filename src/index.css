@@ -2447,20 +2447,8 @@ textarea:focus {
   animation-delay:.14s;
 }
 
- .product-mode-transition--to-matchday-dark::before, .product-mode-transition--to-matchday-golden::before{
-  background:linear-gradient(135deg,#080a0f 0%,#11151d 54%,#c4879c 100%);
-}
-
- .product-mode-transition--to-matchday-dark .product-mode-wave--one{
-  background:#080a0f;
-}
-
- .product-mode-transition--to-matchday-dark .product-mode-wave--two{
-  background:#252b36;
-}
-
- .product-mode-transition--to-matchday-dark .product-mode-wave--three{
-  background:#9b6476;
+ .product-mode-transition--to-matchday-golden::before{
+  background:linear-gradient(135deg,#17140c 0%,#2a2110 54%,#d8ad57 100%);
 }
 
 @keyframes productModeCover{
@@ -2484,6 +2472,20 @@ textarea:focus {
 }
 
 
+/* Returning from Clubs follows the destination Matchday theme. */
+.product-mode-transition--to-matchday-dark::before{
+  background:linear-gradient(135deg,#070809 0%,#151718 52%,#383a39 100%);
+}
+.product-mode-transition--to-matchday-dark .product-mode-wave--one{
+  background:#08090a;
+  box-shadow:0 -18px 60px rgba(255,255,255,.08);
+}
+.product-mode-transition--to-matchday-dark .product-mode-wave--two{
+  background:#262827;
+}
+.product-mode-transition--to-matchday-dark .product-mode-wave--three{
+  background:#565a57;
+}
 /* Returning from Clubs follows the destination Matchday theme. */
 .product-mode-transition--to-matchday-golden::before{
   background:linear-gradient(135deg,#17140c 0%,#2a2110 54%,#d8ad57 100%);
