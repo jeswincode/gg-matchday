@@ -25,13 +25,15 @@ async function findContractMap(playerIds, date) {
 export function inferClubSides(mainMatch, contractMap, clubMatch) {
   const allowed = new Set([String(clubMatch.clubAId), String(clubMatch.clubBId)]);
   const sideClubIds = { A: new Set(), B: new Set() };
+  const sideCounts = { A: 0, B: 0 };
   for (const participant of mainMatch.participants || []) {
     const contract = contractMap.get(idOf(participant.player));
     if (!contract || !allowed.has(String(contract.clubId))) return null;
     if (!["A", "B"].includes(participant.team)) return null;
+    sideCounts[participant.team] += 1;
     sideClubIds[participant.team].add(String(contract.clubId));
   }
-  if (!sideClubIds.A.size || !sideClubIds.B.size) return null;
+  if (sideCounts.A < 2 || sideCounts.A > 4 || sideCounts.B < 2 || sideCounts.B > 4) return null;
   if (sideClubIds.A.size !== 1 || sideClubIds.B.size !== 1) return null;
   const clubA = String(clubMatch.clubAId), clubB = String(clubMatch.clubBId);
   if (sideClubIds.A.has(clubA) && sideClubIds.B.has(clubB)) return { clubAIsSideA: true };
@@ -68,6 +70,12 @@ export async function attachMainMatchToClubMatch(mainMatch) {
     scheduledAt: { $gte: dayStart, $lt: dayEnd },
     mainMatchId: null,
   }).lean();
+
+  const mainMatchTime = new Date(mainMatch.date).getTime();
+  candidates.sort((left, right) =>
+    Math.abs(new Date(left.scheduledAt).getTime() - mainMatchTime) -
+    Math.abs(new Date(right.scheduledAt).getTime() - mainMatchTime),
+  );
 
   const scoreFor = (clubMatch, inference) => {
     const scoreA = Number(mainMatch.teamA?.score || 0);
