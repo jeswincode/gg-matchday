@@ -83,6 +83,8 @@ const playerSchema = new mongoose.Schema(
       positionRatings: { type: mongoose.Schema.Types.Mixed, default: {} },
       calculatedAt: { type: Date, default: null },
       sourceUpdatedAt: { type: Date, default: null },
+      sourcePosition: { type: String, default: "" },
+      sourcePreferredPositions: { type: [String], default: [] },
     },
 
     position: {
