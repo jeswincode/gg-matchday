@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { CLUB_MAX_MEMBERS, CLUB_FORMATIONS } from "../../config/clubsRules.js";
+import { CLUB_MAX_MEMBERS } from "../../config/clubsRules.js";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
 const approvalSchema = new mongoose.Schema(
@@ -33,7 +33,6 @@ const applicationSchema = new mongoose.Schema(
     proposedName: { type: String, trim: true, maxlength: 80, default: "" },
     proposedNameNormalized: { type: String, trim: true, lowercase: true, default: "" },
     details: { type: String, trim: true, maxlength: 500, default: "" },
-    formation: { type: String, enum: CLUB_FORMATIONS, default: "1-2-1" },
     captainCandidates: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
       validate: {
