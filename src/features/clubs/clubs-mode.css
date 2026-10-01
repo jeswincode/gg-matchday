@@ -1302,3 +1302,104 @@ html[data-product-mode="clubs"] body > footer,
 html[data-product-mode="clubs"] #root > footer {
   display: none !important;
 }
+
+
+/* ---------- Accessibility + interaction hardening ---------- */
+
+.clubs-screen-reader-status {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.clubs-app button:focus-visible,
+.clubs-app input:focus-visible,
+.clubs-app select:focus-visible,
+.clubs-app textarea:focus-visible,
+.clubs-app [tabindex]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--clubs-accent) 82%, white);
+  outline-offset: 3px;
+}
+
+.clubs-app button:disabled {
+  cursor: not-allowed;
+}
+
+.clubs-nav button[aria-current="page"] {
+  position: relative;
+}
+
+.clubs-nav button[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: .72;
+}
+
+.clubs-formation-pills button {
+  min-height: 44px;
+}
+
+.clubs-incoming-request {
+  display: grid;
+  gap: 4px;
+  margin-top: 9px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--clubs-accent) 45%, var(--clubs-edge));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--clubs-accent) 7%, var(--clubs-panel));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.clubs-incoming-request strong {
+  color: var(--clubs-accent);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .13em;
+}
+
+.clubs-incoming-request small {
+  color: var(--clubs-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.clubs-field-card {
+  cursor: default;
+}
+
+.clubs-field-card:focus-visible {
+  outline-offset: 5px;
+}
+
+@media (max-width: 540px) {
+  .clubs-app button,
+  .clubs-app select,
+  .clubs-app input,
+  .clubs-app textarea {
+    font-size: 13px;
+  }
+
+  .clubs-nav button {
+    min-height: 44px;
+  }
+
+  .clubs-field-card-stats b {
+    font-size: 8px;
+  }
+
+  .clubs-field-card-stats small {
+    font-size: 6px;
+  }
+}
