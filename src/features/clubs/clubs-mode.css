@@ -1179,3 +1179,95 @@ html[data-theme="golden"][data-product-mode="clubs"] .clubs-match-market {
     transition-duration: .01ms !important;
   }
 }
+
+/* ---------- Final polish: charcoal richness + page continuity ---------- */
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app {
+  --clubs-accent: #c9d4db;
+  --clubs-accent-2: #829eac;
+  --clubs-edge: #343b3f;
+  background:
+    radial-gradient(920px 640px at 88% -10%, rgba(125,160,176,.075), transparent 68%),
+    radial-gradient(720px 540px at 6% 76%, rgba(91,125,138,.045), transparent 70%),
+    linear-gradient(180deg, #0d0f10 0%, #090a0b 100%);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-topbar {
+  background:
+    radial-gradient(420px 180px at 84% 0%, rgba(143,176,190,.055), transparent 72%),
+    linear-gradient(145deg, #1b1e1f, #111314);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-nav button.active {
+  background: linear-gradient(145deg, #dce4e8, #9fb5c0);
+  border-color: #eef3f5;
+  color: #111416;
+  box-shadow:
+    0 6px 0 rgba(0,0,0,.35),
+    0 12px 22px rgba(98,130,143,.13),
+    inset 0 1px 0 rgba(255,255,255,.40);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-balance-card strong,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-roster-ovr strong,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-roster-rating strong,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-squad-stat-strip strong {
+  color: #c9d4db;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .club-card-mark {
+  background: linear-gradient(145deg, #dce4e8, #9fb5c0);
+  box-shadow:
+    0 6px 0 rgba(0,0,0,.26),
+    0 12px 22px rgba(98,130,143,.14),
+    inset 0 1px 0 rgba(255,255,255,.32);
+}
+
+.clubs-footer {
+  width: min(1180px, 100%);
+  margin: 48px auto 0;
+  padding: 28px 12px 10px;
+  border-top: 1px solid var(--clubs-edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--clubs-muted);
+  font-size: 12px;
+  letter-spacing: .01em;
+}
+
+.clubs-footer strong {
+  color: var(--clubs-text);
+  font-weight: 850;
+}
+
+.clubs-footer::before,
+.clubs-footer::after {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: var(--clubs-edge);
+}
+
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-footer {
+  border-top-color: #493c25;
+}
+
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-footer::before,
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-footer::after {
+  background: #493c25;
+}
+
+@media (max-width: 540px) {
+  .clubs-footer {
+    margin-top: 34px;
+    padding-top: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clubs-footer {
+    animation: none !important;
+  }
+}
