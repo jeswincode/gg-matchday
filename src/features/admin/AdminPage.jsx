@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import DatabaseHealth from "../../components/DatabaseHealth";
 import AccessDenied from "../../components/ui/AccessDenied";
 import GGAdminPanel from "./GGAdminPanel";
@@ -16,11 +16,32 @@ export default function AdminPage({
   revokeEditor,
   players = [],
   onUpdatePlayerBackgroundVideo,
+  onUpdatePlayerOvrAttributes,
 }) {
   const [videoDrafts, setVideoDrafts] = useState(() =>
     Object.fromEntries(players.map(player => [String(player._id), player.backgroundVideoUrl || ""]))
   );
   const [savingVideoId, setSavingVideoId] = useState(null);
+  const [ovrDrafts, setOvrDrafts] = useState(() =>
+    Object.fromEntries(players.map(player => [
+      String(player._id),
+      {
+        pace: player.pace ?? "",
+        physical: player.physical ?? "",
+      },
+    ]))
+  );
+  const [savingOvrId, setSavingOvrId] = useState(null);
+
+  useEffect(() => {
+    setOvrDrafts(Object.fromEntries(players.map(player => [
+      String(player._id),
+      {
+        pace: player.pace ?? "",
+        physical: player.physical ?? "",
+      },
+    ])));
+  }, [players]);
 
   return (
     <section className="tab-content">
@@ -145,6 +166,104 @@ export default function AdminPage({
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </section>
+
+          <section className="card gg-admin-video-manager">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">PLAYER OVR</p>
+                <h3>Manual Pace & Physical</h3>
+                <p className="muted">Admin-only. Record these two attributes after properly evaluating each player. OVR is recalculated automatically after saving.</p>
+              </div>
+              <span className="muted">{players.length}</span>
+            </div>
+
+            {!players.length ? (
+              <div className="empty-state">No players available.</div>
+            ) : (
+              <div className="gg-admin-video-list">
+                {players.map(player => {
+                  const id = String(player._id);
+                  const draft = ovrDrafts[id] || { pace: "", physical: "" };
+                  const unchanged =
+                    String(draft.pace ?? "") === String(player.pace ?? "") &&
+                    String(draft.physical ?? "") === String(player.physical ?? "");
+
+                  return (
+                    <div className="gg-admin-video-row" key={id}>
+                      <div className="gg-admin-video-player">
+                        {player.profileImage ? <img src={player.profileImage} alt="" /> : <span>{player.name?.charAt(0)?.toUpperCase() || "P"}</span>}
+                        <div>
+                          <strong>{player.name}</strong>
+                          <small>{player.position || "Position not set"}</small>
+                        </div>
+                      </div>
+                      <div className="gg-admin-ovr-fields">
+                        <label className="gg-admin-video-field">
+                          <span>Pace (1–99)</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="99"
+                            step="1"
+                            placeholder="—"
+                            value={draft.pace}
+                            onChange={event => setOvrDrafts(current => ({
+                              ...current,
+                              [id]: { ...(current[id] || {}), pace: event.target.value },
+                            }))}
+                          />
+                        </label>
+                        <label className="gg-admin-video-field">
+                          <span>Physical (1–99)</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="99"
+                            step="1"
+                            placeholder="—"
+                            value={draft.physical}
+                            onChange={event => setOvrDrafts(current => ({
+                              ...current,
+                              [id]: { ...(current[id] || {}), physical: event.target.value },
+                            }))}
+                          />
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        className="save-button"
+                        disabled={unchanged || savingOvrId === id}
+                        onClick={async () => {
+                          try {
+                            setSavingOvrId(id);
+                            const result = await onUpdatePlayerOvrAttributes(
+                              id,
+                              draft.pace === "" ? null : Number(draft.pace),
+                              draft.physical === "" ? null : Number(draft.physical),
+                            );
+                            const updated = result?.player;
+                            setOvrDrafts(current => ({
+                              ...current,
+                              [id]: {
+                                pace: updated?.pace ?? "",
+                                physical: updated?.physical ?? "",
+                              },
+                            }));
+                          } catch {
+                            // App-level message reports the server error.
+                          } finally {
+                            setSavingOvrId(null);
+                          }
+                        }}
+                      >
+                        {savingOvrId === id ? "Saving…" : "Save OVR"}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
