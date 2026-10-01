@@ -28,16 +28,19 @@ router.get("/:id/attributes", async (req, res) => {
       .lean();
 
     const snapshot = player.ovrSnapshot;
-    const playerChangedAfterSnapshot =
-      player.updatedAt && snapshot?.calculatedAt &&
-      new Date(player.updatedAt).getTime() > new Date(snapshot.calculatedAt).getTime();
+    const playerOvrStateChanged =
+      !snapshot?.calculatedAt ||
+      String(snapshot.sourcePosition || "") !== String(player.position || "") ||
+      JSON.stringify(snapshot.sourcePreferredPositions || []) !== JSON.stringify(player.preferredPositions || []) ||
+      Number(snapshot.currentAttributes?.pace ?? 0) !== Number(player.pace ?? 0) ||
+      Number(snapshot.currentAttributes?.physical ?? 0) !== Number(player.physical ?? 0);
 
     const matchChangedAfterSnapshot =
       latestMatch && snapshot?.sourceUpdatedAt &&
       new Date(latestMatch.updatedAt || latestMatch.date).getTime() >
         new Date(snapshot.sourceUpdatedAt).getTime();
 
-    if (snapshot?.calculatedAt && !playerChangedAfterSnapshot && !matchChangedAfterSnapshot) {
+    if (snapshot?.calculatedAt && !playerOvrStateChanged && !matchChangedAfterSnapshot) {
       return res.json({
         playerId: player._id,
         playerName: player.name,
@@ -93,6 +96,8 @@ router.get("/:id/attributes", async (req, res) => {
           positionRatings: calculated.positionRatings,
           calculatedAt: new Date(),
           sourceUpdatedAt,
+          sourcePosition: player.position || "",
+          sourcePreferredPositions: Array.isArray(player.preferredPositions) ? player.preferredPositions : [],
         },
       }},
     );
