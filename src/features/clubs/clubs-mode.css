@@ -59,7 +59,7 @@
   overflow: hidden;
   background-image:
     linear-gradient(rgba(8,9,10,.48), rgba(8,9,10,.62)),
-    url("/clubs/charcoal-texture.webp");
+    url("/charcoal.jpg");
   background-size: cover, cover;
   background-position: center, center;
   background-attachment: fixed, fixed;
@@ -168,7 +168,7 @@ html[data-theme="golden"][data-product-mode="clubs"] .clubs-app {
   --clubs-accent-2: #b18a42;
   background-image:
     linear-gradient(rgba(19,14,8,.42), rgba(13,10,7,.58)),
-    url("/clubs/gold-texture.webp");
+    url("/gold.jpg");
   background-size: cover, cover;
   background-position: center, center;
   background-attachment: fixed, fixed;
@@ -1409,7 +1409,7 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-app {
   --clubs-edge: #343b3f;
   background-image:
     linear-gradient(rgba(8,9,10,.34), rgba(8,9,10,.58)),
-    url("/clubs/charcoal-texture.webp");
+    url("/charcoal.jpg");
   background-size: cover, cover;
   background-position: center, center;
   background-attachment: fixed, fixed;
@@ -1503,7 +1503,7 @@ html[data-product-mode="clubs"] #root {
   min-height: 100%;
   background:
     linear-gradient(rgba(8,9,10,.34), rgba(8,9,10,.58)),
-    url("/clubs/charcoal-texture.webp");
+    url("/charcoal.jpg");
   background-size: cover, cover;
   background-position: center, center;
   background-attachment: fixed, fixed;
@@ -1514,7 +1514,7 @@ html[data-theme="golden"][data-product-mode="clubs"] body,
 html[data-theme="golden"][data-product-mode="clubs"] #root {
   background:
     linear-gradient(rgba(19,14,8,.34), rgba(13,10,7,.58)),
-    url("/clubs/gold-texture.webp");
+    url("/gold.jpg");
   background-size: cover, cover;
   background-position: center, center;
   background-attachment: fixed, fixed;
