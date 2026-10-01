@@ -1201,6 +1201,39 @@ function App() {
 
   }
 
+  async function updatePlayerOvrAttributes(playerId, pace, physical) {
+    if (!isAdmin) {
+      setMessage("Admin access required.");
+      throw new Error("Admin access required.");
+    }
+
+    const response = await authenticatedFetch(
+      `${API_URL}/players/${playerId}/ovr-attributes`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pace, physical }),
+      },
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || "Could not update player OVR attributes.");
+    }
+
+    setPlayers(current =>
+      current.map(player =>
+        sameId(player._id, data.player?._id) ? data.player : player,
+      ),
+    );
+    setSelectedPlayer(current =>
+      current && sameId(current._id, data.player?._id) ? data.player : current,
+    );
+    invalidate();
+    setMessage("Player OVR attributes updated.");
+    return data;
+  }
+
   async function updatePlayerBackgroundVideo(playerId, backgroundVideoUrl) {
     if (!isAdmin) {
       setMessage("Admin access required.");
@@ -2608,6 +2641,7 @@ function App() {
           isAdmin={isAdmin}
           players={players}
           onUpdatePlayerBackgroundVideo={updatePlayerBackgroundVideo}
+          onUpdatePlayerOvrAttributes={updatePlayerOvrAttributes}
           isSignedIn={isSignedIn}
           signIn={signIn}
           editorRequests={editorRequests}
