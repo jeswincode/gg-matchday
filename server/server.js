@@ -9,7 +9,11 @@ async function startServer(){
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB connected');
 
-    await connectClubsDatabase();
+    try {
+      await connectClubsDatabase();
+    } catch (clubsError) {
+      console.warn('Clubs MongoDB unavailable; core Matchday will continue without Clubs:', clubsError.message);
+    }
 
     scheduleHistory();
     setInterval(scheduleHistory,86400000).unref();
