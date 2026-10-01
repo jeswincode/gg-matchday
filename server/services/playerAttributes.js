@@ -300,6 +300,8 @@ export async function refreshPlayerAttributes(playerId) {
           positionRatings: calculated.positionRatings,
           calculatedAt: new Date(),
           sourceUpdatedAt,
+          sourcePosition: player.position || "",
+          sourcePreferredPositions: Array.isArray(player.preferredPositions) ? player.preferredPositions : [],
         },
       },
     },
