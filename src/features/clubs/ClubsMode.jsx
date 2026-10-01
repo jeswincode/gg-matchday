@@ -38,7 +38,7 @@ const formationSlots = {
 };
 
 function playerInitials(name = "") {
-  return String(name).trim().split(/\\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "GG";
+  return String(name).trim().split(/\s+/g).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "GG";
 }
 
 function positionCode(position = "") {
@@ -49,7 +49,7 @@ function positionCode(position = "") {
   if (value.includes("CAM")) return "CAM";
   if (value.includes("ST")) return "ST";
   if (value.includes("CF")) return "CF";
-  return value.split(/\\s+/)[0] || "—";
+  return value.split(/\s+/g)[0] || "—";
 }
 
 function statusLabel(status) {
@@ -94,7 +94,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [clubStats, setClubStats] = useState([]);
   const [clubHistory, setClubHistory] = useState([]);
   const [playerAttributes, setPlayerAttributes] = useState({});
-  const [attributesLoading, setAttributesLoading] = useState(false);
   const [auctionState, setAuctionState] = useState(null);
   const [auctionLoading, setAuctionLoading] = useState(false);
   const [activeAuctionPlayer, setActiveAuctionPlayer] = useState("");
@@ -482,7 +481,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
 
     const memberIds = (currentClub.memberIds || []).map(String);
-    setAttributesLoading(true);
 
     Promise.all([
       api("/clubs/" + currentClub._id + "/stats"),
@@ -504,9 +502,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       .catch(requestError => {
         if (active) setError(requestError.message || "Club details could not be loaded.");
       })
-      .finally(() => {
-        if (active) setAttributesLoading(false);
-      });
+      ;
 
     return () => {
       active = false;
@@ -1173,7 +1169,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   <div>
                     <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
                     <h3>{application.proposedName || "Unnamed club"}</h3>
-                    <span>{application.memberIds?.length || 0}/4 members · {application.formation}</span>
+                    <span>{application.memberIds?.length || 0}/4 members · four-player squad</span>
                   </div>
                   <div className="clubs-application-actions">
                     <button type="button" className="clubs-primary-button" disabled={busyId === "admin-" + application._id} onClick={() => respondToAdminApplication(application._id, "approve")}>Approve</button>
@@ -1259,7 +1255,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       <p className="clubs-eyebrow">SQUAD VIEW</p>
                       <h3>Your four-player field</h3>
                     </div>
-                    <span>{attributesLoading ? "Refreshing OVR…" : "Viewer layout"}</span>
+                    <span>{(currentClub.memberIds || []).every(id => playerAttributes[String(id)]?.ovr != null) ? "Squad OVR ready" : "Loading OVR…"}</span>
                   </div>
 
                   <div className="clubs-pitch-wrap">
