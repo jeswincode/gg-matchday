@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { inferClubSides, winnerForClub } from "../server/services/clubsMatchSync.js";
@@ -50,23 +51,20 @@ test("winner mapping follows the club side", () => {
 });
 
 test("match sync reconciles already-linked Match edits", async () => {
-  const fs = await import("node:fs/promises");
-  const source = await fs.readFile("server/services/clubsMatchSync.js", "utf8");
+  const source = await readFile("server/services/clubsMatchSync.js", "utf8");
   assert.match(source, /mainMatchId: mainMatch\._id, status: "completed"/);
   assert.match(source, /status: "accepted", mainMatchId: null/);
 });
 
 test("stats sync writes the schema field named matches", async () => {
-  const fs = await import("node:fs/promises");
-  const modelSource = await fs.readFile("server/models/clubs/ClubPlayerStats.js", "utf8");
-  const syncSource = await fs.readFile("server/services/clubsMatchSync.js", "utf8");
+  const modelSource = await readFile("server/models/clubs/ClubPlayerStats.js", "utf8");
+  const syncSource = await readFile("server/services/clubsMatchSync.js", "utf8");
   assert.match(modelSource, /\bmatches:\s*\{/);
   assert.match(syncSource, /matches:\s*matchesPlayed/);
 });
 
 test("Clubs mode exposes a functional Matches panel", async () => {
-  const fs = await import("node:fs/promises");
-  const source = await fs.readFile("src/features/clubs/ClubsMode.jsx", "utf8");
+  const source = await readFile("src/features/clubs/ClubsMode.jsx", "utf8");
   assert.match(source, /activeSection === "overview" && ultimateSubsection === "matches"/);
   assert.match(source, /\/clubs\/matches/);
   assert.match(source, /Request Club Match/);
@@ -74,24 +72,23 @@ test("Clubs mode exposes a functional Matches panel", async () => {
 
 test("Club renewal frontend paths match the mounted Clubs router", async () => {
   const [routeSource, uiSource] = await Promise.all([
-    fs.readFile("server/routes/clubs.js", "utf8"),
-    fs.readFile("src/features/clubs/ClubsMode.jsx", "utf8"),
+    readFile("server/routes/clubs.js", "utf8"),
+    readFile("src/features/clubs/ClubsMode.jsx", "utf8"),
   ]);
   assert.match(routeSource, /router\.get\("\/:clubId\/renewal"/);
   assert.match(routeSource, /router\.post\("\/:clubId\/renewal"/);
   assert.match(uiSource, /\/clubs\/" \+ currentClub\._id \+ "\/renewal/);
-  assert.doesNotMatch(routeSource, /router\.(?:get|post)\("\/clubs\/\:clubId\/renewal"/);
+  assert.doesNotMatch(routeSource, /router\.(?:get|post)\("\/clubs\/:clubId\/renewal"/);
 });
 
 test("Club prediction mirrors head-to-head probability between both clubs", async () => {
-  const source = await fs.readFile("server/services/clubsPrediction.js", "utf8");
+  const source = await readFile("server/services/clubsPrediction.js", "utf8");
   assert.match(source, /\{ \.\.\.a, headToHead: h2hA \}/);
   assert.match(source, /\{ \.\.\.b, headToHead: 1 - h2hA \}/);
 });
 
 test("Clubs mode exposes functional My Club stats and history", async () => {
-  const fs = await import("node:fs/promises");
-  const source = await fs.readFile("src/features/clubs/ClubsMode.jsx", "utf8");
+  const source = await readFile("src/features/clubs/ClubsMode.jsx", "utf8");
   assert.match(source, /activeSection === "myClub"/);
   assert.match(source, /\/clubs\/" \+ currentClub\._id \+ "\/stats/);
   assert.match(source, /\/clubs\/" \+ currentClub\._id \+ "\/history/);
@@ -149,7 +146,7 @@ test("side inference accepts a valid 2v2 Club Match", () => {
 });
 
 test("Matchday protects linked Club fixtures from deletion while allowing pre-settlement edits", async () => {
-  const source = await fs.readFile("server/routes/matches.js", "utf8");
+  const source = await readFile("server/routes/matches.js", "utf8");
   assert.match(source, /hasLinkedClubMatch\(previous\._id, \{ settledOnly: true \}\)/);
   assert.match(source, /hasLinkedClubMatch\(req\.params\.id\)/);
   assert.match(source, /This Match Record cannot be deleted because it has a linked Club Match/);
