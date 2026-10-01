@@ -90,7 +90,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [myClubSubsection, setMyClubSubsection] = useState("squad");
   const [playersSubsection, setPlayersSubsection] = useState("directory");
   const [playerHistory, setPlayerHistory] = useState(null);
-  const [playerHistoryLoading, setPlayerHistoryLoading] = useState(false);
   const [clubMatches, setClubMatches] = useState([]);
   const [matchClubA, setMatchClubA] = useState("");
   const [matchClubB, setMatchClubB] = useState("");
@@ -667,16 +666,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     if (!authUser || activeSection !== "players" || playersSubsection !== "history") return undefined;
     let active = true;
-    setPlayerHistoryLoading(true);
     api("/clubs/player/" + authUser.playerProfile + "/history")
       .then(data => {
         if (active) setPlayerHistory(data || null);
       })
       .catch(e => {
         if (active) setError(e.message);
-      })
-      .finally(() => {
-        if (active) setPlayerHistoryLoading(false);
       });
     return () => {
       active = false;
@@ -1137,12 +1132,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           </div>
           {playersSubsection === "directory" ? (
             <div className="clubs-application-list">
-              {players.map(player => <article className="clubs-application" key={player._id}><div><p className="clubs-eyebrow">{player.position || "PLAYER"}</p><h3>{player.name}</h3><span>{player.jerseyNumber ? "#" + player.jerseyNumber + " · " : ""}Open to Club approaches</span></div><button type="button" className="clubs-secondary-button" onClick={() => loadPlayerOffers(player._id)}>View offers</button></article>)}
+              {players.map(player => <article className="clubs-application" key={player._id}><div><p className="clubs-eyebrow">{player.position || "PLAYER"}</p><h3>{player.name}</h3><span>{player.jerseyNumber ? "#" + player.jerseyNumber + " · " : ""}Open to Club approaches</span></div></article>)}
             </div>
           ) : !authUser ? (
             <div className="clubs-empty">Sign in to view your Player History.</div>
-          ) : playerHistoryLoading ? (
-            <div className="clubs-empty">Loading your Club career…</div>
           ) : !playerHistory ? (
             <div className="clubs-empty">No Club career data is available yet.</div>
           ) : (
