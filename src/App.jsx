@@ -106,7 +106,7 @@ function App() {
   const switchProductMode=useCallback((nextMode)=>{
     if(nextMode===productMode || modeTransition) return;
     const transition = nextMode === "clubs"
-      ? "to-clubs"
+      ? `to-clubs-${theme}`
       : `to-matchday-${theme}`;
     setModeTransition(transition);
     setProductMode(nextMode);
