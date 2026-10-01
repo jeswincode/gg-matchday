@@ -1,3 +1,5 @@
+import Match from "../models/Match.js";
+import Player from "../models/Player.js";
 import { performanceEntries } from "./ratings/match.js";
 
 export const CURRENT_MATCH_WINDOW = 10;
@@ -262,4 +264,46 @@ export function calculatePlayerAttributes(player, matches) {
     confidence: confidenceFromSample(matchesPlayed, ratedMatches),
     sampleStage: matchesPlayed < 3 ? "unrated" : matchesPlayed < 5 ? "developing" : "established",
   };
+}
+
+
+export async function refreshPlayerAttributes(playerId) {
+  const player = await Player.findById(playerId).lean();
+  if (!player) return null;
+
+  const matches = await Match.find({ "participants.player": player._id })
+    .sort({ date: 1, createdAt: 1 })
+    .select("_id date updatedAt participants events teamA teamB")
+    .lean();
+
+  const calculated = calculatePlayerAttributes(player, matches);
+  const sourceUpdatedAt = matches.reduce((latest, match) => {
+    const value = match.updatedAt || match.date;
+    if (!value) return latest;
+    const timestamp = new Date(value).getTime();
+    return !latest || timestamp > latest.getTime() ? new Date(timestamp) : latest;
+  }, null);
+
+  await Player.updateOne(
+    { _id: player._id },
+    {
+      $set: {
+        ovrSnapshot: {
+          currentOvr: calculated.currentOvr,
+          careerOvr: calculated.careerOvr,
+          confidence: calculated.confidence,
+          matchesPlayed: calculated.matchesPlayed,
+          ratedMatches: calculated.ratedMatches,
+          currentWindowMatches: calculated.currentWindowMatches,
+          currentAttributes: calculated.currentAttributes,
+          careerAttributes: calculated.careerAttributes,
+          positionRatings: calculated.positionRatings,
+          calculatedAt: new Date(),
+          sourceUpdatedAt,
+        },
+      },
+    },
+  );
+
+  return calculated;
 }
