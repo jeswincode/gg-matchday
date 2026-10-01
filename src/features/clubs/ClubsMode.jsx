@@ -767,7 +767,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <strong>{meta?.clubStartingBalance ?? 3000}</strong>
           <small>starting credits</small>
         </div>
-      </section>
+      </section>}
 
       {authUser && (
         <section className="clubs-section">
