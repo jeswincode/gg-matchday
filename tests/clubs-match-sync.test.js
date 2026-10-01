@@ -67,7 +67,7 @@ test("stats sync writes the schema field named matches", async () => {
 test("Clubs mode exposes a functional Matches panel", async () => {
   const fs = await import("node:fs/promises");
   const source = await fs.readFile("src/features/clubs/ClubsMode.jsx", "utf8");
-  assert.match(source, /activeSection === "matches"/);
+  assert.match(source, /activeSection === "overview" && ultimateSubsection === "matches"/);
   assert.match(source, /\/clubs\/matches/);
   assert.match(source, /Request Club Match/);
 });
