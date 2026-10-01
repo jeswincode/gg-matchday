@@ -134,7 +134,7 @@ export async function generateClubMatchPrediction(clubMatchId) {
 
   const prediction = calculatePredictionPercentages(
     { ...a, headToHead: h2hA },
-    { ...b, headToHead: h2hA },
+    { ...b, headToHead: 1 - h2hA },
   );
 
   clubMatch.prediction = {
