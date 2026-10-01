@@ -147,3 +147,10 @@ test("side inference accepts a valid 2v2 Club Match", () => {
     { clubAIsSideA: true },
   );
 });
+
+test("Matchday protects linked Club fixtures from deletion while allowing pre-settlement edits", async () => {
+  const source = await fs.readFile("server/routes/matches.js", "utf8");
+  assert.match(source, /hasLinkedClubMatch\(previous\._id, \{ settledOnly: true \}\)/);
+  assert.match(source, /hasLinkedClubMatch\(req\.params\.id\)/);
+  assert.match(source, /This Match Record cannot be deleted because it has a linked Club Match/);
+});
