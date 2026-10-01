@@ -713,9 +713,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [authUser, activeSection, myClubSubsection, currentClub?._id, retainedPlayers.length]);
 
   const clubOvrValues = (currentClub?.memberIds || [])
-    .map(id => Number(playerAttributes[String(id)]?.ovr))
+    .map(id => Number(playerAttributes[String(id)]?.currentOvr ?? playerAttributes[String(id)]?.ovr))
     .filter(Number.isFinite);
-  const clubOvr = clubOvrValues.length
+  const squadHasCompleteOvr =
+    Boolean(currentClub?.memberIds?.length) &&
+    currentClub.memberIds.length === 4 &&
+    clubOvrValues.length === 4;
+  const clubOvr = squadHasCompleteOvr
     ? Math.round(clubOvrValues.reduce((sum, value) => sum + value, 0) / clubOvrValues.length)
     : null;
 
@@ -1316,7 +1320,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       <p className="clubs-eyebrow">SQUAD VIEW</p>
                       <h3>Your four-player field</h3>
                     </div>
-                    <span>{(currentClub.memberIds || []).every(id => playerAttributes[String(id)]?.ovr != null) ? "Squad OVR ready" : "Loading OVR…"}</span>
+                    <span>{squadHasCompleteOvr ? "Squad OVR ready" : "OVR developing…"}</span>
                   </div>
 
                   <div className="clubs-pitch-wrap">
@@ -1356,7 +1360,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           >
                             <span className="clubs-field-card-glow" aria-hidden="true"></span>
                             <span className="clubs-field-card-topline">
-                              <strong>{attribute?.ovr ?? "—"}</strong>
+                              <strong>{attribute?.currentOvr ?? attribute?.ovr ?? "—"}</strong>
+                              {attribute?.confidence != null && (
+                                <span
+                                  className="clubs-field-card-confidence"
+                                  title={`OVR confidence: ${attribute.confidence}%. Based on ${attribute.matchesPlayed || 0} recorded matches.`}
+                                  aria-label={`OVR confidence ${attribute.confidence} percent`}
+                                >
+                                  ⓘ
+                                </span>
+                              )}
                               <span>{positionCode(player?.position)}</span>
                             </span>
                             <span className="clubs-field-card-face">
@@ -1427,7 +1440,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                             <span>{positionCode(player?.position)} {captain ? "· CAPTAIN" : "· PLAYER"}</span>
                           </div>
                           <div className="clubs-roster-ovr">
-                            <strong>{attribute?.ovr ?? "—"}</strong>
+                            <strong>{attribute?.currentOvr ?? attribute?.ovr ?? "—"}</strong>
                             <span>OVR</span>
                           </div>
                           <div className="clubs-roster-rating">
