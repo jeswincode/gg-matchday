@@ -1407,10 +1407,13 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-app {
   --clubs-accent: #c9d4db;
   --clubs-accent-2: #829eac;
   --clubs-edge: #343b3f;
-  background:
-    radial-gradient(920px 640px at 88% -10%, rgba(125,160,176,.075), transparent 68%),
-    radial-gradient(720px 540px at 6% 76%, rgba(91,125,138,.045), transparent 70%),
-    linear-gradient(180deg, #0d0f10 0%, #090a0b 100%);
+  background-image:
+    linear-gradient(rgba(8,9,10,.34), rgba(8,9,10,.58)),
+    url("/clubs/charcoal-texture.webp");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-attachment: fixed, fixed;
+  background-color: #090a0b;
 }
 
 html[data-theme="dark"][data-product-mode="clubs"] .clubs-topbar {
@@ -1499,18 +1502,22 @@ html[data-product-mode="clubs"] body,
 html[data-product-mode="clubs"] #root {
   min-height: 100%;
   background:
-    radial-gradient(920px 640px at 88% -10%, rgba(125,160,176,.075), transparent 68%),
-    radial-gradient(720px 540px at 6% 76%, rgba(91,125,138,.045), transparent 70%),
-    linear-gradient(180deg, #0d0f10 0%, #090a0b 100%);
+    linear-gradient(rgba(8,9,10,.34), rgba(8,9,10,.58)),
+    url("/clubs/charcoal-texture.webp");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-attachment: fixed, fixed;
 }
 
 html[data-theme="golden"][data-product-mode="clubs"],
 html[data-theme="golden"][data-product-mode="clubs"] body,
 html[data-theme="golden"][data-product-mode="clubs"] #root {
   background:
-    radial-gradient(920px 640px at 88% -10%, rgba(228,189,107,.09), transparent 68%),
-    radial-gradient(720px 540px at 6% 76%, rgba(193,151,67,.045), transparent 70%),
-    linear-gradient(180deg, #16120d 0%, #0d0b08 100%);
+    linear-gradient(rgba(19,14,8,.34), rgba(13,10,7,.58)),
+    url("/clubs/gold-texture.webp");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-attachment: fixed, fixed;
 }
 
 html[data-product-mode="clubs"] .clubs-app {
