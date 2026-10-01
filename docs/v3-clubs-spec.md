@@ -12,6 +12,7 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - Once an official club name is approved, it is permanent.
 - Rejected club applications expose the rejection reason and may be revised and resubmitted.
 - A club always has at least one captain at every contract-renewal boundary.
+- Formation is a viewer-only squad-layout choice inside My Club; it does not affect contracts, captaincy, Club identity or football results.
 
 ### Captain system
 - Only the top two players in the club by OVR are captain candidates.
@@ -25,7 +26,7 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - A player may have only one active club at a time.
 - Contracts renew on the first day every other month.
 - Example: a club formed on September 20 has its first renewal boundary on November 1, then January 1, March 1, and so on.
-- At renewal, the captain(s) decide which 2 of the 4 players are retained.
+- At renewal, the captain(s) decide whether to retain 0, 1 or 2 current players within the finalized renewal rule.
 - Released players return to the auction/player pool.
 - Players may transfer or join another club only when their active contract ends.
 
@@ -39,20 +40,20 @@ This document is the implementation checklist for the Clubs mode. The source of 
 ### Club economy
 - Every club starts with 3,000.
 - Club balance changes through: starting balance + match rewards + club achievements + competition rewards + club-vs-club betting winnings - auction purchases/other approved expenses.
-- Betting is between the two clubs facing each other.
+- Betting is placed by individual users on the two clubs facing each other.
+- The stake is debited only from the user's Clubs Player Wallet, provided sufficient balance exists.
 - Betting is 10–100 credits per user per fixture; a user may place one active bet per fixture.
 - A user may not bet on their own Club's fixture.
 - Betting locks when the scheduled match begins.
-- The winning outcome receives the full stake pool, split proportionally among winning bets.
-- Incorrect bets lose their stake; draws, cancellations and completed fixtures with no valid winning stake refund the stake.
-- Betting has no GG Match rating effect.
-- Betting stakes and winnings are Player-wallet transactions; they never enter Club wallets.
+- The winning outcome receives the full stake pool, split proportionally among winning bets, and winnings are credited to those users' Player Wallets.
+- Incorrect bets lose their stake; draws, cancellations and completed fixtures with no valid winning stake refund the stake to the users' Player Wallets.
+- Betting has no GG Match rating effect and has no Club Wallet relationship.
 
 ### Player economy
 - Every player has a separate Clubs-mode balance.
 - Player income includes signing payments.
 - Player match rewards are individual awards such as MOTM and other defined club-match awards.
-- Player wallets never receive match-betting winnings.
+- Player wallets receive signing payments, individual Club rewards and valid betting winnings.
 
 ### Club matches
 - Clubs request future matchups with other clubs.
@@ -104,6 +105,7 @@ The selectable 4-player formations are:
 - [x] Captain candidate calculation, four-way vote and co-captain state.
 - [x] Captain detail submission state and admin approval/rejection/resubmission backend foundation.
 - [x] Responsive Clubs formation/captain UI foundation.
+- [x] Viewer-only squad formation selector reserved for My Club pitch presentation.
 
 ### Remaining implementation
 - [x] Admin approval management UI.
@@ -119,7 +121,7 @@ The selectable 4-player formations are:
 - [x] Player Reviews API/UI and eligibility checks against main Match data.
 - [x] Player Attributes/OVR calculation and traceable evidence.
 - [x] GG Player Card generation/sharing.
-- [x] Clubs mode navigation and charcoal/rose-gold visual system.
+- [x] Clubs mode navigation and theme-aware charcoal / warm metallic Clubs visual system.
 - [x] Ultimate Clubs page.
 - [x] Responsive acceptance matrix covered for 320/375/390/430/768/820/1024/1440 CSS layouts; physical-device QA remains deployment-dependent.
 
