@@ -8,7 +8,7 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - A club has a maximum of 4 active players.
 - Four players must mutually agree before a club can be submitted.
 - The flow is: founder starts formation -> invites the other players -> all four accept -> club name proposal -> captain vote -> captain fills club details -> admin approval.
-- Club names are globally unique.
+- Club names are globally unique across active and archived Clubs.
 - Once an official club name is approved, it is permanent.
 - Rejected club applications expose the rejection reason and may be revised and resubmitted.
 - A club always has at least one captain at every contract-renewal boundary.
@@ -39,7 +39,7 @@ This document is the implementation checklist for the Clubs mode. The source of 
 
 ### Club economy
 - Every club starts with 3,000.
-- Club balance changes through: starting balance + match rewards + club achievements + competition rewards + club-vs-club betting winnings - auction purchases/other approved expenses.
+- Club balance changes through: starting balance + match rewards + club achievements + competition rewards - auction purchases/other approved expenses.
 - Betting is placed by individual users on the two clubs facing each other.
 - The stake is debited only from the user's Clubs Player Wallet, provided sufficient balance exists.
 - Betting is 10–100 credits per user per fixture; a user may place one active bet per fixture.
@@ -86,7 +86,7 @@ The selectable 4-player formations are:
 ### Club mode
 - Clubs is a separate product mode with its own navigation.
 - Transition between normal Matchday and Clubs should be smooth and wave-like.
-- Clubs visual identity: dark charcoal with rose-gold accents.
+- Clubs visual identity is theme-aware: charcoal/steel when entered from Dark Matchday, and warm metallic gold when entered from Gold Matchday.
 - Ultimate Clubs is a dedicated Clubs page; additional features will be added from later product decisions.
 
 ## Implementation status
@@ -116,7 +116,7 @@ The selectable 4-player formations are:
 - [x] Club-match scheduling and acceptance UI.
 - [x] Sync from main Match Record into Clubs data.
 - [x] Protected and automatic Club reward/MOTM settlement: 100 win, 50 draw, 10 appearance, 25 MOTM, 10 clean sheet, plus 25/50/100/50 Club achievement milestones.
-- [x] Club-vs-club betting settlement: 10–100 credits, pooled winner payout, draw/cancellation/no-winner refunds.
+- [x] Club-vs-club betting settlement: 10–100 credits from Player Wallets only, pooled winner payout, draw/cancellation/no-winner refunds.
 - [x] Club-vs-club prediction engine: 30% OVR, 25% recent form, 20% average Match rating, 15% record, 10% head-to-head.
 - [x] Player Reviews API/UI and eligibility checks against main Match data.
 - [x] Player Attributes/OVR calculation and traceable evidence.
