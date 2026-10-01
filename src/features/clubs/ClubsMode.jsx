@@ -1271,9 +1271,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </form>
           )}
         </section>
-      ) : activeSection === "myClub" ? (
+      ) : activeSection === "myClub" && myClubSubsection === "squad" ? (
         <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections"><button type="button" role="tab" aria-selected={myClubSubsection === "squad"} className={myClubSubsection === "squad" ? "active" : ""} onClick={() => setMyClubSubsection("squad")}>Squad & History</button><button type="button" role="tab" aria-selected={myClubSubsection === "auctions"} className={myClubSubsection === "auctions" ? "active" : ""} onClick={() => setMyClubSubsection("auctions")}>Auctions</button></div>
-      {myClubSubsection === "squad" && <section className="clubs-section clubs-my-club-panel">
+      <section className="clubs-section clubs-my-club-panel">
           {!currentClub ? (
             <div className="clubs-empty clubs-empty--hero">
               <span className="clubs-empty-icon">⚽</span>
