@@ -101,7 +101,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [playerAttributes, setPlayerAttributes] = useState({});
   const [auctionState, setAuctionState] = useState(null);
   const [auctionLoading, setAuctionLoading] = useState(false);
-  const [activeAuctionPlayer, setActiveAuctionPlayer] = useState("");
   const [joinDecisionReason, setJoinDecisionReason] = useState({});
   const [renewalState, setRenewalState] = useState(null);
   const [retainedPlayers, setRetainedPlayers] = useState([]);
@@ -313,12 +312,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
   };
 
-  const refreshPlayerHistory = async () => {
-    if (!authUser?.playerProfile) return;
-    try { setPlayerHistoryLoading(true); setPlayerHistory(await api("/clubs/player/" + authUser.playerProfile + "/history")); }
-    catch (e) { setError(e.message); } finally { setPlayerHistoryLoading(false); }
-  };
-
   const refreshAuctionState = async () => {
     if (!authUser) return;
     try {
@@ -332,23 +325,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
   };
 
-  const loadPlayerOffers = async playerId => {
-    setActiveAuctionPlayer(playerId);
-    try {
-      const data = await api("/clubs/auction/offers/" + playerId);
-      setSelectedPlayerOffers(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setError(e.message);
-    }
-  };
-
   const chooseAuctionOffer = async offerId => {
     setError("");
     try {
       setBusyId("auction-" + offerId);
       await api("/clubs/auction/offers/" + offerId + "/choose", { method: "POST" });
       await refreshAuctionState();
-      if (activeAuctionPlayer) await loadPlayerOffers(activeAuctionPlayer);
       announce("Auction offer selected.");
     } catch (e) {
       setError(e.message);
@@ -684,8 +666,21 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   useEffect(() => {
     if (!authUser || activeSection !== "players" || playersSubsection !== "history") return undefined;
-    refreshPlayerHistory();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Section/tab entry is the explicit refresh trigger.
+    let active = true;
+    setPlayerHistoryLoading(true);
+    api("/clubs/player/" + authUser.playerProfile + "/history")
+      .then(data => {
+        if (active) setPlayerHistory(data || null);
+      })
+      .catch(e => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setPlayerHistoryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [authUser, activeSection, playersSubsection]);
 
   useEffect(() => {
