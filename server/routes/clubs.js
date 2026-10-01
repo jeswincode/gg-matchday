@@ -1515,7 +1515,6 @@ router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async 
         name: application.proposedName,
         nameNormalized: normalized,
         description: application.details,
-        formation: application.formation,
         memberIds: application.memberIds,
         captainIds: application.electedCaptainIds,
         balance: CLUB_STARTING_BALANCE,
