@@ -111,10 +111,10 @@ export function mergeContractTenures(contracts = [], clubsById = new Map()) {
     const consecutive =
       previous &&
       previous.clubId === contract.clubId &&
-      contract.startAt.getTime() <= previous.endAt.getTime() + 24 * 60 * 60 * 1000;
+      contract.startAt.getTime() <= previous.leftAt.getTime() + 24 * 60 * 60 * 1000;
 
     if (consecutive) {
-      previous.endAt = previous.endAt > contract.endAt ? previous.endAt : contract.endAt;
+      previous.leftAt = previous.leftAt > contract.endAt ? previous.leftAt : contract.endAt;
       previous.contracts.push(contract);
       previous.statuses.add(contract.status);
       continue;
