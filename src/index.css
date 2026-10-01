@@ -2498,3 +2498,24 @@ textarea:focus {
 .product-mode-transition--to-matchday-golden .product-mode-wave--three{
   background:#d8ad57;
 }
+
+/* Theme-aware entry into Clubs: destination palette follows the Matchday theme. */
+.product-mode-transition--to-clubs-dark::before{
+  background:linear-gradient(135deg,#070809 0%,#151718 52%,#383a39 100%);
+}
+.product-mode-transition--to-clubs-dark .product-mode-wave--one{
+  background:#08090a;
+  box-shadow:0 -18px 60px rgba(255,255,255,.08);
+}
+.product-mode-transition--to-clubs-dark .product-mode-wave--two{ background:#262827; }
+.product-mode-transition--to-clubs-dark .product-mode-wave--three{ background:#565a57; }
+
+.product-mode-transition--to-clubs-golden::before{
+  background:linear-gradient(135deg,#0d0b08 0%,#211b12 52%,#d0a653 100%);
+}
+.product-mode-transition--to-clubs-golden .product-mode-wave--one{
+  background:#0e0c09;
+  box-shadow:0 -18px 60px rgba(228,189,107,.20);
+}
+.product-mode-transition--to-clubs-golden .product-mode-wave--two{ background:#6f582f; }
+.product-mode-transition--to-clubs-golden .product-mode-wave--three{ background:#d8ae5a; }
