@@ -102,7 +102,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [auctionState, setAuctionState] = useState(null);
   const [auctionLoading, setAuctionLoading] = useState(false);
   const [activeAuctionPlayer, setActiveAuctionPlayer] = useState("");
-  const [selectedPlayerOffers, setSelectedPlayerOffers] = useState([]);
   const [joinDecisionReason, setJoinDecisionReason] = useState({});
   const [renewalState, setRenewalState] = useState(null);
   const [retainedPlayers, setRetainedPlayers] = useState([]);
@@ -681,7 +680,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection, myClubSubsection]);
+  }, [authUser, activeSection]);
+
+  useEffect(() => {
+    if (!authUser || activeSection !== "players" || playersSubsection !== "history") return undefined;
+    refreshPlayerHistory();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Section/tab entry is the explicit refresh trigger.
+  }, [authUser, activeSection, playersSubsection]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "myClub" || myClubSubsection !== "auctions") return undefined;
@@ -696,7 +701,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection]);
+  }, [authUser, activeSection, myClubSubsection]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "myClub" || myClubSubsection !== "squad" || !currentClub?._id) return undefined;
