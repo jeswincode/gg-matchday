@@ -689,6 +689,21 @@ html[data-theme="golden"][data-product-mode="clubs"] .clubs-field-card {
   justify-content: space-between;
 }
 
+.clubs-field-card-confidence {
+  display: inline-grid !important;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  margin: 0 auto 0 4px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 50%;
+  color: rgba(255,255,255,.68);
+  font-size: 8px !important;
+  line-height: 1;
+  letter-spacing: 0 !important;
+  cursor: help;
+}
+
 .clubs-field-card-topline strong {
   font-size: 28px;
   line-height: 1;
