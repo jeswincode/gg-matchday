@@ -1468,6 +1468,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
       ) : null}
+      <footer className="clubs-footer">
+        <span>Made by</span>
+        <strong>Jeswin</strong>
+      </footer>
     </main>
   );
 }
