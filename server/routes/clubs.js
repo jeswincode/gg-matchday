@@ -713,7 +713,7 @@ router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) =
   }
 });
 
-router.get("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
+router.get("/:clubId/renewal", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
@@ -739,7 +739,7 @@ router.get("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/clubs/:clubId/renewal", requireAuth, async (req, res) => {
+router.post("/:clubId/renewal", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
