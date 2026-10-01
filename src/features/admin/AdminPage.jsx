@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import DatabaseHealth from "../../components/DatabaseHealth";
 import AccessDenied from "../../components/ui/AccessDenied";
 import GGAdminPanel from "./GGAdminPanel";
@@ -32,16 +32,6 @@ export default function AdminPage({
     ]))
   );
   const [savingOvrId, setSavingOvrId] = useState(null);
-
-  useEffect(() => {
-    setOvrDrafts(Object.fromEntries(players.map(player => [
-      String(player._id),
-      {
-        pace: player.pace ?? "",
-        physical: player.physical ?? "",
-      },
-    ])));
-  }, [players]);
 
   return (
     <section className="tab-content">
@@ -186,7 +176,7 @@ export default function AdminPage({
               <div className="gg-admin-video-list">
                 {players.map(player => {
                   const id = String(player._id);
-                  const draft = ovrDrafts[id] || { pace: "", physical: "" };
+                  const draft = ovrDrafts[id] || { pace: player.pace ?? "", physical: player.physical ?? "" };
                   const unchanged =
                     String(draft.pace ?? "") === String(player.pace ?? "") &&
                     String(draft.physical ?? "") === String(player.physical ?? "");
