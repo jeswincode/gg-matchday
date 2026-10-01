@@ -1423,3 +1423,26 @@ html[data-product-mode="clubs"] #root > footer {
 html[data-theme="golden"][data-product-mode="clubs"] .clubs-nav-badge {
   color: #1a1409;
 }
+
+.clubs-section-tabs,.clubs-subnav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.clubs-section-tabs{margin:0 0 18px;padding:6px;border:1px solid var(--clubs-border,#ffffff18);border-radius:16px;background:var(--clubs-panel,#151719)}
+.clubs-section-tabs button,.clubs-subnav button{min-height:44px;border:1px solid transparent;border-radius:11px;padding:10px 15px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.clubs-section-tabs button.active,.clubs-subnav button.active{background:var(--clubs-accent,#d6b56a);color:#171513;border-color:transparent}
+.clubs-section-tabs button:focus-visible,.clubs-subnav button:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.clubs-player-history{display:grid;gap:18px}
+.clubs-history-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.clubs-history-stat{padding:16px;border:1px solid var(--clubs-border,#ffffff18);border-radius:16px;background:var(--clubs-panel,#151719)}
+.clubs-history-stat strong{display:block;font-size:1.35rem}
+.clubs-history-stat span,.clubs-history-metrics small,.clubs-history-bottom span{display:block;opacity:.7;font-size:.75rem}
+.clubs-history-tenure{padding:20px;border:1px solid var(--clubs-border,#ffffff18);border-radius:20px;background:var(--clubs-panel,#151719);box-shadow:0 14px 34px #00000018}
+.clubs-history-tenure-head,.clubs-history-bottom{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+.clubs-history-tenure-head h3{margin:.15rem 0}
+.clubs-history-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:18px 0}
+.clubs-history-metrics span{padding:12px;border-radius:12px;background:#ffffff08}
+.clubs-history-metrics b{display:block;font-size:1.05rem}
+.clubs-history-bottom>div{flex:1;display:grid;gap:5px}
+@media (max-width:720px){
+  .clubs-history-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .clubs-history-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .clubs-history-tenure-head,.clubs-history-bottom{flex-direction:column}
+}
