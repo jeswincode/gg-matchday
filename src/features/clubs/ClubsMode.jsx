@@ -755,7 +755,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             <button type="button" role="tab" aria-selected="true" className="active">Overview</button>
             <button type="button" role="tab" aria-selected="false" onClick={() => setActiveSection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge" aria-label={incomingMatchRequests.length + " incoming match request" + (incomingMatchRequests.length === 1 ? "" : "s")}>{incomingMatchRequests.length}</span>}</button>
           </div>
-        <>
       <section className="clubs-hero">
         <div>
           <p className="clubs-eyebrow">THE CLUBS WORLD</p>
@@ -1132,6 +1131,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           </div>
         )}
       </section>
+      </>
       ) : activeSection === "players" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading">
@@ -1172,6 +1172,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </div>
           )}
         </section>
+      </>
       ) : activeSection === "auctions" ? (
       <>
         <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections">
@@ -1214,6 +1215,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </>
           )}
         </section>
+      </>
       ) : activeSection === "admin" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading">
