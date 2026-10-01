@@ -269,7 +269,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     const data = await api("/clubs/matches");
     const next = Array.isArray(data) ? data : [];
     setClubMatches(next);
-    if (activeSection === "matches") await refreshMatchMarkets(next);
+    if (activeSection === "overview" && ultimateSubsection === "matches") await refreshMatchMarkets(next);
   };
 
   const refreshRenewalState = async clubId => {
@@ -746,7 +746,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       {error && <div className="clubs-error" role="alert">{error}</div>}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
-      {activeSection === "overview" ? (
+      {activeSection === "overview" && ultimateSubsection === "overview" ? (
         <>
       <div className="clubs-section-tabs" role="tablist" aria-label="Ultimate Clubs sections"><button type="button" role="tab" aria-selected={ultimateSubsection === "overview"} className={ultimateSubsection === "overview" ? "active" : ""} onClick={() => setUltimateSubsection("overview")}>Overview</button><button type="button" role="tab" aria-selected={ultimateSubsection === "matches"} className={ultimateSubsection === "matches" ? "active" : ""} onClick={() => setUltimateSubsection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button></div>
       {ultimateSubsection === "overview" && <section className="clubs-hero">
@@ -1028,6 +1028,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
         </>
       ) : activeSection === "overview" && ultimateSubsection === "matches" ? (
+      <>
+      <div className="clubs-section-tabs" role="tablist" aria-label="Ultimate Clubs sections">
+        <button type="button" role="tab" aria-selected={ultimateSubsection === "overview"} className={ultimateSubsection === "overview" ? "active" : ""} onClick={() => setUltimateSubsection("overview")}>Overview</button>
+        <button type="button" role="tab" aria-selected={ultimateSubsection === "matches"} className={ultimateSubsection === "matches" ? "active" : ""} onClick={() => setUltimateSubsection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
+      </div>
       <section className="clubs-section clubs-matches-panel">
         <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUB MATCHES</p><h2>Schedule & fixtures</h2></div><span>{clubMatches.length} recorded</span></div>
         {authUser && myCaptainClubs.length > 0 && (
@@ -1120,6 +1125,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           </div>
         )}
       </section>
+      </>
       ) : activeSection === "players" ? (
         <>
         <section className="clubs-section">
@@ -1161,6 +1167,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </section>
         </>
       ) : activeSection === "myClub" && myClubSubsection === "auctions" ? (
+        <>
+        <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections">
+          <button type="button" role="tab" aria-selected={myClubSubsection === "squad"} className={myClubSubsection === "squad" ? "active" : ""} onClick={() => setMyClubSubsection("squad")}>Squad & History</button>
+          <button type="button" role="tab" aria-selected={myClubSubsection === "auctions"} className={myClubSubsection === "auctions" ? "active" : ""} onClick={() => setMyClubSubsection("auctions")}>Auctions</button>
+        </div>
         <section className="clubs-section">
           <div className="clubs-section-heading"><div><p className="clubs-eyebrow">AUCTION DESK</p><h2>Your signing activity</h2></div><span>{auctionLoading ? "Loading…" : ""}</span></div>
           {!authUser ? <div className="clubs-empty">Sign in to view your signing activity.</div> : auctionLoading ? <div className="clubs-empty">Loading auction activity…</div> : (
@@ -1197,6 +1208,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </>
           )}
         </section>
+        </>
       ) : activeSection === "admin" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading">
