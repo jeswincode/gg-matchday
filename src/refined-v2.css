@@ -745,6 +745,16 @@ textarea:focus-visible {
   font-size: 10px;
 }
 
+.gg-admin-ovr-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.gg-admin-ovr-fields .gg-admin-video-field {
+  min-width: 0;
+}
+
 .gg-admin-video-field span {
   display: block;
   margin-bottom: 6px;
