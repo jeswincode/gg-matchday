@@ -13,7 +13,6 @@ import {
   CLUB_STARTING_BALANCE,
   normalizeClubName,
   validateClubMemberCount,
-  validateFormation,
   nextRenewalBoundary,
   selectCaptainCandidates,
   auctionOfferExpiry,
@@ -124,8 +123,8 @@ router.get("/meta", (req, res) => {
     formations: CLUB_FORMATIONS,
     activeClubPolicy: "one-active-club-per-player",
     captainPolicy: "top-two-ovr-candidates; four-player vote; tie creates two co-captains",
-    bettingPolicy: "one bet per player per fixture; 10-100 credits; pooled winner payout; draw/cancellation/no-winner refunds; club members cannot bet on their own fixture",
-    playerRewardPolicy: "10 appearance; 25 MOTM; 10 clean sheet; betting wins are paid from the pooled stake pot",
+    bettingPolicy: "player-wallet betting only; one bet per player per fixture; 10-100 credits; pooled winner payout; draw/cancellation/no-winner refunds; club members cannot bet on their own fixture",
+    playerRewardPolicy: "10 appearance; 25 MOTM; 10 clean sheet; valid betting winnings return to the winning users' Player Wallets",
     reviewPolicy: "one teammate review and one opponent review per reviewer/reviewed relationship",
   });
 });
@@ -222,7 +221,6 @@ router.post("/formation", requireAuth, async (req, res) => {
       proposedName: "",
       proposedNameNormalized: "",
       status: "pendingMutualAgreement",
-      formation: validateFormation(req.body?.formation || "1-2-1"),
     });
 
     return res.status(201).json(application);
@@ -1285,7 +1283,7 @@ router.get("/:clubId/stats", async (req, res) => {
 
   try {
     const club = await Club.findOne({ _id: req.params.clubId, status: "approved" })
-      .select("_id name formation memberIds captainIds balance")
+      .select("_id name memberIds captainIds balance")
       .lean();
     if (!club) return res.status(404).json({ message: "Club not found." });
 
@@ -1433,9 +1431,7 @@ router.post("/formation/:id/details", requireAuth, async (req, res) => {
     if (!application.electedCaptainIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only the elected captain(s) can submit club details." });
     if (application.electedCaptainIds.length === 2 && application.detailsApprovedBy?.some(id => String(id) === String(playerId))) return res.status(409).json({ message: "You have already approved these club details." });
     const details = String(req.body?.details || "").trim();
-    const formation = validateFormation(req.body?.formation || application.formation);
     application.details = details;
-    application.formation = formation;
     application.detailsApprovedBy = [...new Set([...(application.detailsApprovedBy || []).map(String), String(playerId)])];
     if (application.electedCaptainIds.every(id => application.detailsApprovedBy.some(approved => String(approved) === String(id)))) {
       application.status = "pendingAdminApproval";
