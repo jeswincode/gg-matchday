@@ -1241,3 +1241,15 @@
     max-width: 100%;
   }
 }
+
+
+@media (max-width: 720px) {
+  .gg-admin-video-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .gg-admin-ovr-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
