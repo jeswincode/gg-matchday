@@ -107,6 +107,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [reviewLoading, setReviewLoading] = useState(false);
   const [matchMarkets, setMatchMarkets] = useState({});
   const [betDrafts, setBetDrafts] = useState({});
+  const [announcement, setAnnouncement] = useState("");
+
+  const announce = message => {
+    setAnnouncement("");
+    window.setTimeout(() => setAnnouncement(message), 20);
+  };
 
   useEffect(() => {
     let active = true;
@@ -206,6 +212,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       });
       setReviewForm({ candidateKey: "", stars: 5, observation: "" });
       await refreshReviews();
+      announce("Player review submitted.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -248,6 +255,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setMatchMarkets(current => ({ ...current, [String(match._id)]: { ...(current[String(match._id)] || {}), bet } }));
       setWallet(walletData);
       setBetDrafts(current => ({ ...current, [match._id]: { clubId: "", stake: "" } }));
+      announce("Bet placed successfully. Your Player Wallet has been updated.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -291,6 +299,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         body: { retainedPlayerIds: retainedPlayers },
       });
       await refreshRenewalState(currentClub._id);
+      announce("Renewal decision submitted.");
       const clubsData = await api("/clubs");
       setClubs(Array.isArray(clubsData) ? clubsData : []);
     } catch (e) {
@@ -330,6 +339,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       await api("/clubs/auction/offers/" + offerId + "/choose", { method: "POST" });
       await refreshAuctionState();
       if (activeAuctionPlayer) await loadPlayerOffers(activeAuctionPlayer);
+      announce("Auction offer selected.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -364,6 +374,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       const clubsData = await api("/clubs");
       setClubs(Array.isArray(clubsData) ? clubsData : []);
       await refreshAuctionState();
+      announce("Signing approval recorded.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -378,6 +389,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       await api("/clubs/join-requests", { method: "POST", body: { clubId } });
       const data = await api("/clubs/join-requests/me");
       setJoinRequests(Array.isArray(data) ? data : []);
+      announce("Join request sent.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -400,6 +412,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       });
       setOfferPlayer("");
       setOfferAmount("");
+      announce("Signing offer sent.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -427,6 +440,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setMatchClubB("");
       setMatchScheduledAt("");
       await refreshClubMatches();
+      announce("Club Match request sent.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -440,6 +454,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setBusyId(matchId);
       await api("/clubs/matches/" + matchId + "/respond", { method: "POST", body: { accept } });
       await refreshClubMatches();
+      announce(accept ? "Club Match request accepted." : "Club Match request declined.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -453,6 +468,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setBusyId(matchId);
       await api("/clubs/matches/" + matchId + "/cancel", { method: "POST" });
       await refreshClubMatches();
+      announce("Club Match request cancelled.");
     } catch (e) {
       setError(e.message);
     } finally {
@@ -546,6 +562,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       });
       setSelectedPlayers(["", "", ""]);
       await refreshApplications();
+      announce("Club formation invitation sent to the selected players.");
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -563,6 +580,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         body: { accept },
       });
       await refreshApplications();
+      announce(accept ? "Club formation invitation accepted." : "Club formation invitation declined.");
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -570,11 +588,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
   };
 
-  const startCaptainVote = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/setup", { method: "POST" }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+  const startCaptainVote = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/setup", { method: "POST" }); await refreshApplications(); announce("Captain vote is ready."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
 
-  const captainVote = async (applicationId, candidatePlayerId) => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/vote", { method: "POST", body: { candidatePlayerId } }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+  const captainVote = async (applicationId, candidatePlayerId) => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/vote", { method: "POST", body: { candidatePlayerId } }); await refreshApplications(); announce("Captain vote recorded."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
 
-  const submitDetails = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/details", { method: "POST", body: { details: detailDrafts[applicationId] || "" } }); await refreshApplications(); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+  const submitDetails = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/details", { method: "POST", body: { details: detailDrafts[applicationId] || "" } }); await refreshApplications(); announce("Club details approval recorded."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
 
   const proposeName = async applicationId => {
     const name = String(clubNameDrafts[applicationId] || "").trim();
@@ -704,16 +722,17 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       </header>
 
       <nav className="clubs-nav" aria-label="Clubs navigation">
-        <button className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => setActiveSection("overview")}>Ultimate Clubs</button>
-        <button className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => setActiveSection("myClub")}>My Club</button>
-        <button className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
-        <button className={activeSection === "auctions" ? "active" : ""} type="button" onClick={() => setActiveSection("auctions")}>Auctions</button>
-        <button className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches</button>
-        <button className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
-        {isAdmin && <button className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => setActiveSection("admin")}>Admin</button>}
+        <button aria-current={activeSection === "overview" ? "page" : undefined} className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => setActiveSection("overview")}>Ultimate Clubs</button>
+        <button aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => setActiveSection("myClub")}>My Club</button>
+        <button aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
+        <button aria-current={activeSection === "auctions" ? "page" : undefined} className={activeSection === "auctions" ? "active" : ""} type="button" onClick={() => setActiveSection("auctions")}>Auctions</button>
+        <button aria-current={activeSection === "matches" ? "page" : undefined} className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches</button>
+        <button aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
+        {isAdmin && <button aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => setActiveSection("admin")}>Admin</button>}
       </nav>
 
       {error && <div className="clubs-error" role="alert">{error}</div>}
+      <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
       {activeSection === "overview" ? (
         <>
@@ -1029,7 +1048,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     <p className="clubs-eyebrow">{match.status}</p>
                     <h3>{clubName(match.clubAId)} <span className="clubs-match-vs">vs</span> {clubName(match.clubBId)}</h3>
                     <span>{new Date(match.scheduledAt).toLocaleString()} · {match.status === "completed" ? String(match.clubAScore) + "–" + String(match.clubBScore) : match.status === "accepted" ? "Accepted · waiting for Matchday record" : "Awaiting response"}</span>
-                    {match.status === "requested" && isReceivingClub && <small className="clubs-match-hint">{hasCaptainResponse ? "A captain response is recorded; receiving captains must agree." : "Captain response required."}</small>}
+                    {match.status === "requested" && isReceivingClub && (
+  <div className="clubs-incoming-request" role="status">
+    <strong>INCOMING MATCH REQUEST</strong>
+    <small>{hasCaptainResponse ? "One captain has already responded. All required captain approvals must be complete." : "Your Club has been invited. Review the time above, then Accept or Decline."}</small>
+  </div>
+)}
                   </div>
                   <div className="clubs-application-actions">
                     {match.status === "requested" && isReceivingClub && <>
@@ -1282,9 +1306,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           ["PHY", stats.physical],
                         ];
                         return (
-                          <button
-                            type="button"
+                          <article
                             className="clubs-field-card"
+                            role="group"
+                            aria-label={"Player card: " + (player?.name || "Club player") + ", OVR " + (attribute?.ovr ?? "not available")}
                             key={String(playerId)}
                             style={{
                               "--slot-x": slot?.x + "%",
@@ -1314,7 +1339,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                                 <span key={label}><b>{value == null ? "—" : Math.round(value)}</b><small>{label}</small></span>
                               ))}
                             </span>
-                          </button>
+                          </article>
                         );
                       })}
                     </div>
