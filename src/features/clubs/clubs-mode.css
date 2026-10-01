@@ -1000,6 +1000,126 @@ html[data-theme="golden"][data-product-mode="clubs"] .clubs-renewal-row { backgr
   box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 10px 18px rgba(0,0,0,.22);
 }
 
+/* ---------- Nested Club section tabs ---------- */
+
+.clubs-section-tabs {
+  width: min(1180px, 100%);
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--clubs-edge);
+  border-radius: 15px;
+  background: linear-gradient(145deg, #121415, #0f1011);
+  box-shadow:
+    0 12px 28px rgba(0,0,0,.20),
+    inset 0 1px 0 rgba(255,255,255,.035);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.clubs-section-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.clubs-section-tabs button {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 8px 15px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--clubs-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 160ms var(--clubs-ease),
+    color 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.clubs-section-tabs button:hover {
+  transform: translateY(-1px);
+  color: var(--clubs-text);
+  background: rgba(255,255,255,.045);
+}
+
+.clubs-section-tabs button.active {
+  color: #111416;
+  border-color: #eef3f5;
+  background: linear-gradient(145deg, #dce4e8, #9fb5c0);
+  box-shadow:
+    0 5px 0 rgba(0,0,0,.30),
+    0 10px 18px rgba(98,130,143,.12),
+    inset 0 1px 0 rgba(255,255,255,.42);
+}
+
+.clubs-section-tabs button:active {
+  transform: translateY(2px);
+}
+
+.clubs-section-tabs .clubs-nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 7px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #171a1b;
+  color: #dce4e8;
+  font-size: 9px;
+  font-weight: 900;
+  vertical-align: middle;
+}
+
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-section-tabs {
+  background: linear-gradient(145deg, #18140f, #110f0b);
+  border-color: #4a3d25;
+}
+
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-section-tabs button.active {
+  border-color: #efd38a;
+  background: linear-gradient(145deg, #efd07d, #bd9144);
+  color: #1a1409;
+  box-shadow:
+    0 5px 0 rgba(80,58,24,.35),
+    0 10px 20px rgba(180,135,54,.12),
+    inset 0 1px 0 rgba(255,245,212,.36);
+}
+
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-section-tabs button:hover {
+  background: rgba(228,189,107,.07);
+  color: #f4e6c4;
+}
+
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-section-tabs .clubs-nav-badge {
+  background: #241c10;
+  color: #efd07d;
+}
+
+@media (max-width: 540px) {
+  .clubs-section-tabs {
+    margin-bottom: 14px;
+    padding: 4px;
+    border-radius: 13px;
+  }
+
+  .clubs-section-tabs button {
+    min-height: 36px;
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+}
+
 /* ---------- Markets, matches, reviews, admin ---------- */
 
 .clubs-match-market {
