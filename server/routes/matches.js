@@ -9,6 +9,7 @@ import Match from "../models/Match.js";
 import Player from "../models/Player.js";
 import News from "../models/News.js";
 import { calculateGGParticipantRatings } from "../services/ratings/match.js";
+import { refreshPlayerAttributes } from "../services/playerAttributes.js";
 import { syncClubStatsForMatch } from "../services/clubsMatchSync.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
@@ -628,6 +629,12 @@ router.post(
 
       scheduleHistory();
       try {
+        const affectedPlayerIds = [...new Set(participants.map(participant => String(participant.player)))];
+        await Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId)));
+      } catch (ovrError) {
+        console.error("Player OVR snapshot refresh failed:", ovrError);
+      }
+      try {
         const syncResult = await syncClubStatsForMatch(populatedMatch);
         await settleLinkedClubMatches(syncResult);
       } catch (syncError) {
@@ -781,6 +788,12 @@ router.put(
 
       scheduleHistory();
       try {
+        const affectedPlayerIds = [...new Set(participants.map(participant => String(participant.player)))];
+        await Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId)));
+      } catch (ovrError) {
+        console.error("Player OVR snapshot refresh failed:", ovrError);
+      }
+      try {
         const syncResult = await syncClubStatsForMatch(match);
         await settleLinkedClubMatches(syncResult);
       } catch (syncError) {
@@ -843,11 +856,19 @@ router.delete(
           });
       }
 
-      // Remove news tied to this match.
+      // Remove news tied to this match, then rebuild affected player snapshots
+      // because deleting history can lower Career/Current OVR.
       await News.deleteMany({
         match:
           match._id,
       });
+
+      try {
+        const affectedPlayerIds = [...new Set((match.participants || []).map(participant => String(participant.player)))];
+        await Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId)));
+      } catch (ovrError) {
+        console.error("Player OVR snapshot refresh after deletion failed:", ovrError);
+      }
 
       scheduleHistory();
       res.json({
