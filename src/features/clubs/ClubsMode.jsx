@@ -1165,6 +1165,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </div>
           )}
         </section>
+        </>
       ) : activeSection === "myClub" && myClubSubsection === "auctions" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading"><div><p className="clubs-eyebrow">AUCTION DESK</p><h2>Your signing activity</h2></div><span>{auctionLoading ? "Loading…" : ""}</span></div>
@@ -1272,6 +1273,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
       ) : activeSection === "myClub" && myClubSubsection === "squad" ? (
+        <>
         <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections"><button type="button" role="tab" aria-selected={myClubSubsection === "squad"} className={myClubSubsection === "squad" ? "active" : ""} onClick={() => setMyClubSubsection("squad")}>Squad & History</button><button type="button" role="tab" aria-selected={myClubSubsection === "auctions"} className={myClubSubsection === "auctions" ? "active" : ""} onClick={() => setMyClubSubsection("auctions")}>Auctions</button></div>
       <section className="clubs-section clubs-my-club-panel">
           {!currentClub ? (
