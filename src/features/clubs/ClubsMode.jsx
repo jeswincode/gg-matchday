@@ -86,6 +86,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [offerAmount, setOfferAmount] = useState("");
   const [offerClub, setOfferClub] = useState("");
   const [activeSection, setActiveSection] = useState("overview");
+  const [playersSubsection, setPlayersSubsection] = useState("directory");
+  const [playerHistory, setPlayerHistory] = useState(null);
+  const [playerHistoryLoading, setPlayerHistoryLoading] = useState(false);
   const [clubMatches, setClubMatches] = useState([]);
   const [matchClubA, setMatchClubA] = useState("");
   const [matchClubB, setMatchClubB] = useState("");
@@ -307,6 +310,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     } finally {
       setBusyId(null);
     }
+  };
+
+  const refreshPlayerHistory = async () => {
+    if (!authUser?.playerProfile) return;
+    try { setPlayerHistoryLoading(true); setPlayerHistory(await api("/clubs/player/" + authUser.playerProfile + "/history")); }
+    catch (e) { setError(e.message); } finally { setPlayerHistoryLoading(false); }
   };
 
   const refreshAuctionState = async () => {
@@ -732,8 +741,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         <button aria-current={activeSection === "overview" ? "page" : undefined} className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => setActiveSection("overview")}>Ultimate Clubs</button>
         <button aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => setActiveSection("myClub")}>My Club</button>
         <button aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
-        <button aria-current={activeSection === "auctions" ? "page" : undefined} className={activeSection === "auctions" ? "active" : ""} type="button" onClick={() => setActiveSection("auctions")}>Auctions</button>
-        <button aria-current={activeSection === "matches" ? "page" : undefined} className={activeSection === "matches" ? "active" : ""} type="button" onClick={() => setActiveSection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge" aria-label={incomingMatchRequests.length + " incoming match request" + (incomingMatchRequests.length === 1 ? "" : "s")}>{incomingMatchRequests.length}</span>}</button>
+
         <button aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
         {isAdmin && <button aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => setActiveSection("admin")}>Admin</button>}
       </nav>
@@ -1116,32 +1124,41 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       </section>
       ) : activeSection === "players" ? (
         <section className="clubs-section">
-          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">PLAYER MARKET</p><h2>Available players</h2></div><span>{players.length}</span></div>
-          <div className="clubs-application-list">
-            {players.map(player => (
-              <article className="clubs-application" key={player._id}>
-                <div>
-                  <p className="clubs-eyebrow">{player.position || "PLAYER"}</p>
-                  <h3>{player.name}</h3>
-                  <span>{player.jerseyNumber ? "#" + player.jerseyNumber + " · " : ""}Open to Club approaches</span>
-                </div>
-                <button type="button" className="clubs-secondary-button" onClick={() => loadPlayerOffers(player._id)}>View offers</button>
-              </article>
-            ))}
+          <div className="clubs-section-heading">
+            <div><p className="clubs-eyebrow">PLAYERS</p><h2>{playersSubsection === "history" ? "Player History" : "Player discovery"}</h2></div>
+            <div className="clubs-subnav" role="tablist" aria-label="Players sections">
+              <button type="button" role="tab" aria-selected={playersSubsection === "directory"} className={playersSubsection === "directory" ? "active" : ""} onClick={() => setPlayersSubsection("directory")}>Discovery</button>
+              <button type="button" role="tab" aria-selected={playersSubsection === "history"} className={playersSubsection === "history" ? "active" : ""} onClick={() => setPlayersSubsection("history")}>Player History</button>
+            </div>
           </div>
-          {activeAuctionPlayer && (
-            <div className="clubs-subsection">
-              <div className="clubs-section-heading"><div><p className="clubs-eyebrow">OFFERS</p><h3>Signing offers</h3></div><span>{selectedPlayerOffers.length}</span></div>
-              {selectedPlayerOffers.length === 0 ? <div className="clubs-empty">No active signing offers for this player.</div> : (
-                <div className="clubs-application-list">
-                  {selectedPlayerOffers.map(offer => (
-                    <article className="clubs-application" key={offer._id}>
-                      <div><p className="clubs-eyebrow">{offer.status}</p><h3>{offer.amount} credits</h3><span>Club {clubName(offer.clubId)}</span></div>
-                      {offer.status === "active" && String(offer.playerId) === currentPlayerId && <button type="button" className="clubs-primary-button" disabled={busyId === "auction-" + offer._id} onClick={() => chooseAuctionOffer(offer._id)}>Choose offer</button>}
-                    </article>
-                  ))}
-                </div>
-              )}
+          {playersSubsection === "directory" ? (
+            <div className="clubs-application-list">
+              {players.map(player => <article className="clubs-application" key={player._id}><div><p className="clubs-eyebrow">{player.position || "PLAYER"}</p><h3>{player.name}</h3><span>{player.jerseyNumber ? "#" + player.jerseyNumber + " · " : ""}Open to Club approaches</span></div><button type="button" className="clubs-secondary-button" onClick={() => loadPlayerOffers(player._id)}>View offers</button></article>)}
+            </div>
+          ) : !authUser ? (
+            <div className="clubs-empty">Sign in to view your Player History.</div>
+          ) : playerHistoryLoading ? (
+            <div className="clubs-empty">Loading your Club career…</div>
+          ) : !playerHistory ? (
+            <div className="clubs-empty">No Club career data is available yet.</div>
+          ) : (
+            <div className="clubs-player-history">
+              <div className="clubs-history-summary-grid">
+                {[["Clubs",playerHistory.careerSummary?.clubCount],["Matches",playerHistory.careerSummary?.matches],["W-D-L",(playerHistory.careerSummary?.wins||0)+"–"+(playerHistory.careerSummary?.draws||0)+"–"+(playerHistory.careerSummary?.losses||0)],["Goals",playerHistory.careerSummary?.goals],["Assists",playerHistory.careerSummary?.assists],["MOTM",playerHistory.careerSummary?.motm],["Avg Rating",playerHistory.careerSummary?.averageRating ?? "—"],["Club Earnings",playerHistory.privacy?.privateEarningsVisible ? (playerHistory.careerSummary?.earnings ?? 0)+" cr" : "Private"]].map(([label,value])=><div className="clubs-history-stat" key={label}><strong>{value ?? 0}</strong><span>{label}</span></div>)}
+              </div>
+              {(playerHistory.tenures || []).map(tenure => (
+                <article className="clubs-history-tenure" key={tenure.clubId + ":" + tenure.joinedAt}>
+                  <div className="clubs-history-tenure-head"><div><p className="clubs-eyebrow">{tenure.current ? "CURRENT CLUB" : "FORMER CLUB"}</p><h3>{tenure.clubName}</h3><span>{new Date(tenure.joinedAt).toLocaleDateString()} → {tenure.current ? "Present" : new Date(tenure.leftAt).toLocaleDateString()} · {tenure.totalTimeLabel}</span></div><strong>{tenure.contribution.matches} matches</strong></div>
+                  <div className="clubs-history-metrics">
+                    {[["W-D-L",tenure.contribution.wins+"–"+tenure.contribution.draws+"–"+tenure.contribution.losses],["WIN RATE",tenure.contribution.winRate+"%"],["GOALS",tenure.contribution.goals],["ASSISTS",tenure.contribution.assists],["MOTM",tenure.contribution.motm],["AVG GG RATING",tenure.contribution.averageRating ?? "—"],["RATED MATCHES",tenure.contribution.ratedMatches],["CLEAN SHEETS",tenure.contribution.cleanSheets],["AVG DEF RATING",tenure.contribution.averageDefensiveRating ?? "—"]].map(([label,value])=><span key={label}><b>{value}</b><small>{label}</small></span>)}
+                  </div>
+                  <div className="clubs-history-bottom">
+                    <div><p className="clubs-eyebrow">CLUB EARNINGS</p><strong>{playerHistory.privacy?.privateEarningsVisible ? tenure.earnings.total+" credits" : "Private"}</strong><span>{tenure.earnings.signingPayment} signing · {tenure.earnings.matchRewards} match · {tenure.earnings.motmRewards} MOTM · {tenure.earnings.cleanSheetRewards} clean sheet · {tenure.earnings.competitionRewards} competition</span></div>
+                    <div><p className="clubs-eyebrow">ACHIEVEMENTS</p><span>{tenure.contribution.achievements.length ? tenure.contribution.achievements.map(item => item.description || item.type).join(" · ") : "No player-specific achievements recorded."}</span></div>
+                  </div>
+                </article>
+              ))}
+              <div className="clubs-subsection"><div className="clubs-section-heading"><div><p className="clubs-eyebrow">CAREER TIMELINE</p><h3>Club career events</h3></div><span>{playerHistory.timeline?.length || 0}</span></div>{(playerHistory.timeline || []).slice(0,30).map(event=><div className="clubs-history-row" key={event.id}><time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleDateString()}</time><div><strong>{event.clubName}</strong><span>{event.description}</span></div></div>)}</div>
             </div>
           )}
         </section>
