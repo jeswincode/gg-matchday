@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { CLUB_MAX_MEMBERS, CLUB_STARTING_BALANCE, CLUB_FORMATIONS, normalizeClubName } from "../../config/clubsRules.js";
+import { CLUB_MAX_MEMBERS, CLUB_STARTING_BALANCE, normalizeClubName } from "../../config/clubsRules.js";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
 const memberId = { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true };
@@ -10,7 +10,6 @@ const clubSchema = new mongoose.Schema(
     nameNormalized: { type: String, required: true, lowercase: true, trim: true },
     description: { type: String, trim: true, maxlength: 500, default: "" },
     logoUrl: { type: String, trim: true, default: "" },
-    formation: { type: String, enum: CLUB_FORMATIONS, default: "1-2-1" },
     memberIds: {
       type: [memberId],
       validate: {
