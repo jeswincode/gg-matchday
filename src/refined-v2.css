@@ -480,11 +480,13 @@ textarea:focus-visible {
   .gg-welcome-content {
     padding: 9% 25% 7%;
   }
-
+}
 
 @media (max-width: 430px) {
   .gg-welcome-shell {
-    width: min(1000px, 126vw);
+    width: 126vw;
+    height: 78vh;
+    min-height: 520px;
   }
 
   .gg-welcome-content {
