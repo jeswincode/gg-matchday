@@ -10,10 +10,8 @@ import Player from "../models/Player.js";
 import News from "../models/News.js";
 import { calculateGGParticipantRatings } from "../services/ratings/match.js";
 import { refreshPlayerAttributes } from "../services/playerAttributes.js";
-import { syncClubStatsForMatch } from "../services/clubsMatchSync.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
-import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
-import { settleClubMatchBets } from "../services/clubsBetting.js";
+import { clubsIntegrationConfigured, enqueueClubSyncJob, syncMainMatchToClubs } from "../services/clubsSync.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 
 import {
@@ -29,21 +27,28 @@ const router = express.Router();
 
 async function hasLinkedClubMatch(mainMatchId, { settledOnly = false } = {}) {
   const connection = getClubsConnection();
-  if (connection.readyState !== 1) return false;
+  if (connection.readyState !== 1) return null;
   return Boolean(await ClubMatch.exists({ mainMatchId, ...(settledOnly ? { settlementStatus: "settled" } : {}) }));
 }
 
-async function settleLinkedClubMatches(syncResult) {
-  for (const clubMatchId of syncResult?.clubMatchIds || []) {
-    const session = await getClubsConnection().startSession();
-    try {
-      await session.withTransaction(async () => {
-        await settleClubMatchRewards({ clubMatchId, session });
-        await settleClubMatchBets({ clubMatchId, session });
-      });
-    } finally {
-      await session.endSession();
-    }
+function ensureClubsMutationSafety(res) {
+  if (!clubsIntegrationConfigured()) return true;
+  if (getClubsConnection().readyState !== 1) {
+    res.status(503).json({ message: "Clubs data is temporarily unavailable. Match edits/deletions are blocked until Clubs synchronization is healthy." });
+    return false;
+  }
+  return true;
+}
+
+async function syncClubsOrQueue(mainMatch) {
+  if (!clubsIntegrationConfigured()) return { pending: false };
+  try {
+    const result = await syncMainMatchToClubs(mainMatch);
+    return { pending: false, result };
+  } catch (error) {
+    await enqueueClubSyncJob(mainMatch._id, error?.message || "Clubs synchronization failed.");
+    console.error("Clubs match sync queued for retry:", error?.message || error);
+    return { pending: true };
   }
 }
 
@@ -456,14 +461,22 @@ async function createNewsForMatch(
               generated.icon ||
               "⚽";
 
-            news.generatedBy =
-              "gemini";
-
-            await news.save();
-
-            console.log(
-              "🤖 News upgraded with Gemini"
+            const updated = await News.updateOne(
+              { _id: news._id, match: populatedMatch._id, generatedBy: "fallback" },
+              { $set: {
+                headline: generated.headline,
+                summary: generated.summary,
+                body: generated.body,
+                icon: generated.icon || "⚽",
+                generatedBy: "gemini",
+              }},
             );
+
+            if (updated.modifiedCount === 1) {
+              console.log("🤖 News upgraded with Gemini");
+            } else {
+              console.log("ℹ️ Skipping stale Gemini news upgrade");
+            }
           } else {
             console.log(
               "ℹ️ Keeping fallback news"
@@ -634,20 +647,11 @@ router.post(
       } catch (ovrError) {
         console.error("Player OVR snapshot refresh failed:", ovrError);
       }
-      try {
-        const syncResult = await syncClubStatsForMatch(populatedMatch);
-        await settleLinkedClubMatches(syncResult);
-      } catch (syncError) {
-        console.error("Clubs match sync/settlement failed:", syncError);
-      }
-      res.status(
-        201
-      ).json({
-        match:
-          populatedMatch,
-
-        newsCreated:
-          Boolean(news),
+      const clubsSync = await syncClubsOrQueue(populatedMatch);
+      res.status(201).json({
+        match: populatedMatch,
+        newsCreated: Boolean(news),
+        clubsSyncPending: Boolean(clubsSync.pending),
       });
     } catch (error) {
       console.error(
@@ -681,8 +685,10 @@ router.put(
     try {
       const previous = await Match.findById(req.params.id);
       if (!previous) return res.status(404).json({message:"Match not found."});
+      if (!ensureClubsMutationSafety(res)) return;
       if (await Vote.exists({match:previous._id})) return res.status(409).json({message:"Matches with votes are locked to preserve final votes and recognition."});
-      if (await hasLinkedClubMatch(previous._id, { settledOnly: true })) {
+      const linkedSettled = await hasLinkedClubMatch(previous._id, { settledOnly: true });
+      if (linkedSettled === true) {
         return res.status(409).json({ message: "This Match Record is locked because it has a linked Club Match. The Club Match must remain linked to its Match Record." });
       }
       try { prepareMatch(req.body, previous); } catch (error) { return res.status(400).json({ message: error.message }); }
@@ -770,6 +776,11 @@ router.put(
 
       await match.save();
 
+      const affectedPlayerIds = [...new Set([
+        ...(previous.participants || []).map(participant => String(participant.player)),
+        ...(participants || []).map(participant => String(participant.player)),
+      ])];
+
       // Remove old generated article.
       await News.deleteMany({
         match:
@@ -788,23 +799,15 @@ router.put(
 
       scheduleHistory();
       try {
-        const affectedPlayerIds = [...new Set(participants.map(participant => String(participant.player)))];
         await Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId)));
       } catch (ovrError) {
         console.error("Player OVR snapshot refresh failed:", ovrError);
       }
-      try {
-        const syncResult = await syncClubStatsForMatch(match);
-        await settleLinkedClubMatches(syncResult);
-      } catch (syncError) {
-        console.error("Clubs match sync/settlement failed:", syncError);
-      }
+      const clubsSync = await syncClubsOrQueue(match);
       res.json({
-        match:
-          populatedMatch,
-
-        newsCreated:
-          Boolean(news),
+        match: populatedMatch,
+        newsCreated: Boolean(news),
+        clubsSyncPending: Boolean(clubsSync.pending),
       });
     } catch (error) {
       console.error(
@@ -836,8 +839,10 @@ router.delete(
     res
   ) => {
     try {
+      if (!ensureClubsMutationSafety(res)) return;
       if (await Vote.exists({match:req.params.id})) return res.status(409).json({message:"Matches with votes cannot be deleted."});
-      if (await hasLinkedClubMatch(req.params.id)) {
+      const linked = await hasLinkedClubMatch(req.params.id);
+      if (linked === true) {
         return res.status(409).json({ message: "This Match Record cannot be deleted because it has a linked Club Match. The Club Match must remain linked to its Match Record." });
       }
       const match =
