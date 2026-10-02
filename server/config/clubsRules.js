@@ -92,7 +92,7 @@ export function validateAuctionBid(amount, highestActiveBid = 0) {
 
 export function normalizeFixtureDate(value) {
   const key = String(value || "");
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(key)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
     throw new Error("Choose a valid Club Match date.");
   }
   const parsed = new Date(key + "T00:00:00.000Z");
