@@ -521,25 +521,40 @@ router.post("/auction/offers/:offerId/choose", requireAuth, async (req, res) => 
   if (!mongoose.isValidObjectId(req.params.offerId)) return res.status(400).json({ message: "Invalid offer id." });
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
+  const session = await getClubsConnection().startSession();
   try {
-    const offer = await AuctionOffer.findById(req.params.offerId);
-    if (!offer) return res.status(404).json({ message: "Offer not found." });
-    if (String(offer.playerId) !== String(playerId)) return res.status(403).json({ message: "Only the offered player can choose this offer." });
-    if (offer.status !== "active") return res.status(409).json({ message: "This offer is no longer active." });
-    if (offer.expiresAt && offer.expiresAt <= new Date()) {
-      offer.status = "cancelled";
-      await offer.save();
-      return res.status(409).json({ message: "This offer has expired." });
-    }
-    const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
-    if (activeContract) return res.status(409).json({ message: "You must be outside an active club contract to sign." });
-    offer.status = "chosenByPlayer";
-    offer.playerChosenAt = new Date();
-    await AuctionOffer.updateMany({ playerId, _id: { $ne: offer._id }, status: "active" }, { $set: { status: "rejectedByPlayer" } });
-    await offer.save();
-    return res.json(offer);
+    let result;
+    await session.withTransaction(async () => {
+      const now = new Date();
+      const offer = await AuctionOffer.findOne({
+        _id: req.params.offerId,
+        playerId,
+        status: "active",
+        expiresAt: { $gt: now },
+      }).session(session);
+      if (!offer) throw new Error("This signing offer is no longer active or has expired.");
+      const activeContract = await ClubContract.findOne({ playerId, status: "active" }).session(session);
+      if (activeContract) throw new Error("You must be outside an active club contract to sign.");
+      const chosen = await AuctionOffer.findOneAndUpdate(
+        { _id: offer._id, status: "active", expiresAt: { $gt: now } },
+        { $set: { status: "chosenByPlayer", playerChosenAt: now } },
+        { new: true, session },
+      );
+      if (!chosen) throw new Error("This offer changed before it could be selected.");
+      await AuctionOffer.updateMany(
+        { playerId, _id: { $ne: offer._id }, status: "active" },
+        { $set: { status: "rejectedByPlayer" } },
+        { session },
+      );
+      result = chosen;
+    });
+    return res.json(result);
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Failed to choose the signing offer." });
+    return res.status(error?.code === 11000 ? 409 : 400).json({
+      message: error?.code === 11000 ? "Another signing offer has already been chosen." : error.message || "Failed to choose the signing offer.",
+    });
+  } finally {
+    await session.endSession();
   }
 });
 
@@ -1048,10 +1063,22 @@ router.get("/matches/:matchId/prediction", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
   try {
+    const match = await ClubMatch.findById(req.params.matchId).select("status prediction").lean();
+    if (!match) return res.status(404).json({ message: "Club Match not found." });
+    return res.json(match.prediction || null);
+  } catch {
+    return res.status(500).json({ message: "Failed to load prediction." });
+  }
+});
+
+router.post("/matches/:matchId/prediction/refresh", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
+  try {
     const prediction = await generateClubMatchPrediction(req.params.matchId);
     return res.json(prediction);
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Failed to generate prediction." });
+    return res.status(400).json({ message: error.message || "Failed to refresh prediction." });
   }
 });
 
@@ -1416,6 +1443,9 @@ router.post("/formation/:id/captain/vote", requireAuth, async (req, res) => {
     return res.json(application);
   } catch (error) {
     console.error("Captain vote error:", error);
+    if (error?.name === "VersionError") {
+      return res.status(409).json({ message: "Another captain vote was recorded at the same time. Refresh and try again." });
+    }
     return res.status(500).json({ message: "Failed to record the captain vote." });
   }
 });
@@ -1431,8 +1461,12 @@ router.post("/formation/:id/details", requireAuth, async (req, res) => {
     if (!application.electedCaptainIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only the elected captain(s) can submit club details." });
     if (application.electedCaptainIds.length === 2 && application.detailsApprovedBy?.some(id => String(id) === String(playerId))) return res.status(409).json({ message: "You have already approved these club details." });
     const details = String(req.body?.details || "").trim();
-    application.details = details;
-    application.detailsApprovedBy = [...new Set([...(application.detailsApprovedBy || []).map(String), String(playerId)])];
+    if (String(application.details || "") !== details) {
+      application.details = details;
+      application.detailsApprovedBy = [playerId];
+    } else {
+      application.detailsApprovedBy = [...new Set([...(application.detailsApprovedBy || []).map(String), String(playerId)])];
+    }
     if (application.electedCaptainIds.every(id => application.detailsApprovedBy.some(approved => String(approved) === String(id)))) {
       application.status = "pendingAdminApproval";
     }
