@@ -31,7 +31,7 @@ const clubMatchSchema = new mongoose.Schema(
       generatedAt: { type: Date, default: null },
     },
   },
-  { timestamps: true, collection: "clubMatches" },
+  { timestamps: true, collection: "clubMatches", optimisticConcurrency: true },
 );
 
 clubMatchSchema.index({ clubAId: 1, clubBId: 1, scheduledAt: 1 });
