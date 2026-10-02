@@ -130,6 +130,10 @@ router.get("/meta", (req, res) => {
   });
 });
 
+// Ultimate Clubs is temporarily admin-only. Keep the health endpoint public,
+// but protect every operational Clubs endpoint behind the admin role.
+router.use(requireAuth, requireAdmin);
+
 router.get("/formation/me", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
