@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import app from './app.js';
 import {scheduleHistory} from './services/history.js';
 import {connectClubsDatabase,disconnectClubsDatabase} from './config/clubsDatabase.js';
+import {startClubSyncWorker} from './services/clubsSync.js';
 
 async function startServer(){
   try{
@@ -17,6 +18,8 @@ async function startServer(){
 
     scheduleHistory();
     setInterval(scheduleHistory,86400000).unref();
+
+    startClubSyncWorker();
 
     const port=Number(process.env.PORT)||5000;
     const server=app.listen(port,'0.0.0.0',()=>console.log(`GG Matchday API is ready on port ${port}`));
