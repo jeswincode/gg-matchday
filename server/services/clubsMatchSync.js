@@ -94,10 +94,16 @@ export async function attachMainMatchToClubMatch(mainMatch) {
   const clubDocs = await Club.find({ status: "approved" }).select("_id name nameNormalized").lean();
   const clubsById = new Map(clubDocs.map(club => [String(club._id), club]));
 
+  const dayStart = new Date(dayKey + "T00:00:00.000Z");
+  const dayEnd = new Date(dayStart);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
   const allClubMatches = await ClubMatch.find({
     $or: [
       { fixtureDate: dayKey, status: "accepted", mainMatchId: null },
       { fixtureDate: dayKey, status: "completed", mainMatchId: mainMatch._id },
+      { fixtureDate: null, scheduledAt: { $gte: dayStart, $lt: dayEnd }, status: "accepted", mainMatchId: null },
+      { fixtureDate: null, scheduledAt: { $gte: dayStart, $lt: dayEnd }, status: "completed", mainMatchId: mainMatch._id },
     ],
   }).lean();
 
