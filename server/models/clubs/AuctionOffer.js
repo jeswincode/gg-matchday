@@ -17,5 +17,9 @@ const auctionOfferSchema = new mongoose.Schema(
 
 auctionOfferSchema.index({ playerId: 1, createdAt: -1 });
 auctionOfferSchema.index({ playerId: 1, clubId: 1, createdAt: -1 });
+auctionOfferSchema.index(
+  { playerId: 1 },
+  { unique: true, partialFilterExpression: { status: { $in: ["chosenByPlayer", "approved"] } } },
+);
 
 export default getClubsConnection().model("AuctionOffer", auctionOfferSchema);
