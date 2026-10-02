@@ -33,7 +33,6 @@ export const CLUB_AUCTION_MIN_BID = 25;
 export const CLUB_AUCTION_BID_INCREMENT = 5;
 
 export const CLUB_MATCH_REQUEST_TTL_HOURS = 24;
-export const CLUB_MATCH_REQUEST_CUTOFF_MINUTES = 60;
 
 export const CLUB_REWARDS = Object.freeze({
   matchWin: 100,
@@ -91,12 +90,24 @@ export function validateAuctionBid(amount, highestActiveBid = 0) {
   return Math.round(value * 100) / 100;
 }
 
-export function clubMatchRequestExpiry(createdAt, scheduledAt) {
+export function normalizeFixtureDate(value) {
+  const key = String(value || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
+    throw new Error("Choose a valid Club Match date.");
+  }
+  const parsed = new Date(key + "T00:00:00.000Z");
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== key) {
+    throw new Error("Choose a valid Club Match date.");
+  }
+  return { key, date: parsed };
+}
+
+export function clubMatchRequestExpiry(createdAt) {
   const created = new Date(createdAt);
-  const scheduled = new Date(scheduledAt);
-  const ttl = new Date(created.getTime() + CLUB_MATCH_REQUEST_TTL_HOURS * 60 * 60 * 1000);
-  const kickoffCutoff = new Date(scheduled.getTime() - CLUB_MATCH_REQUEST_CUTOFF_MINUTES * 60 * 1000);
-  return ttl < kickoffCutoff ? ttl : kickoffCutoff;
+  if (Number.isNaN(created.getTime())) {
+    return new Date(0);
+  }
+  return new Date(created.getTime() + CLUB_MATCH_REQUEST_TTL_HOURS * 60 * 60 * 1000);
 }
 
 export function validateFormation(formation) {

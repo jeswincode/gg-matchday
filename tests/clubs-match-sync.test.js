@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { inferClubSides, winnerForClub } from "../server/services/clubsMatchSync.js";
+import {
+  inferClubSides,
+  winnerForClub,
+  isClubsMatchName,
+  matchClubNames,
+} from "../server/services/clubsMatchSync.js";
 
 const ids = { clubA: "aaaaaaaaaaaaaaaaaaaaaaaa", clubB: "bbbbbbbbbbbbbbbbbbbbbbbb", p1: "111111111111111111111111", p2: "222222222222222222222222", p3: "333333333333333333333333", p4: "444444444444444444444444" };
 const oid = value => ({ _id: value });
@@ -181,4 +186,62 @@ test("Matchday match mutations fail closed when configured Clubs storage is unav
   assert.match(source, /ensureClubsMutationSafety/);
   assert.match(source, /Clubs data is temporarily unavailable/);
   assert.match(source, /enqueueClubSyncJob/);
+});
+
+
+test("Clubs marker is normalized like the existing El Clásico classifier", () => {
+  assert.equal(isClubsMatchName("Clubs"), true);
+  assert.equal(isClubsMatchName("GG CLUBS Match"), true);
+  assert.equal(isClubsMatchName("Sunday Football"), false);
+});
+
+test("Club name matching is exact after normalization and accepts reversed sides", () => {
+  const clubs = new Map([
+    ["aaaaaaaaaaaaaaaaaaaaaaaa", { _id: ids.clubA, name: "Golden Gooners" }],
+    ["bbbbbbbbbbbbbbbbbbbbbbbb", { _id: ids.clubB, name: "Test FC" }],
+  ]);
+  assert.deepEqual(
+    matchClubNames(
+      { teamA: { label: " Golden   Gooners " }, teamB: { label: "Test FC" } },
+      { clubAId: ids.clubA, clubBId: ids.clubB },
+      clubs,
+    ),
+    { clubAIsSideA: true },
+  );
+  assert.deepEqual(
+    matchClubNames(
+      { teamA: { label: "Test FC" }, teamB: { label: "Golden Gooners" } },
+      { clubAId: ids.clubA, clubBId: ids.clubB },
+      clubs,
+    ),
+    { clubAIsSideA: false },
+  );
+  assert.equal(
+    matchClubNames(
+      { teamA: { label: "Golden Gooners FC" }, teamB: { label: "Test FC" } },
+      { clubAId: ids.clubA, clubBId: ids.clubB },
+      clubs,
+    ),
+    null,
+  );
+});
+
+test("Club Match model distinguishes booked and unbooked sources", async () => {
+  const source = await readFile("server/models/clubs/ClubMatch.js", "utf8");
+  assert.match(source, /source: \{ type: String, enum: \["booked", "unbooked"\]/);
+  assert.match(source, /fixtureDate:/);
+  assert.match(source, /unique: true/);
+});
+
+test("Club Match booking UI uses date-only input", async () => {
+  const source = await readFile("src/features/clubs/ClubsMode.jsx", "utf8");
+  assert.match(source, /type="date"/);
+  assert.match(source, /fixtureDate: matchScheduledAt/);
+  assert.doesNotMatch(source, /type="datetime-local"/);
+});
+
+test("Club sync requires the Clubs marker before any Club Match classification", async () => {
+  const source = await readFile("server/services/clubsMatchSync.js", "utf8");
+  assert.match(source, /if \(!mainMatch\?\._id \|\| !isClubsMatchName\(mainMatch\.name\)\)/);
+  assert.match(source, /participant-club-membership-mismatch/);
 });

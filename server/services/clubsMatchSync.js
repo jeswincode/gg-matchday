@@ -4,7 +4,9 @@ import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
 import Match from "../models/Match.js";
+import Club from "../models/clubs/Club.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
+import { normalizeClubName } from "../config/clubsRules.js";
 
 const idOf = value => String(value?._id || value);
 
@@ -13,6 +15,37 @@ export function winnerForClub(scoreA, scoreB, isA) {
   if (isA) return scoreA > scoreB ? "win" : "loss";
   return scoreB > scoreA ? "win" : "loss";
 }
+
+export function isClubsMatchName(name) {
+  return /\bclubs\b/.test(
+    String(name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim(),
+  );
+}
+
+export function normalizedSideLabel(value) {
+  return normalizeClubName(value);
+}
+
+export function matchClubNames(mainMatch, clubMatch, clubsById) {
+  const clubA = clubsById.get(String(clubMatch.clubAId));
+  const clubB = clubsById.get(String(clubMatch.clubBId));
+  if (!clubA || !clubB) return null;
+
+  const sideA = normalizedSideLabel(mainMatch.teamA?.label);
+  const sideB = normalizedSideLabel(mainMatch.teamB?.label);
+  const nameA = normalizedSideLabel(clubA.name);
+  const nameB = normalizedSideLabel(clubB.name);
+
+  if (sideA === nameA && sideB === nameB) return { clubAIsSideA: true };
+  if (sideA === nameB && sideB === nameA) return { clubAIsSideA: false };
+  return null;
+}
+
 
 async function findContractMap(playerIds, date) {
   const contracts = await ClubContract.find({
@@ -43,40 +76,39 @@ export function inferClubSides(mainMatch, contractMap, clubMatch) {
 }
 
 export async function attachMainMatchToClubMatch(mainMatch) {
-  if (!mainMatch?._id) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
+  if (!mainMatch?._id || !isClubsMatchName(mainMatch.name)) {
+    return { linked: false, clubMatchIds: [], affectedClubIds: [], reason: "not-a-clubs-match" };
+  }
 
   const playerIds = [...new Set(
     (mainMatch.participants || []).map(p => idOf(p.player)).filter(Boolean),
   )];
-  if (!playerIds.length) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
+  if (!playerIds.length) return { linked: false, clubMatchIds: [], affectedClubIds: [], reason: "no-participants" };
 
   const contractMap = await findContractMap(playerIds, mainMatch.date);
-  if (contractMap.size < 2) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
+  if (contractMap.size !== playerIds.length) {
+    return { linked: false, clubMatchIds: [], affectedClubIds: [], reason: "participant-club-membership-mismatch" };
+  }
 
-  const dayStart = new Date(mainMatch.date);
-  dayStart.setUTCHours(0, 0, 0, 0);
+  const dayKey = new Date(mainMatch.date).toISOString().slice(0, 10);
+  const clubDocs = await Club.find({ status: "approved" }).select("_id name nameNormalized").lean();
+  const clubsById = new Map(clubDocs.map(club => [String(club._id), club]));
+
+  const dayStart = new Date(dayKey + "T00:00:00.000Z");
   const dayEnd = new Date(dayStart);
   dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 
+  const allClubMatches = await ClubMatch.find({
+    $or: [
+      { fixtureDate: dayKey, status: "accepted", mainMatchId: null },
+      { fixtureDate: dayKey, status: "completed", mainMatchId: mainMatch._id },
+      { fixtureDate: null, scheduledAt: { $gte: dayStart, $lt: dayEnd }, status: "accepted", mainMatchId: null },
+      { fixtureDate: null, scheduledAt: { $gte: dayStart, $lt: dayEnd }, status: "completed", mainMatchId: mainMatch._id },
+    ],
+  }).lean();
+
   const linked = [];
   const affectedClubIds = new Set();
-
-  const existingLinked = await ClubMatch.find({
-    mainMatchId: mainMatch._id,
-    status: "completed",
-  }).lean();
-
-  const candidates = await ClubMatch.find({
-    status: "accepted",
-    scheduledAt: { $gte: dayStart, $lt: dayEnd },
-    mainMatchId: null,
-  }).lean();
-
-  const mainMatchTime = new Date(mainMatch.date).getTime();
-  candidates.sort((left, right) =>
-    Math.abs(new Date(left.scheduledAt).getTime() - mainMatchTime) -
-    Math.abs(new Date(right.scheduledAt).getTime() - mainMatchTime),
-  );
 
   const scoreFor = (clubMatch, inference) => {
     const scoreA = Number(mainMatch.teamA?.score || 0);
@@ -92,12 +124,14 @@ export async function attachMainMatchToClubMatch(mainMatch) {
     };
   };
 
-  for (const clubMatch of existingLinked) {
-    const inference = inferClubSides(mainMatch, contractMap, clubMatch);
-    if (!inference) continue;
+  // An already-linked match is authoritative and can safely be reconciled after edits.
+  for (const clubMatch of allClubMatches.filter(item => String(item.mainMatchId) === String(mainMatch._id))) {
+    const nameMatch = matchClubNames(mainMatch, clubMatch, clubsById);
+    const sideMatch = inferClubSides(mainMatch, contractMap, clubMatch);
+    if (!nameMatch || !sideMatch) continue;
     const updated = await ClubMatch.findOneAndUpdate(
       { _id: clubMatch._id, mainMatchId: mainMatch._id, status: "completed" },
-      { $set: scoreFor(clubMatch, inference) },
+      { $set: scoreFor(clubMatch, sideMatch) },
       { new: true },
     );
     if (updated) {
@@ -107,9 +141,18 @@ export async function attachMainMatchToClubMatch(mainMatch) {
     }
   }
 
-  for (const clubMatch of candidates) {
+  // Booked lane: exact date + exact normalized Club names + valid player membership.
+  const bookedCandidates = allClubMatches.filter(item =>
+    item.status === "accepted" &&
+    !item.mainMatchId &&
+    item.source !== "unbooked" &&
+    matchClubNames(mainMatch, item, clubsById) &&
+    inferClubSides(mainMatch, contractMap, item),
+  );
+
+  if (bookedCandidates.length === 1) {
+    const clubMatch = bookedCandidates[0];
     const inference = inferClubSides(mainMatch, contractMap, clubMatch);
-    if (!inference) continue;
     const updated = await ClubMatch.findOneAndUpdate(
       { _id: clubMatch._id, status: "accepted", mainMatchId: null },
       {
@@ -125,7 +168,45 @@ export async function attachMainMatchToClubMatch(mainMatch) {
       linked.push(updated);
       affectedClubIds.add(String(updated.clubAId));
       affectedClubIds.add(String(updated.clubBId));
-      break;
+    }
+  }
+
+  // Unbooked lane: valid Clubs Match specification is enough to create a Club Match.
+  if (!linked.length && bookedCandidates.length === 0) {
+    const candidates = clubDocs.filter(club => {
+      const sideA = normalizedSideLabel(mainMatch.teamA?.label);
+      const sideB = normalizedSideLabel(mainMatch.teamB?.label);
+      return [sideA, sideB].includes(normalizedSideLabel(club.name));
+    });
+    const sideAClub = candidates.find(club => normalizedSideLabel(club.name) === normalizedSideLabel(mainMatch.teamA?.label));
+    const sideBClub = candidates.find(club => normalizedSideLabel(club.name) === normalizedSideLabel(mainMatch.teamB?.label));
+    const unbookedInference = sideAClub && sideBClub
+      ? inferClubSides(
+        mainMatch,
+        contractMap,
+        { clubAId: sideAClub._id, clubBId: sideBClub._id },
+      )
+      : null;
+
+    if (sideAClub && sideBClub && String(sideAClub._id) !== String(sideBClub._id) && unbookedInference) {
+      const existing = await ClubMatch.findOne({ mainMatchId: mainMatch._id }).lean();
+      if (!existing) {
+        const inference = unbookedInference;
+        const created = await ClubMatch.create({
+          clubAId: sideAClub._id,
+          clubBId: sideBClub._id,
+          requestedByClubId: null,
+          fixtureDate: dayKey,
+          scheduledAt: new Date(dayKey + "T00:00:00.000Z"),
+          source: "unbooked",
+          status: "completed",
+          mainMatchId: mainMatch._id,
+          ...scoreFor({ clubAId: sideAClub._id, clubBId: sideBClub._id }, inference),
+        });
+        linked.push(created);
+        affectedClubIds.add(String(created.clubAId));
+        affectedClubIds.add(String(created.clubBId));
+      }
     }
   }
 
@@ -148,11 +229,7 @@ export async function attachMainMatchToClubMatch(mainMatch) {
           },
           occurredAt: new Date(mainMatch.date),
         },
-        $setOnInsert: {
-          clubId,
-          relatedMainMatchId: mainMatch._id,
-          eventType: "matchPlayed",
-        },
+        $setOnInsert: { clubId, relatedMainMatchId: mainMatch._id, eventType: "matchPlayed" },
       },
       { upsert: true },
     );
