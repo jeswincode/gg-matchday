@@ -18,6 +18,7 @@ import {
   auctionOfferExpiry,
   validateAuctionBid,
   clubMatchRequestExpiry,
+  normalizeFixtureDate,
   resolveCaptainVote,
 } from "../config/clubsRules.js";
 import { pingClubsDatabase, getClubsConnection } from "../config/clubsDatabase.js";
@@ -1142,7 +1143,7 @@ router.get("/matches", async (req, res) => {
   try {
     const now = new Date();
     const stale = await ClubMatch.find({ status: "requested" }).select("_id createdAt scheduledAt").lean();
-    const expiredIds = stale.filter(item => now >= clubMatchRequestExpiry(item.createdAt, item.scheduledAt)).map(item => item._id);
+    const expiredIds = stale.filter(item => now >= clubMatchRequestExpiry(item.createdAt)).map(item => item._id);
     if (expiredIds.length) {
       await ClubMatch.updateMany({ _id: { $in: expiredIds } }, { $set: { status: "declined", responseDecision: "decline" } });
     }
@@ -1156,7 +1157,7 @@ router.get("/matches", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
-  const { clubAId, clubBId, scheduledAt } = req.body || {};
+  const { clubAId, clubBId, fixtureDate } = req.body || {};
 
   if (!mongoose.isValidObjectId(clubAId) || !mongoose.isValidObjectId(clubBId) || String(clubAId) === String(clubBId)) {
     return res.status(400).json({ message: "Choose two different valid clubs." });
@@ -1171,16 +1172,34 @@ router.get("/matches", async (req, res) => {
       return res.status(403).json({ message: "Only a captain of the requesting club can schedule a club match." });
     }
 
-    const date = new Date(scheduledAt);
-    if (Number.isNaN(date.getTime()) || date <= new Date()) {
-      return res.status(400).json({ message: "Choose a valid future match date." });
+    let fixture;
+    try {
+      fixture = normalizeFixtureDate(fixtureDate);
+    } catch (dateError) {
+      return res.status(400).json({ message: dateError.message });
+    }
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    if (fixture.key <= todayKey) {
+      return res.status(400).json({ message: "Choose a future Club Match date." });
+    }
+
+    const existingBooking = await ClubMatch.findOne({
+      fixtureDate: fixture.key,
+      source: "booked",
+      status: { $in: ["requested", "accepted", "completed"] },
+    }).lean();
+    if (existingBooking) {
+      return res.status(409).json({ message: "A Club Match fixture is already booked for that date." });
     }
 
     const match = await ClubMatch.create({
       clubAId,
       clubBId,
       requestedByClubId: clubAId,
-      scheduledAt: date,
+      fixtureDate: fixture.key,
+      scheduledAt: fixture.date,
+      source: "booked",
       status: "requested",
     });
     return res.status(201).json(match);
