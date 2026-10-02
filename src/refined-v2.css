@@ -265,8 +265,7 @@ textarea:focus-visible {
 }
 
 .gg-startup-content,
-.gg-entry-shell,
-.gg-welcome-shell {
+.gg-entry-shell {
   position: relative;
   z-index: 2;
 }
@@ -597,110 +596,283 @@ textarea:focus-visible {
 .gg-welcome-lines span:nth-child(2) { animation-delay: .12s; }
 .gg-welcome-lines span:nth-child(3) { animation-delay: .24s; }
 
-/* GG emblem treatment for the authenticated welcome gate. */
+/* Authenticated welcome gate — cinematic GG emblem treatment. */
+.gg-welcome-screen {
+  background:
+    radial-gradient(circle at 8% 48%, rgba(255,255,255,.07), transparent 13%),
+    radial-gradient(circle at 92% 48%, rgba(255,255,255,.06), transparent 14%),
+    radial-gradient(circle at 50% 52%, rgba(241,199,91,.055), transparent 38%),
+    linear-gradient(180deg, #06101c 0%, #02050b 52%, #02040a 100%);
+}
+
+.gg-welcome-screen::after {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 8% 50%, rgba(255,255,255,.08), transparent 7%),
+    radial-gradient(ellipse at 92% 50%, rgba(255,255,255,.08), transparent 7%),
+    linear-gradient(112deg, transparent 0 47%, rgba(241,199,91,.028) 47.2% 47.35%, transparent 47.55% 100%),
+    linear-gradient(68deg, transparent 0 53%, rgba(241,199,91,.022) 53.2% 53.35%, transparent 53.55% 100%);
+  filter: blur(3px);
+  opacity: .75;
+}
+
 .gg-welcome-shell {
-  width: min(620px, calc(100vw - 28px));
-  aspect-ratio: 1;
-  padding: clamp(44px, 7vw, 82px);
+  position: relative;
+  z-index: 2;
+  width: min(980px, 106vw);
+  aspect-ratio: 920 / 700;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  isolation: isolate;
+  overflow: visible;
+  animation: gg-cinematic-in 700ms cubic-bezier(.16,1,.3,1) both;
+}
+
+.gg-welcome-emblem {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: gg-welcome-emblem-float 7s ease-in-out infinite;
+}
+
+.gg-welcome-emblem svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter:
+    drop-shadow(0 0 22px rgba(241,199,91,.22))
+    drop-shadow(0 26px 65px rgba(0,0,0,.55));
+}
+
+.gg-welcome-emblem .gg-emblem-ring {
+  fill: none;
+  stroke: rgba(241,199,91,.92);
+  stroke-width: 10;
+}
+
+.gg-welcome-emblem .gg-emblem-ring-soft {
+  fill: none;
+  stroke: rgba(241,199,91,.2);
+  stroke-width: 2;
+}
+
+.gg-welcome-emblem .gg-emblem-ring-inner {
+  fill: none;
+  stroke: rgba(142,168,207,.09);
+  stroke-width: 2;
+}
+
+.gg-welcome-emblem .gg-emblem-logo {
+  fill: none;
+  stroke: url(#ggWelcomeGold);
+  stroke-width: 82;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  filter:
+    drop-shadow(0 0 10px rgba(241,199,91,.18))
+    drop-shadow(0 12px 28px rgba(0,0,0,.42));
+}
+
+.gg-welcome-emblem .gg-emblem-accent {
+  fill: url(#ggWelcomeGold);
+  filter:
+    drop-shadow(0 0 12px rgba(241,199,91,.24))
+    drop-shadow(0 12px 25px rgba(0,0,0,.4));
+}
+
+.gg-welcome-emblem .gg-emblem-accent-line {
+  stroke: rgba(241,199,91,.72);
+  stroke-width: 3;
+  fill: none;
+}
+
+.gg-welcome-emblem .gg-emblem-node {
+  fill: #f7d976;
+  filter: drop-shadow(0 0 10px rgba(241,199,91,.8));
+}
+
+.gg-welcome-content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  border: 1px solid rgba(241,199,91,.42);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 36%, rgba(241,199,91,.075), transparent 32%),
-    radial-gradient(circle at 50% 50%, rgba(16,22,35,.96), rgba(3,7,13,.98) 72%);
-  box-shadow:
-    0 0 0 9px rgba(241,199,91,.045),
-    0 0 0 10px rgba(241,199,91,.16),
-    0 0 0 22px rgba(241,199,91,.028),
-    0 42px 120px rgba(0,0,0,.58),
-    0 0 100px rgba(72,130,214,.10),
-    inset 0 0 70px rgba(0,0,0,.28);
-  backdrop-filter: blur(26px);
-  isolation: isolate;
-  overflow: visible;
-}
-
-.gg-welcome-shell::before,
-.gg-welcome-shell::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.gg-welcome-shell::before {
-  inset: -17px;
-  border: 1px solid rgba(241,199,91,.16);
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,.025),
-    0 0 34px rgba(241,199,91,.10);
-  animation: gg-welcome-orbit 8s linear infinite;
-}
-
-.gg-welcome-shell::after {
-  inset: 25px;
-  border: 1px solid rgba(142,168,207,.075);
-  box-shadow: inset 0 0 35px rgba(241,199,91,.035);
-}
-
-.gg-welcome-shell > * {
-  position: relative;
-  z-index: 1;
+  padding: 7% 23% 5%;
+  text-align: center;
 }
 
 .gg-welcome-shell .gg-welcome-avatar {
+  width: 72px;
+  height: 72px;
+  margin: 0 0 18px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(241,199,91,.85);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 32%, rgba(255,255,255,.08), transparent 32%),
+    #060911;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.09),
+    0 0 28px rgba(241,199,91,.16),
+    0 14px 35px rgba(0,0,0,.5);
+  font-size: 26px;
+  font-weight: 900;
   flex: 0 0 auto;
 }
 
-.gg-welcome-shell h1 {
-  max-width: 470px;
+.gg-welcome-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.gg-welcome-shell > p:not(.gg-refined-eyebrow) {
-  max-width: 390px;
-  margin-bottom: 0;
+.gg-welcome-content .gg-refined-eyebrow {
+  margin-bottom: 12px;
+  text-shadow: 0 0 18px rgba(241,199,91,.2);
+}
+
+.gg-welcome-content h1 {
+  max-width: 600px;
+  margin: 0;
+  font-size: clamp(40px, 5.7vw, 66px);
+  line-height: .98;
+  letter-spacing: -.055em;
+  text-shadow: 0 8px 30px rgba(0,0,0,.48);
+}
+
+.gg-welcome-content > p:not(.gg-refined-eyebrow) {
+  max-width: 510px;
+  margin: 16px 0 0;
+  color: rgba(240,245,255,.7);
+  line-height: 1.55;
+  text-shadow: 0 3px 18px rgba(0,0,0,.55);
 }
 
 .gg-welcome-shell .gg-enter-button {
-  width: min(390px, 100%);
+  width: min(440px, 100%);
+  min-height: 60px;
+  margin-top: 30px;
+  border: 1px solid rgba(255,235,151,.62);
+  border-radius: 30px;
+  background: linear-gradient(135deg, #ffe28a 0%, #f4c952 42%, #c98f25 100%);
+  color: #090b10;
+  font-weight: 950;
+  letter-spacing: .09em;
+  box-shadow:
+    0 16px 42px rgba(241,199,91,.16),
+    inset 0 1px 0 rgba(255,255,255,.48);
 }
 
-@keyframes gg-welcome-orbit {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.gg-welcome-shell .gg-enter-button:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow:
+    0 21px 55px rgba(241,199,91,.24),
+    inset 0 1px 0 rgba(255,255,255,.55);
 }
 
-@media (max-width: 560px) {
+.gg-welcome-lines {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.gg-welcome-lines span {
+  width: 20px;
+  height: 2px;
+  border-radius: 3px;
+  background: rgba(241,199,91,.34);
+  box-shadow: 0 0 10px rgba(241,199,91,.12);
+  animation: gg-line 1.5s ease-in-out infinite;
+}
+
+.gg-welcome-lines span:nth-child(2) { animation-delay: .12s; }
+.gg-welcome-lines span:nth-child(3) { animation-delay: .24s; }
+
+@keyframes gg-welcome-emblem-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@media (max-width: 700px) {
   .gg-welcome-shell {
-    width: min(92vw, 430px);
-    padding: 38px;
+    width: min(1000px, 118vw);
   }
 
-  .gg-welcome-shell::before {
-    inset: -11px;
+  .gg-welcome-content {
+    padding: 9% 25% 7%;
   }
 
-  .gg-welcome-shell::after {
-    inset: 17px;
+  .gg-welcome-shell .gg-welcome-avatar {
+    width: 62px;
+    height: 62px;
+    margin-bottom: 14px;
+    font-size: 22px;
   }
 
-  .gg-welcome-shell h1 {
-    font-size: clamp(29px, 8.8vw, 39px);
+  .gg-welcome-content .gg-refined-eyebrow {
+    margin-bottom: 9px;
+    font-size: 9px;
+    letter-spacing: .2em;
   }
 
-  .gg-welcome-shell > p:not(.gg-refined-eyebrow) {
-    font-size: 13px;
-    line-height: 1.55;
+  .gg-welcome-content h1 {
+    font-size: clamp(31px, 7.9vw, 50px);
+  }
+
+  .gg-welcome-content > p:not(.gg-refined-eyebrow) {
+    margin-top: 12px;
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   .gg-welcome-shell .gg-enter-button {
-    min-height: 50px;
+    min-height: 52px;
     margin-top: 22px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 430px) {
+  .gg-welcome-shell {
+    width: min(1000px, 126vw);
+  }
+
+  .gg-welcome-content {
+    padding: 11% 27% 8%;
+  }
+
+  .gg-welcome-shell .gg-welcome-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
+  }
+
+  .gg-welcome-content h1 {
+    font-size: clamp(26px, 8vw, 38px);
+  }
+
+  .gg-welcome-content > p:not(.gg-refined-eyebrow) {
+    font-size: 11px;
+  }
+
+  .gg-welcome-shell .gg-enter-button {
+    min-height: 48px;
+    margin-top: 18px;
+    padding-inline: 14px;
   }
 }
 
@@ -995,8 +1167,7 @@ textarea:focus-visible {
     font-size: clamp(34px, 11vw, 52px);
   }
 
-  .gg-entry-shell,
-  .gg-welcome-shell {
+  .gg-entry-shell {
     border-radius: 24px;
     padding: 24px 20px;
   }
@@ -1031,6 +1202,7 @@ textarea:focus-visible {
   .gg-entry-orbit-b,
   .home-feature-card::after,
   .gg-welcome-lines span,
+  .gg-welcome-emblem,
   .gg-loading-dots i {
     animation: none;
   }
