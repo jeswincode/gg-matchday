@@ -4,6 +4,7 @@ import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
 import Match from "../models/Match.js";
+import { getClubsConnection } from "../config/clubsDatabase.js";
 
 const idOf = value => String(value?._id || value);
 
@@ -232,5 +233,8 @@ export async function rebuildClubPlayerStats(clubId) {
 }
 
 export async function syncClubStatsForMatch(mainMatch) {
+  if (getClubsConnection().readyState !== 1) {
+    throw new Error("Clubs database is not connected.");
+  }
   return attachMainMatchToClubMatch(mainMatch);
 }
