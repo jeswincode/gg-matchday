@@ -175,3 +175,16 @@ test('decorative star background stylesheet is not loaded',()=>{
   const main=read('src/main.jsx');
   assert.doesNotMatch(main,/v1\.3-stars\.css/);
 });
+
+
+test('shared Modal renders through document.body so nested page animations and fixed navigation cannot contain it',()=>{
+  const modal=read('src/components/Modal.jsx');
+  assert.match(modal,/createPortal\(modal,document\.body\)/);
+  assert.match(modal,/document\.body\.style\.overflow='hidden'/);
+});
+
+test('player performance keeps the modal as the single scroll container',()=>{
+  const css=read('src/components/player-performance-dashboard.css');
+  assert.doesNotMatch(css,/\.perf-dashboard\{[^}]*overflow\s*:/);
+  assert.doesNotMatch(css,/\.perf-dashboard\{[^}]*max-height\s*:/);
+});
