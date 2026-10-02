@@ -1,5 +1,21 @@
+import {useEffect,useState} from "react";
 import {formatDate} from "../../lib/date";
+import {api} from "../../lib/api";
 import ProfileInsights from "../../components/ProfileInsights";
+
+function PlayerCard({ player, attributes, onShare }) {
+  const labels = [["pace","PACE"],["shooting","SHOOTING"],["passing","PASSING"],["dribbling","DRIBBLING"],["defending","DEFENDING"],["physical","PHYSICAL"]];
+  return (
+    <section className="card gg-player-card">
+      <div className="gg-player-card-top">
+        <div><p className="eyebrow">GG PLAYER CARD</p><h3>{player.name}</h3><span>{attributes?.position || player.position || "PLAYER"} · {attributes?.sampleStage || "unrated"}</span></div>
+        <div className="gg-player-card-ovr"><strong>{attributes?.ovr ?? "—"}</strong><span>OVR</span></div>
+      </div>
+      <div className="gg-player-card-attrs">{labels.map(([key,label]) => <div key={key}><span>{label}</span><strong>{attributes?.attributes?.[key] ?? "—"}</strong></div>)}</div>
+      <div className="gg-player-card-footer"><span>{attributes?.evidence?.matchesAnalyzed ?? 0} Match Record matches analyzed</span><button type="button" className="secondary-button" onClick={onShare}>Share Card</button></div>
+    </section>
+  );
+}
 
 function ProfileInfoItem({label,value}){
   return (
@@ -28,6 +44,25 @@ export default function PlayerProfile({
   onBack,
   onClearReview,
 }){
+  const [attributes,setAttributes]=useState(null);
+  const [attributesLoading,setAttributesLoading]=useState(true);
+  const [attributesError,setAttributesError]=useState("");
+  const loadAttributes=async()=>{
+    try{setAttributesLoading(true);setAttributesError("");setAttributes(await api("/players/"+player._id+"/attributes"));}
+    catch(error){setAttributesError(error.message);}
+    finally{setAttributesLoading(false);}
+  };
+  useEffect(()=>{
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- this effect synchronizes derived remote data for the active player.
+    loadAttributes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- player identity is the fetch key.
+  },[player._id]);
+  const shareCard=async()=>{
+    const text=`${player.name} · ${attributes?.ovr ?? "Unrated"} OVR · GG Matchday Player Card`;
+    if(navigator.share) await navigator.share({title:"GG Player Card",text});
+    else if(navigator.clipboard) await navigator.clipboard.writeText(text);
+  };
+
   return (
     <section className="player-profile">
     
@@ -415,6 +450,15 @@ export default function PlayerProfile({
           </div>
     
           <ProfileInsights playerId={player._id} onMatch={onMatch} refreshKey={refreshKey}/>
+          <section className="card">
+            <div className="section-heading"><div><p className="eyebrow">ATTRIBUTES & OVR</p><h3>Match-derived player profile</h3></div><button type="button" className="secondary-button" onClick={loadAttributes} disabled={attributesLoading}>{attributesLoading ? "Calculating..." : "Refresh"}</button></div>
+            {attributesError ? <p className="muted">{attributesError}</p> : attributesLoading ? <p className="muted">Calculating from Match Record history...</p> : <>
+              <div className="profile-attributes-summary"><div><span>OVR</span><strong>{attributes.ovr ?? "—"}</strong></div><div><span>MATCHES</span><strong>{attributes.matchesPlayed}</strong></div><div><span>STATUS</span><strong>{attributes.sampleStage}</strong></div></div>
+              <div className="profile-attributes-grid">{Object.entries(attributes.attributes || {}).map(([key,value]) => <div key={key}><span>{key.toUpperCase()}</span><strong>{value ?? "—"}</strong></div>)}</div>
+              <p className="muted">Evidence: {attributes.evidence.matchesAnalyzed} Match Record matches analyzed. OVR is derived and is not stored as a manual player field.</p>
+            </>}
+          </section>
+          {!attributesLoading && !attributesError && <PlayerCard player={player} attributes={attributes} onShare={shareCard} />}
     
           <section className="card">
     

@@ -50,6 +50,29 @@ test('historical GG migration recalculates canonically and changes only rating f
   }
 });
 
+test('admin can record manual Pace/Physical and the OVR endpoint exposes the cached current and career ratings',async()=>{
+  const update=await request(`/players/${p1._id}/ovr-attributes`,{
+    token:'admin',
+    method:'PATCH',
+    body:{pace:91,physical:87},
+  });
+  assert.equal(update.status,200,JSON.stringify(update.data));
+  assert.equal(update.data.player.pace,91);
+  assert.equal(update.data.player.physical,87);
+  assert.equal(update.data.currentAttributes.pace,91);
+  assert.equal(update.data.currentAttributes.physical,87);
+  assert.equal(update.data.ovr,update.data.currentOvr);
+
+  const first=await request(`/players/${p1._id}/attributes`);
+  assert.equal(first.status,200,JSON.stringify(first.data));
+  assert.equal(first.data.currentOvr,first.data.ovr);
+
+  const second=await request(`/players/${p1._id}/attributes`);
+  assert.equal(second.status,200,JSON.stringify(second.data));
+  assert.equal(second.data.evidence.cached,true);
+  assert.equal(second.data.careerOvr,first.data.careerOvr);
+});
+
 test('GG audit distinguishes missing codes and partial records',async()=>{
   const missing=await Match.create({
     date:new Date('2026-09-02'),name:'Audit Missing Codes',

@@ -9,6 +9,7 @@ import HomePage from './features/home/HomePage';
 import Calendar from './features/calendar/Calendar';
 import AdminPage from './features/admin/AdminPage';
 import MatchRecordForm from './features/matches/MatchRecordForm';
+import ClubsMode from './features/clubs/ClubsMode';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
@@ -82,6 +83,13 @@ function localDateString(
 
 function App() {
   const [experience,setExperience]=useState('startup');
+  const [productMode,setProductMode]=useState(()=>{
+    try {
+      return new URLSearchParams(window.location.search).get("mode") === "clubs" ? "clubs" : "matchday";
+    } catch {
+      return "matchday";
+    }
+  });
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
@@ -92,7 +100,26 @@ function App() {
   const touchStartRef=useRef(null);
   const [swipeOffset,setSwipeOffset]=useState(0);
   const [swipeAnimating,setSwipeAnimating]=useState(false);
+  const [modeTransition,setModeTransition]=useState(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
+
+  const switchProductMode=useCallback((nextMode)=>{
+    if(nextMode===productMode || modeTransition) return;
+    const transition = nextMode === "clubs"
+      ? `to-clubs-${theme}`
+      : `to-matchday-${theme}`;
+    setModeTransition(transition);
+    setProductMode(nextMode);
+    try{
+      const url=new URL(window.location.href);
+      if(nextMode==="clubs") url.searchParams.set("mode","clubs");
+      else url.searchParams.delete("mode");
+      window.history.replaceState({}, "", url);
+    }catch{
+      // URL history is optional in restricted browser environments.
+    }
+    window.setTimeout(()=>setModeTransition(null),720);
+  },[modeTransition,productMode,theme]);
 
   function isTouchInteractionExcluded(target) {
     if (!(target instanceof Element)) return false;
@@ -187,6 +214,7 @@ function App() {
     },240);
   }
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
+  useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
   useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
   useEffect(()=>{api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey]);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
@@ -1171,6 +1199,39 @@ function App() {
     });
 
 
+  }
+
+  async function updatePlayerOvrAttributes(playerId, pace, physical) {
+    if (!isAdmin) {
+      setMessage("Admin access required.");
+      throw new Error("Admin access required.");
+    }
+
+    const response = await authenticatedFetch(
+      `${API_URL}/players/${playerId}/ovr-attributes`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pace, physical }),
+      },
+    );
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || "Could not update player OVR attributes.");
+    }
+
+    setPlayers(current =>
+      current.map(player =>
+        sameId(player._id, data.player?._id) ? data.player : player,
+      ),
+    );
+    setSelectedPlayer(current =>
+      current && sameId(current._id, data.player?._id) ? data.player : current,
+    );
+    invalidate();
+    setMessage("Player OVR attributes updated.");
+    return data;
   }
 
   async function updatePlayerBackgroundVideo(playerId, backgroundVideoUrl) {
@@ -2234,6 +2295,23 @@ function App() {
       ? "welcome"
       : experience;
 
+  const modeTransitionLayer = modeTransition ? (
+    <div className={`product-mode-transition product-mode-transition--${modeTransition}`} aria-hidden="true">
+      <span className="product-mode-wave product-mode-wave--one" />
+      <span className="product-mode-wave product-mode-wave--two" />
+      <span className="product-mode-wave product-mode-wave--three" />
+    </div>
+  ) : null;
+
+  if (productMode === "clubs") {
+    return (
+      <>
+        <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
+        {modeTransitionLayer}
+      </>
+    );
+  }
+
   if (activeExperience === "startup") {
     return <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
   }
@@ -2274,7 +2352,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2563,6 +2641,7 @@ function App() {
           isAdmin={isAdmin}
           players={players}
           onUpdatePlayerBackgroundVideo={updatePlayerBackgroundVideo}
+          onUpdatePlayerOvrAttributes={updatePlayerOvrAttributes}
           isSignedIn={isSignedIn}
           signIn={signIn}
           editorRequests={editorRequests}
@@ -2649,6 +2728,7 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
       </Suspense>
+      {modeTransitionLayer}
     </main>
   );
 }

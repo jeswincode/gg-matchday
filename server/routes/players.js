@@ -6,6 +6,7 @@ import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
 import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
 import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
+import { calculatePlayerAttributes, refreshPlayerAttributes } from "../services/playerAttributes.js";
 
 const router = express.Router();
 const invalidId = id => !mongoose.isValidObjectId(id);
@@ -13,6 +14,112 @@ const invalidId = id => !mongoose.isValidObjectId(id);
 router.get("/", async (req, res) => {
   try { const players = await Player.find().sort({ name: 1 }); res.json(players); }
   catch (error) { console.error("Error fetching players:", error); res.status(500).json({ message: "Failed to fetch players." }); }
+});
+
+router.get("/:id/attributes", async (req, res) => {
+  if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
+  try {
+    const player = await Player.findById(req.params.id).lean();
+    if (!player) return res.status(404).json({ message: "Player not found." });
+
+    const latestMatch = await Match.findOne({ "participants.player": player._id })
+      .sort({ updatedAt: -1, date: -1, createdAt: -1 })
+      .select("updatedAt date")
+      .lean();
+
+    const snapshot = player.ovrSnapshot;
+    const playerOvrStateChanged =
+      !snapshot?.calculatedAt ||
+      String(snapshot.sourcePosition || "") !== String(player.position || "") ||
+      JSON.stringify(snapshot.sourcePreferredPositions || []) !== JSON.stringify(player.preferredPositions || []) ||
+      Number(snapshot.currentAttributes?.pace ?? 0) !== Number(player.pace ?? 0) ||
+      Number(snapshot.currentAttributes?.physical ?? 0) !== Number(player.physical ?? 0);
+
+    const matchChangedAfterSnapshot =
+      latestMatch && snapshot?.sourceUpdatedAt &&
+      new Date(latestMatch.updatedAt || latestMatch.date).getTime() >
+        new Date(snapshot.sourceUpdatedAt).getTime();
+
+    if (snapshot?.calculatedAt && !playerOvrStateChanged && !matchChangedAfterSnapshot) {
+      return res.json({
+        playerId: player._id,
+        playerName: player.name,
+        position: primaryPositionCode(player.position) || player.position || "",
+        attributes: snapshot.currentAttributes,
+        currentAttributes: snapshot.currentAttributes,
+        careerAttributes: snapshot.careerAttributes,
+        ovr: snapshot.currentOvr,
+        currentOvr: snapshot.currentOvr,
+        careerOvr: snapshot.careerOvr,
+        positionRatings: snapshot.positionRatings || {},
+        matchesPlayed: snapshot.matchesPlayed,
+        ratedMatches: snapshot.ratedMatches,
+        currentWindowMatches: snapshot.currentWindowMatches,
+        confidence: snapshot.confidence,
+        sampleStage: snapshot.matchesPlayed < 3 ? "unrated" : snapshot.matchesPlayed < 5 ? "developing" : "established",
+        evidence: {
+          matchesAnalyzed: snapshot.matchesPlayed,
+          ratedMatches: snapshot.ratedMatches,
+          currentWindowMatches: snapshot.currentWindowMatches,
+          source: "GG Match Record",
+          derived: true,
+          cached: true,
+          calculatedAt: snapshot.calculatedAt,
+        },
+      });
+    }
+
+    const matches = await Match.find({ "participants.player": player._id })
+      .sort({ date: 1, createdAt: 1 })
+      .select("_id date updatedAt participants events teamA teamB")
+      .lean();
+    const calculated = calculatePlayerAttributes(player, matches);
+    const sourceUpdatedAt = matches.reduce((latest, match) => {
+      const value = match.updatedAt || match.date;
+      if (!value) return latest;
+      const timestamp = new Date(value).getTime();
+      return !latest || timestamp > latest.getTime() ? new Date(timestamp) : latest;
+    }, null);
+
+    await Player.updateOne(
+      { _id: player._id },
+      { $set: {
+        ovrSnapshot: {
+          currentOvr: calculated.currentOvr,
+          careerOvr: calculated.careerOvr,
+          confidence: calculated.confidence,
+          matchesPlayed: calculated.matchesPlayed,
+          ratedMatches: calculated.ratedMatches,
+          currentWindowMatches: calculated.currentWindowMatches,
+          currentAttributes: calculated.currentAttributes,
+          careerAttributes: calculated.careerAttributes,
+          positionRatings: calculated.positionRatings,
+          calculatedAt: new Date(),
+          sourceUpdatedAt,
+          sourcePosition: player.position || "",
+          sourcePreferredPositions: Array.isArray(player.preferredPositions) ? player.preferredPositions : [],
+        },
+      }},
+    );
+
+    return res.json({
+      playerId: player._id,
+      playerName: player.name,
+      position: primaryPositionCode(player.position) || player.position || "",
+      ...calculated,
+      evidence: {
+        matchesAnalyzed: matches.length,
+        ratedMatches: calculated.ratedMatches,
+        currentWindowMatches: calculated.currentWindowMatches,
+        source: "GG Match Record",
+        derived: true,
+        cached: false,
+      },
+    });
+  } catch (error) {
+    console.error("Error calculating player attributes:", error);
+    return res.status(500).json({ message: "Failed to calculate player attributes." });
+  }
 });
 
 router.get("/:id", async (req, res) => {
@@ -34,6 +141,42 @@ router.post("/", requireAuth, requireEditor, async (req, res) => {
     const player = await Player.create({ name: cleanName });
     res.status(201).json(player);
   } catch (error) { console.error("Error creating player:", error); res.status(500).json({ message: "Failed to create player." }); }
+});
+
+router.patch("/:id/ovr-attributes", requireAuth, requireAdmin, async (req, res) => {
+  if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
+  try {
+    const player = await Player.findById(req.params.id);
+    if (!player) return res.status(404).json({ message: "Player not found." });
+
+    const parseAttribute = (value, label) => {
+      if (value === "" || value === null || value === undefined) return null;
+      const number = Number(value);
+      if (!Number.isInteger(number) || number < 1 || number > 99) {
+        throw new Error(label + " must be a whole number from 1 to 99.");
+      }
+      return number;
+    };
+
+    player.pace = parseAttribute(req.body?.pace, "Pace");
+    player.physical = parseAttribute(req.body?.physical, "Physical");
+    await player.save();
+
+    const calculated = await refreshPlayerAttributes(player._id);
+    const updated = await Player.findById(player._id).lean();
+
+    return res.json({
+      player: updated,
+      ...calculated,
+      message: "Player OVR attributes updated.",
+    });
+  } catch (error) {
+    if (/must be a whole number/.test(error.message)) {
+      return res.status(400).json({ message: error.message });
+    }
+    console.error("Error updating player OVR attributes:", error);
+    return res.status(500).json({ message: "Failed to update player OVR attributes." });
+  }
 });
 
 router.patch("/:id/background-video", requireAuth, requireAdmin, async (req, res) => {
