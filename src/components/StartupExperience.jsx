@@ -131,6 +131,17 @@ export function LoginDashboard({onSignIn,onGuest,busy,message}){
 export function WelcomeScreen({user,onEnter}){
   const name=user?.displayName||user?.email?.split("@")[0]||"Player";
   return <main className="gg-welcome-screen">
+    <video
+      className="gg-welcome-video"
+      src="/ggmatchdaybg.mp4"
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="auto"
+      aria-hidden="true"
+    />
+    <div className="gg-welcome-video-overlay" aria-hidden="true"/>
     <section className="gg-welcome-shell">
       <GGWelcomeEmblem/>
       <div className="gg-welcome-content">

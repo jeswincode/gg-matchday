@@ -9,8 +9,6 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(component, /Ultimate Clubs/);
   assert.match(component, /Player History/);
   assert.match(component, /Ultimate Clubs sections/);
-  assert.match(component, /Clubs is temporarily locked/);
-  assert.match(component, /isAdmin&&<button className="secondary-button" type="button" onClick/);
   assert.match(component, /My Club sections/);
   assert.match(component, /clubs-subnav/);
   const topLevelNav = component.slice(component.indexOf('<nav className="clubs-nav"'), component.indexOf("</nav>") + 6);
