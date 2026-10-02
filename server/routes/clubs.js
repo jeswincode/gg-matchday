@@ -1273,11 +1273,13 @@ router.post("/matches/:matchId/cancel", requireAuth, async (req, res) => {
     try {
       let cancelled;
       await session.withTransaction(async () => {
-        cancelled = await ClubMatch.findByIdAndUpdate(
-          match._id,
-          { $set: { status: "cancelled" } },
-          { new: true, session },
-        );
+        const current = await ClubMatch.findById(match._id).session(session);
+        if (!current) throw new Error("Club match not found.");
+        if (!["requested", "accepted"].includes(current.status)) {
+          throw new Error("This club match cannot be cancelled now.");
+        }
+        current.status = "cancelled";
+        cancelled = await current.save({ session });
         await settleClubMatchBets({ clubMatchId: match._id, session });
       });
       return res.json(cancelled);
