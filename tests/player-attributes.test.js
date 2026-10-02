@@ -89,3 +89,37 @@ test("performance codes from the same category do not stack", () => {
     [{ code: "architect", label: "Architect", level: 3, match: 0.3, category: "playmaking" }],
   );
 });
+
+
+test("current OVR is stable when callers provide matches out of chronological order", () => {
+  const makeMatch = (day, rating, code = null) => ({
+    _id: `2026-01-${String(day).padStart(2, "0")}`,
+    date: new Date(`2026-01-${String(day).padStart(2, "0")}T12:00:00.000Z`),
+    createdAt: new Date(`2026-01-${String(day).padStart(2, "0")}T12:00:00.000Z`),
+    participants: [{
+      player: "p1",
+      team: "A",
+      rating,
+      defensivePerformance: rating,
+      performanceCodes: code ? [code] : [],
+    }],
+    events: [],
+  });
+
+  const chronological = Array.from({ length: 14 }, (_, i) =>
+    makeMatch(i + 1, i < 8 ? 4.5 : 9.2, i < 8 ? null : "dominant"),
+  );
+  const reversed = [...chronological].reverse();
+
+  const ordered = calculatePlayerAttributes(
+    { _id: "p1", position: "CAM", pace: 80, physical: 80 },
+    chronological,
+  );
+  const shuffled = calculatePlayerAttributes(
+    { _id: "p1", position: "CAM", pace: 80, physical: 80 },
+    reversed,
+  );
+
+  assert.equal(shuffled.currentOvr, ordered.currentOvr);
+  assert.equal(shuffled.careerOvr, ordered.careerOvr);
+});
