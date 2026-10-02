@@ -14,5 +14,9 @@ const joinRequestSchema = new mongoose.Schema(
 );
 
 joinRequestSchema.index({ playerId: 1, clubId: 1, status: 1 });
+joinRequestSchema.index(
+  { playerId: 1, clubId: 1 },
+  { unique: true, partialFilterExpression: { status: "pending" } },
+);
 
 export default getClubsConnection().model("JoinRequest", joinRequestSchema);
