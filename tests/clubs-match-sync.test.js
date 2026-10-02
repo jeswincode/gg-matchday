@@ -151,3 +151,34 @@ test("Matchday protects linked Club fixtures from deletion while allowing pre-se
   assert.match(source, /hasLinkedClubMatch\(req\.params\.id\)/);
   assert.match(source, /This Match Record cannot be deleted because it has a linked Club Match/);
 });
+
+
+test("hardening paths are present for Clubs concurrency and durable synchronization", async () => {
+  const [routeSource, matchSource, auctionSource, joinSource, workflowSource, syncSource, modelSource] = await Promise.all([
+    readFile("server/routes/clubs.js", "utf8"),
+    readFile("server/models/clubs/ClubMatch.js", "utf8"),
+    readFile("server/models/clubs/AuctionOffer.js", "utf8"),
+    readFile("server/models/clubs/JoinRequest.js", "utf8"),
+    readFile(".github/workflows/validate.yml", "utf8"),
+    readFile("server/services/clubsSync.js", "utf8"),
+    readFile("server/models/ClubSyncJob.js", "utf8"),
+  ]);
+
+  assert.match(routeSource, /withTransaction\(/);
+  assert.match(routeSource, /prediction\/refresh/);
+  assert.match(routeSource, /return res\.json\(match\.prediction \|\| null\)/);
+  assert.match(matchSource, /optimisticConcurrency: true/);
+  assert.match(auctionSource, /partialFilterExpression/);
+  assert.match(joinSource, /partialFilterExpression/);
+  assert.match(syncSource, /retryPendingClubSyncJobs/);
+  assert.match(syncSource, /clubSyncBackoffMs/);
+  assert.match(modelSource, /getClubsConnection\(\)\.model/);
+  assert.match(workflowSource, /GG-Matchday-v3/);
+});
+
+test("Matchday match mutations fail closed when configured Clubs storage is unavailable", async () => {
+  const source = await readFile("server/routes/matches.js", "utf8");
+  assert.match(source, /ensureClubsMutationSafety/);
+  assert.match(source, /Clubs data is temporarily unavailable/);
+  assert.match(source, /enqueueClubSyncJob/);
+});
