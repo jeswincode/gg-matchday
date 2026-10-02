@@ -128,7 +128,7 @@ The selectable 4-player formations are:
 ### Finalized product decisions
 - Auction offers expire after 48 hours; minimum bid is 25 credits; each subsequent active bid must be at least 5 credits higher.
 - At renewal, captains may jointly retain 0, 1 or 2 players. Retaining fewer than 2 archives/dissolves the Club at the boundary and releases all contracts.
-- A requested Club Match expires at the earlier of 24 hours after creation or one hour before kickoff.
+- A requested Club Match request expires 24 hours after creation; fixture scheduling itself is date-only.
 - Betting is 10–100 credits per user per fixture, one active bet per user, with full-pool winner payout proportional to winning stakes and refunds on draw/cancellation/no valid winner.
 - Prediction weighting is 30% OVR, 25% recent form, 20% average Match rating, 15% record and 10% head-to-head.
 - Reward values are finalized in the locked reward constants.
