@@ -227,7 +227,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     const entries = await Promise.all(accepted.map(async match => {
       try {
         const [prediction, bet] = await Promise.all([
-          api("/clubs/matches/" + match._id + "/prediction"),
+          api("/clubs/matches/" + match._id + "/prediction/refresh", { method: "POST" }),
           authUser ? api("/clubs/matches/" + match._id + "/bets/me") : Promise.resolve(null),
         ]);
         return [String(match._id), { prediction, bet }];
@@ -632,7 +632,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       const entries = await Promise.all(accepted.map(async match => {
         try {
           const [prediction, bet] = await Promise.all([
-            api("/clubs/matches/" + match._id + "/prediction"),
+            api("/clubs/matches/" + match._id + "/prediction/refresh", { method: "POST" }),
             authUser ? api("/clubs/matches/" + match._id + "/bets/me") : Promise.resolve(null),
           ]);
           return [String(match._id), { prediction, bet }];
