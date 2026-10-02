@@ -2,9 +2,9 @@ name: Validate
 
 on:
   push:
-    branches: [main, refactor/phase2-architecture, GG-Matchday-v3, GG-Matchday-v3-hardening-check]
+    branches: [main, refactor/phase2-architecture, GG-Matchday-v3, GG-Matchday-v3-hardening-check, GG-Matchday-v3-club-match-classification]
   pull_request:
-    branches: [main, GG-Matchday-v3, GG-Matchday-v3-hardening-check]
+    branches: [main, GG-Matchday-v3, GG-Matchday-v3-hardening-check, GG-Matchday-v3-club-match-classification]
 
 jobs:
   validate:
