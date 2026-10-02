@@ -7,7 +7,7 @@ const clubMatchSchema = new mongoose.Schema(
     clubBId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     requestedByClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
     // Canonical Club Match scheduling value. It is date-only (YYYY-MM-DD).
-    fixtureDate: { type: String, required: true, match: /^\\d{4}-\\d{2}-\\d{2}$/, index: true },
+    fixtureDate: { type: String, default: null, match: /^\d{4}-\d{2}-\d{2}$/, index: true },
     // Kept as UTC midnight for compatibility with existing Club Match consumers.
     scheduledAt: { type: Date, required: true },
     source: { type: String, enum: ["booked", "unbooked"], default: "booked", index: true },
@@ -42,6 +42,7 @@ clubMatchSchema.index({ clubAId: 1, clubBId: 1, scheduledAt: 1 });
 clubMatchSchema.index({ fixtureDate: 1 }, {
   unique: true,
   partialFilterExpression: {
+    fixtureDate: { $type: "string" },
     source: "booked",
     status: { $in: ["requested", "accepted", "completed"] },
   },
