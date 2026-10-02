@@ -9,53 +9,51 @@ function GGMark(){
 
 function GGWelcomeEmblem(){
   return <div className="gg-welcome-emblem" aria-hidden="true">
-    <svg viewBox="0 0 920 700" role="presentation" focusable="false">
+    <svg viewBox="0 0 1000 900" role="presentation" focusable="false">
       <defs>
-        <linearGradient id="ggWelcomeGold" x1="0%" y1="8%" x2="100%" y2="92%">
-          <stop offset="0%" stopColor="#fff0a8"/>
-          <stop offset="18%" stopColor="#f7d569"/>
-          <stop offset="46%" stopColor="#dcae3d"/>
-          <stop offset="72%" stopColor="#b77c22"/>
-          <stop offset="100%" stopColor="#f6d36b"/>
+        <linearGradient id="ggWelcomeGold" x1="12%" y1="4%" x2="88%" y2="96%">
+          <stop offset="0%" stopColor="#fff1ad"/>
+          <stop offset="18%" stopColor="#f7d56b"/>
+          <stop offset="44%" stopColor="#dcae3f"/>
+          <stop offset="70%" stopColor="#ae7420"/>
+          <stop offset="100%" stopColor="#f6d46d"/>
         </linearGradient>
-        <linearGradient id="ggWelcomeGoldBright" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fff4b8"/>
-          <stop offset="45%" stopColor="#f6cd4f"/>
-          <stop offset="100%" stopColor="#c48927"/>
+        <linearGradient id="ggWelcomeEdge" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fff7c9"/>
+          <stop offset="42%" stopColor="#f4ca4e"/>
+          <stop offset="100%" stopColor="#b8781f"/>
         </linearGradient>
-        <radialGradient id="ggWelcomeGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#f7d36a" stopOpacity=".16"/>
-          <stop offset="60%" stopColor="#f7d36a" stopOpacity=".04"/>
+        <radialGradient id="ggWelcomeCenterGlow" cx="50%" cy="48%" r="50%">
+          <stop offset="0%" stopColor="#f7d36a" stopOpacity=".10"/>
+          <stop offset="58%" stopColor="#f7d36a" stopOpacity=".025"/>
           <stop offset="100%" stopColor="#f7d36a" stopOpacity="0"/>
         </radialGradient>
       </defs>
 
-      <circle cx="460" cy="350" r="290" fill="url(#ggWelcomeGlow)"/>
-      <circle className="gg-emblem-ring-soft" cx="460" cy="350" r="318"/>
-      <circle className="gg-emblem-ring" cx="460" cy="350" r="288"/>
-      <circle className="gg-emblem-ring-inner" cx="460" cy="350" r="250"/>
+      <circle cx="500" cy="450" r="348" fill="url(#ggWelcomeCenterGlow)"/>
+      <circle className="gg-emblem-ring-soft" cx="500" cy="450" r="366"/>
+      <circle className="gg-emblem-ring" cx="500" cy="450" r="330"/>
+      <circle className="gg-emblem-ring-inner" cx="500" cy="450" r="292"/>
 
       <path
         className="gg-emblem-logo"
-        d="M424 252 H278 C179 252 113 322 113 418 C113 517 180 582 280 582 H411 V474 H282 C241 474 216 452 216 417 C216 382 242 356 281 356 H353 M496 252 H642 C741 252 807 322 807 418 C807 517 740 582 640 582 H509 V474 H638 C679 474 704 452 704 417 C704 382 678 356 639 356 H567"
-      />
-
-      <path
-        className="gg-emblem-accent"
-        d="M621 82 L742 197 L816 116 L779 284 L704 223 Z"
+        d="M455 296 H293 C190 296 121 362 121 452 C121 547 191 615 294 615 H432 V514 H301 C260 514 232 492 232 453 C232 414 261 384 301 384 H365"
       />
       <path
-        className="gg-emblem-accent"
-        d="M299 618 L176 502 L102 583 L141 415 L215 477 Z"
+        className="gg-emblem-logo"
+        d="M545 296 H707 C810 296 879 362 879 452 C879 547 809 615 706 615 H568 V514 H699 C740 514 768 492 768 453 C768 414 739 384 699 384 H635"
       />
 
-      <path className="gg-emblem-accent-line" d="M612 64 L732 182 L806 112"/>
-      <path className="gg-emblem-accent-line" d="M307 636 L188 517 L113 589"/>
+      <path className="gg-emblem-accent" d="M656 142 L780 258 L865 168 L816 347 L730 272 Z"/>
+      <path className="gg-emblem-accent" d="M344 758 L220 642 L135 732 L184 553 L270 628 Z"/>
 
-      <circle className="gg-emblem-node" cx="781" cy="175" r="8"/>
-      <circle className="gg-emblem-node" cx="139" cy="554" r="7"/>
-      <circle className="gg-emblem-node" cx="754" cy="122" r="4"/>
-      <circle className="gg-emblem-node" cx="166" cy="610" r="4"/>
+      <path className="gg-emblem-accent-line" d="M648 124 L767 241 L852 154"/>
+      <path className="gg-emblem-accent-line" d="M352 776 L233 659 L148 744"/>
+
+      <circle className="gg-emblem-node" cx="802" cy="213" r="8"/>
+      <circle className="gg-emblem-node" cx="191" cy="683" r="8"/>
+      <circle className="gg-emblem-node" cx="775" cy="160" r="4"/>
+      <circle className="gg-emblem-node" cx="219" cy="742" r="4"/>
     </svg>
   </div>;
 }
