@@ -213,13 +213,14 @@ export function buildPlayerClubHistory({
     const participant = (mainMatch.participants || []).find(item => idOf(item.player) === normalizedPlayerId);
     if (!participant) continue;
 
+    // Resolve the contract that was actually active on the authoritative Match date.
+    // This matters when a player has consecutive renewal contracts for the same Club.
     const contract = contracts.find(item =>
-      String(item.clubId) === String(clubMatch.clubAId) ||
-      String(item.clubId) === String(clubMatch.clubBId),
+      (String(item.clubId) === String(clubMatch.clubAId) ||
+        String(item.clubId) === String(clubMatch.clubBId)) &&
+      inContractWindow(item, mainMatch.date),
     );
-    const applicableClubId = contract && inContractWindow(contract, mainMatch.date)
-      ? String(contract.clubId)
-      : null;
+    const applicableClubId = contract ? String(contract.clubId) : null;
     if (!applicableClubId) continue;
 
     const side = getClubSide(clubMatch, applicableClubId, participant.team);
