@@ -4,6 +4,7 @@ import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
 import Match from "../models/Match.js";
+import Club from "../models/clubs/Club.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { normalizeClubName } from "../config/clubsRules.js";
 
@@ -90,8 +91,6 @@ export async function attachMainMatchToClubMatch(mainMatch) {
   }
 
   const dayKey = new Date(mainMatch.date).toISOString().slice(0, 10);
-  const clubs = await mongoose.connection.db ? null : null;
-  const Club = (await import("../models/clubs/Club.js")).default;
   const clubDocs = await Club.find({ status: "approved" }).select("_id name nameNormalized").lean();
   const clubsById = new Map(clubDocs.map(club => [String(club._id), club]));
 
@@ -140,7 +139,7 @@ export async function attachMainMatchToClubMatch(mainMatch) {
   const bookedCandidates = allClubMatches.filter(item =>
     item.status === "accepted" &&
     !item.mainMatchId &&
-    item.source === "booked" &&
+    item.source !== "unbooked" &&
     matchClubNames(mainMatch, item, clubsById) &&
     inferClubSides(mainMatch, contractMap, item),
   );
