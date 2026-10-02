@@ -1205,6 +1205,9 @@ router.get("/matches", async (req, res) => {
     return res.status(201).json(match);
   } catch (error) {
     console.error("Create club match request error:", error);
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: "A Club Match fixture is already booked for that date." });
+    }
     return res.status(400).json({ message: error.message || "Failed to request the club match." });
   }
 });
