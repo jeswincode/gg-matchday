@@ -174,12 +174,18 @@ export async function attachMainMatchToClubMatch(mainMatch) {
     });
     const sideAClub = candidates.find(club => normalizedSideLabel(club.name) === normalizedSideLabel(mainMatch.teamA?.label));
     const sideBClub = candidates.find(club => normalizedSideLabel(club.name) === normalizedSideLabel(mainMatch.teamB?.label));
-    if (sideAClub && sideBClub && String(sideAClub._id) !== String(sideBClub._id)) {
+    const unbookedInference = sideAClub && sideBClub
+      ? inferClubSides(
+        mainMatch,
+        contractMap,
+        { clubAId: sideAClub._id, clubBId: sideBClub._id },
+      )
+      : null;
+
+    if (sideAClub && sideBClub && String(sideAClub._id) !== String(sideBClub._id) && unbookedInference) {
       const existing = await ClubMatch.findOne({ mainMatchId: mainMatch._id }).lean();
       if (!existing) {
-        const inference = {
-          clubAIsSideA: String(sideAClub._id) === String(sideAClub._id),
-        };
+        const inference = unbookedInference;
         const created = await ClubMatch.create({
           clubAId: sideAClub._id,
           clubBId: sideBClub._id,
