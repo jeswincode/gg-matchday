@@ -61,7 +61,7 @@ const applicationSchema = new mongoose.Schema(
     rejectionReason: { type: String, trim: true, maxlength: 500, default: "" },
     approvedClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
   },
-  { timestamps: true, collection: "clubFormationApplications" },
+  { timestamps: true, collection: "clubFormationApplications", optimisticConcurrency: true },
 );
 
 applicationSchema.index({ founderPlayerId: 1, status: 1 });
