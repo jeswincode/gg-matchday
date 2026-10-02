@@ -426,7 +426,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setMatchSubmitting(true);
       await api("/clubs/matches", {
         method: "POST",
-        body: { clubAId: matchClubA, clubBId: matchClubB, scheduledAt: new Date(matchScheduledAt).toISOString() },
+        body: { clubAId: matchClubA, clubBId: matchClubB, fixtureDate: matchScheduledAt },
       });
       setMatchClubB("");
       setMatchScheduledAt("");
@@ -1050,7 +1050,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 <option value="">Choose opponent</option>
                 {clubs.filter(club => String(club._id) !== String(matchClubA)).map(club => <option key={club._id} value={club._id}>{club.name}</option>)}
               </select></label>
-              <label><span>SCHEDULED FOR</span><input type="datetime-local" value={matchScheduledAt} onChange={event => setMatchScheduledAt(event.target.value)} /></label>
+              <label><span>MATCH DATE</span><input type="date" value={matchScheduledAt} onChange={event => setMatchScheduledAt(event.target.value)} /></label>
             </div>
             <button type="submit" className="clubs-primary-button" disabled={matchSubmitting}>{matchSubmitting ? "Sending request…" : "Request Club Match"}</button>
           </form>
@@ -1069,7 +1069,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   <div>
                     <p className="clubs-eyebrow">{match.status}</p>
                     <h3>{clubName(match.clubAId)} <span className="clubs-match-vs">vs</span> {clubName(match.clubBId)}</h3>
-                    <span>{new Date(match.scheduledAt).toLocaleString()} · {match.status === "completed" ? String(match.clubAScore) + "–" + String(match.clubBScore) : match.status === "accepted" ? "Accepted · waiting for Matchday record" : "Awaiting response"}</span>
+                    <span>{new Date(match.scheduledAt).toLocaleDateString()} · {match.status === "completed" ? String(match.clubAScore) + "–" + String(match.clubBScore) : match.status === "accepted" ? "Accepted · waiting for Matchday record" : "Awaiting response"}</span>
                     {match.status === "requested" && isReceivingClub && (
   <div className="clubs-incoming-request" role="status">
     <strong>INCOMING MATCH REQUEST</strong>
