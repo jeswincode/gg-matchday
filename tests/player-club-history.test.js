@@ -67,3 +67,45 @@ test("Player History derives Club Match performance from the authoritative Match
   assert.equal(club.contribution.averageDefensiveRating, 7.5);
   assert.equal(result.careerSummary.matches, 1);
 });
+
+
+test("Player History uses the renewed contract active on the Club Match date", () => {
+  const result = buildPlayerClubHistory({
+    playerId: "player1",
+    now: new Date("2026-12-01T00:00:00Z"),
+    contracts: [
+      { _id: "old", clubId: "clubA", playerId: "player1", startAt: "2026-09-20", endAt: "2026-11-01", status: "expired", source: "formation" },
+      { _id: "renewed", clubId: "clubA", playerId: "player1", startAt: "2026-11-01", endAt: "2027-01-01", status: "active", source: "renewal" },
+    ],
+    clubs: [
+      { _id: "clubA", name: "Alpha", status: "approved" },
+      { _id: "clubB", name: "Beta", status: "approved" },
+    ],
+    clubMatches: [{
+      _id: "cm-renewal",
+      clubAId: "clubA",
+      clubBId: "clubB",
+      status: "completed",
+      mainMatchId: "match-renewal",
+      clubAScore: 2,
+      clubBScore: 1,
+    }],
+    mainMatches: [{
+      _id: "match-renewal",
+      date: "2026-11-15",
+      participants: [{ player: "player1", team: "A", rating: 8.6, defensivePerformance: 7.8 }],
+      events: [{ player: "player1", type: "goal" }],
+      motmWinner: null,
+    }],
+    playerHistories: [],
+    walletTransactions: [],
+  });
+
+  const alpha = result.tenures.find(tenure => tenure.clubId === "clubA");
+  assert.ok(alpha);
+  assert.equal(alpha.contracts.length, 2);
+  assert.equal(alpha.contribution.matches, 1);
+  assert.equal(alpha.contribution.wins, 1);
+  assert.equal(alpha.contribution.goals, 1);
+  assert.equal(alpha.contribution.averageRating, 8.6);
+});
