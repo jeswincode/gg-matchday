@@ -200,7 +200,25 @@ function calculateAttributeSet(player, rows, recentOnly = false) {
 }
 
 export function calculatePlayerAttributes(player, matches) {
-  const rows = (matches || [])
+  // Attribute windows depend on match chronology. Sort defensively here so every
+  // caller (including Clubs prediction/history paths) gets the same result.
+  const orderedMatches = [...(matches || [])].sort((a, b) => {
+    const dateA = new Date(a?.date).getTime();
+    const dateB = new Date(b?.date).getTime();
+    const safeA = Number.isFinite(dateA) ? dateA : 0;
+    const safeB = Number.isFinite(dateB) ? dateB : 0;
+    if (safeA !== safeB) return safeA - safeB;
+
+    const createdA = new Date(a?.createdAt || 0).getTime();
+    const createdB = new Date(b?.createdAt || 0).getTime();
+    const safeCreatedA = Number.isFinite(createdA) ? createdA : 0;
+    const safeCreatedB = Number.isFinite(createdB) ? createdB : 0;
+    if (safeCreatedA !== safeCreatedB) return safeCreatedA - safeCreatedB;
+
+    return String(a?._id || "").localeCompare(String(b?._id || ""));
+  });
+
+  const rows = orderedMatches
     .map(match => {
       const participant = (match.participants || []).find(
         item => String(item.player?._id || item.player) === String(player._id),
