@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getClubsConnection } from "../config/clubsDatabase.js";
 
 const clubSyncJobSchema = new mongoose.Schema(
   {
@@ -16,4 +17,4 @@ const clubSyncJobSchema = new mongoose.Schema(
 clubSyncJobSchema.index({ status: 1, nextAttemptAt: 1 });
 clubSyncJobSchema.index({ status: 1, lockedUntil: 1 });
 
-export default mongoose.model("ClubSyncJob", clubSyncJobSchema);
+export default getClubsConnection().model("ClubSyncJob", clubSyncJobSchema);
