@@ -17,10 +17,10 @@ import {
   CLUB_AUCTION_BID_INCREMENT,
   CLUB_AUCTION_OFFER_DURATION_HOURS,
   CLUB_MATCH_REQUEST_TTL_HOURS,
-  CLUB_MATCH_REQUEST_CUTOFF_MINUTES,
   auctionOfferExpiry,
   validateAuctionBid,
   clubMatchRequestExpiry,
+  normalizeFixtureDate,
 } from "../server/config/clubsRules.js";
 import {
   CLUB_FORMATIONS,
@@ -185,12 +185,15 @@ test("V3 auction rules use a 48-hour window, 25-credit minimum and 5-credit incr
   assert.throws(() => validateAuctionBid(29, 25));
 });
 
-test("V3 Club Match request expiry is the earlier of 24 hours or one hour before kickoff", () => {
+test("V3 Club Match requests use a 24-hour expiry and fixture dates are date-only", () => {
   const created = new Date("2026-09-30T00:00:00Z");
-  const kickoff = new Date("2026-10-02T12:00:00Z");
   assert.equal(CLUB_MATCH_REQUEST_TTL_HOURS, 24);
-  assert.equal(CLUB_MATCH_REQUEST_CUTOFF_MINUTES, 60);
-  assert.equal(clubMatchRequestExpiry(created, kickoff).toISOString(), "2026-10-01T00:00:00.000Z");
+  assert.equal(clubMatchRequestExpiry(created).toISOString(), "2026-10-01T00:00:00.000Z");
+  assert.deepEqual(
+    normalizeFixtureDate("2026-10-10"),
+    { key: "2026-10-10", date: new Date("2026-10-10T00:00:00.000Z") },
+  );
+  assert.throws(() => normalizeFixtureDate("2026-10-10T12:00"), /valid Club Match date/i);
 });
 
 
