@@ -3,7 +3,7 @@ import { getClubsConnection } from "../config/clubsDatabase.js";
 
 const clubSyncJobSchema = new mongoose.Schema(
   {
-    mainMatchId: { type: mongoose.Schema.Types.ObjectId, required: true, unique: true, index: true },
+    mainMatchId: { type: mongoose.Schema.Types.ObjectId, required: true, unique: true },
     status: { type: String, enum: ["pending", "processing", "completed"], default: "pending", index: true },
     attempts: { type: Number, default: 0, min: 0 },
     nextAttemptAt: { type: Date, default: Date.now, index: true },
