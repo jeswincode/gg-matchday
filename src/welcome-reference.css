@@ -53,15 +53,34 @@
 }
 
 @media (max-width: 700px) {
-  .gg-welcome-shell { width: 110vw; aspect-ratio: 920 / 760; }
+  .gg-welcome-shell {
+    width: 110vw;
+    aspect-ratio: 920 / 760;
+  }
+
   .gg-welcome-content { padding: 8% 28% 5%; }
+
+  .gg-welcome-emblem {
+    animation-name: gg-mobile-emblem-float-centered;
+  }
+
   .gg-welcome-emblem .gg-emblem-logo-shadow { stroke-width: 56; }
   .gg-welcome-emblem .gg-emblem-logo { stroke-width: 41; }
 }
 
 @media (max-width: 430px) {
-  .gg-welcome-shell { width: 118vw; aspect-ratio: 920 / 760; }
+  .gg-welcome-shell {
+    width: 118vw;
+    aspect-ratio: 920 / 760;
+  }
+
   .gg-welcome-content { padding: 10% 29% 6%; }
+
   .gg-welcome-emblem .gg-emblem-logo-shadow { stroke-width: 51; }
   .gg-welcome-emblem .gg-emblem-logo { stroke-width: 37; }
+}
+
+@keyframes gg-mobile-emblem-float-centered {
+  0%, 100% { transform: translateX(-3%) translateY(0); }
+  50% { transform: translateX(-3%) translateY(-5px); }
 }
