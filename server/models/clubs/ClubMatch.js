@@ -7,7 +7,7 @@ const clubMatchSchema = new mongoose.Schema(
     clubBId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     requestedByClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
     // Canonical Club Match scheduling value. It is date-only (YYYY-MM-DD).
-    fixtureDate: { type: String, default: null, match: /^\d{4}-\d{2}-\d{2}$/, index: true },
+    fixtureDate: { type: String, default: null, match: /^\d{4}-\d{2}-\d{2}$/ },
     // Kept as UTC midnight for compatibility with existing Club Match consumers.
     scheduledAt: { type: Date, required: true },
     source: { type: String, enum: ["booked", "unbooked"], default: "booked", index: true },
@@ -23,7 +23,7 @@ const clubMatchSchema = new mongoose.Schema(
       default: "requested",
       index: true,
     },
-    mainMatchId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
+    mainMatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
     winnerClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
     clubAScore: { type: Number, min: 0, default: null },
     clubBScore: { type: Number, min: 0, default: null },
