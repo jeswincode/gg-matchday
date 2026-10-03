@@ -84,3 +84,46 @@
   0%, 100% { transform: translateX(-3%) translateY(0); }
   50% { transform: translateX(-3%) translateY(-5px); }
 }
+
+
+/* Hard center the entire welcome composition on narrow mobile viewports.
+   This is intentionally independent of the emblem's asymmetric artwork. */
+@media (max-width: 700px) {
+  .gg-welcome-screen {
+    overflow: hidden;
+  }
+
+  .gg-welcome-shell {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin: 0;
+    transform: translate(-50%, -50%);
+  }
+
+  .gg-welcome-content {
+    left: 0;
+    right: auto;
+    width: 100%;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .gg-welcome-shell .gg-welcome-avatar,
+  .gg-welcome-content .gg-refined-eyebrow,
+  .gg-welcome-content h1,
+  .gg-welcome-content > p:not(.gg-refined-eyebrow),
+  .gg-welcome-shell .gg-enter-button,
+  .gg-welcome-lines {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (max-width: 430px) {
+  .gg-welcome-shell {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
