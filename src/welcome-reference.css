@@ -53,15 +53,44 @@
 }
 
 @media (max-width: 700px) {
-  .gg-welcome-shell { width: 110vw; aspect-ratio: 920 / 760; }
+  .gg-welcome-shell {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 110vw;
+    aspect-ratio: 920 / 760;
+    margin: 0;
+    transform: translate(-50%, -50%);
+    animation: gg-mobile-welcome-center-in 700ms cubic-bezier(.16,1,.3,1) both;
+  }
+
   .gg-welcome-content { padding: 8% 28% 5%; }
+
   .gg-welcome-emblem .gg-emblem-logo-shadow { stroke-width: 56; }
   .gg-welcome-emblem .gg-emblem-logo { stroke-width: 41; }
 }
 
 @media (max-width: 430px) {
-  .gg-welcome-shell { width: 118vw; aspect-ratio: 920 / 760; }
+  .gg-welcome-shell {
+    width: 118vw;
+    transform: translate(-50%, -50%);
+  }
+
   .gg-welcome-content { padding: 10% 29% 6%; }
+
   .gg-welcome-emblem .gg-emblem-logo-shadow { stroke-width: 51; }
   .gg-welcome-emblem .gg-emblem-logo { stroke-width: 37; }
+}
+
+@keyframes gg-mobile-welcome-center-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 20px)) scale(.985);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(0);
+  }
 }
