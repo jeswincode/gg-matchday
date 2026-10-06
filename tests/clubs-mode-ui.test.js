@@ -14,7 +14,7 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   const topLevelNav = component.slice(component.indexOf('<nav className="clubs-nav"'), component.indexOf("</nav>") + 6);
   assert.ok(!topLevelNav.includes(">Auctions</button>"));
   assert.ok(!topLevelNav.includes(">Matches</button>"));
-  for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"]) {
+  for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2", "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]) {
     assert.match(component, new RegExp(formation));
   }
   assert.match(styles, /clubs-command-grid/);
@@ -51,9 +51,9 @@ test("Clubs UI supports flexible 4-5 member formation and admin control center",
   assert.match(component, /No fifth player/);
   assert.match(component, /activeSection === "adminDashboard"/);
   assert.match(component, /adminOnlyView/);
-  assert.match(component, //clubs/admin/overview/);
-  assert.match(component, //clubs/admin/clubs/);
-  assert.match(component, //clubs/admin/matches/);
+  assert.match(component, /\/clubs\/admin\/overview/);
+  assert.match(component, /\/clubs\/admin\/clubs/);
+  assert.match(component, /\/clubs\/admin\/matches/);
   assert.match(component, /Reason required to reject/);
   assert.match(applicationModel, /CLUB_MIN_MEMBERS/);
   assert.match(applicationModel, /CLUB_MAX_MEMBERS/);
