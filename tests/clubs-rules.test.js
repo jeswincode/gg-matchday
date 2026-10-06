@@ -217,7 +217,7 @@ test("V3 renewal preserves the 4-5 active Club minimum", () => {
   assert.deepEqual(validateRetention(five, [], ["a"]), []);
   assert.deepEqual(validateRetention(five, ["a", "b", "c"], ["a"]), ["a", "b", "c"]);
   assert.throws(() => validateRetention(five, ["b", "c", "d", "e"], []), /captain/i);
-  assert.throws(() => validateRetention(five, ["a", "b", "c", "d", "e", "f"], ["a"]), /cannot retain more than five/i);
+  assert.throws(() => validateRetention(five, ["a", "b", "c", "d", "e", "f"], ["a"]), /four or five/i);
 });
 
 test("Clubs meta exposes 4-5 member policy", async () => {
