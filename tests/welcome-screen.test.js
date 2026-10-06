@@ -16,3 +16,12 @@ test("Welcome screen uses the cinematic GG Matchday video and emblem", () => {
   assert.match(styles, /\.gg-welcome-shell\s*\{/);
   assert.match(styles, /\.gg-welcome-emblem\s*\{/);
 });
+
+test("Welcome screen has a dedicated gold-theme treatment", () => {
+  const styles = fs.readFileSync("src/gold-theme-refined.css", "utf8");
+
+  assert.match(styles, /html\[data-theme="golden"\] \.gg-welcome-screen/);
+  assert.match(styles, /html\[data-theme="golden"\] \.gg-welcome-emblem \.gg-emblem-ring/);
+  assert.match(styles, /html\[data-theme="golden"\] \.gg-welcome-shell \.gg-welcome-avatar/);
+  assert.match(styles, /html\[data-theme="golden"\] \.gg-welcome-shell \.gg-enter-button/);
+});
