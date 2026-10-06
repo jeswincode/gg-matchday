@@ -1,12 +1,26 @@
-export const CLUB_MAX_MEMBERS = 4;
+export const CLUB_MIN_MEMBERS = 4;
+export const CLUB_MAX_MEMBERS = 5;
 export const CLUB_STARTING_BALANCE = 3000;
 
-export const CLUB_FORMATIONS = Object.freeze([
+export const CLUB_FORMATIONS_4 = Object.freeze([
   "1-2-1",
   "2-1-1",
   "1-3",
   "3-1",
   "2-2",
+]);
+
+export const CLUB_FORMATIONS_5 = Object.freeze([
+  "1-2-2",
+  "2-2-1",
+  "2-1-2",
+  "1-3-1",
+  "3-1-1",
+]);
+
+export const CLUB_FORMATIONS = Object.freeze([
+  ...CLUB_FORMATIONS_4,
+  ...CLUB_FORMATIONS_5,
 ]);
 
 export const CLUB_STATUSES = Object.freeze([
@@ -58,14 +72,14 @@ export function validateClubMemberCount(memberIds) {
     throw new Error("Club members must be an array.");
   }
 
-  if (memberIds.length !== CLUB_MAX_MEMBERS) {
-    throw new Error("A club formation requires exactly " + CLUB_MAX_MEMBERS + " players.");
+  if (memberIds.length < CLUB_MIN_MEMBERS || memberIds.length > CLUB_MAX_MEMBERS) {
+    throw new Error("A club formation requires between " + CLUB_MIN_MEMBERS + " and " + CLUB_MAX_MEMBERS + " players.");
   }
 
   const uniqueIds = [...new Set(memberIds.map(String))];
 
-  if (uniqueIds.length !== CLUB_MAX_MEMBERS) {
-    throw new Error("A club formation requires exactly " + CLUB_MAX_MEMBERS + " unique players.");
+  if (uniqueIds.length < CLUB_MIN_MEMBERS || uniqueIds.length > CLUB_MAX_MEMBERS) {
+    throw new Error("A club formation requires between " + CLUB_MIN_MEMBERS + " and " + CLUB_MAX_MEMBERS + " unique players.");
   }
 
   return uniqueIds;
@@ -112,7 +126,7 @@ export function clubMatchRequestExpiry(createdAt) {
 
 export function validateFormation(formation) {
   if (!CLUB_FORMATIONS.includes(formation)) {
-    throw new Error("Choose a valid 4-player club formation.");
+    throw new Error("Choose a valid Club formation.");
   }
 
   return formation;
