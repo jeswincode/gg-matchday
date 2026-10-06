@@ -1533,6 +1533,107 @@ router.post("/formation/:id/resubmit", requireAuth, async (req, res) => {
   }
 });
 
+async function buildAdminClubSnapshot(club) {
+  const memberIds = (club.memberIds || []).map(id => String(id));
+  const memberPlayers = memberIds.length
+    ? await Player.find({ _id: { $in: memberIds } })
+        .select("_id name position profileImage jerseyNumber")
+        .lean()
+    : [];
+  const playersById = new Map(memberPlayers.map(player => [String(player._id), player]));
+  const ovrByPlayerId = memberIds.length ? await calculateClubOVRs(memberIds) : new Map();
+  return {
+    ...club,
+    memberCount: memberIds.length,
+    captainCount: (club.captainIds || []).length,
+    squadOvr: memberIds.length
+      ? Math.round(memberIds.reduce((sum, id) => sum + Number(ovrByPlayerId.get(id) || 0), 0) / memberIds.length)
+      : null,
+    members: memberIds.map(id => ({
+      ...playersById.get(id),
+      ovr: Number(ovrByPlayerId.get(id) || 0) || null,
+      isCaptain: (club.captainIds || []).some(captainId => String(captainId) === id),
+    })),
+  };
+}
+
+router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const [
+      totalClubs,
+      activeClubs,
+      archivedClubs,
+      pendingApplications,
+      activeContracts,
+      upcomingMatches,
+      completedMatches,
+    ] = await Promise.all([
+      Club.countDocuments({}),
+      Club.countDocuments({ status: "approved" }),
+      Club.countDocuments({ status: "archived" }),
+      ClubFormationApplication.countDocuments({ status: "pendingAdminApproval" }),
+      ClubContract.countDocuments({ status: "active" }),
+      ClubMatch.countDocuments({ status: { $in: ["requested", "accepted"] } }),
+      ClubMatch.countDocuments({ status: "completed" }),
+    ]);
+
+    const recentClubs = await Club.find({})
+      .sort({ updatedAt: -1 })
+      .limit(10)
+      .lean();
+
+    return res.json({
+      counts: {
+        totalClubs,
+        activeClubs,
+        archivedClubs,
+        pendingApplications,
+        activeMembers: activeContracts,
+        upcomingMatches,
+        completedMatches,
+      },
+      recentClubs,
+    });
+  } catch (error) {
+    console.error("Load Clubs admin overview error:", error);
+    return res.status(500).json({ message: "Failed to load Clubs admin overview." });
+  }
+});
+
+router.get("/admin/clubs", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const clubDocs = await Club.find({})
+      .sort({ status: 1, nameNormalized: 1 })
+      .lean();
+    const clubs = [];
+    for (const club of clubDocs) {
+      clubs.push(await buildAdminClubSnapshot(club));
+    }
+    return res.json(clubs);
+  } catch (error) {
+    console.error("Load all Clubs admin directory error:", error);
+    return res.status(500).json({ message: "Failed to load Clubs directory." });
+  }
+});
+
+router.get("/admin/matches", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const matches = await ClubMatch.find({})
+      .sort({ fixtureDate: -1, scheduledAt: -1, createdAt: -1 })
+      .limit(100)
+      .populate("clubAId", "name status")
+      .populate("clubBId", "name status")
+      .lean();
+    return res.json(matches);
+  } catch (error) {
+    console.error("Load all Club Matches admin directory error:", error);
+    return res.status(500).json({ message: "Failed to load Club Match directory." });
+  }
+});
+
 router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const applications = await ClubFormationApplication.find({ status: "pendingAdminApproval" }).sort({ createdAt: 1 }).lean();
