@@ -8,7 +8,7 @@ import {
   resolveCaptainVote,
 } from "../server/config/clubsRules.js";
 
-test("club formation accepts four or five unique players") {
+test("club formation accepts four or five unique players", () => {
   assert.deepEqual(validateClubMemberCount(["a", "b", "c", "d"]), ["a", "b", "c", "d"]);
   assert.deepEqual(validateClubMemberCount(["a", "b", "c", "d", "e"]), ["a", "b", "c", "d", "e"]);
   assert.throws(() => validateClubMemberCount(["a", "b", "c"]), /between 4 and 5/i);
@@ -21,11 +21,13 @@ test("club names normalize whitespace and case", () => {
   assert.equal(normalizeClubName("GG UNITED"), "gg united");
 });
 
-test("only the locked four-player formations are accepted", () => {
-  for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"]) {
+test("both four-player and five-player viewer formations are accepted", () => {
+  for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2", "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]) {
     assert.equal(validateFormation(formation), formation);
   }
-  assert.throws(() => validateFormation("4-0"), /valid 4-player club formation/i);
+  assert.doesNotThrow(() => validateFormation("1-2-2"));
+  assert.doesNotThrow(() => validateFormation("1-3-1"));
+  assert.throws(() => validateFormation("4-0"), /valid Club formation/i);
 });
 
 test("captain candidates are the top two OVR players", () => {
