@@ -93,7 +93,7 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - A player's historical club relationships remain visible after leaving.
 
 ### Admin Clubs mode
-- The current Clubs experience is intentionally locked to administrators.
+- Clubs is now open to all users for discovery and player workflows.
 - An administrator without a linked GG player profile uses a dedicated Clubs Control Center instead of player membership flows.
 - Admin Control Center surfaces: dashboard, pending formation permissions/approvals, full Club directory, Club Match oversight and application rejection reasons.
 - Admins can monitor approved and archived Clubs without needing a Player Profile.
