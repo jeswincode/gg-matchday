@@ -78,7 +78,11 @@ export function validateClubMemberCount(memberIds) {
 
   const uniqueIds = [...new Set(memberIds.map(String))];
 
-  if (uniqueIds.length < CLUB_MIN_MEMBERS || uniqueIds.length > CLUB_MAX_MEMBERS) {
+  if (
+    uniqueIds.length !== memberIds.length ||
+    uniqueIds.length < CLUB_MIN_MEMBERS ||
+    uniqueIds.length > CLUB_MAX_MEMBERS
+  ) {
     throw new Error("A club formation requires between " + CLUB_MIN_MEMBERS + " and " + CLUB_MAX_MEMBERS + " unique players.");
   }
 
