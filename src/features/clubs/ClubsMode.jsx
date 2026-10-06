@@ -503,6 +503,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   const clubName = clubId =>
     clubs.find(club => String(club._id) === String(clubId))?.name || "Unknown club";
+  const adminOnlyView = Boolean(isAdmin && !authUser?.playerProfile);
   const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
   const currentClub =
     clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null;
@@ -518,8 +519,15 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     [clubMatches, myCaptainClubs],
   );
   const formations = useMemo(
-    () => meta?.formations?.length ? meta.formations : formationLabels,
-    [meta],
+    () => {
+      const memberCount = currentClub?.memberIds?.length || 4;
+      const fallback = memberCount === 5
+        ? ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]
+        : ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
+      const source = memberCount === 5 ? meta?.formations5 : meta?.formations4;
+      return source?.length ? source : fallback;
+    },
+    [meta, currentClub?.memberIds?.length],
   );
 
   const currentClubMemberKey = (currentClub?.memberIds || []).map(String).join(",");
@@ -581,8 +589,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     setError("");
 
     const ids = selectedPlayers.filter(Boolean);
-    if (ids.length !== 3 || new Set(ids).size !== 3) {
-      setError("Choose three different players to invite.");
+    if (ids.length < 3 || ids.length > 4 || new Set(ids).size !== ids.length) {
+      setError("Choose three or four different players to invite. That creates a 4- or 5-player Club.");
       return;
     }
 
@@ -592,7 +600,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         method: "POST",
         body: { playerIds: ids },
       });
-      setSelectedPlayers(["", "", ""]);
+      setSelectedPlayers(["", "", "", ""]);
       await refreshApplications();
       announce("Club formation invitation sent to the selected players.");
     } catch (requestError) {
@@ -886,21 +894,21 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <div className="clubs-section-heading">
             <div>
               <p className="clubs-eyebrow">FORM A CLUB</p>
-              <h2>Invite three players</h2>
+              <h2>Build a 4–5 player Club</h2>
             </div>
-            <span>4 players total</span>
+            <span>4 minimum · 5 maximum</span>
           </div>
 
           <form className="clubs-create-form" onSubmit={startFormation}>
             <div className="clubs-invite-grid">
-              {[0, 1, 2].map(index => (
+              {[0, 1, 2, 3].map(index => (
                 <label key={index}>
-                  <span>PLAYER {index + 2}</span>
+                  <span>PLAYER {index + 2}{index === 3 ? " · OPTIONAL" : ""}</span>
                   <select
                     value={selectedPlayers[index]}
                     onChange={event => updatePlayerSelection(index, event.target.value)}
                   >
-                    <option value="">Choose a player</option>
+                    <option value="">{index === 3 ? "No fifth player" : "Choose a player"}</option>
                     {availablePlayers.map(player => (
                       <option
                         key={player._id}
@@ -920,8 +928,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
             <div className="clubs-create-actions clubs-create-actions--single">
               <div className="clubs-create-note">
-                <strong>Squad layout comes later.</strong>
-                <span>Formation is a viewer choice inside My Club. Your four players agree first; the pitch layout never changes the Club itself.</span>
+                <strong>Four is the minimum. Five is the maximum.</strong>
+                <span>Pick three required players for a 4-player Club, or add a fourth invitee to form a 5-player Club. Everyone in the final squad must accept.</span>
               </div>
               <button type="submit" className="clubs-primary-button" disabled={formationLoading}>
                 {formationLoading ? "Sending invites…" : "Start Club Formation"}
@@ -970,7 +978,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     <div>
                       <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
                       <h3>{application.proposedName || "Unnamed club"}</h3>
-                      <span>{application.memberIds?.length || 0}/4 members · four-player squad</span>
+                      <span>{application.memberIds?.length || 0}/5 members · {application.memberIds?.length === 5 ? "five-player squad" : "four-player squad"}</span>
                       {application.rejectionReason && (
                         <small className="clubs-rejection">{application.rejectionReason}</small>
                       )}
@@ -1336,7 +1344,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     <div className="clubs-club-crest" aria-hidden="true">GG</div>
                     <div>
                       <h2>{currentClub.name}</h2>
-                      <span>{currentClub.memberIds?.length || 0}/4 players · {currentClub.captainIds?.length || 0} captain(s)</span>
+                      <span>{currentClub.memberIds?.length || 0}/5 players · {currentClub.captainIds?.length || 0} captain(s)</span>
                     </div>
                   </div>
                 </div>
@@ -1352,7 +1360,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   <div className="clubs-squad-panel-head">
                     <div>
                       <p className="clubs-eyebrow">SQUAD VIEW</p>
-                      <h3>Your four-player field</h3>
+                      <h3>Your {currentClub.memberIds?.length === 5 ? "five-player" : "four-player"} field</h3>
                     </div>
                     <span>{squadHasCompleteOvr ? "Squad OVR ready" : "OVR developing…"}</span>
                   </div>
