@@ -759,8 +759,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     .filter(Number.isFinite);
   const squadHasCompleteOvr =
     Boolean(currentClub?.memberIds?.length) &&
-    currentClub.memberIds.length === 4 &&
-    clubOvrValues.length === 4;
+    currentClub.memberIds.length >= 4 &&
+    currentClub.memberIds.length <= 5 &&
+    clubOvrValues.length === currentClub.memberIds.length;
   const clubOvr = squadHasCompleteOvr
     ? Math.round(clubOvrValues.reduce((sum, value) => sum + value, 0) / clubOvrValues.length)
     : null;
