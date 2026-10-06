@@ -433,8 +433,13 @@ router.get("/wallet/me", requireAuth, async (req, res) => {
 
 router.get("/clubs/:clubId/wallet", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
-  const state = await getUserClubCaptainState(req.user?.playerProfile, req.params.clubId);
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  const state = await getUserClubCaptainState(playerId, req.params.clubId);
   if (!state) return res.status(404).json({ message: "Club not found." });
+  if (!state.club.memberIds.some(id => String(id) === String(playerId))) {
+    return res.status(403).json({ message: "Only Club members can view this Club wallet." });
+  }
   const transactions = await ClubWalletTransaction.find({ clubId: req.params.clubId }).sort({ createdAt: -1 }).limit(25).lean();
   return res.json({ club: state.club, transactions });
 });
@@ -773,11 +778,15 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
   try {
     const state = await getUserClubCaptainState(playerId, clubId);
     if (!state?.isCaptain) return res.status(403).json({ message: "Only club captains can decide renewals." });
-    if (state.club.memberIds.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Renewal requires a 4-5 player club." });
+    if (state.club.memberIds.length < CLUB_MIN_MEMBERS || state.club.memberIds.length > CLUB_MAX_MEMBERS) {
+      return res.status(409).json({ message: "Renewal requires a 4-5 player club." });
+    }
 
     const retained = validateRetention(state.club.memberIds, req.body?.retainedPlayerIds, state.club.captainIds);
     const activeContracts = await ClubContract.find({ clubId, status: "active" }).sort({ endAt: 1 }).lean();
-    if (activeContracts.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "The club must have 4 or 5 active contracts to renew." });
+    if (activeContracts.length < CLUB_MIN_MEMBERS || activeContracts.length > CLUB_MAX_MEMBERS) {
+      return res.status(409).json({ message: "The club must have 4 or 5 active contracts to renew." });
+    }
     const boundaryAt = activeContracts[0].endAt;
     if (new Date() < new Date(boundaryAt)) return res.status(409).json({ message: "This club's renewal boundary has not arrived yet." });
 
