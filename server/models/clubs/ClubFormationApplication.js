@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { CLUB_MAX_MEMBERS } from "../../config/clubsRules.js";
+import { CLUB_MIN_MEMBERS, CLUB_MAX_MEMBERS } from "../../config/clubsRules.js";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
 const approvalSchema = new mongoose.Schema(
@@ -25,8 +25,12 @@ const applicationSchema = new mongoose.Schema(
     memberIds: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
       validate: {
-        validator: value => Array.isArray(value) && value.length === CLUB_MAX_MEMBERS && new Set(value.map(String)).size === value.length,
-        message: "Club formation requires exactly " + CLUB_MAX_MEMBERS + " mutually agreed players.",
+        validator: value =>
+          Array.isArray(value) &&
+          value.length >= CLUB_MIN_MEMBERS &&
+          value.length <= CLUB_MAX_MEMBERS &&
+          new Set(value.map(String)).size === value.length,
+        message: "Club formation requires between " + CLUB_MIN_MEMBERS + " and " + CLUB_MAX_MEMBERS + " mutually agreed players.",
       },
     },
     memberApprovals: { type: [approvalSchema], default: [] },

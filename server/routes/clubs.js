@@ -9,6 +9,9 @@ import User from "../models/User.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   CLUB_FORMATIONS,
+  CLUB_FORMATIONS_4,
+  CLUB_FORMATIONS_5,
+  CLUB_MIN_MEMBERS,
   CLUB_MAX_MEMBERS,
   CLUB_STARTING_BALANCE,
   normalizeClubName,
@@ -119,11 +122,14 @@ router.get("/health", async (req, res) => {
 
 router.get("/meta", (req, res) => {
   res.json({
+    clubMinMembers: CLUB_MIN_MEMBERS,
     clubMaxMembers: CLUB_MAX_MEMBERS,
     clubStartingBalance: CLUB_STARTING_BALANCE,
     formations: CLUB_FORMATIONS,
+    formations4: CLUB_FORMATIONS_4,
+    formations5: CLUB_FORMATIONS_5,
     activeClubPolicy: "one-active-club-per-player",
-    captainPolicy: "top-two-ovr-candidates; four-player vote; tie creates two co-captains",
+    captainPolicy: "top-two-ovr-candidates; every active member votes; tie creates two co-captains",
     bettingPolicy: "player-wallet betting only; one bet per player per fixture; 10-100 credits; pooled winner payout; draw/cancellation/no-winner refunds; club members cannot bet on their own fixture",
     playerRewardPolicy: "10 appearance; 25 MOTM; 10 clean sheet; valid betting winnings return to the winning users' Player Wallets",
     reviewPolicy: "one teammate review and one opponent review per reviewer/reviewed relationship",
@@ -182,9 +188,9 @@ router.post("/formation", requireAuth, async (req, res) => {
       getFormationConflict(memberIds),
     ]);
 
-    if (players.length !== CLUB_MAX_MEMBERS) {
+    if (players.length !== memberIds.length) {
       return res.status(400).json({
-        message: "All four selected players must exist in GG Matchday.",
+        message: "All selected players must exist in GG Matchday.",
       });
     }
 
@@ -204,7 +210,7 @@ router.post("/formation", requireAuth, async (req, res) => {
       playerProfile: { $in: memberIds },
     }).select("playerProfile name email").lean();
 
-    if (linkedUsers.length !== CLUB_MAX_MEMBERS) {
+    if (linkedUsers.length !== memberIds.length) {
       const linked = new Set(linkedUsers.map(user => String(user.playerProfile)));
       const missingNames = players
         .filter(player => !linked.has(String(player._id)))
@@ -343,7 +349,7 @@ router.post("/formation/:id/name", requireAuth, async (req, res) => {
     if (application.status !== "pendingName") {
       return res.status(409).json({
         message:
-          "The club name can only be proposed after all four members accept.",
+          "The club name can only be proposed after every member accepts.",
       });
     }
 
@@ -353,7 +359,7 @@ router.post("/formation/:id/name", requireAuth, async (req, res) => {
       )
     ) {
       return res.status(409).json({
-        message: "All four members must accept before the club name can be proposed.",
+        message: "Every member must accept before the club name can be proposed.",
       });
     }
 
@@ -508,7 +514,7 @@ router.post("/auction/offers", requireAuth, async (req, res) => {
   try {
     const state = await getUserClubCaptainState(req.user.playerProfile, clubId);
     if (!state?.isCaptain) return res.status(403).json({ message: "Only a club captain can make a signing offer." });
-    if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Your club already has four players." });
+    if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Your club already has five players." });
     const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
     if (activeContract) return res.status(409).json({ message: "That player is already under an active club contract." });
     const highest = await AuctionOffer.findOne({ playerId, status: "active", expiresAt: { $gt: new Date() } }).sort({ amount: -1 }).lean();
@@ -579,7 +585,7 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
       const club = await Club.findOne({ _id: offer.clubId, status: "approved" }).session(session);
       if (!club) throw new Error("Club not found.");
       if (!club.captainIds.some(id => String(id) === String(playerId))) throw new Error("Only an elected captain can approve the signing.");
-      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has four players.");
+      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has five players.");
       const activeContract = await ClubContract.findOne({ playerId: offer.playerId, status: "active" }).session(session);
       if (activeContract) throw new Error("That player is already in an active club.");
       const approvalIds = [...new Set([...offer.captainApprovalIds.map(String), String(playerId)])];
@@ -653,7 +659,7 @@ router.post("/join-requests", requireAuth, async (req, res) => {
     const club = await Club.findOne({ _id: clubId, status: "approved" }).lean();
     if (!club) return res.status(404).json({ message: "Club not found." });
     if (club.memberIds.some(id => String(id) === String(playerId))) return res.status(409).json({ message: "You are already in this club." });
-    if (club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "That club currently has four players." });
+    if (club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "That club already has five players." });
     const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
     if (activeContract) return res.status(409).json({ message: "You can join another club only after your current contract ends." });
     const pending = await JoinRequest.findOne({ playerId, clubId, status: "pending" }).lean();
@@ -687,7 +693,7 @@ router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) =
         response = { request, club };
         return;
       }
-      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has four players.");
+      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has five players.");
       const activeContract = await ClubContract.findOne({ playerId: request.playerId, status: "active" }).session(session);
       if (activeContract) throw new Error("That player already has an active club contract.");
       request.captainApprovalIds = [...new Set([...request.captainApprovalIds.map(String), String(captainId)])];
@@ -767,11 +773,11 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
   try {
     const state = await getUserClubCaptainState(playerId, clubId);
     if (!state?.isCaptain) return res.status(403).json({ message: "Only club captains can decide renewals." });
-    if (state.club.memberIds.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Renewal requires a four-player club." });
+    if (state.club.memberIds.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Renewal requires a 4-5 player club." });
 
     const retained = validateRetention(state.club.memberIds, req.body?.retainedPlayerIds, state.club.captainIds);
     const activeContracts = await ClubContract.find({ clubId, status: "active" }).sort({ endAt: 1 }).lean();
-    if (activeContracts.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "The club does not have four active contracts to renew." });
+    if (activeContracts.length !== CLUB_MAX_MEMBERS) return res.status(409).json({ message: "The club must have 4 or 5 active contracts to renew." });
     const boundaryAt = activeContracts[0].endAt;
     if (new Date() < new Date(boundaryAt)) return res.status(409).json({ message: "This club's renewal boundary has not arrived yet." });
 
@@ -1457,16 +1463,21 @@ router.post("/formation/:id/captain/vote", requireAuth, async (req, res) => {
     const application = await ClubFormationApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ message: "Club formation application not found." });
     if (application.status !== "captainVote") return res.status(409).json({ message: "The captain vote is not active." });
-    if (!application.memberIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only the four club members can vote." });
+    if (!application.memberIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only current Club members can vote." });
     const candidatePlayerId = String(req.body?.candidatePlayerId || "");
     if (!application.captainCandidates.some(id => String(id) === candidatePlayerId)) return res.status(400).json({ message: "Vote for one of the two eligible captain candidates." });
-    if (application.captainVotes.some(v => String(v.voterPlayerId) === String(playerId))) return res.status(409).json({ message: "You have already voted." });
+    if (application.captainVotes.some(vote => String(vote.voterPlayerId) === String(playerId))) return res.status(409).json({ message: "You have already voted." });
+
     application.captainVotes.push({ voterPlayerId: playerId, candidatePlayerId });
-    if (application.captainVotes.length === CLUB_MAX_MEMBERS) {
+
+    const uniqueVoterIds = new Set(application.captainVotes.map(vote => String(vote.voterPlayerId)));
+    const allMembersVoted = application.memberIds.every(id => uniqueVoterIds.has(String(id)));
+    if (allMembersVoted) {
       const elected = resolveCaptainVote(application.captainCandidates, application.captainVotes);
       application.electedCaptainIds = elected;
       application.status = "pendingAdminApproval";
     }
+
     await application.save();
     return res.json(application);
   } catch (error) {
@@ -1477,7 +1488,6 @@ router.post("/formation/:id/captain/vote", requireAuth, async (req, res) => {
     return res.status(500).json({ message: "Failed to record the captain vote." });
   }
 });
-
 router.post("/formation/:id/details", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
@@ -1532,10 +1542,138 @@ router.post("/formation/:id/resubmit", requireAuth, async (req, res) => {
   }
 });
 
+async function buildAdminClubSnapshot(club) {
+  const memberIds = (club.memberIds || []).map(id => String(id));
+  const memberPlayers = memberIds.length
+    ? await Player.find({ _id: { $in: memberIds } })
+        .select("_id name position profileImage jerseyNumber")
+        .lean()
+    : [];
+  const playersById = new Map(memberPlayers.map(player => [String(player._id), player]));
+  const ovrByPlayerId = memberIds.length ? await calculateClubOVRs(memberIds) : new Map();
+  return {
+    ...club,
+    memberCount: memberIds.length,
+    captainCount: (club.captainIds || []).length,
+    squadOvr: memberIds.length
+      ? Math.round(memberIds.reduce((sum, id) => sum + Number(ovrByPlayerId.get(id) || 0), 0) / memberIds.length)
+      : null,
+    members: memberIds.map(id => ({
+      ...playersById.get(id),
+      ovr: Number(ovrByPlayerId.get(id) || 0) || null,
+      isCaptain: (club.captainIds || []).some(captainId => String(captainId) === id),
+    })),
+  };
+}
+
+router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const [
+      totalClubs,
+      activeClubs,
+      archivedClubs,
+      pendingApplications,
+      activeContracts,
+      upcomingMatches,
+      completedMatches,
+    ] = await Promise.all([
+      Club.countDocuments({}),
+      Club.countDocuments({ status: "approved" }),
+      Club.countDocuments({ status: "archived" }),
+      ClubFormationApplication.countDocuments({ status: "pendingAdminApproval" }),
+      ClubContract.countDocuments({ status: "active" }),
+      ClubMatch.countDocuments({ status: { $in: ["requested", "accepted"] } }),
+      ClubMatch.countDocuments({ status: "completed" }),
+    ]);
+
+    const recentClubs = await Club.find({})
+      .sort({ updatedAt: -1 })
+      .limit(10)
+      .lean();
+
+    return res.json({
+      counts: {
+        totalClubs,
+        activeClubs,
+        archivedClubs,
+        pendingApplications,
+        activeMembers: activeContracts,
+        upcomingMatches,
+        completedMatches,
+      },
+      recentClubs,
+    });
+  } catch (error) {
+    console.error("Load Clubs admin overview error:", error);
+    return res.status(500).json({ message: "Failed to load Clubs admin overview." });
+  }
+});
+
+router.get("/admin/clubs", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const clubDocs = await Club.find({})
+      .sort({ status: 1, nameNormalized: 1 })
+      .lean();
+    const clubs = [];
+    for (const club of clubDocs) {
+      clubs.push(await buildAdminClubSnapshot(club));
+    }
+    return res.json(clubs);
+  } catch (error) {
+    console.error("Load all Clubs admin directory error:", error);
+    return res.status(500).json({ message: "Failed to load Clubs directory." });
+  }
+});
+
+router.get("/admin/matches", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const matches = await ClubMatch.find({})
+      .sort({ fixtureDate: -1, scheduledAt: -1, createdAt: -1 })
+      .limit(100)
+      .populate("clubAId", "name status")
+      .populate("clubBId", "name status")
+      .lean();
+    return res.json(matches);
+  } catch (error) {
+    console.error("Load all Club Matches admin directory error:", error);
+    return res.status(500).json({ message: "Failed to load Club Match directory." });
+  }
+});
+
+async function buildAdminApplicationSnapshot(application) {
+  const memberIds = (application.memberIds || []).map(id => String(id));
+  const memberPlayers = memberIds.length
+    ? await Player.find({ _id: { $in: memberIds } })
+        .select("_id name position profileImage jerseyNumber")
+        .lean()
+    : [];
+  const playersById = new Map(memberPlayers.map(player => [String(player._id), player]));
+  const ovrByPlayerId = memberIds.length ? await calculateClubOVRs(memberIds) : new Map();
+
+  return {
+    ...application,
+    memberCount: memberIds.length,
+    members: memberIds.map(id => ({
+      ...playersById.get(id),
+      ovr: Number(ovrByPlayerId.get(id) || 0) || null,
+    })),
+  };
+}
+
 router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
-  const applications = await ClubFormationApplication.find({ status: "pendingAdminApproval" }).sort({ createdAt: 1 }).lean();
-  return res.json(applications);
+  try {
+    const applications = await ClubFormationApplication.find({ status: "pendingAdminApproval" })
+      .sort({ createdAt: 1 })
+      .lean();
+    return res.json(await Promise.all(applications.map(buildAdminApplicationSnapshot)));
+  } catch (error) {
+    console.error("Load Clubs admin applications error:", error);
+    return res.status(500).json({ message: "Failed to load Club applications." });
+  }
 });
 
 router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (req, res) => {
