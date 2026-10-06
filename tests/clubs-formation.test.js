@@ -8,11 +8,13 @@ import {
   resolveCaptainVote,
 } from "../server/config/clubsRules.js";
 
-test("club formation requires exactly four unique players", () => {
+test("club formation accepts four or five unique players") {
   assert.deepEqual(validateClubMemberCount(["a", "b", "c", "d"]), ["a", "b", "c", "d"]);
-  assert.throws(() => validateClubMemberCount(["a", "b", "c"]), /exactly 4/i);
-  assert.throws(() => validateClubMemberCount(["a", "b", "c", "d", "d"]), /exactly 4/i);
-});
+  assert.deepEqual(validateClubMemberCount(["a", "b", "c", "d", "e"]), ["a", "b", "c", "d", "e"]);
+  assert.throws(() => validateClubMemberCount(["a", "b", "c"]), /between 4 and 5/i);
+  assert.throws(() => validateClubMemberCount(["a", "b", "c", "d", "e", "f"]), /between 4 and 5/i);
+  assert.throws(() => validateClubMemberCount(["a", "b", "c", "d", "d"]), /unique/i);
+}
 
 test("club names normalize whitespace and case", () => {
   assert.equal(normalizeClubName("  GG   United  "), "gg united");
