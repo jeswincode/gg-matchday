@@ -825,7 +825,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <p className="clubs-eyebrow">THE CLUBS WORLD</p>
           <h2>Build your football world.</h2>
           <p>
-            Form a four-player Club, discover squads, sign players, schedule Club Matches and build a permanent history. Your football performance still comes from the normal GG Match Record.
+            Form a 4–5 player Club, discover squads, sign players, schedule Club Matches and build a permanent history. Your football performance still comes from the normal GG Match Record.
           </p>
         </div>
         <div className="clubs-balance-card">
@@ -851,9 +851,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <div className="clubs-application-list">
             {clubs.map(club => {
               const isMember = club.memberIds?.some(id => String(id) === currentPlayerId);
-              const full = (club.memberIds?.length || 0) >= 4;
+              const full = (club.memberIds?.length || 0) >= 5;
               return <article className="clubs-application" key={club._id}>
-                <div><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/4 players · {club.balance} credits</span></div>
+                <div><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/5 players · {club.balance} credits</span></div>
                 {!isMember && !full && <button type="button" className="clubs-primary-button" disabled={busyId === club._id} onClick={() => sendJoinRequest(club._id)}>{busyId === club._id ? "Sending…" : "Request to Join"}</button>}
                 {isMember && <span>Current club</span>}
                 {full && !isMember && <span>Squad full</span>}
@@ -1078,7 +1078,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         ) : clubs.length === 0 ? (
           <div className="clubs-empty">
             <strong>No official clubs yet.</strong>
-            <span>The first four-player clubs will appear here after approval.</span>
+            <span>Approved 4–5 player Clubs will appear here after approval.</span>
           </div>
         ) : (
           <div className="clubs-grid">
@@ -1088,7 +1088,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 <div>
                   <p className="clubs-eyebrow">OFFICIAL CLUB</p>
                   <h3>{club.name}</h3>
-                  <span>{club.memberIds?.length || 0}/4 players · viewer formations in My Club</span>
+                  <span>{club.memberIds?.length || 0}/5 players · viewer formations in My Club</span>
                 </div>
                 <strong>{club.balance ?? 3000}</strong>
               </article>
