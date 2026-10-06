@@ -544,6 +544,15 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     [meta, currentClub?.memberIds?.length],
   );
 
+  useEffect(() => {
+    const memberCount = currentClub?.memberIds?.length;
+    if (![4, 5].includes(memberCount)) return;
+    const allowed = memberCount === 5
+      ? (meta?.formations5 || ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"])
+      : (meta?.formations4 || ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"]);
+    if (!allowed.includes(formation)) setFormation(allowed[0]);
+  }, [currentClub?.memberIds?.length, meta, formation]);
+
   const currentClubMemberKey = (currentClub?.memberIds || []).map(String).join(",");
 
   useEffect(() => {
