@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { CLUB_MAX_MEMBERS, CLUB_STARTING_BALANCE, normalizeClubName } from "../../config/clubsRules.js";
+import { CLUB_MIN_MEMBERS, CLUB_MAX_MEMBERS, CLUB_STARTING_BALANCE, normalizeClubName } from "../../config/clubsRules.js";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
 const memberId = { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true };
@@ -13,8 +13,15 @@ const clubSchema = new mongoose.Schema(
     memberIds: {
       type: [memberId],
       validate: {
-        validator: value => Array.isArray(value) && value.length <= CLUB_MAX_MEMBERS && new Set(value.map(String)).size === value.length,
-        message: `A club can contain at most ${CLUB_MAX_MEMBERS} players and cannot repeat a player.`,
+        validator: function(value) {
+          if (!Array.isArray(value) || value.length > CLUB_MAX_MEMBERS) return false;
+          if (new Set(value.map(String)).size !== value.length) return false;
+          if (["approved", "pendingApproval"].includes(this.status)) {
+            return value.length >= CLUB_MIN_MEMBERS && value.length <= CLUB_MAX_MEMBERS;
+          }
+          return true;
+        },
+        message: `An active club must contain between ${CLUB_MIN_MEMBERS} and ${CLUB_MAX_MEMBERS} players, with no duplicates.`,
       },
       default: [],
     },
