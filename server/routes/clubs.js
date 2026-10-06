@@ -1463,11 +1463,13 @@ router.post("/formation/:id/captain/vote", requireAuth, async (req, res) => {
     const application = await ClubFormationApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ message: "Club formation application not found." });
     if (application.status !== "captainVote") return res.status(409).json({ message: "The captain vote is not active." });
-    if (!application.memberIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only current club members can vote." });
+    if (!application.memberIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only current Club members can vote." });
     const candidatePlayerId = String(req.body?.candidatePlayerId || "");
     if (!application.captainCandidates.some(id => String(id) === candidatePlayerId)) return res.status(400).json({ message: "Vote for one of the two eligible captain candidates." });
-    if (application.captainVotes.some(v => String(v.voterPlayerId) === String(playerId))) return res.status(409).json({ message: "You have already voted." });
+    if (application.captainVotes.some(vote => String(vote.voterPlayerId) === String(playerId))) return res.status(409).json({ message: "You have already voted." });
+
     application.captainVotes.push({ voterPlayerId: playerId, candidatePlayerId });
+
     const uniqueVoterIds = new Set(application.captainVotes.map(vote => String(vote.voterPlayerId)));
     const allMembersVoted = application.memberIds.every(id => uniqueVoterIds.has(String(id)));
     if (allMembersVoted) {
@@ -1475,10 +1477,17 @@ router.post("/formation/:id/captain/vote", requireAuth, async (req, res) => {
       application.electedCaptainIds = elected;
       application.status = "pendingAdminApproval";
     }
+
+    await application.save();
+    return res.json(application);
+  } catch (error) {
+    console.error("Captain vote error:", error);
+    if (error?.name === "VersionError") {
+      return res.status(409).json({ message: "Another captain vote was recorded at the same time. Refresh and try again." });
+    }
     return res.status(500).json({ message: "Failed to record the captain vote." });
   }
 });
-
 router.post("/formation/:id/details", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
