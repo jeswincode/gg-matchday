@@ -42,8 +42,11 @@ test("Clubs economy starts every new club at 3000", () => {
   assert.equal(CLUB_MAX_MEMBERS, 5);
 });
 
-test("configured four-player formations are exactly the locked set", () => {
-  assert.deepEqual([...CLUB_FORMATIONS], ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"]);
+test("Club formation sets cover both four-player and five-player squads", () => {
+  assert.deepEqual([...CLUB_FORMATIONS], [
+    "1-2-1", "2-1-1", "1-3", "3-1", "2-2",
+    "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1",
+  ]);
   for (const formation of CLUB_FORMATIONS) {
     assert.doesNotThrow(() => validateFormation(formation));
   }
@@ -88,25 +91,23 @@ test("contract renewal boundaries advance every two months from the first month 
   assert.equal(window.end.toISOString(), "2027-01-01T00:00:00.000Z");
 });
 
-test("captain candidates are the top two by OVR and a vote tie creates two captains", () => {
+test("captain candidates are top two by OVR and a five-member vote can be completed by all five", () => {
   const candidates = selectCaptainCandidates(
-    ["a", "b", "c", "d"],
-    new Map([["a", 80], ["b", 85], ["c", 70], ["d", 82]]),
+    ["a", "b", "c", "d", "e"],
+    new Map([["a", 80], ["b", 85], ["c", 70], ["d", 82], ["e", 91]]),
   );
 
-  assert.deepEqual(candidates, ["b", "d"]);
+  assert.deepEqual(candidates, ["e", "b"]);
 
   assert.deepEqual(
-    resolveCaptainVote(
-      candidates,
-      [
-        { candidatePlayerId: "b", voterPlayerId: "a" },
-        { candidatePlayerId: "d", voterPlayerId: "b" },
-        { candidatePlayerId: "b", voterPlayerId: "c" },
-        { candidatePlayerId: "d", voterPlayerId: "d" },
-      ],
-    ),
-    ["b", "d"],
+    resolveCaptainVote(candidates, [
+      { candidatePlayerId: "e", voterPlayerId: "a" },
+      { candidatePlayerId: "b", voterPlayerId: "b" },
+      { candidatePlayerId: "e", voterPlayerId: "c" },
+      { candidatePlayerId: "b", voterPlayerId: "d" },
+      { candidatePlayerId: "e", voterPlayerId: "e" },
+    ]),
+    ["e"],
   );
 });
 
@@ -123,18 +124,17 @@ test("captain approval helper requires every active captain", () => {
   assert.equal(activeCaptainApprovalComplete(["a", "b"], ["b", "a", "b"]), true);
 });
 
-test("renewal retention validation allows zero, one or two members and requires a captain when two are retained", () => {
-  assert.deepEqual(validateRetention(["a", "b", "c", "d"], ["a", "c"], ["a", "b"]), ["a", "c"]);
-  assert.throws(
-    () => validateRetention(["a", "b", "c", "d"], ["c", "d"], ["a", "b"]),
-    /captain/i,
-  );
-  assert.throws(
-    () => validateRetention(["a", "b", "c", "d"], ["a", "b", "c"], ["a"]),
-    /zero, one, or two/i,
-  );
+test("renewal retention supports a 4-5 player active Club and archives smaller outcomes", () => {
+  const four = ["a", "b", "c", "d"];
+  const five = ["a", "b", "c", "d", "e"];
+  assert.deepEqual(validateRetention(four, four, ["a"]), four);
+  assert.deepEqual(validateRetention(five, ["a", "b", "c", "d"], ["a"]), ["a", "b", "c", "d"]);
+  assert.deepEqual(validateRetention(five, five, ["a"]), five);
+  assert.deepEqual(validateRetention(five, [], ["a"]), []);
+  assert.deepEqual(validateRetention(five, ["a", "b", "c"], ["a"]), ["a", "b", "c"]);
+  assert.throws(() => validateRetention(five, ["b", "c", "d", "e"], []), /captain/i);
+  assert.throws(() => validateRetention(five, ["a", "b", "c", "d", "e", "f"], ["a"]), /five/i);
 });
-
 
 test("V3 Clubs economy rules expose the locked betting and reward values", () => {
   assert.equal(CLUB_BETTING_MIN_STAKE, 10);
