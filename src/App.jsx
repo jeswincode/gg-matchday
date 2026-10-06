@@ -2308,21 +2308,6 @@ function App() {
       return <StartupScreen authLoading={true} onComplete={finishStartup} />;
     }
 
-    if (!isAdmin) {
-      return (
-        <main className="app">
-          <section className="tab-content" style={{ minHeight: "70vh", display: "grid", placeItems: "center", padding: "2rem" }}>
-            <div className="card" style={{ maxWidth: "720px", width: "100%", textAlign: "center" }}>
-              <p className="eyebrow">ULTIMATE CLUBS</p>
-              <h2>Clubs is temporarily locked.</h2>
-              <p className="muted">Ultimate Clubs is currently available to administrators only while the Clubs experience is being prepared.</p>
-              <button className="save-button" type="button" onClick={() => switchProductMode("matchday")}>← Back to Matchday</button>
-            </div>
-          </section>
-        </main>
-      );
-    }
-
     return (
       <>
         <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
@@ -2371,7 +2356,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions">{isAdmin&&<button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button>}<div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
