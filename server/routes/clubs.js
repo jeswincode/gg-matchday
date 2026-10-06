@@ -1634,10 +1634,37 @@ router.get("/admin/matches", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+async function buildAdminApplicationSnapshot(application) {
+  const memberIds = (application.memberIds || []).map(id => String(id));
+  const memberPlayers = memberIds.length
+    ? await Player.find({ _id: { $in: memberIds } })
+        .select("_id name position profileImage jerseyNumber")
+        .lean()
+    : [];
+  const playersById = new Map(memberPlayers.map(player => [String(player._id), player]));
+  const ovrByPlayerId = memberIds.length ? await calculateClubOVRs(memberIds) : new Map();
+
+  return {
+    ...application,
+    memberCount: memberIds.length,
+    members: memberIds.map(id => ({
+      ...playersById.get(id),
+      ovr: Number(ovrByPlayerId.get(id) || 0) || null,
+    })),
+  };
+}
+
 router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
-  const applications = await ClubFormationApplication.find({ status: "pendingAdminApproval" }).sort({ createdAt: 1 }).lean();
-  return res.json(applications);
+  try {
+    const applications = await ClubFormationApplication.find({ status: "pendingAdminApproval" })
+      .sort({ createdAt: 1 })
+      .lean();
+    return res.json(await Promise.all(applications.map(buildAdminApplicationSnapshot)));
+  } catch (error) {
+    console.error("Load Clubs admin applications error:", error);
+    return res.status(500).json({ message: "Failed to load Club applications." });
+  }
 });
 
 router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (req, res) => {
