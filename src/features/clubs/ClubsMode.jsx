@@ -781,14 +781,24 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </button>
       </header>
 
-      <nav className="clubs-nav" aria-label="Clubs navigation">
-        <button aria-current={activeSection === "overview" ? "page" : undefined} className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("overview"); }}>Ultimate Clubs</button>
-        <button aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => { setActiveSection("myClub"); setMyClubSubsection("squad"); }}>My Club</button>
-        <button aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
-
-        <button aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
-        {isAdmin && <button aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => setActiveSection("admin")}>Admin</button>}
-      </nav>
+      {adminOnlyView ? (
+        <nav className="clubs-nav" aria-label="Clubs admin navigation">
+          <button aria-current={activeSection === "adminDashboard" ? "page" : undefined} className={activeSection === "adminDashboard" ? "active" : ""} type="button" onClick={() => setActiveSection("adminDashboard")}>Dashboard</button>
+          <button aria-current={activeSection === "adminApplications" ? "page" : undefined} className={activeSection === "adminApplications" ? "active" : ""} type="button" onClick={() => setActiveSection("adminApplications")}>
+            Applications{adminApplications.length > 0 && <span className="clubs-nav-badge">{adminApplications.length}</span>}
+          </button>
+          <button aria-current={activeSection === "adminClubs" ? "page" : undefined} className={activeSection === "adminClubs" ? "active" : ""} type="button" onClick={() => setActiveSection("adminClubs")}>Clubs</button>
+          <button aria-current={activeSection === "adminMatches" ? "page" : undefined} className={activeSection === "adminMatches" ? "active" : ""} type="button" onClick={() => setActiveSection("adminMatches")}>Matches</button>
+        </nav>
+      ) : (
+        <nav className="clubs-nav" aria-label="Clubs navigation">
+          <button aria-current={activeSection === "overview" ? "page" : undefined} className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("overview"); }}>Ultimate Clubs</button>
+          <button aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => { setActiveSection("myClub"); setMyClubSubsection("squad"); }}>My Club</button>
+          <button aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
+          <button aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
+          {isAdmin && <button aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => setActiveSection("admin")}>Admin</button>}
+        </nav>
+      )}
 
       {error && <div className="clubs-error" role="alert">{error}</div>}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
@@ -1256,35 +1266,123 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
         </>
-      ) : activeSection === "admin" ? (
+      ) : adminOnlyView && activeSection === "adminDashboard" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading">
-            <div><p className="clubs-eyebrow">CLUB ADMIN</p><h2>Formation approvals</h2></div>
-            <span>{adminLoading ? "Loading…" : adminApplications.length}</span>
+            <div><p className="clubs-eyebrow">CLUBS CONTROL CENTER</p><h2>Administration dashboard</h2><span>Manage approvals, monitor every Club, and track Club Match synchronization.</span></div>
+            <button type="button" className="clubs-secondary-button" onClick={async () => {
+              try {
+                const [overviewData, clubData, matchData, applicationData] = await Promise.all([
+                  api("/clubs/admin/overview"), api("/clubs/admin/clubs"), api("/clubs/admin/matches"), api("/clubs/admin/applications"),
+                ]);
+                setAdminOverview(overviewData || null);
+                setAdminClubs(Array.isArray(clubData) ? clubData : []);
+                setAdminMatches(Array.isArray(matchData) ? matchData : []);
+                setAdminApplications(Array.isArray(applicationData) ? applicationData : []);
+              } catch (e) { setError(e.message); }
+            }}>Refresh</button>
           </div>
-          {!isAdmin ? (
-            <div className="clubs-empty">Admin access is required.</div>
-          ) : adminLoading ? (
-            <div className="clubs-empty">Loading formation applications…</div>
-          ) : adminApplications.length === 0 ? (
-            <div className="clubs-empty">No formation applications are waiting for admin action.</div>
+          <div className="clubs-history-summary-grid">
+            {[
+              ["Active Clubs", adminOverview?.counts?.activeClubs ?? 0],
+              ["Pending Approvals", adminOverview?.counts?.pendingApplications ?? 0],
+              ["Active Players", adminOverview?.counts?.activeMembers ?? 0],
+              ["Club Matches", adminOverview?.counts?.upcomingMatches ?? 0],
+              ["Completed", adminOverview?.counts?.completedMatches ?? 0],
+              ["Archived Clubs", adminOverview?.counts?.archivedClubs ?? 0],
+            ].map(([label, value]) => <div className="clubs-history-stat" key={label}><strong>{value}</strong><span>{label}</span></div>)}
+          </div>
+          <section className="clubs-subsection">
+            <div className="clubs-section-heading"><div><p className="clubs-eyebrow">LATEST CLUBS</p><h3>Recently changed Clubs</h3></div><span>{adminOverview?.recentClubs?.length || 0}</span></div>
+            <div className="clubs-application-list">
+              {(adminOverview?.recentClubs || []).map(club => (
+                <article className="clubs-application" key={String(club._id)}>
+                  <div><p className="clubs-eyebrow">{String(club.status || "").toUpperCase()}</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/5 members · {club.captainIds?.length || 0} captain(s) · {club.balance ?? 0} credits</span></div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </section>
+      ) : adminOnlyView && activeSection === "adminApplications" ? (
+        <section className="clubs-section">
+          <div className="clubs-section-heading">
+            <div><p className="clubs-eyebrow">PERMISSIONS</p><h2>Club formation approvals</h2></div>
+            <span>{adminLoading ? "Loading…" : adminApplications.length + " pending"}</span>
+          </div>
+          {adminApplications.length === 0 ? (
+            <div className="clubs-empty">No Club formations are waiting for admin action.</div>
           ) : (
             <div className="clubs-application-list">
               {adminApplications.map(application => (
                 <article className="clubs-application" key={application._id}>
                   <div>
                     <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
-                    <h3>{application.proposedName || "Unnamed club"}</h3>
-                    <span>{application.memberIds?.length || 0}/4 members · four-player squad</span>
+                    <h3>{application.proposedName || "Unnamed Club"}</h3>
+                    <span>{application.memberCount || application.memberIds?.length || 0}/5 members · every member has completed the mutual-agreement stage</span>
+                    <div className="clubs-history-metrics">
+                      {(application.members || []).map(member => <span key={String(member?._id)}><b>{member?.name || "Player"}</b><small>OVR {member?.ovr ?? "—"}{member?.isCaptain ? " · CAPTAIN" : ""}</small></span>)}
+                    </div>
+                    <small>Captain candidates: {(application.captainCandidates || []).map(id => String(id).slice(-6)).join(" · ") || "Not set"} · Elected: {(application.electedCaptainIds || []).map(id => String(id).slice(-6)).join(" · ") || "Not elected"}</small>
                   </div>
                   <div className="clubs-application-actions">
                     <button type="button" className="clubs-primary-button" disabled={busyId === "admin-" + application._id} onClick={() => respondToAdminApplication(application._id, "approve")}>Approve</button>
-                    <button type="button" className="clubs-secondary-button" disabled={busyId === "admin-" + application._id} onClick={() => respondToAdminApplication(application._id, "reject")}>Reject</button>
+                    <input
+                      value={adminRejectReasons[application._id] || ""}
+                      onChange={event => setAdminRejectReasons(current => ({ ...current, [application._id]: event.target.value }))}
+                      placeholder="Reason required to reject"
+                      maxLength={500}
+                      aria-label={"Rejection reason for " + (application.proposedName || "Club application")}
+                    />
+                    <button type="button" className="clubs-secondary-button" disabled={busyId === "admin-" + application._id || !(adminRejectReasons[application._id] || "").trim()} onClick={() => respondToAdminApplication(application._id, "reject")}>Reject</button>
                   </div>
                 </article>
               ))}
             </div>
           )}
+        </section>
+      ) : adminOnlyView && activeSection === "adminClubs" ? (
+        <section className="clubs-section">
+          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUB DIRECTORY</p><h2>Every Club formed</h2></div><span>{adminClubs.length}</span></div>
+          {adminClubs.length === 0 ? <div className="clubs-empty">No Club records exist yet.</div> : (
+            <div className="clubs-grid">
+              {adminClubs.map(club => (
+                <article className="club-card" key={String(club._id)}>
+                  <div className="club-card-mark">GG</div>
+                  <div>
+                    <p className="clubs-eyebrow">{String(club.status || "").toUpperCase()}</p>
+                    <h3>{club.name}</h3>
+                    <span>{club.memberCount || club.memberIds?.length || 0}/5 members · {club.captainCount || club.captainIds?.length || 0} captain(s) · squad OVR {club.squadOvr ?? "—"}</span>
+                    <div className="clubs-roster-premium">
+                      {(club.members || []).map(member => <span key={String(member?._id)}>{member?.name || "Player"} · {member?.ovr ?? "—"}{member?.isCaptain ? " ★" : ""}</span>)}
+                    </div>
+                  </div>
+                  <strong>{club.balance ?? 0}</strong>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : adminOnlyView && activeSection === "adminMatches" ? (
+        <section className="clubs-section">
+          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">MATCHDAY OVERSIGHT</p><h2>Club Matches</h2><span>Track scheduled fixtures and their Matchday linkage.</span></div><span>{adminMatches.length}</span></div>
+          {adminMatches.length === 0 ? <div className="clubs-empty">No Club Matches recorded yet.</div> : (
+            <div className="clubs-application-list">
+              {adminMatches.map(match => (
+                <article className="clubs-application clubs-match-card" key={String(match._id)}>
+                  <div>
+                    <p className="clubs-eyebrow">{String(match.status || "").toUpperCase()} · {String(match.source || "booked").toUpperCase()}</p>
+                    <h3>{match.clubAId?.name || "Club"} <span className="clubs-match-vs">vs</span> {match.clubBId?.name || "Club"}</h3>
+                    <span>{match.fixtureDate || new Date(match.scheduledAt).toLocaleDateString()} · {match.mainMatchId ? "Linked to Matchday" : "Awaiting Matchday record"}</span>
+                  </div>
+                  <strong>{match.status === "completed" ? String(match.clubAScore ?? 0) + "–" + String(match.clubBScore ?? 0) : "—"}</strong>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      ) : activeSection === "admin" ? (
+        <section className="clubs-section">
+          <div className="clubs-empty">Use the new Clubs Control Center for administration.</div>
         </section>
       ) : activeSection === "reviews" ? (
         <section className="clubs-section">
