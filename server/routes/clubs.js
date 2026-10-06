@@ -693,7 +693,7 @@ router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) =
         response = { request, club };
         return;
       }
-      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has four players.");
+      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has five players.");
       const activeContract = await ClubContract.findOne({ playerId: request.playerId, status: "active" }).session(session);
       if (activeContract) throw new Error("That player already has an active club contract.");
       request.captainApprovalIds = [...new Set([...request.captainApprovalIds.map(String), String(captainId)])];
