@@ -14,7 +14,7 @@ test("club formation accepts four or five unique players", () => {
   assert.throws(() => validateClubMemberCount(["a", "b", "c"]), /between 4 and 5/i);
   assert.throws(() => validateClubMemberCount(["a", "b", "c", "d", "e", "f"]), /between 4 and 5/i);
   assert.throws(() => validateClubMemberCount(["a", "b", "c", "d", "d"]), /unique/i);
-}
+});
 
 test("club names normalize whitespace and case", () => {
   assert.equal(normalizeClubName("  GG   United  "), "gg united");
