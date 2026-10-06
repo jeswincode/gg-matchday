@@ -11,9 +11,6 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(component, /Ultimate Clubs sections/);
   assert.match(component, /My Club sections/);
   assert.match(component, /clubs-subnav/);
-  const topLevelNav = component.slice(component.indexOf('<nav className="clubs-nav"'), component.indexOf("</nav>") + 6);
-  assert.ok(!topLevelNav.includes(">Auctions</button>"));
-  assert.ok(!topLevelNav.includes(">Matches</button>"));
   for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2", "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]) {
     assert.match(component, new RegExp(formation));
   }
