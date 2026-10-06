@@ -22,16 +22,17 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(styles, /\.clubs-subnav button\.active/);
 });
 
-test("Clubs mode is admin-only at the frontend entry point", () => {
+test("Clubs mode is available from the main navigation to every viewer", () => {
   const app = fs.readFileSync("src/App.jsx", "utf8");
-  assert.match(app, /if \(!isAdmin\) \{/);
-  assert.match(app, /Clubs is temporarily locked/);
-  assert.match(app, /isAdmin&&<button className="secondary-button" type="button" onClick=\{\(\)=>switchProductMode\("clubs"\)\}/);
+  assert.match(app, /<button className="secondary-button" type="button" onClick=\{\(\)=>switchProductMode\("clubs"\)\}>Clubs<\/button>/);
+  assert.doesNotMatch(app, /Clubs is temporarily locked/);
 });
 
-test("Clubs operational API is admin-only", () => {
+test("Clubs API uses per-endpoint permissions instead of a global admin lock", () => {
   const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
-  assert.match(routes, /router\.use\(requireAuth, requireAdmin\)/);
+  assert.doesNotMatch(routes, /router\.use\(requireAuth, requireAdmin\)/);
+  assert.match(routes, /router\.get\("\/"/);
+  assert.match(routes, /requireAdmin/);
 });
 
 test("Clubs UI supports flexible 4-5 member formation and admin control center", () => {
