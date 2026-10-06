@@ -204,10 +204,24 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const respondToAdminApplication = async (applicationId, action) => {
     try {
       setBusyId("admin-" + applicationId);
-      await api("/clubs/admin/applications/" + applicationId + "/" + action, { method: "POST" });
-      await refreshAdminApplications();
-      const clubsData = await api("/clubs");
-      setClubs(Array.isArray(clubsData) ? clubsData : []);
+      await api("/clubs/admin/applications/" + applicationId + "/" + action, {
+        method: "POST",
+        body: action === "reject"
+          ? { reason: adminRejectReasons[applicationId] || "" }
+          : undefined,
+      });
+      const [overviewData, clubData, matchData, applicationData] = await Promise.all([
+        api("/clubs/admin/overview"),
+        api("/clubs/admin/clubs"),
+        api("/clubs/admin/matches"),
+        api("/clubs/admin/applications"),
+      ]);
+      setAdminOverview(overviewData || null);
+      setAdminClubs(Array.isArray(clubData) ? clubData : []);
+      setAdminMatches(Array.isArray(matchData) ? matchData : []);
+      setAdminApplications(Array.isArray(applicationData) ? applicationData : []);
+      setClubs(Array.isArray(clubData) ? clubData.filter(club => club.status === "approved") : []);
+      announce(action === "approve" ? "Club formation approved." : "Club formation rejected.");
     } catch (e) {
       setError(e.message);
     } finally {
