@@ -5,9 +5,10 @@ This document is the implementation checklist for the Clubs mode. The source of 
 ## Locked rules
 
 ### Club formation
-- A club has a maximum of 4 active players.
-- Four players must mutually agree before a club can be submitted.
-- The flow is: founder starts formation -> invites the other players -> all four accept -> club name proposal -> captain vote -> captain fills club details -> admin approval.
+- A club has a minimum of 4 and a maximum of 5 active players.
+- Four or five players must mutually agree before a club can be submitted.
+- The flow is: founder starts formation -> invites the other players -> all selected members accept -> club name proposal -> captain vote -> captain fills club details -> admin approval.
+- The fifth player is optional during formation; the fourth invitee creates a 5-player Club.
 - Club names are globally unique across active and archived Clubs.
 - Once an official club name is approved, it is permanent.
 - Rejected club applications expose the rejection reason and may be revised and resubmitted.
@@ -16,7 +17,8 @@ This document is the implementation checklist for the Clubs mode. The source of 
 
 ### Captain system
 - Only the top two players in the club by OVR are captain candidates.
-- All four players, including both candidates, vote.
+- All current members, including both candidates, vote.
+- The vote completes only after every member in the formation has voted.
 - A tie creates two co-captains.
 - Any captain-required decision in a two-captain club requires both approvals.
 - If one co-captain leaves while the other stays, the departing co-captain does not need to appoint a replacement.
@@ -72,16 +74,29 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - Reviews contain a 1–5 star rating and written observation.
 
 ### Club formations
-The selectable 4-player formations are:
+4-player viewer layouts:
 - 1-2-1
 - 2-1-1
 - 1-3
 - 3-1
 - 2-2
 
+5-player viewer layouts:
+- 1-2-2
+- 2-2-1
+- 2-1-2
+- 1-3-1
+- 3-1-1
+
 ### Club history
 - Club history is permanent.
 - A player's historical club relationships remain visible after leaving.
+
+### Admin Clubs mode
+- The current Clubs experience is intentionally locked to administrators.
+- An administrator without a linked GG player profile uses a dedicated Clubs Control Center instead of player membership flows.
+- Admin Control Center surfaces: dashboard, pending formation permissions/approvals, full Club directory, Club Match oversight and application rejection reasons.
+- Admins can monitor approved and archived Clubs without needing a Player Profile.
 
 ### Club mode
 - Clubs is a separate product mode with its own navigation.
