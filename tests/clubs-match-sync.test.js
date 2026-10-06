@@ -129,6 +129,40 @@ test("side inference requires a supported 2v2, 3v3 or 4v4 Club Match size", () =
   );
 });
 
+
+test("side inference accepts a valid 5v5 Club Match", () => {
+  const mainMatch = {
+    participants: [
+      { player: oid(ids.p1), team: "A" },
+      { player: oid(ids.p2), team: "A" },
+      { player: oid(ids.p3), team: "A" },
+      { player: oid(ids.p4), team: "A" },
+      { player: oid("555555555555555555555555"), team: "A" },
+      { player: oid("666666666666666666666666"), team: "B" },
+      { player: oid("777777777777777777777777"), team: "B" },
+      { player: oid("888888888888888888888888"), team: "B" },
+      { player: oid("999999999999999999999999"), team: "B" },
+      { player: oid("aaaaaaaaaaaaaaaaaaaaaaaa"), team: "B" },
+    ],
+  };
+  const contracts = new Map([
+    [ids.p1, contract(ids.clubA)],
+    [ids.p2, contract(ids.clubA)],
+    [ids.p3, contract(ids.clubA)],
+    [ids.p4, contract(ids.clubA)],
+    ["555555555555555555555555", contract(ids.clubA)],
+    ["666666666666666666666666", contract(ids.clubB)],
+    ["777777777777777777777777", contract(ids.clubB)],
+    ["888888888888888888888888", contract(ids.clubB)],
+    ["999999999999999999999999", contract(ids.clubB)],
+    ["aaaaaaaaaaaaaaaaaaaaaaaa", contract(ids.clubB)],
+  ]);
+  assert.deepEqual(
+    inferClubSides(mainMatch, contracts, { clubAId: ids.clubA, clubBId: ids.clubB }),
+    { clubAIsSideA: true },
+  );
+});
+
 test("side inference accepts a valid 2v2 Club Match", () => {
   const mainMatch = {
     participants: [
