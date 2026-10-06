@@ -190,6 +190,76 @@ html[data-theme="golden"] .result-L {
   color: #f0a0a0;
 }
 
+/* Authenticated welcome gate follows the selected gold theme. */
+html[data-theme="golden"] .gg-welcome-screen {
+  background:
+    radial-gradient(circle at 8% 48%, rgba(227,188,103,.10), transparent 15%),
+    radial-gradient(circle at 92% 48%, rgba(227,188,103,.08), transparent 15%),
+    radial-gradient(circle at 50% 50%, rgba(227,188,103,.10), transparent 42%),
+    linear-gradient(180deg, #100d07 0%, #060504 54%, #030303 100%);
+}
+
+html[data-theme="golden"] .gg-welcome-screen::before {
+  background:
+    linear-gradient(90deg, transparent 49.8%, rgba(227,188,103,.055) 50%, transparent 50.2%),
+    radial-gradient(circle at center, transparent 0 17%, rgba(227,188,103,.035) 17.1% 17.25%, transparent 17.35%);
+}
+
+html[data-theme="golden"] .gg-welcome-screen::after {
+  background:
+    radial-gradient(ellipse at 8% 50%, rgba(227,188,103,.11), transparent 7%),
+    radial-gradient(ellipse at 92% 50%, rgba(227,188,103,.10), transparent 7%),
+    linear-gradient(112deg, transparent 0 47%, rgba(227,188,103,.05) 47.2% 47.35%, transparent 47.55% 100%),
+    linear-gradient(68deg, transparent 0 53%, rgba(227,188,103,.04) 53.2% 53.35%, transparent 53.55% 100%);
+}
+
+html[data-theme="golden"] .gg-welcome-emblem {
+  filter: drop-shadow(0 0 28px rgba(227,188,103,.16));
+}
+
+html[data-theme="golden"] .gg-welcome-emblem .gg-emblem-ring {
+  stroke: rgba(227,188,103,.98);
+}
+
+html[data-theme="golden"] .gg-welcome-emblem .gg-emblem-ring-soft {
+  stroke: rgba(227,188,103,.30);
+}
+
+html[data-theme="golden"] .gg-welcome-emblem .gg-emblem-ring-inner {
+  stroke: rgba(227,188,103,.14);
+}
+
+html[data-theme="golden"] .gg-welcome-shell .gg-welcome-avatar {
+  border-color: rgba(227,188,103,.95);
+  background: radial-gradient(circle at 40% 32%, rgba(255,255,255,.10), transparent 32%), #171108;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.10),
+    0 0 30px rgba(227,188,103,.22),
+    0 14px 35px rgba(0,0,0,.52);
+}
+
+html[data-theme="golden"] .gg-welcome-content .gg-refined-eyebrow {
+  color: #efd07a;
+  text-shadow: 0 0 20px rgba(227,188,103,.26);
+}
+
+html[data-theme="golden"] .gg-welcome-content > p:not(.gg-refined-eyebrow) {
+  color: rgba(246,241,231,.74);
+}
+
+html[data-theme="golden"] .gg-welcome-shell .gg-enter-button {
+  border-color: rgba(255,235,151,.78);
+  background: linear-gradient(135deg, #ffe495 0%, #e3bc67 45%, #a87524 100%);
+  box-shadow:
+    0 16px 46px rgba(227,188,103,.22),
+    inset 0 1px 0 rgba(255,255,255,.55);
+}
+
+html[data-theme="golden"] .gg-welcome-lines span {
+  background: rgba(227,188,103,.46);
+  box-shadow: 0 0 12px rgba(227,188,103,.16);
+}
+
 /* Keep the player hero cinematic, but let gold appear as a light accent rather than a filter. */
 html[data-theme="golden"] .profile-hero-media {
   border-color: rgba(227,188,103,.16);
