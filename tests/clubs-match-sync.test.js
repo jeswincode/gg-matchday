@@ -130,6 +130,24 @@ test("side inference requires a supported 2v2, 3v3 or 4v4 Club Match size", () =
 });
 
 
+
+test("side inference rejects a 6v6 Club Match", () => {
+  const mainMatch = { participants: Array.from({ length: 12 }, (_, index) => ({
+    player: oid(String(index + 1).repeat(24)),
+    team: index < 6 ? "A" : "B",
+  })) };
+  const contracts = new Map(
+    mainMatch.participants.map((participant, index) => [
+      String(participant.player._id),
+      contract(index < 6 ? ids.clubA : ids.clubB),
+    ]),
+  );
+  assert.equal(
+    inferClubSides(mainMatch, contracts, { clubAId: ids.clubA, clubBId: ids.clubB }),
+    null,
+  );
+});
+
 test("side inference accepts a valid 5v5 Club Match", () => {
   const mainMatch = {
     participants: [
