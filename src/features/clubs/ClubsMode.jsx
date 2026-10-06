@@ -2,38 +2,39 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import "./clubs-mode.css";
 
-const formationLabels = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
+const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
+const formationLabels5 = ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"];
 
 const formationSlots = {
   "1-2-1": [
-    { x: 50, y: 84 },
-    { x: 33, y: 55 },
-    { x: 67, y: 55 },
-    { x: 50, y: 23 },
+    { x: 50, y: 84 }, { x: 33, y: 55 }, { x: 67, y: 55 }, { x: 50, y: 23 },
   ],
   "2-1-1": [
-    { x: 34, y: 77 },
-    { x: 66, y: 77 },
-    { x: 50, y: 50 },
-    { x: 50, y: 23 },
+    { x: 34, y: 77 }, { x: 66, y: 77 }, { x: 50, y: 50 }, { x: 50, y: 23 },
   ],
   "1-3": [
-    { x: 50, y: 78 },
-    { x: 23, y: 36 },
-    { x: 50, y: 32 },
-    { x: 77, y: 36 },
+    { x: 50, y: 78 }, { x: 23, y: 36 }, { x: 50, y: 32 }, { x: 77, y: 36 },
   ],
   "3-1": [
-    { x: 22, y: 76 },
-    { x: 50, y: 80 },
-    { x: 78, y: 76 },
-    { x: 50, y: 25 },
+    { x: 22, y: 76 }, { x: 50, y: 80 }, { x: 78, y: 76 }, { x: 50, y: 25 },
   ],
   "2-2": [
-    { x: 34, y: 76 },
-    { x: 66, y: 76 },
-    { x: 34, y: 31 },
-    { x: 66, y: 31 },
+    { x: 34, y: 76 }, { x: 66, y: 76 }, { x: 34, y: 31 }, { x: 66, y: 31 },
+  ],
+  "1-2-2": [
+    { x: 50, y: 85 }, { x: 29, y: 55 }, { x: 71, y: 55 }, { x: 29, y: 25 }, { x: 71, y: 25 },
+  ],
+  "2-2-1": [
+    { x: 32, y: 76 }, { x: 68, y: 76 }, { x: 28, y: 47 }, { x: 72, y: 47 }, { x: 50, y: 20 },
+  ],
+  "2-1-2": [
+    { x: 32, y: 78 }, { x: 68, y: 78 }, { x: 50, y: 52 }, { x: 32, y: 24 }, { x: 68, y: 24 },
+  ],
+  "1-3-1": [
+    { x: 50, y: 82 }, { x: 24, y: 50 }, { x: 50, y: 48 }, { x: 76, y: 50 }, { x: 50, y: 20 },
+  ],
+  "3-1-1": [
+    { x: 22, y: 72 }, { x: 50, y: 78 }, { x: 78, y: 72 }, { x: 50, y: 48 }, { x: 50, y: 20 },
   ],
 };
 
@@ -54,7 +55,7 @@ function positionCode(position = "") {
 
 function statusLabel(status) {
   return {
-    pendingMutualAgreement: "Waiting for all four players",
+    pendingMutualAgreement: "Waiting for all members",
     pendingName: "Ready for club name",
     pendingCaptainVoteSetup: "Captain vote setup",
     captainVote: "Captain vote",
@@ -69,13 +70,17 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [applications, setApplications] = useState([]);
   const [adminApplications, setAdminApplications] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [adminOverview, setAdminOverview] = useState(null);
+  const [adminClubs, setAdminClubs] = useState([]);
+  const [adminMatches, setAdminMatches] = useState([]);
+  const [adminRejectReasons, setAdminRejectReasons] = useState({});
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
   const [formationLoading, setFormationLoading] = useState(false);
   const [respondingId, setRespondingId] = useState(null);
   const [nameSavingId, setNameSavingId] = useState(null);
   const [error, setError] = useState("");
-  const [selectedPlayers, setSelectedPlayers] = useState(["", "", ""]);
+  const [selectedPlayers, setSelectedPlayers] = useState(["", "", "", ""]);
   const [formation, setFormation] = useState("1-2-1");
   const [clubNameDrafts, setClubNameDrafts] = useState({});
   const [detailDrafts, setDetailDrafts] = useState({});
@@ -85,7 +90,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [offerPlayer, setOfferPlayer] = useState("");
   const [offerAmount, setOfferAmount] = useState("");
   const [offerClub, setOfferClub] = useState("");
-  const [activeSection, setActiveSection] = useState("overview");
+  const [activeSection, setActiveSection] = useState(isAdmin && !authUser?.playerProfile ? "adminDashboard" : "overview");
   const [ultimateSubsection, setUltimateSubsection] = useState("overview");
   const [myClubSubsection, setMyClubSubsection] = useState("squad");
   const [playersSubsection, setPlayersSubsection] = useState("directory");
@@ -118,26 +123,55 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   useEffect(() => {
     let active = true;
-    const requests = [api("/clubs/meta"), api("/clubs"), api("/players"), api("/clubs/matches")];
-    if (authUser) requests.push(api("/clubs/formation/me"));
+    const adminOnlyView = Boolean(isAdmin && !authUser?.playerProfile);
+
+    const requests = adminOnlyView
+      ? [
+          api("/clubs/meta"),
+          api("/clubs/admin/overview"),
+          api("/clubs/admin/clubs"),
+          api("/clubs/admin/matches"),
+          api("/clubs/admin/applications"),
+        ]
+      : [
+          api("/clubs/meta"),
+          api("/clubs"),
+          api("/players"),
+          api("/clubs/matches"),
+          ...(authUser ? [api("/clubs/formation/me")] : []),
+        ];
 
     Promise.all(requests)
       .then(results => {
         if (!active) return;
-        setMeta(results[0]);
-        setClubs(Array.isArray(results[1]) ? results[1] : []);
-        setPlayers(Array.isArray(results[2]) ? results[2] : []);
-        setClubMatches(Array.isArray(results[3]) ? results[3] : []);
-        setApplications(authUser && Array.isArray(results[4]) ? results[4] : []);
 
-        if (authUser) {
-          Promise.all([api("/clubs/wallet/me"), api("/clubs/join-requests/me")])
-            .then(([walletData, joinData]) => {
-              if (!active) return;
-              setWallet(walletData);
-              setJoinRequests(Array.isArray(joinData) ? joinData : []);
-            })
-            .catch(() => {});
+        setMeta(results[0]);
+
+        if (adminOnlyView) {
+          const overview = results[1] || {};
+          setAdminOverview(overview);
+          setAdminClubs(Array.isArray(results[2]) ? results[2] : []);
+          setAdminMatches(Array.isArray(results[3]) ? results[3] : []);
+          setAdminApplications(Array.isArray(results[4]) ? results[4] : []);
+          setClubs(Array.isArray(results[2]) ? results[2].filter(club => club.status === "approved") : []);
+          setClubMatches(Array.isArray(results[3]) ? results[3] : []);
+          setPlayers([]);
+          setApplications([]);
+        } else {
+          setClubs(Array.isArray(results[1]) ? results[1] : []);
+          setPlayers(Array.isArray(results[2]) ? results[2] : []);
+          setClubMatches(Array.isArray(results[3]) ? results[3] : []);
+          setApplications(authUser && Array.isArray(results[4]) ? results[4] : []);
+
+          if (authUser) {
+            Promise.all([api("/clubs/wallet/me"), api("/clubs/join-requests/me")])
+              .then(([walletData, joinData]) => {
+                if (!active) return;
+                setWallet(walletData);
+                setJoinRequests(Array.isArray(joinData) ? joinData : []);
+              })
+              .catch(() => {});
+          }
         }
 
         setError("");
@@ -153,7 +187,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser]);
+  }, [authUser, isAdmin]);
   const refreshAdminApplications = async () => {
     if (!isAdmin) return;
     try {
