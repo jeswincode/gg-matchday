@@ -67,7 +67,7 @@ export function inferClubSides(mainMatch, contractMap, clubMatch) {
     sideCounts[participant.team] += 1;
     sideClubIds[participant.team].add(String(contract.clubId));
   }
-  if (sideCounts.A < 2 || sideCounts.A > 4 || sideCounts.B < 2 || sideCounts.B > 4) return null;
+  if (sideCounts.A < 2 || sideCounts.A > 5 || sideCounts.B < 2 || sideCounts.B > 5) return null;
   if (sideClubIds.A.size !== 1 || sideClubIds.B.size !== 1) return null;
   const clubA = String(clubMatch.clubAId), clubB = String(clubMatch.clubBId);
   if (sideClubIds.A.has(clubA) && sideClubIds.B.has(clubB)) return { clubAIsSideA: true };
