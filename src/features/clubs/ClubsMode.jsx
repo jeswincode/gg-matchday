@@ -532,26 +532,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     ),
     [clubMatches, myCaptainClubs],
   );
-  const formations = useMemo(
-    () => {
-      const memberCount = currentClub?.memberIds?.length || 4;
-      const fallback = memberCount === 5
-        ? ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]
-        : ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
-      const source = memberCount === 5 ? meta?.formations5 : meta?.formations4;
-      return source?.length ? source : fallback;
-    },
-    [meta, currentClub?.memberIds?.length],
-  );
-
-  useEffect(() => {
-    const memberCount = currentClub?.memberIds?.length;
-    if (![4, 5].includes(memberCount)) return;
-    const allowed = memberCount === 5
-      ? (meta?.formations5 || ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"])
-      : (meta?.formations4 || ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"]);
-    if (!allowed.includes(formation)) setFormation(allowed[0]);
-  }, [currentClub?.memberIds?.length, meta, formation]);
+  const formations = currentClub?.memberIds?.length === 5
+    ? (meta?.formations5?.length ? meta.formations5 : formationLabels5)
+    : (meta?.formations4?.length ? meta.formations4 : formationLabels4);
+  const safeFormation = formations.includes(formation) ? formation : formations[0];
 
   const currentClubMemberKey = (currentClub?.memberIds || []).map(String).join(",");
 
@@ -1499,7 +1483,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       {(currentClub.memberIds || []).map((playerId, index) => {
                         const player = players.find(item => String(item._id) === String(playerId));
                         const attribute = playerAttributes[String(playerId)];
-                        const slot = (formationSlots[formation] || formationSlots["1-2-1"])[index];
+                        const slot = (formationSlots[safeFormation] || formationSlots["1-2-1"])[index];
                         const stats = attribute?.attributes || {};
                         const statItems = [
                           ["PAC", stats.pace],
@@ -1560,16 +1544,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     <div className="clubs-formation-control" aria-label="Squad formation view">
                       <div>
                         <span>VIEW FORMATION</span>
-                        <strong>{formation}</strong>
+                        <strong>{safeFormation}</strong>
                       </div>
                       <div className="clubs-formation-pills">
                         {formations.map(value => (
                           <button
                             type="button"
                             key={value}
-                            className={formation === value ? "active" : ""}
+                            className={safeFormation === value ? "active" : ""}
                             onClick={() => setFormation(value)}
-                            aria-pressed={formation === value}
+                            aria-pressed={safeFormation === value}
                           >
                             {value}
                           </button>
