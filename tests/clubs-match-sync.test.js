@@ -106,7 +106,7 @@ test("Clubs UI exposes player reviews navigation and submission form", () => {
   const source = readFileSync(new URL("../src/features/clubs/ClubsMode.jsx", import.meta.url), "utf8");
   assert.match(source, /activeSection === "reviews"/);
   assert.match(source, /reviews\/eligible\/me/);
-  assert.match(source, /Submit review/);
+  assert.match(source, /\/Publish review\//g);
   assert.match(source, /teammate/);
   assert.match(source, /opponent/);
 });
