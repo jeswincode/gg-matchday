@@ -11,6 +11,11 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(component, /Ultimate Clubs sections/);
   assert.match(component, /My Club sections/);
   assert.match(component, /clubs-subnav/);
+  assert.match(component, /clubs-next-action/);
+  assert.match(component, /clubs-formation-stepper/);
+  assert.match(component, /clubs-scout-card/);
+  assert.match(component, /clubs-review-received/);
+  assert.match(component, /NEEDS ATTENTION/);
   for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2", "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]) {
     assert.match(component, new RegExp(formation));
   }
@@ -60,3 +65,26 @@ test("Clubs UI supports flexible 4-5 member formation and admin control center",
   assert.match(syncSource, /sideCounts\.B > 5/);
 });
 
+
+
+test("Clubs renewal policy allows 4-5 retained players and archives smaller outcomes", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
+  const economy = fs.readFileSync("server/services/clubsEconomy.js", "utf8");
+
+  assert.match(component, /Retain 4–5 players to renew/);
+  assert.doesNotMatch(component, /current\.length < 2/);
+  assert.doesNotMatch(component, /fewer than 2 dissolves/);
+  assert.match(routes, /retained\.length < 4/);
+  assert.match(economy, /At least one existing captain must be retained/);
+});
+
+test("Club public responses do not expose Club wallet balance and auction offers are authenticated", () => {
+  const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
+
+  assert.match(routes, /router\.get\("\/", optionalAuth/);
+  assert.match(routes, /\.select\("_id name nameNormalized description logoUrl memberIds captainIds status approvedAt"\)/);
+  assert.match(routes, /router\.get\("\/auction\/offers\/:playerId", requireAuth/);
+  assert.match(routes, /Auction offers are private to the player receiving them/);
+  assert.match(routes, /router\.get\("\/players\/discovery"/);
+});
