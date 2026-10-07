@@ -36,3 +36,23 @@
 @media(prefers-reduced-motion:reduce){.world-loading-grid div{animation:none}}
 .world-league-select{width:auto;min-width:170px;min-height:36px;padding:0 9px;border-radius:999px;font-size:10px;font-weight:800;background:var(--panel-soft)}
 @media(max-width:640px){.world-section-top{align-items:flex-start;flex-direction:column}.world-league-select{width:100%}}
+
+.world-intelligence-button{width:100%;margin-top:11px;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:var(--panel-soft);color:var(--text);font-size:9px;font-weight:900;letter-spacing:.08em}
+.world-fixture-card.is-active{border-color:color-mix(in srgb,var(--accent) 45%,var(--border));box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 12%,transparent)}
+.world-intelligence-panel{margin-top:12px;padding:17px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(145deg,var(--panel-soft),var(--panel));}
+.world-intelligence-heading{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.world-intelligence-heading h3{margin:2px 0 5px;font-size:20px}.world-intelligence-heading p{margin:0;color:var(--muted);font-size:11px;line-height:1.5}.world-intelligence-heading small{display:block;margin-top:8px;color:var(--muted-2);font-size:9px}
+.world-intelligence-source{flex:0 0 auto;padding:7px 9px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:8px;font-weight:950;letter-spacing:.1em}
+.world-intelligence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}
+.world-intelligence-card{padding:12px;border:1px solid var(--border);border-radius:13px;background:rgba(255,255,255,.012)}
+.world-intelligence-card>span{display:block;margin-bottom:8px;color:var(--muted);font-size:8px;font-weight:950;letter-spacing:.12em}
+.world-intelligence-duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.world-intelligence-duo div{display:grid;gap:3px;min-width:0}
+.world-intelligence-duo b{font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.world-intelligence-duo strong{font-size:17px}
+.world-intelligence-capabilities{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+.world-intelligence-capabilities span{padding:5px 7px;border:1px solid color-mix(in srgb,var(--accent) 25%,var(--border));border-radius:999px;color:var(--accent);font-size:7px;font-weight:950;letter-spacing:.08em}
+.world-intelligence-capabilities small{width:100%;color:var(--muted-2);font-size:8px}
+.world-intelligence-skeleton{height:150px;margin-top:12px;border-radius:13px;background:linear-gradient(90deg,var(--panel),var(--panel-soft),var(--panel));background-size:200% 100%;animation:world-skeleton 1.2s infinite}
+@media(max-width:640px){.world-intelligence-grid{grid-template-columns:1fr}.world-intelligence-heading{flex-direction:column}.world-intelligence-source{align-self:flex-start}.world-intelligence-panel{padding:14px}}
+@media(prefers-reduced-motion:reduce){.world-intelligence-skeleton{animation:none}}
