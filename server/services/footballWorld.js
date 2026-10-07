@@ -37,12 +37,16 @@ async function fetchJson(url, options = {}) {
     headers: { Accept: "application/json", ...(options.headers || {}) },
   });
   const text = await response.text();
-  let data = {};
-  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
   if (!response.ok) {
-    throw new Error(data?.message || data?.error || "External football provider returned " + response.status);
+    let payload = {};
+    try { payload = text ? JSON.parse(text) : {}; } catch {}
+    throw new Error(payload?.message || payload?.error || "External football provider returned " + response.status);
   }
-  return data;
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return {};
+  }
 }
 
 function todayInTimezone(timeZone = env.timezone) {
