@@ -101,6 +101,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [matchScheduledAt, setMatchScheduledAt] = useState("");
   const [matchSubmitting, setMatchSubmitting] = useState(false);
   const [clubStats, setClubStats] = useState([]);
+  const [clubWallet, setClubWallet] = useState(null);
   const [clubHistory, setClubHistory] = useState([]);
   const [playerAttributes, setPlayerAttributes] = useState({});
   const [auctionState, setAuctionState] = useState(null);
@@ -604,6 +605,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     let active = true;
     if (activeSection !== "myClub" || !currentClub?._id) {
+      setClubWallet(null);
       return undefined;
     }
 
@@ -612,12 +614,14 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     Promise.all([
       api("/clubs/" + currentClub._id + "/stats"),
       api("/clubs/" + currentClub._id + "/history"),
+      api("/clubs/" + currentClub._id + "/wallet"),
       ...memberIds.map(playerId =>
         api("/players/" + playerId + "/attributes").catch(() => null),
       ),
     ])
-      .then(([statsData, historyData, ...attributeRows]) => {
+      .then(([statsData, historyData, clubWalletData, ...attributeRows]) => {
         if (!active) return;
+        setClubWallet(clubWalletData || null);
         setClubStats(Array.isArray(statsData?.stats) ? statsData.stats : []);
         setClubHistory(Array.isArray(historyData) ? historyData : []);
         const nextAttributes = {};
@@ -1721,7 +1725,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 </div>
                 <div className="clubs-command-balance">
                   <span>CLUB BALANCE</span>
-                  <strong>{currentClub.balance ?? 0}</strong>
+                  <strong>{clubWallet?.club?.balance ?? currentClub.balance ?? 0}</strong>
                   <small>credits</small>
                 </div>
               </header>
