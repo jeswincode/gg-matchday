@@ -27,9 +27,6 @@ export function validateRetention(memberIds, retainedPlayerIds, captainIds) {
   if (members.size < 4 || members.size > 5 || retained.length > members.size || retained.some(id => !members.has(id))) {
     throw new Error("A Club must contain four or five members while active.");
   }
-  if (retained.length > 5) {
-    throw new Error("A Club cannot retain more than five players.");
-  }
   if (retained.length >= 4) {
     const retainedCaptains = (captainIds || []).filter(id => retained.includes(String(id)));
     if (retainedCaptains.length === 0) {
