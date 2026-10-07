@@ -2094,7 +2094,7 @@ router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
         upcomingMatches,
         completedMatches,
         syncFailures: syncIssues.length,
-        renewalRisks: renewalClubs?.length || 0,
+        renewalRisks: renewalClubIds.length,
       },
       attention: attention.slice(0, 16),
       recentClubs,
