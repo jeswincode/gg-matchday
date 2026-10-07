@@ -12,6 +12,7 @@ import MatchRecordForm from './features/matches/MatchRecordForm';
 import ClubsMode from './features/clubs/ClubsMode';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 import GGAssistant from './components/GGAssistant';
+import FootballWorld from './components/FootballWorld';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
@@ -343,6 +344,9 @@ function App() {
     setLeaderboard,
   ] = useState([]);
 
+  const [worldData, setWorldData] = useState(null);
+  const [worldLoading, setWorldLoading] = useState(true);
+
 
   const [
     loadingPlayers,
@@ -652,11 +656,27 @@ function App() {
     loadNews();
     loadLeaderboard("all");
     loadAwards();
+    loadFootballWorld();
   }, []);
 
   // =========================================================
   // LOADERS
   // =========================================================
+
+  async function loadFootballWorld() {
+    try {
+      setWorldLoading(true);
+      const response = await fetch(`${API_URL}/world`);
+      if (!response.ok) throw new Error("Football World could not be loaded.");
+      const data = await response.json();
+      setWorldData(data || null);
+    } catch (error) {
+      console.warn("Football World unavailable:", error?.message || error);
+      setWorldData(null);
+    } finally {
+      setWorldLoading(false);
+    }
+  }
 
   async function loadPlayers() {
     try {
@@ -2581,6 +2601,7 @@ function App() {
           news={news}
           newsLoading={newsLoading}
           leaderboard={leaderboard}
+          footballWorld={<FootballWorld apiUrl={API_URL} data={worldData} loading={worldLoading} />}
           onHallOfFame={() => setModal('hall')}
           onPlayer={showPlayer}
           onLeaderboard={() => setActiveTab(TABS.LEADERBOARD)}
