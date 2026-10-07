@@ -36,6 +36,7 @@ import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubMatchBet from "../models/clubs/ClubMatchBet.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
+import ClubSyncJob from "../models/ClubSyncJob.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
 import { generateClubMatchPrediction } from "../services/clubsPrediction.js";
@@ -136,6 +137,319 @@ router.get("/meta", (req, res) => {
   });
 });
 
+
+function matchDateKey(match) {
+  const value = match?.fixtureDate || match?.scheduledAt || match?.date;
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+}
+
+function publicMatchSnapshot(match, clubsById) {
+  const clubA = clubsById.get(String(match.clubAId)) || null;
+  const clubB = clubsById.get(String(match.clubBId)) || null;
+  return {
+    _id: match._id,
+    clubAId: match.clubAId,
+    clubBId: match.clubBId,
+    clubAName: clubA?.name || "Club",
+    clubBName: clubB?.name || "Club",
+    status: match.status,
+    fixtureDate: match.fixtureDate || matchDateKey(match),
+    scheduledAt: match.scheduledAt,
+    clubAScore: match.clubAScore ?? null,
+    clubBScore: match.clubBScore ?? null,
+    mainMatchId: match.mainMatchId || null,
+    winnerClubId: match.winnerClubId || null,
+  };
+}
+
+router.get("/home", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+
+  try {
+    const [clubs, applications, joinRequests] = await Promise.all([
+      Club.find({ status: "approved" }).sort({ nameNormalized: 1 }).lean(),
+      ClubFormationApplication.find({ memberIds: playerId }).sort({ createdAt: -1 }).lean(),
+      JoinRequest.find({ playerId, status: "pending" }).sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const currentClub =
+      clubs.find(club => club.memberIds?.some(id => String(id) === String(playerId))) || null;
+
+    const captainClubIds = currentClub &&
+      currentClub.captainIds?.some(id => String(id) === String(playerId))
+      ? [currentClub._id]
+      : [];
+
+    const auction = await AuctionOffer.find({
+      $or: [
+        { playerId, status: { $in: ["active", "chosenByPlayer", "approved"] } },
+        ...(captainClubIds.length ? [{ clubId: { $in: captainClubIds }, status: "chosenByPlayer" }] : []),
+      ],
+    }).sort({ createdAt: -1 }).lean();
+
+    const clubIds = currentClub ? [currentClub._id] : [];
+    const clubMatches = clubIds.length
+      ? await ClubMatch.find({
+          $or: [{ clubAId: currentClub._id }, { clubBId: currentClub._id }],
+        }).sort({ scheduledAt: 1, createdAt: 1 }).lean()
+      : [];
+
+    const clubMap = new Map(clubs.map(club => [String(club._id), club]));
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+    const todayMatches = clubMatches
+      .filter(match => matchDateKey(match) === today && ["requested", "accepted", "completed"].includes(match.status))
+      .map(match => publicMatchSnapshot(match, clubMap));
+
+    const upcomingMatches = clubMatches
+      .filter(match => {
+        const key = matchDateKey(match);
+        return key > today && ["requested", "accepted"].includes(match.status);
+      })
+      .sort((a, b) => matchDateKey(a).localeCompare(matchDateKey(b)))
+      .slice(0, 3)
+      .map(match => publicMatchSnapshot(match, clubMap));
+
+    const recentMatches = clubMatches
+      .filter(match => match.status === "completed" && match.mainMatchId)
+      .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt))
+      .slice(0, 5)
+      .map(match => publicMatchSnapshot(match, clubMap));
+
+    const form = recentMatches.map(match => {
+      if (match.clubAScore === match.clubBScore) return "D";
+      const won = String(match.winnerClubId) === String(currentClub?._id);
+      return won ? "W" : "L";
+    });
+
+    const recentHistory = currentClub
+      ? await ClubHistory.find({ clubId: currentClub._id })
+          .sort({ occurredAt: -1, createdAt: -1 })
+          .limit(6)
+          .lean()
+      : [];
+
+    const pendingFormation = applications.find(application =>
+      ["pendingMutualAgreement", "pendingName", "pendingCaptainVoteSetup", "captainVote", "pendingAdminApproval"].includes(application.status)
+    );
+
+    let nextAction = null;
+
+    if (!currentClub && pendingFormation) {
+      if (
+        pendingFormation.status === "pendingMutualAgreement" &&
+        pendingFormation.memberApprovals?.some(item => String(item.playerId) === String(playerId) && item.status === "pending")
+      ) {
+        nextAction = {
+          type: "formation-accept",
+          section: "overview",
+          eyebrow: "CLUB FORMATION",
+          title: "Your invitation is waiting",
+          description: "Accept or decline the Club formation invitation.",
+          actionLabel: "REVIEW INVITATION →",
+        };
+      } else if (pendingFormation.status === "pendingName") {
+        nextAction = {
+          type: "formation-name",
+          section: "overview",
+          eyebrow: "CLUB FORMATION",
+          title: "Choose the permanent Club name",
+          description: "Everyone has accepted. The formation is ready for its identity.",
+          actionLabel: "NAME THE CLUB →",
+        };
+      } else if (pendingFormation.status === "pendingCaptainVoteSetup") {
+        nextAction = {
+          type: "captain-setup",
+          section: "overview",
+          eyebrow: "CAPTAIN ELECTION",
+          title: "Start the captain vote",
+          description: "The squad is ready to elect its captain.",
+          actionLabel: "START VOTE →",
+        };
+      } else if (pendingFormation.status === "captainVote") {
+        const alreadyVoted = pendingFormation.captainVotes?.some(vote => String(vote.voterPlayerId) === String(playerId));
+        if (!alreadyVoted) {
+          const voted = new Set((pendingFormation.captainVotes || []).map(vote => String(vote.voterPlayerId)));
+          const remaining = pendingFormation.memberIds.filter(id => !voted.has(String(id))).length;
+          nextAction = {
+            type: "captain-vote",
+            section: "overview",
+            eyebrow: "CAPTAIN ELECTION",
+            title: "Your captain vote is waiting",
+            description: remaining + " member" + (remaining === 1 ? "" : "s") + " still need to vote.",
+            actionLabel: "CAST YOUR VOTE →",
+          };
+        }
+      }
+    }
+
+    if (!nextAction && currentClub) {
+      const pendingMatch = clubMatches.find(match =>
+        match.status === "requested" &&
+        String(match.clubBId) === String(currentClub._id) &&
+        currentClub.captainIds?.some(id => String(id) === String(playerId))
+      );
+      if (pendingMatch) {
+        nextAction = {
+          type: "match-respond",
+          section: "overview",
+          subsection: "matches",
+          eyebrow: "MATCH REQUEST",
+          title: clubMap.get(String(pendingMatch.clubAId))?.name + " wants to play you",
+          description: "Review the proposed Club Match and respond as captain.",
+          actionLabel: "REVIEW MATCH →",
+          entityId: pendingMatch._id,
+        };
+      }
+    }
+
+    if (!nextAction && currentClub) {
+      const ownActiveOffer = auction.find(offer => String(offer.playerId) === String(playerId) && offer.status === "active");
+      if (ownActiveOffer) {
+        nextAction = {
+          type: "auction-choose",
+          section: "myClub",
+          subsection: "auctions",
+          eyebrow: "AUCTION OFFER",
+          title: "You received a signing offer",
+          description: "Choose whether you want to join the Club behind the offer.",
+          actionLabel: "VIEW OFFER →",
+          entityId: ownActiveOffer._id,
+        };
+      }
+    }
+
+    if (!nextAction && currentClub) {
+      const incomingOffer = auction.find(offer =>
+        offer.status === "chosenByPlayer" &&
+        String(offer.playerId) !== String(playerId) &&
+        currentClub.captainIds?.some(id => String(id) === String(playerId)) &&
+        String(offer.clubId) === String(currentClub._id)
+      );
+      if (incomingOffer) {
+        nextAction = {
+          type: "auction-approve",
+          section: "myClub",
+          subsection: "auctions",
+          eyebrow: "CAPTAIN APPROVAL",
+          title: "A player chose your Club",
+          description: "Review the signing and add your captain approval.",
+          actionLabel: "REVIEW SIGNING →",
+          entityId: incomingOffer._id,
+        };
+      }
+    }
+
+    if (!nextAction && currentClub) {
+      const captainJoin = await JoinRequest.findOne({
+        clubId: currentClub._id,
+        status: "pending",
+      }).lean();
+      if (captainJoin && currentClub.captainIds?.some(id => String(id) === String(playerId))) {
+        nextAction = {
+          type: "join-request",
+          section: "overview",
+          eyebrow: "JOIN REQUEST",
+          title: "A player wants to join your Club",
+          description: "As captain, review the pending application.",
+          actionLabel: "REVIEW REQUEST →",
+          entityId: captainJoin._id,
+        };
+      }
+    }
+
+    if (!nextAction && currentClub) {
+      const activeContracts = await ClubContract.find({ clubId: currentClub._id, status: "active" }).sort({ endAt: 1 }).lean();
+      const boundaryAt = activeContracts[0]?.endAt || null;
+      if (boundaryAt && new Date() >= new Date(boundaryAt) && currentClub.captainIds?.some(id => String(id) === String(playerId))) {
+        const decision = await ClubRenewalDecision.findOne({ clubId: currentClub._id, boundaryAt }).lean();
+        const approvedBy = decision?.captainApprovalIds || [];
+        const awaiting = currentClub.captainIds.some(id => !approvedBy.some(approved => String(approved) === String(id)));
+        if (!decision || awaiting) {
+          nextAction = {
+            type: "renewal",
+            section: "myClub",
+            subsection: "squad",
+            eyebrow: "CONTRACT CONTROL",
+            title: "Club renewal is due",
+            description: "Keep 4–5 players to renew the Club, or retain fewer to archive it.",
+            actionLabel: "OPEN RENEWAL →",
+            entityId: currentClub._id,
+          };
+        }
+      }
+    }
+
+    if (!nextAction && todayMatches.length) {
+      const match = todayMatches[0];
+      nextAction = {
+        type: "match-today",
+        section: "overview",
+        subsection: "matches",
+        eyebrow: "MATCHDAY",
+        title: match.clubAName + " vs " + match.clubBName,
+        description: match.status === "completed" ? "Today's Club Match is complete." : "Your Club has a fixture today.",
+        actionLabel: "VIEW MATCH →",
+        entityId: match._id,
+      };
+    }
+
+    if (!nextAction && currentClub && upcomingMatches.length) {
+      const match = upcomingMatches[0];
+      nextAction = {
+        type: "match-upcoming",
+        section: "overview",
+        subsection: "matches",
+        eyebrow: "NEXT MATCH",
+        title: match.clubAName + " vs " + match.clubBName,
+        description: "Upcoming fixture on " + match.fixtureDate + ".",
+        actionLabel: "VIEW FIXTURE →",
+        entityId: match._id,
+      };
+    }
+
+    if (!nextAction) {
+      nextAction = currentClub
+        ? {
+            type: "all-clear",
+            section: "myClub",
+            subsection: "squad",
+            eyebrow: "CLUB STATUS",
+            title: "Your Club is up to date",
+            description: "No urgent Club action is waiting for you.",
+            actionLabel: "OPEN CLUB HQ →",
+          }
+        : {
+            type: "no-club",
+            section: "overview",
+            eyebrow: "GET STARTED",
+            title: "Build your Club world",
+            description: "Form a 4–5 player squad or request to join an official Club.",
+            actionLabel: "EXPLORE CLUBS →",
+          };
+    }
+
+    return res.json({
+      currentClub,
+      clubOvr: null,
+      memberCount: currentClub?.memberIds?.length || 0,
+      captainCount: currentClub?.captainIds?.length || 0,
+      nextAction,
+      todayMatches,
+      upcomingMatches,
+      recentMatches,
+      form,
+      recentHistory,
+    });
+  } catch (error) {
+    console.error("Load Clubs home command center error:", error);
+    return res.status(500).json({ message: "Failed to load your Clubs command center." });
+  }
+});
+
 // Public Clubs reads remain available to everyone. Player actions enforce
 // linked-account authentication at the individual endpoint, while admin
 // operations are protected explicitly with requireAdmin below.
@@ -152,7 +466,20 @@ router.get("/formation/me", requireAuth, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    return res.json(applications);
+    const allMemberIds = [...new Set(applications.flatMap(application => (application.memberIds || []).map(String)))];
+    const memberPlayers = allMemberIds.length
+      ? await Player.find({ _id: { $in: allMemberIds } })
+          .select("_id name position profileImage ovrSnapshot.currentOvr")
+          .lean()
+      : [];
+    const playersById = new Map(memberPlayers.map(player => [String(player._id), player]));
+
+    const enriched = applications.map(application => ({
+      ...application,
+      members: (application.memberIds || []).map(id => playersById.get(String(id)) || { _id: id, name: "Player" }),
+    }));
+
+    return res.json(enriched);
   } catch (error) {
     console.error("Load formation applications error:", error);
     return res.status(500).json({
@@ -496,6 +823,73 @@ router.get("/auction/me", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/players/discovery", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const [players, activeContracts, recentMatches] = await Promise.all([
+      Player.find({})
+        .select("_id name position profileImage jerseyNumber ovrSnapshot.currentOvr")
+        .sort({ name: 1 })
+        .lean(),
+      ClubContract.find({ status: "active" }).select("playerId clubId").lean(),
+      Match.find({ "participants.0": { $exists: true } })
+        .sort({ date: -1, createdAt: -1 })
+        .limit(40)
+        .select("_id date participants events")
+        .lean(),
+    ]);
+
+    const activeIds = new Set(activeContracts.map(contract => String(contract.playerId)));
+    const byPlayer = new Map(players.map(player => [
+      String(player._id),
+      {
+        player,
+        matchesPlayed: 0,
+        goals: 0,
+        assists: 0,
+        ratings: [],
+      },
+    ]));
+
+    for (const match of recentMatches) {
+      for (const participant of match.participants || []) {
+        const id = String(participant.player);
+        const row = byPlayer.get(id);
+        if (!row) continue;
+        row.matchesPlayed += 1;
+        if (participant.rating != null) row.ratings.push(Number(participant.rating));
+      }
+      for (const event of match.events || []) {
+        const id = String(event.player);
+        const row = byPlayer.get(id);
+        if (!row) continue;
+        if (event.type === "goal") row.goals += 1;
+        if (event.type === "assist") row.assists += 1;
+      }
+    }
+
+    return res.json(players.map(player => {
+      const row = byPlayer.get(String(player._id));
+      const ratings = (row?.ratings || []).slice(0, 5);
+      const formAverage = ratings.length
+        ? (ratings.reduce((sum, value) => sum + value, 0) / ratings.length).toFixed(2)
+        : null;
+      return {
+        ...player,
+        currentOvr: player.ovrSnapshot?.currentOvr ?? null,
+        matchesPlayed: row?.matchesPlayed || 0,
+        goals: row?.goals || 0,
+        assists: row?.assists || 0,
+        formAverage,
+        available: !activeIds.has(String(player._id)),
+      };
+    }));
+  } catch (error) {
+    console.error("Club player discovery error:", error);
+    return res.status(500).json({ message: "Failed to load Club player discovery." });
+  }
+});
+
 router.get("/auction/eligible-players", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const active = await ClubContract.find({ status: "active" }).select("playerId").lean();
@@ -504,9 +898,13 @@ router.get("/auction/eligible-players", async (req, res) => {
   return res.json(players);
 });
 
-router.get("/auction/offers/:playerId", async (req, res) => {
+router.get("/auction/offers/:playerId", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.playerId)) return res.status(400).json({ message: "Invalid player id." });
+  const signedInPlayerId = req.user?.playerProfile ? String(req.user.playerProfile) : "";
+  if (signedInPlayerId !== String(req.params.playerId) && req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Auction offers are private to the player receiving them." });
+  }
   const offers = await AuctionOffer.find({ playerId: req.params.playerId, status: { $in: ["active", "chosenByPlayer", "approved"] } }).sort({ amount: -1, createdAt: 1 }).lean();
   return res.json(offers);
 });
@@ -825,7 +1223,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
           await contract.save({ session });
         }
 
-        if (retained.length < 2) {
+        if (retained.length < 4) {
           club.memberIds = [];
           club.captainIds = [];
           club.status = "archived";
@@ -835,14 +1233,14 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
               clubId,
               playerId: releasedId,
               eventType: "memberReleased",
-              description: "Player contract ended at renewal; Club dissolved because fewer than two players were jointly retained.",
+              description: "Player contract ended at renewal; Club dissolved because fewer than four players were jointly retained.",
               metadata: { boundaryAt, retainedPlayerIds: retained },
             }], { session });
           }
           await ClubHistory.create([{
             clubId,
             eventType: "archived",
-            description: "Club archived at contract renewal because fewer than two players were jointly retained.",
+            description: "Club archived at contract renewal because fewer than four players were jointly retained.",
             metadata: { boundaryAt, retainedPlayerIds: retained },
           }], { session });
           decision.status = "applied";
@@ -1338,6 +1736,7 @@ router.get("/", async (req, res) => {
 
   try {
     const clubs = await Club.find({ status: "approved" })
+      .select("_id name nameNormalized description logoUrl memberIds captainIds status approvedAt")
       .sort({ nameNormalized: 1 })
       .lean();
     return res.json(clubs);
@@ -1353,7 +1752,7 @@ router.get("/:clubId/stats", async (req, res) => {
 
   try {
     const club = await Club.findOne({ _id: req.params.clubId, status: "approved" })
-      .select("_id name memberIds captainIds balance")
+      .select("_id name memberIds captainIds")
       .lean();
     if (!club) return res.status(404).json({ message: "Club not found." });
 
@@ -1417,7 +1816,7 @@ router.get("/:id", async (req, res) => {
     const club = await Club.findOne({
       _id: req.params.id,
       status: "approved",
-    }).lean();
+    }).select("_id name nameNormalized description logoUrl memberIds captainIds status approvedAt").lean();
 
     if (!club) {
       return res.status(404).json({ message: "Club not found." });
@@ -1601,6 +2000,96 @@ router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
       .limit(10)
       .lean();
 
+    const horizon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const [syncIssues, renewalContracts, pendingMatchRows] = await Promise.all([
+      ClubSyncJob.find({
+        status: "pending",
+        lastError: { $nin: ["", null] },
+      }).sort({ nextAttemptAt: 1, createdAt: 1 }).limit(8).lean(),
+      ClubContract.find({
+        status: "active",
+        endAt: { $gt: new Date(), $lte: horizon },
+      }).sort({ endAt: 1 }).limit(30).lean(),
+      ClubMatch.find({
+        status: "requested",
+      }).sort({ createdAt: 1 }).limit(10).lean(),
+    ]);
+
+    const attention = [];
+
+    const pendingApplicationDocs = await ClubFormationApplication.find({
+      status: "pendingAdminApproval",
+    }).sort({ createdAt: 1 }).limit(8).lean();
+
+    for (const application of pendingApplicationDocs) {
+      attention.push({
+        severity: "medium",
+        type: "formation",
+        target: "adminApplications",
+        entityId: String(application._id),
+        title: application.proposedName || "Unnamed Club",
+        subtitle: (application.memberIds?.length || 0) + " players · awaiting approval",
+        detail: "Formation completed and waiting for an administrator.",
+        actionLabel: "REVIEW APPLICATION →",
+        createdAt: application.createdAt,
+      });
+    }
+
+    for (const job of syncIssues) {
+      attention.push({
+        severity: "high",
+        type: "sync",
+        target: "adminDashboard",
+        entityId: String(job.mainMatchId),
+        title: "Matchday → Clubs sync failed",
+        subtitle: "Main Match " + String(job.mainMatchId),
+        detail: String(job.lastError || "Sync retry pending."),
+        actionLabel: "OPEN SYNC DETAIL →",
+        createdAt: job.createdAt,
+      });
+    }
+
+    const renewalClubIds = [...new Set(renewalContracts.map(contract => String(contract.clubId)))];
+    if (renewalClubIds.length) {
+      const renewalClubs = await Club.find({ _id: { $in: renewalClubIds }, status: "approved" })
+        .select("_id name memberIds")
+        .lean();
+      for (const club of renewalClubs) {
+        const boundary = renewalContracts.find(contract => String(contract.clubId) === String(club._id))?.endAt;
+        attention.push({
+          severity: "medium",
+          type: "renewal",
+          target: "adminClubs",
+          entityId: String(club._id),
+          title: club.name,
+          subtitle: (club.memberIds?.length || 0) + "/5 members · renewal approaching",
+          detail: "Contract boundary: " + new Date(boundary).toLocaleDateString(),
+          actionLabel: "OPEN CLUB →",
+          createdAt: boundary,
+        });
+      }
+    }
+
+    for (const match of pendingMatchRows) {
+      const days = Math.max(0, Math.ceil((new Date(match.scheduledAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+      attention.push({
+        severity: "low",
+        type: "match",
+        target: "adminMatches",
+        entityId: String(match._id),
+        title: "Pending Club Match request",
+        subtitle: "Fixture " + (match.fixtureDate || new Date(match.scheduledAt).toISOString().slice(0, 10)),
+        detail: days <= 1 ? "Fixture is within 24 hours." : "Awaiting receiving Club response.",
+        actionLabel: "OPEN MATCH →",
+        createdAt: match.createdAt,
+      });
+    }
+
+    attention.sort((a, b) => {
+      const weight = { high: 0, medium: 1, low: 2 };
+      return (weight[a.severity] - weight[b.severity]) || (new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    });
+
     return res.json({
       counts: {
         totalClubs,
@@ -1610,7 +2099,10 @@ router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
         activeMembers: activeContracts,
         upcomingMatches,
         completedMatches,
+        syncFailures: syncIssues.length,
+        renewalRisks: renewalClubIds.length,
       },
+      attention: attention.slice(0, 16),
       recentClubs,
     });
   } catch (error) {

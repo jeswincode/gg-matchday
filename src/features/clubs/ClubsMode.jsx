@@ -101,6 +101,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [matchScheduledAt, setMatchScheduledAt] = useState("");
   const [matchSubmitting, setMatchSubmitting] = useState(false);
   const [clubStats, setClubStats] = useState([]);
+  const [clubWallet, setClubWallet] = useState(null);
   const [clubHistory, setClubHistory] = useState([]);
   const [playerAttributes, setPlayerAttributes] = useState({});
   const [auctionState, setAuctionState] = useState(null);
@@ -115,6 +116,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [matchMarkets, setMatchMarkets] = useState({});
   const [betDrafts, setBetDrafts] = useState({});
   const [announcement, setAnnouncement] = useState("");
+  const [commandCenter, setCommandCenter] = useState(null);
+  const [commandCenterLoading, setCommandCenterLoading] = useState(false);
+  const [receivedReviews, setReceivedReviews] = useState([]);
+  const [clubDiscovery, setClubDiscovery] = useState([]);
+  const [adminAttentionDetail, setAdminAttentionDetail] = useState(null);
 
   const announce = message => {
     setAnnouncement("");
@@ -229,12 +235,62 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
   };
 
+  const refreshCommandCenter = async () => {
+    if (!authUser?.playerProfile) {
+      setCommandCenter(null);
+      return null;
+    }
+    try {
+      setCommandCenterLoading(true);
+      const data = await api("/clubs/home");
+      setCommandCenter(data || null);
+      return data || null;
+    } catch (e) {
+      console.warn("Clubs command center refresh failed:", e.message);
+      return null;
+    } finally {
+      setCommandCenterLoading(false);
+    }
+  };
+
+  const openCommandAction = action => {
+    if (!action) return;
+    if (action.section === "myClub") {
+      setActiveSection("myClub");
+      setMyClubSubsection(action.subsection === "auctions" ? "auctions" : "squad");
+    } else if (action.subsection === "matches") {
+      setActiveSection("overview");
+      setUltimateSubsection("matches");
+    } else {
+      setActiveSection("overview");
+      setUltimateSubsection("overview");
+    }
+    window.setTimeout(() => {
+      const target = document.getElementById(
+        action.type === "renewal"
+          ? "clubs-renewal-room"
+          : action.type === "auction-choose" || action.type === "auction-approve"
+            ? "clubs-auction-desk"
+            : action.type === "match-today" || action.type === "match-upcoming" || action.type === "match-respond"
+              ? "clubs-match-center"
+              : action.type === "join-request"
+                ? "clubs-join-requests"
+                : "clubs-formation-pipeline",
+      );
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
+
   const refreshReviews = async () => {
     if (!authUser) return;
     try {
       setReviewLoading(true);
-      const data = await api("/clubs/reviews/eligible/me");
-      setReviewCandidates(Array.isArray(data) ? data : []);
+      const [eligible, received] = await Promise.all([
+        api("/clubs/reviews/eligible/me"),
+        api("/clubs/reviews/player/" + authUser.playerProfile),
+      ]);
+      setReviewCandidates(Array.isArray(eligible) ? eligible : []);
+      setReceivedReviews(Array.isArray(received) ? received : []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -349,9 +405,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         body: { retainedPlayerIds: retainedPlayers },
       });
       await refreshRenewalState(currentClub._id);
+      await refreshCommandCenter();
       announce("Renewal decision submitted.");
       const clubsData = await api("/clubs");
       setClubs(Array.isArray(clubsData) ? clubsData : []);
+      await refreshCommandCenter();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -378,6 +436,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setBusyId("auction-" + offerId);
       await api("/clubs/auction/offers/" + offerId + "/choose", { method: "POST" });
       await refreshAuctionState();
+      await refreshCommandCenter();
       announce("Auction offer selected.");
     } catch (e) {
       setError(e.message);
@@ -413,6 +472,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       const clubsData = await api("/clubs");
       setClubs(Array.isArray(clubsData) ? clubsData : []);
       await refreshAuctionState();
+      await refreshCommandCenter();
       announce("Signing approval recorded.");
     } catch (e) {
       setError(e.message);
@@ -479,6 +539,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setMatchClubB("");
       setMatchScheduledAt("");
       await refreshClubMatches();
+      await refreshCommandCenter();
       announce("Club Match request sent.");
     } catch (e) {
       setError(e.message);
@@ -493,6 +554,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setBusyId(matchId);
       await api("/clubs/matches/" + matchId + "/respond", { method: "POST", body: { accept } });
       await refreshClubMatches();
+      await refreshCommandCenter();
       announce(accept ? "Club Match request accepted." : "Club Match request declined.");
     } catch (e) {
       setError(e.message);
@@ -507,6 +569,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setBusyId(matchId);
       await api("/clubs/matches/" + matchId + "/cancel", { method: "POST" });
       await refreshClubMatches();
+      await refreshCommandCenter();
       announce("Club Match request cancelled.");
     } catch (e) {
       setError(e.message);
@@ -542,6 +605,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     let active = true;
     if (activeSection !== "myClub" || !currentClub?._id) {
+      setClubWallet(null);
       return undefined;
     }
 
@@ -550,12 +614,14 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     Promise.all([
       api("/clubs/" + currentClub._id + "/stats"),
       api("/clubs/" + currentClub._id + "/history"),
+      api("/clubs/" + currentClub._id + "/wallet"),
       ...memberIds.map(playerId =>
         api("/players/" + playerId + "/attributes").catch(() => null),
       ),
     ])
-      .then(([statsData, historyData, ...attributeRows]) => {
+      .then(([statsData, historyData, clubWalletData, ...attributeRows]) => {
         if (!active) return;
+        setClubWallet(clubWalletData || null);
         setClubStats(Array.isArray(statsData?.stats) ? statsData.stats : []);
         setClubHistory(Array.isArray(historyData) ? historyData : []);
         const nextAttributes = {};
@@ -627,6 +693,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         body: { accept },
       });
       await refreshApplications();
+      await refreshCommandCenter();
       announce(accept ? "Club formation invitation accepted." : "Club formation invitation declined.");
     } catch (requestError) {
       setError(requestError.message);
@@ -635,9 +702,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
   };
 
-  const startCaptainVote = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/setup", { method: "POST" }); await refreshApplications(); announce("Captain vote is ready."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+  const startCaptainVote = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/setup", { method: "POST" }); await refreshApplications(); await refreshCommandCenter(); announce("Captain vote is ready."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
 
-  const captainVote = async (applicationId, candidatePlayerId) => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/vote", { method: "POST", body: { candidatePlayerId } }); await refreshApplications(); announce("Captain vote recorded."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+  const captainVote = async (applicationId, candidatePlayerId) => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/vote", { method: "POST", body: { candidatePlayerId } }); await refreshApplications(); await refreshCommandCenter(); announce("Captain vote recorded."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
 
   const submitDetails = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/details", { method: "POST", body: { details: detailDrafts[applicationId] || "" } }); await refreshApplications(); announce("Club details approval recorded."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
 
@@ -657,6 +724,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         body: { name },
       });
       await refreshApplications();
+      await refreshCommandCenter();
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -698,6 +766,20 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [activeSection, ultimateSubsection, clubMatches, authUser]);
 
   useEffect(() => {
+    if (!authUser) {
+      setCommandCenter(null);
+      return undefined;
+    }
+    let active = true;
+    refreshCommandCenter().then(data => {
+      if (!active && data) setCommandCenter(null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [authUser]);
+
+  useEffect(() => {
     if (!authUser || activeSection !== "reviews") return undefined;
     let active = true;
     api("/clubs/reviews/eligible/me")
@@ -711,6 +793,21 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       active = false;
     };
   }, [authUser, activeSection]);
+
+  useEffect(() => {
+    if (!authUser || activeSection !== "players" || playersSubsection !== "directory") return undefined;
+    let active = true;
+    api("/clubs/players/discovery")
+      .then(data => {
+        if (active) setClubDiscovery(Array.isArray(data) ? data : []);
+      })
+      .catch(e => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authUser, activeSection, playersSubsection]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "players" || playersSubsection !== "history") return undefined;
@@ -750,7 +847,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         if (!active) return;
         setRenewalState(data || null);
         if (retainedPlayers.length === 0 && data?.club?.memberIds) {
-          setRetainedPlayers(data.club.memberIds.slice(0, 2).map(String));
+          setRetainedPlayers(data.club.memberIds.map(String));
         }
       })
       .catch(e => {
@@ -810,6 +907,80 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       {error && <div className="clubs-error" role="alert">{error}</div>}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
+      {authUser && !adminOnlyView && (
+        <section className="clubs-command-center" aria-labelledby="clubs-hq-title">
+          <div className="clubs-hq-heading">
+            <div>
+              <p className="clubs-eyebrow">CLUB COMMAND CENTER</p>
+              <h2 id="clubs-hq-title">{commandCenter?.currentClub?.name || "Your Clubs HQ"}</h2>
+              <p>{commandCenter?.currentClub ? "Everything important for your squad, fixtures, contracts and market in one place." : "One place to see what is happening and what you need to do next."}</p>
+            </div>
+            {commandCenter?.currentClub && (
+              <div className="clubs-hq-status">
+                <span>{commandCenter.memberCount}/5 SQUAD</span>
+                <strong>{commandCenter.currentClub.captainIds?.length || 0}</strong>
+                <small>captain{(commandCenter.currentClub.captainIds?.length || 0) === 1 ? "" : "s"}</small>
+              </div>
+            )}
+          </div>
+
+          {commandCenterLoading && !commandCenter ? (
+            <div className="clubs-next-action clubs-next-action--loading">
+              <span className="clubs-next-action-pulse" aria-hidden="true"></span>
+              <div><p className="clubs-eyebrow">YOUR NEXT ACTION</p><strong>Checking your Club status…</strong><span>Loading formation, fixtures and decisions.</span></div>
+            </div>
+          ) : commandCenter?.nextAction ? (
+            <button
+              type="button"
+              className={"clubs-next-action " + (commandCenter.nextAction.type === "all-clear" ? "clubs-next-action--clear" : "")}
+              onClick={() => openCommandAction(commandCenter.nextAction)}
+            >
+              <span className="clubs-next-action-icon" aria-hidden="true">{commandCenter.nextAction.type === "all-clear" ? "✓" : "!"}</span>
+              <span className="clubs-next-action-copy">
+                <p className="clubs-eyebrow">{commandCenter.nextAction.eyebrow}</p>
+                <strong>{commandCenter.nextAction.title}</strong>
+                <span>{commandCenter.nextAction.description}</span>
+              </span>
+              <span className="clubs-next-action-cta">{commandCenter.nextAction.actionLabel}</span>
+            </button>
+          ) : null}
+
+          {commandCenter?.currentClub && (
+            <div className="clubs-hq-grid">
+              <section className="clubs-hq-card">
+                <div className="clubs-hq-card-head"><div><p className="clubs-eyebrow">TODAY</p><h3>Club Matchday</h3></div><span>{commandCenter.todayMatches?.length || 0}</span></div>
+                {(commandCenter.todayMatches || []).length === 0 ? (
+                  <div className="clubs-hq-empty"><strong>No fixture today.</strong><span>Upcoming matches and Club activity will appear here.</span></div>
+                ) : (
+                  <div className="clubs-hq-fixtures">
+                    {commandCenter.todayMatches.map(match => (
+                      <button type="button" key={String(match._id)} onClick={() => openCommandAction({type:"match-today",section:"overview",subsection:"matches"})}>
+                        <span>{match.clubAName}</span><strong>{match.status === "completed" ? (match.clubAScore ?? 0) + "–" + (match.clubBScore ?? 0) : "VS"}</strong><span>{match.clubBName}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+              <section className="clubs-hq-card">
+                <div className="clubs-hq-card-head"><div><p className="clubs-eyebrow">FORM</p><h3>Recent Club results</h3></div><span>{(commandCenter.form || []).length}</span></div>
+                {(commandCenter.form || []).length === 0 ? (
+                  <div className="clubs-hq-empty"><strong>No completed Club Matches yet.</strong><span>Your first result will start the Club record.</span></div>
+                ) : (
+                  <div className="clubs-form-strip" aria-label="Recent Club form">
+                    {(commandCenter.form || []).map((result, index) => <span key={index} data-result={result}>{result}</span>)}
+                  </div>
+                )}
+                <div className="clubs-hq-microstats">
+                  <span><b>{commandCenter.memberCount}</b> players</span>
+                  <span><b>{commandCenter.upcomingMatches?.length || 0}</b> upcoming</span>
+                  <span><b>{commandCenter.recentHistory?.length || 0}</b> recent events</span>
+                </div>
+              </section>
+            </div>
+          )}
+        </section>
+      )}
+
       {activeSection === "overview" && ultimateSubsection === "overview" ? (
         <>
       <div className="clubs-section-tabs" role="tablist" aria-label="Ultimate Clubs sections"><button type="button" role="tab" aria-selected={ultimateSubsection === "overview"} className={ultimateSubsection === "overview" ? "active" : ""} onClick={() => setUltimateSubsection("overview")}>Overview</button><button type="button" role="tab" aria-selected={ultimateSubsection === "matches"} className={ultimateSubsection === "matches" ? "active" : ""} onClick={() => setUltimateSubsection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button></div>
@@ -846,7 +1017,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               const isMember = club.memberIds?.some(id => String(id) === currentPlayerId);
               const full = (club.memberIds?.length || 0) >= 5;
               return <article className="clubs-application" key={club._id}>
-                <div><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/5 players · {club.balance} credits</span></div>
+                <div><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/5 players · {full ? "Squad full" : "Open roster"}</span></div>
                 {!isMember && !full && <button type="button" className="clubs-primary-button" disabled={busyId === club._id} onClick={() => sendJoinRequest(club._id)}>{busyId === club._id ? "Sending…" : "Request to Join"}</button>}
                 {isMember && <span>Current club</span>}
                 {full && !isMember && <span>Squad full</span>}
@@ -993,10 +1164,19 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
                 return (
                   <article className="clubs-application" key={application._id}>
-                    <div>
+                    <div className="clubs-formation-application-body">
                       <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
                       <h3>{application.proposedName || "Unnamed club"}</h3>
                       <span>{application.memberIds?.length || 0}/5 members · {application.memberIds?.length === 5 ? "five-player squad" : "four-player squad"}</span>
+                      <div className="clubs-formation-stepper" aria-label={"Formation progress: step " + formationProgress(application.status) + " of " + formationSteps.length}>
+                        {formationSteps.map(([stepStatus, label], index) => {
+                          const step = index + 1;
+                          const progress = formationProgress(application.status);
+                          const state = step < progress ? "done" : step === progress ? "current" : "todo";
+                          return <span key={stepStatus + label} data-state={state}><b>{state === "done" ? "✓" : step}</b>{label}</span>;
+                        })}
+                      </div>
+                      <small className="clubs-formation-step-caption">STEP {Math.min(formationProgress(application.status), formationSteps.length)} / {formationSteps.length} · {statusLabel(application.status)}</small>
                       {application.rejectionReason && (
                         <small className="clubs-rejection">{application.rejectionReason}</small>
                       )}
@@ -1035,12 +1215,25 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       <button type="button" className="clubs-primary-button" disabled={busyId === application._id} onClick={() => startCaptainVote(application._id)}>Start Captain Vote</button>
                     )}
                     {application.status === "captainVote" && (
-                      <div className="clubs-application-actions">
-                        {(application.captainCandidates || []).map(candidate => (
-                          <button key={candidate} type="button" className="clubs-primary-button" disabled={busyId === application._id || application.captainVotes?.some(v => String(v.voterPlayerId) === currentPlayerId)} onClick={() => captainVote(application._id, candidate)}>
-                            Vote {candidate === currentPlayerId ? "for yourself" : candidate.slice(-6)}
-                          </button>
-                        ))}
+                      <div className="clubs-captain-vote">
+                        <div className="clubs-captain-vote-head">
+                          <div><p className="clubs-eyebrow">CAPTAIN ELECTION</p><strong>{application.captainVotes?.length || 0}/{application.memberIds?.length || 0} votes cast</strong></div>
+                          <span>{application.captainVotes?.some(v => String(v.voterPlayerId) === currentPlayerId) ? "Your vote is recorded" : "Your vote is needed"}</span>
+                        </div>
+                        <div className="clubs-vote-candidates">
+                          {(application.captainCandidates || []).map(candidate => {
+                            const member = (application.members || []).find(item => String(item?._id) === String(candidate));
+                            const votes = (application.captainVotes || []).filter(v => String(v.candidatePlayerId) === String(candidate)).length;
+                            return (
+                              <button key={candidate} type="button" className="clubs-vote-candidate" disabled={busyId === application._id || application.captainVotes?.some(v => String(v.voterPlayerId) === currentPlayerId)} onClick={() => captainVote(application._id, candidate)}>
+                                <span className="clubs-roster-avatar">{member?.profileImage ? <img src={member.profileImage} alt="" /> : playerInitials(member?.name)}</span>
+                                <span><strong>{member?.name || "Captain candidate"}</strong><small>OVR {member?.ovr ?? "—"} · {votes} vote{votes === 1 ? "" : "s"}</small></span>
+                                <b>{application.captainVotes?.some(v => String(v.candidatePlayerId) === String(candidate)) ? "VOTED" : "VOTE"}</b>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <small className="clubs-captain-vote-note">Candidates are the two highest-OVR players in this formation. Every member must vote; a tie creates co-captains.</small>
                       </div>
                     )}
                     {application.status === "pendingAdminApproval" && (
@@ -1097,7 +1290,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         <button type="button" role="tab" aria-selected={ultimateSubsection === "overview"} className={ultimateSubsection === "overview" ? "active" : ""} onClick={() => setUltimateSubsection("overview")}>Overview</button>
         <button type="button" role="tab" aria-selected={ultimateSubsection === "matches"} className={ultimateSubsection === "matches" ? "active" : ""} onClick={() => setUltimateSubsection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
       </div>
-      <section className="clubs-section clubs-matches-panel">
+      <section id="clubs-match-center" className="clubs-section clubs-matches-panel">
         <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUB MATCHES</p><h2>Schedule & fixtures</h2></div><span>{clubMatches.length} recorded</span></div>
         {authUser && myCaptainClubs.length > 0 && (
           <form className="clubs-create-form clubs-match-form" onSubmit={requestClubMatch}>
@@ -1201,8 +1394,36 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </div>
           </div>
           {playersSubsection === "directory" ? (
-            <div className="clubs-application-list">
-              {players.map(player => <article className="clubs-application" key={player._id}><div><p className="clubs-eyebrow">{player.position || "PLAYER"}</p><h3>{player.name}</h3><span>{player.jerseyNumber ? "#" + player.jerseyNumber + " · " : ""}Open to Club approaches</span></div></article>)}
+            <div className="clubs-scout-grid">
+              {(clubDiscovery.length ? clubDiscovery : players.map(player => ({ ...player, available: true }))).map(player => {
+                const current = String(player._id) === currentPlayerId;
+                const canOffer = Boolean(currentClub && myCaptainClubs.length && player.available && !current);
+                return (
+                  <article className="clubs-scout-card" key={player._id}>
+                    <div className="clubs-scout-top">
+                      <span className="clubs-scout-avatar">{player.profileImage ? <img src={player.profileImage} alt="" /> : playerInitials(player.name)}</span>
+                      <div><p className="clubs-eyebrow">{player.position || "PLAYER"}</p><h3>{player.name}</h3><span>{player.jerseyNumber ? "#" + player.jerseyNumber : "GG PLAYER"}</span></div>
+                      <strong>{player.currentOvr ?? player.ovrSnapshot?.currentOvr ?? "—"}<small>OVR</small></strong>
+                    </div>
+                    <div className="clubs-scout-metrics">
+                      <span><b>{player.matchesPlayed ?? 0}</b><small>MATCHES</small></span>
+                      <span><b>{player.goals ?? 0}</b><small>GOALS</small></span>
+                      <span><b>{player.assists ?? 0}</b><small>ASSISTS</small></span>
+                      <span><b>{player.formAverage ?? "—"}</b><small>FORM</small></span>
+                    </div>
+                    <div className="clubs-scout-footer">
+                      <span data-availability={player.available ? "available" : "contracted"}>{player.available ? "Available for approach" : "Under Club contract"}</span>
+                      {canOffer && <button type="button" className="clubs-secondary-button" onClick={() => {
+                        setOfferPlayer(String(player._id));
+                        setActiveSection("overview");
+                        setUltimateSubsection("overview");
+                        window.setTimeout(() => document.getElementById("clubs-auction-desk")?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+                      }}>Make Offer</button>}
+                      {current && <span>That’s you</span>}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           ) : !authUser ? (
             <div className="clubs-empty">Sign in to view your Player History.</div>
@@ -1297,8 +1518,38 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               ["Club Matches", adminOverview?.counts?.upcomingMatches ?? 0],
               ["Completed", adminOverview?.counts?.completedMatches ?? 0],
               ["Archived Clubs", adminOverview?.counts?.archivedClubs ?? 0],
+              ["Sync Failures", adminOverview?.counts?.syncFailures ?? 0],
+              ["Renewal Risks", adminOverview?.counts?.renewalRisks ?? 0],
             ].map(([label, value]) => <div className="clubs-history-stat" key={label}><strong>{value}</strong><span>{label}</span></div>)}
           </div>
+          <section className="clubs-subsection clubs-admin-attention">
+            <div className="clubs-section-heading"><div><p className="clubs-eyebrow">NEEDS ATTENTION</p><h3>Operational queue</h3><span>Every item points to the workflow that needs review.</span></div><span>{adminOverview?.attention?.length || 0}</span></div>
+            {adminAttentionDetail && (
+              <div className="clubs-admin-attention-detail" role="status">
+                <div><p className="clubs-eyebrow">{String(adminAttentionDetail.severity || "info").toUpperCase()} · {adminAttentionDetail.type}</p><strong>{adminAttentionDetail.title}</strong><span>{adminAttentionDetail.subtitle}</span><p>{adminAttentionDetail.detail}</p></div>
+                <button type="button" className="clubs-secondary-button" onClick={() => setAdminAttentionDetail(null)}>Dismiss</button>
+              </div>
+            )}
+            {(adminOverview?.attention || []).length === 0 ? (
+              <div className="clubs-empty"><strong>Everything is clear.</strong><span>No formation, sync, renewal or fixture items currently need administrator attention.</span></div>
+            ) : (
+              <div className="clubs-admin-attention-list">
+                {(adminOverview?.attention || []).map(item => (
+                  <button type="button" className="clubs-admin-attention-item" data-severity={item.severity} key={item.type + ":" + item.entityId + ":" + item.title} onClick={() => {
+                    if (item.target === "adminApplications") setActiveSection("adminApplications");
+                    else if (item.target === "adminClubs") setActiveSection("adminClubs");
+                    else if (item.target === "adminMatches") setActiveSection("adminMatches");
+                    setAdminAttentionDetail(item);
+                  }}>
+                    <span className="clubs-admin-attention-severity">{item.severity === "high" ? "!" : item.severity === "medium" ? "•" : "○"}</span>
+                    <span><strong>{item.title}</strong><small>{item.subtitle}</small><em>{item.detail}</em></span>
+                    <b>{item.actionLabel || "OPEN →"}</b>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
           <section className="clubs-subsection">
             <div className="clubs-section-heading"><div><p className="clubs-eyebrow">LATEST CLUBS</p><h3>Recently changed Clubs</h3></div><span>{adminOverview?.recentClubs?.length || 0}</span></div>
             <div className="clubs-application-list">
@@ -1404,30 +1655,48 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           ) : reviewCandidates.length === 0 ? (
             <div className="clubs-empty">No eligible reviews right now. Complete a Club Match with another player first.</div>
           ) : (
-            <form className="clubs-review-form" onSubmit={submitReview}>
-              <label>
-                Player
-                <select value={reviewForm.candidateKey} onChange={event => setReviewForm(current => ({ ...current, candidateKey: event.target.value }))} required>
-                  <option value="">Choose a player</option>
-                  {reviewCandidates.map(candidate => (
-                    <option key={candidate.playerId + ":" + candidate.relationship} value={candidate.playerId + ":" + candidate.relationship}>
-                      {candidate.player?.name || "Player"} · {candidate.relationship} · {candidate.matchCount} match{candidate.matchCount === 1 ? "" : "es"}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Stars
-                <select value={reviewForm.stars} onChange={event => setReviewForm(current => ({ ...current, stars: Number(event.target.value) }))}>
-                  {[1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{"★".repeat(value)} ({value}/5)</option>)}
-                </select>
-              </label>
-              <label>
-                Observation
-                <textarea value={reviewForm.observation} onChange={event => setReviewForm(current => ({ ...current, observation: event.target.value }))} maxLength={1000} rows={5} placeholder="Write a useful observation about their play." required />
-              </label>
-              <button type="submit" className="clubs-primary-button" disabled={busyId === "review"}>{busyId === "review" ? "Submitting…" : "Submit review"}</button>
-            </form>
+            <div className="clubs-review-grid">
+              <form className="clubs-review-form" onSubmit={submitReview}>
+                <div className="clubs-review-form-intro"><p className="clubs-eyebrow">WRITE A REVIEW</p><strong>Keep it useful and match-specific.</strong><span>Reviews are limited to players you actually played with or against in a completed Club Match.</span></div>
+                <label>
+                  Player
+                  <select value={reviewForm.candidateKey} onChange={event => setReviewForm(current => ({ ...current, candidateKey: event.target.value }))} required>
+                    <option value="">Choose a player</option>
+                    {reviewCandidates.map(candidate => (
+                      <option key={candidate.playerId + ":" + candidate.relationship} value={candidate.playerId + ":" + candidate.relationship}>
+                        {candidate.player?.name || "Player"} · {candidate.relationship} · {candidate.matchCount} match{candidate.matchCount === 1 ? "" : "es"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Stars
+                  <select value={reviewForm.stars} onChange={event => setReviewForm(current => ({ ...current, stars: Number(event.target.value) }))}>
+                    {[1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{"★".repeat(value)} ({value}/5)</option>)}
+                  </select>
+                </label>
+                <label>
+                  Observation
+                  <textarea value={reviewForm.observation} onChange={event => setReviewForm(current => ({ ...current, observation: event.target.value }))} maxLength={1000} rows={5} placeholder="Example: excellent close control under pressure, kept making progressive passes." required />
+                </label>
+                <div className="clubs-review-character-count">{reviewForm.observation.length}/1000</div>
+                <button type="submit" className="clubs-primary-button" disabled={busyId === "review"}>{busyId === "review" ? "Submitting…" : "Publish review"}</button>
+              </form>
+              <section className="clubs-review-received">
+                <div className="clubs-section-heading"><div><p className="clubs-eyebrow">YOUR REVIEWS</p><h3>What other Club players said</h3></div><span>{receivedReviews.length}</span></div>
+                {receivedReviews.length === 0 ? <div className="clubs-empty">No reviews received yet. Complete Club Matches and your feedback history will build here.</div> : (
+                  <div className="clubs-received-list">
+                    {receivedReviews.slice(0, 8).map(review => (
+                      <article className="clubs-received-review" key={String(review._id)}>
+                        <div className="clubs-received-review-head"><strong>{review.reviewerPlayerId?.name || "Player"}</strong><span>{"★".repeat(Number(review.stars || 0))}</span></div>
+                        <small>{review.relationship} · {new Date(review.createdAt).toLocaleDateString()}</small>
+                        <p>{review.observation}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </div>
           )}
         </section>
       ) : activeSection === "myClub" && myClubSubsection === "squad" ? (
@@ -1456,7 +1725,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 </div>
                 <div className="clubs-command-balance">
                   <span>CLUB BALANCE</span>
-                  <strong>{currentClub.balance ?? 0}</strong>
+                  <strong>{clubWallet?.club?.balance ?? currentClub.balance ?? 0}</strong>
                   <small>credits</small>
                 </div>
               </header>
@@ -1610,7 +1879,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               </div>
 
               <div className="clubs-myclub-lower-grid">
-                <section className="clubs-subsection clubs-renewal-panel">
+                <section id="clubs-renewal-room" className="clubs-subsection clubs-renewal-panel">
                   <div className="clubs-section-heading">
                     <div><p className="clubs-eyebrow">CONTRACT CONTROL</p><h3>Renewal room</h3></div>
                     <span>{renewalLoading ? "Loading…" : renewalState?.boundaryAt ? new Date(renewalState.boundaryAt).toLocaleDateString() : "—"}</span>
@@ -1637,7 +1906,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                                 <button
                                   type="button"
                                   className={retained ? "clubs-primary-button is-retained" : "clubs-secondary-button"}
-                                  onClick={() => setRetainedPlayers(current => retained ? current.filter(id => id !== String(playerId)) : current.length < 2 ? [...current, String(playerId)] : current)}
+                                  onClick={() => setRetainedPlayers(current => retained ? current.filter(id => id !== String(playerId)) : current.length < 5 ? [...current, String(playerId)] : current)}
                                 >
                                   {retained ? "Retain" : "Select"}
                                 </button>
@@ -1648,7 +1917,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       </div>
                       {renewalState.isCaptain && (
                         <div className="clubs-renewal-action">
-                          <span>Retaining fewer than 2 dissolves the Club at the boundary.</span>
+                          <span>{retainedPlayers.length >= 4 ? "Ready to renew with " + retainedPlayers.length + " players." : "Retain 4–5 players to renew. Fewer than 4 archives the Club."}</span>
                           <button type="button" className="clubs-primary-button" disabled={busyId === "renewal"} onClick={submitRenewal}>
                             {busyId === "renewal" ? "Submitting…" : "Submit Renewal Decision"}
                           </button>
