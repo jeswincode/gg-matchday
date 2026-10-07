@@ -830,7 +830,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         if (active) setReviewCandidates(Array.isArray(data) ? data : []);
       })
       .catch(e => {
-        if (active) setError(e.message || "Couldn’t load Club player history.");
+        if (active) setError(e.message || "Couldn’t load your Club reviews.");
       });
     return () => {
       active = false;
