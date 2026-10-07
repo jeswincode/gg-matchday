@@ -119,3 +119,15 @@ test("OpenFoot integration is on-demand and UI exposes match intelligence withou
   assert.match(css, /\.world-intelligence-panel/);
   assert.match(env, /OPENFOOT_API_KEY/);
 });
+
+
+test("Football World uses safe defaults when optional runtime settings are absent", () => {
+  const source = fs.readFileSync("server/services/footballWorld.js", "utf8");
+  const ui = fs.readFileSync("src/components/FootballWorld.jsx", "utf8");
+  assert.match(source, /FOOTBALL_DEFAULT_LEAGUE \|\| "39"/);
+  assert.match(source, /FOOTBALL_DEFAULT_SEASON \|\| String\(new Date\(\)\.getFullYear\(\)\)/);
+  assert.match(source, /FOOTBALL_DEFAULT_WEATHER_CITY \|\| "Bengaluru"/);
+  assert.match(ui, /No external fixtures were returned for today/);
+  assert.match(ui, /API-Football is not connected yet/);
+  assert.match(ui, /No standings were returned for this competition yet/);
+});
