@@ -2670,6 +2670,7 @@ function App() {
       {activeTab === TABS.CALENDAR && (
         <Calendar
           apiUrl={API_URL}
+          footballWorld={worldData}
           canEdit={isEditor}
           onOpen={showMatch}
           onEdit={startEditingMatch}
