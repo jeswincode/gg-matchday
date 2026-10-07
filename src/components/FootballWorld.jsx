@@ -175,10 +175,10 @@ export default function FootballWorld({ apiUrl, data, loading }) {
     if (tab !== "standings" || leagueOptions.length || leagueOptionsLoading) return undefined;
 
     let active = true;
-    setLeagueOptionsLoading(true);
-    setStandingsError("");
 
     (async () => {
+      setLeagueOptionsLoading(true);
+      setStandingsError("");
       try {
         const response = await fetch(apiUrl + "/world/standings/leagues");
         const body = await response.json().catch(() => ({}));
@@ -255,6 +255,28 @@ export default function FootballWorld({ apiUrl, data, loading }) {
       });
     } finally {
       setIntelligenceLoading(false);
+    }
+  };
+
+  const loadStandings = async league => {
+    setSelectedLeague(league);
+    setStandingsLoading(true);
+    setStandingsError("");
+    try {
+      const response = await fetch(apiUrl + "/world/standings?league=" + encodeURIComponent(league));
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = body?.details?.availableSeasons?.length
+          ? "No standings-covered season is available for this competition."
+          : (body.message || "Standings unavailable.");
+        throw new Error(message);
+      }
+      setSelectedStandings(body.standings || null);
+    } catch (error) {
+      setSelectedStandings(null);
+      setStandingsError(error.message || "Standings unavailable.");
+    } finally {
+      setStandingsLoading(false);
     }
   };
 
