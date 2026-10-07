@@ -2377,7 +2377,7 @@ function App() {
     return (
       <>
         <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
-        <GGAssistant onNavigate={handleAssistantNavigate} isSignedIn={Boolean(authUser)} />
+        <GGAssistant onNavigate={handleAssistantNavigate} isSignedIn={Boolean(authUser)} players={players} viewerPlayerId={backendUser?.playerProfile || ""} />
         {modeTransitionLayer}
       </>
     );
