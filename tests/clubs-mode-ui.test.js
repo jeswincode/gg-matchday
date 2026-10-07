@@ -129,3 +129,19 @@ test("GG Assistant backend is grounded and navigation-safe", () => {
   assert.match(styles, /\.gg-assistant-fab/);
   assert.match(styles, /@media\(max-width:560px\)/);
 });
+
+
+test("GG Assistant has a fast lane for deterministic GG questions", () => {
+  const service = fs.readFileSync("server/services/ggAssistant.js", "utf8");
+  const ui = fs.readFileSync("src/components/GGAssistant.jsx", "utf8");
+
+  assert.match(service, /SNAPSHOT_TTL_MS/);
+  assert.match(service, /fastAnswer/);
+  assert.match(service, /most goals\|top scorer/);
+  assert.match(service, /You can .* opening|Got it — opening/);
+  assert.match(service, /generatedBy: "fast"/);
+  assert.match(service, /needsAi/);
+  assert.match(service, /getStatisticsSnapshot/);
+  assert.match(ui, /GG is thinking through that analysis/);
+  assert.match(ui, /GG is checking the Matchday database/);
+});

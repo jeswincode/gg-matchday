@@ -119,7 +119,7 @@ export default function GGAssistant({ onNavigate, isSignedIn = false }) {
                 ))}
                 {busy && (
                   <div className="gg-assistant-thinking">
-                    <span>GG is checking the Matchday database</span><i>•••</i>
+                    <span>{messages.some(item => item.role === "assistant" && item.generatedBy === "gemini") ? "GG is thinking through that analysis" : "GG is checking the Matchday database"}</span><i>•••</i>
                   </div>
                 )}
               </>

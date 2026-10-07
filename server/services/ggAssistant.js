@@ -31,6 +31,143 @@ const navigationActions = [
 const assistantUsage = new Map();
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 10;
+const SNAPSHOT_TTL_MS = 20_000;
+let snapshotCache = null;
+let snapshotPromise = null;
+
+async function getStatisticsSnapshot() {
+  const now = Date.now();
+  if (snapshotCache && snapshotCache.expiresAt > now) return snapshotCache;
+
+  if (!snapshotPromise) {
+    snapshotPromise = Promise.all([
+      Player.find({}).select("_id name position profileImage preferredPositions").lean(),
+      Match.find({}).select("_id name date createdAt teamA teamB participants events motmWinner").sort({ date: -1 }).lean(),
+    ]).then(([players, matches]) => {
+      const rows = buildStatistics(players, matches, { minimumMatches: 5 });
+      const snapshot = {
+        players,
+        matches,
+        rows,
+        expiresAt: Date.now() + SNAPSHOT_TTL_MS,
+      };
+      snapshotCache = snapshot;
+      return snapshot;
+    }).finally(() => {
+      snapshotPromise = null;
+    });
+  }
+
+  return snapshotPromise;
+}
+
+function navigationIntent(message) {
+  const q = normalize(message);
+  if (/\b(hall of fame|hall|legends)\b/.test(q)) return { type: "hall-of-fame", label: "OPEN HALL OF FAME →" };
+  if (/\b(club reviews|club review|review section)\b/.test(q)) return { type: "clubs-reviews", label: "OPEN CLUB REVIEWS →" };
+  if (/\b(my club|my squad|my club hq|club hq)\b/.test(q)) return { type: "clubs-my-club", label: "OPEN MY CLUB →" };
+  if (/\b(club players|scouting|scout|signing market|player market)\b/.test(q)) return { type: "clubs-players", label: "OPEN CLUB PLAYERS →" };
+  if (/\b(clubs?|club match|auction|captain|renewal|formation)\b/.test(q)) return { type: "clubs", label: "OPEN ULTIMATE CLUBS →" };
+  if (/\b(calendar|schedule|fixtures|match history|matches)\b/.test(q)) return { type: "calendar", label: "OPEN CALENDAR →" };
+  if (/\b(record|record match|add match|new match)\b/.test(q)) return { type: "record", label: "OPEN MATCH RECORD →" };
+  if (/\b(players|player directory|squad|roster)\b/.test(q)) return { type: "players", label: "OPEN PLAYERS →" };
+  if (/\b(home|dashboard|start)\b/.test(q)) return { type: "home", label: "OPEN HOME →" };
+  return null;
+}
+
+function needsAi(message) {
+  const q = normalize(message);
+  return /\b(real[- ]?life|similar to|resembles|resemble|comparable to|compare with|comparison|why|how|analysis|analy[sz]e|tactical|style|strengths?|weaknesses?|what should|what can)\b/.test(q);
+}
+
+function fastAnswer(message, facts, intent) {
+  const q = normalize(message);
+  const mentioned = facts.mentionedPlayers || [];
+  const viewer = facts.viewer;
+
+  if (/\b(take me|open|go to|show me|bring me to|where is|navigate)\b/.test(q) && intent.action) {
+    return {
+      answer: `Got it — opening that for you.`,
+      action: intent.action,
+      generatedBy: "fast",
+    };
+  }
+
+  if (/\b(most goals|top scorer|golden boot|scored the most|who has the most goals)\b/.test(q)) {
+    const row = facts.topScorers[0];
+    if (!row) return { answer: "There isn't enough goal data yet.", action: intent.action, generatedBy: "fast" };
+    return {
+      answer: `⚽ ${row.name} leads the GG goal charts with ${row.goals} goal${row.goals === 1 ? "" : "s"} across ${row.matches} matches.`,
+      action: { type: "player", label: "VIEW " + row.name.toUpperCase() + " →", playerId: row.playerId },
+      generatedBy: "fast",
+    };
+  }
+
+  if (/\b(most assists|best playmaker|top assist)/.test(q)) {
+    const row = facts.topPlaymakers[0];
+    if (!row) return { answer: "There isn't enough assist data yet.", action: intent.action, generatedBy: "fast" };
+    return {
+      answer: `🎯 ${row.name} leads the assist chart with ${row.assists} assist${row.assists === 1 ? "" : "s"}.`,
+      action: { type: "player", label: "VIEW " + row.name.toUpperCase() + " →", playerId: row.playerId },
+      generatedBy: "fast",
+    };
+  }
+
+  if (/\b(best defender|top defender|best defensive)/.test(q)) {
+    const row = facts.topDefenders[0];
+    if (!row) return { answer: "There isn't enough defensive-rating data yet.", action: intent.action, generatedBy: "fast" };
+    return {
+      answer: `🛡️ ${row.name} leads the defensive ranking at ${row.defensiveRating?.toFixed?.(2) ?? "—"}.`,
+      action: { type: "player", label: "VIEW " + row.name.toUpperCase() + " →", playerId: row.playerId },
+      generatedBy: "fast",
+    };
+  }
+
+  if (/\b(#?1|number one|best player|top player|leaderboard|ranking|rankings)\b/.test(q)) {
+    const row = facts.leaderboard[0];
+    if (!row) return { answer: "There isn't enough GG Rating data for a leaderboard yet.", action: { type: "leaderboard", label: "OPEN LEADERBOARD →" }, generatedBy: "fast" };
+    return {
+      answer: `🏆 ${row.name} is currently #1 on the GG Rating leaderboard at ${row.ggRating?.toFixed?.(2) ?? "—"}.`,
+      action: { type: "player", label: "VIEW " + row.name.toUpperCase() + " →", playerId: row.playerId },
+      generatedBy: "fast",
+    };
+  }
+
+  const comparison = mentioned.length >= 2 && /\b(compare|versus|vs\.?|better|difference|between)\b/.test(q);
+  if (comparison) {
+    const [a, b] = mentioned;
+    const rating = (row) => row.ggRating ?? -1;
+    const winner = rating(a) >= rating(b) ? a : b;
+    const diff = Math.abs((rating(a) >= 0 && rating(b) >= 0) ? rating(a) - rating(b) : 0);
+    return {
+      answer: `${a.name} vs ${b.name}: ${a.name} has ${a.goals}G/${a.assists}A and ${a.ggRating ?? "—"} GG Rating; ${b.name} has ${b.goals}G/${b.assists}A and ${b.ggRating ?? "—"} GG Rating. ${winner.name} is ahead on GG Rating${diff ? ` by ${diff.toFixed(2)}` : ""}.`,
+      action: { type: "player", label: "VIEW " + winner.name.toUpperCase() + " →", playerId: winner.playerId },
+      generatedBy: "fast",
+    };
+  }
+
+  if (viewer && /\b(my|mine|me)\b/.test(q) && /\b(form|stats?|statistics|performance|playing|record|goals|assists)\b/.test(q)) {
+    const form = Array.isArray(viewer.form) ? viewer.form.join(" · ") : viewer.form;
+    return {
+      answer: `Your GG snapshot: ${viewer.matches} matches, ${viewer.goals} goals, ${viewer.assists} assists, GG Rating ${viewer.ggRating ?? "not yet rated"}.${form ? ` Recent form: ${form}.` : ""}`,
+      action: { type: "player", label: "VIEW YOUR PROFILE →", playerId: viewer.playerId },
+      generatedBy: "fast",
+    };
+  }
+
+  if (mentioned.length === 1 && /\b(stats?|statistics|performance|form|how.*playing|recent|goals|assists|record|profile)\b/.test(q)) {
+    const row = mentioned[0];
+    return {
+      answer: `${row.name}: ${row.matches} matches, ${row.goals} goals, ${row.assists} assists, GG Rating ${row.ggRating ?? "not yet rated"}.`,
+      action: { type: "player", label: "VIEW " + row.name.toUpperCase() + " →", playerId: row.playerId },
+      generatedBy: "fast",
+    };
+  }
+
+  return null;
+}
+
+
 
 function clean(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -212,14 +349,22 @@ export async function answerAssistant({ message, viewerPlayerId, rateLimitKey })
     throw new Error("GG Assistant is receiving a lot of requests. Please wait a minute and try again.");
   }
 
-  const [players, matches] = await Promise.all([
-    Player.find({}).select("_id name position profileImage preferredPositions").lean(),
-    Match.find({}).select("_id name date createdAt teamA teamB participants events motmWinner").sort({ date: -1 }).lean(),
-  ]);
+  const navAction = navigationIntent(prompt);
+  if (navAction && !needsAi(prompt)) {
+    return {
+      answer: "Got it — opening that for you.",
+      action: navAction,
+      generatedBy: "fast",
+    };
+  }
 
-  const rows = buildStatistics(players, matches, { minimumMatches: 5 });
+  const snapshot = await getStatisticsSnapshot();
+  const { players, matches, rows } = snapshot;
   const intent = deterministicIntent(prompt, rows, players);
   const facts = buildFacts(prompt, players, matches, rows, viewerPlayerId);
+
+  const fast = !needsAi(prompt) ? fastAnswer(prompt, facts, intent) : null;
+  if (fast) return fast;
 
   const fallback = {
     answer: fallbackReply(prompt, facts, intent),
