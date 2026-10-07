@@ -104,3 +104,27 @@ test("Clubs admin KPI and latest-club surfaces have dedicated responsive styles"
   assert.match(styles, /@media \(max-width: 920px\)/);
   assert.match(styles, /@media \(max-width: 520px\)/);
 });
+
+
+test("GG Assistant backend is grounded and navigation-safe", () => {
+  const service = fs.readFileSync("server/services/ggAssistant.js", "utf8");
+  const route = fs.readFileSync("server/routes/assistant.js", "utf8");
+  const app = fs.readFileSync("server/app.js", "utf8");
+  const ui = fs.readFileSync("src/components/GGAssistant.jsx", "utf8");
+  const styles = fs.readFileSync("src/components/gg-assistant.css", "utf8");
+
+  assert.match(service, /Player\.find/);
+  assert.match(service, /Match\.find/);
+  assert.match(service, /buildStatistics/);
+  assert.match(service, /Never invent statistics/);
+  assert.match(service, /Never invent.*players/);
+  assert.match(service, /Allowed navigation actions/);
+  assert.match(service, /\["player", "Open Player Profile"\]/);
+  assert.match(route, /requireAuth/);
+  assert.match(route, /answerAssistant/);
+  assert.match(app, /app\.use\("\/api\/assistant", assistantRoutes\)/);
+  assert.match(ui, /GG Assistant/);
+  assert.match(ui, /one-tap|action/i);
+  assert.match(styles, /\.gg-assistant-fab/);
+  assert.match(styles, /@media\(max-width:560px\)/);
+});
