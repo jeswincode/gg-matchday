@@ -14,7 +14,8 @@ function ProviderStatus({ providers }) {
   );
 }
 
-function FixtureCard({ fixture }) {
+function FixtureCard({ fixture, artwork }) {
+  const fallbackArtwork = name => (artwork || []).find(item => item.name?.toLowerCase() === String(name || "").toLowerCase());
   return (
     <article className="world-fixture-card">
       <div className="world-fixture-meta">
@@ -23,14 +24,14 @@ function FixtureCard({ fixture }) {
       </div>
       <div className="world-fixture-teams">
         <div>
-          {fixture.home?.logo ? <img src={fixture.home.logo} alt="" loading="lazy" /> : <span className="world-team-fallback">H</span>}
+          {(fixture.home?.logo || fallbackArtwork(fixture.home?.name)?.badge) ? <img src={fixture.home?.logo || fallbackArtwork(fixture.home?.name)?.badge} alt="" loading="lazy" /> : <span className="world-team-fallback">H</span>}
           <strong>{fixture.home?.name}</strong>
         </div>
         <span className="world-fixture-score">
           {fixture.home?.goals == null ? "VS" : String(fixture.home.goals) + " : " + String(fixture.away?.goals ?? 0)}
         </span>
         <div>
-          {fixture.away?.logo ? <img src={fixture.away.logo} alt="" loading="lazy" /> : <span className="world-team-fallback">A</span>}
+          {(fixture.away?.logo || fallbackArtwork(fixture.away?.name)?.badge) ? <img src={fixture.away?.logo || fallbackArtwork(fixture.away?.name)?.badge} alt="" loading="lazy" /> : <span className="world-team-fallback">A</span>}
           <strong>{fixture.away?.name}</strong>
         </div>
       </div>
@@ -161,7 +162,7 @@ export default function FootballWorld({ apiUrl, data, loading }) {
               <div className="world-feature-column">
                 <div className="world-section-top"><div><span className="eyebrow">TODAY</span><h3>Live & upcoming football</h3></div><span>{data?.fixtures?.length || 0} fixtures</span></div>
                 <div className="world-fixtures-grid">
-                  {(data?.fixtures || []).slice(0, 6).map(fixture => <FixtureCard key={String(fixture.id)} fixture={fixture} />)}
+                  {(data?.fixtures || []).slice(0, 6).map(fixture => <FixtureCard key={String(fixture.id)} fixture={fixture} artwork={data?.artwork} />)}
                 </div>
                 {!data?.fixtures?.length && <div className="world-subtle-empty">No external fixtures available yet. Add an API-Football key to activate the live fixture feed.</div>}
               </div>
