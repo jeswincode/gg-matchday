@@ -9,6 +9,7 @@ import {
   getWorld,
   getProviderStatus,
   searchExternalPlayer,
+  getOpenFootMatchIntelligence,
 } from "../services/footballWorld.js";
 
 const router = express.Router();
@@ -105,6 +106,19 @@ router.get("/weather", async (req, res) => {
   } catch (error) {
     console.error("Football World weather error:", error);
     return res.status(502).json({ message: "Matchday weather is temporarily unavailable." });
+  }
+});
+
+router.get("/openfoot/intelligence", async (req, res) => {
+  try {
+    const { date, home, away } = req.query;
+    if (!home || !away) {
+      return res.status(400).json({ message: "Home and away team names are required." });
+    }
+    return res.json(await getOpenFootMatchIntelligence({ date, home, away }));
+  } catch (error) {
+    console.error("OpenFoot intelligence error:", error);
+    return res.status(502).json({ message: "OpenFoot match intelligence is temporarily unavailable." });
   }
 });
 

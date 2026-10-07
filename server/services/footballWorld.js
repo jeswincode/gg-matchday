@@ -4,6 +4,7 @@ const SCOREBAT_BASE = "https://www.scorebat.com/video-api/v3";
 const SPORTS_DB_BASE = "https://www.thesportsdb.com/api/v1/json";
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
 const OPEN_METEO_GEOCODING = "https://geocoding-api.open-meteo.com/v1/search";
+const OPENFOOT_BASE = "https://openfootapi.com/v1";
 
 const cache = new Map();
 const env = {
@@ -11,6 +12,7 @@ const env = {
   newsDataKey: process.env.NEWSDATA_API_KEY || "",
   scoreBatToken: process.env.SCOREBAT_API_TOKEN || "",
   sportsDbKey: process.env.THE_SPORTS_DB_KEY || "",
+  openFootKey: process.env.OPENFOOT_API_KEY || "",
   defaultLeague: process.env.FOOTBALL_DEFAULT_LEAGUE || "",
   defaultSeason: process.env.FOOTBALL_DEFAULT_SEASON || "",
   timezone: process.env.FOOTBALL_TIMEZONE || "Asia/Kolkata",
@@ -47,7 +49,14 @@ async function fetchJson(url, options = {}) {
   const text = await response.text();
   const payload = parseJsonSafely(text);
   if (!response.ok) {
-    throw new Error(payload?.message || payload?.error || "External football provider returned " + response.status);
+    const providerError = payload?.error;
+    const message = payload?.message ||
+      (typeof providerError === "string" ? providerError : providerError?.message) ||
+      "External football provider returned " + response.status;
+    const error = new Error(message);
+    error.code = typeof providerError === "object" ? providerError?.code : undefined;
+    error.status = response.status;
+    throw error;
   }
   return payload;
 }
@@ -75,6 +84,7 @@ export function getProviderStatus() {
     newsData: providerState(Boolean(env.newsDataKey)),
     scoreBat: providerState(Boolean(env.scoreBatToken)),
     sportsDb: providerState(Boolean(env.sportsDbKey)),
+    openFoot: providerState(Boolean(env.openFootKey)),
     weather: providerState(true),
   };
 }
@@ -368,6 +378,245 @@ async function getArtwork(teamName) {
         league: team.strLeague || "",
       }
     : null;
+}
+
+
+function normalizeComparableName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b(fc|cf|afc|ac|sc|real|de|the)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function teamNameMatch(left, right) {
+  const a = normalizeComparableName(left);
+  const b = normalizeComparableName(right);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const at = new Set(a.split(" ").filter(Boolean));
+  const bt = new Set(b.split(" ").filter(Boolean));
+  const shared = [...at].filter(token => bt.has(token));
+  return shared.length >= Math.min(2, at.size, bt.size);
+}
+
+function openFootErrorState(error) {
+  const message = String(error?.message || error || "");
+  const lower = message.toLowerCase();
+  const code = String(error?.code || "").toLowerCase();
+  if (code === "api_key_required" || code === "invalid_api_key" || lower.includes("api key")) return "authentication";
+  if (code === "monthly_quota_exceeded" || lower.includes("429")) return "quota";
+  if (error?.status === 403 || code === "plan_restricted" || lower.includes("plan")) return "plan";
+  if (error?.status === 404 || code === "match_not_found" || lower.includes("404")) return "not-found";
+  return "unavailable";
+}
+
+async function fetchOpenFoot(path, params = {}) {
+  if (!env.openFootKey) return null;
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") search.set(key, String(value));
+  });
+  const url = OPENFOOT_BASE + path + (search.size ? "?" + search.toString() : "");
+  return fetchJson(url, {
+    headers: {
+      Authorization: "Bearer " + env.openFootKey,
+    },
+  });
+}
+
+function normalizeOpenFootMatch(item) {
+  return {
+    id: item?.id || "",
+    competitionId: item?.competitionId || "",
+    status: item?.status || "",
+    kickoffAt: item?.kickoffAt || "",
+    home: {
+      id: item?.homeTeam?.id || "",
+      name: item?.homeTeam?.name || "",
+    },
+    away: {
+      id: item?.awayTeam?.id || "",
+      name: item?.awayTeam?.name || "",
+    },
+    score: item?.score || null,
+    venue: item?.venue || null,
+    meta: item?.meta || null,
+  };
+}
+
+function normalizeOpenFootEnvelope(payload) {
+  return {
+    data: payload?.data ?? null,
+    meta: payload?.meta || null,
+    error: payload?.error || null,
+  };
+}
+
+function pickXgTotal(xgData, side) {
+  const candidateNames = side === "home"
+    ? ["home", "homeXg", "home_xg"]
+    : ["away", "awayXg", "away_xg"];
+  const root = xgData?.data || xgData || {};
+  const totals = root?.teamTotals || root?.totals || root?.teams || root;
+  for (const name of candidateNames) {
+    const value = totals?.[name]?.xg ?? totals?.[name]?.expectedGoals ?? totals?.[name];
+    const number = Number(value);
+    if (Number.isFinite(number)) return number;
+  }
+  const sideNode = root?.[side] || root?.[side + "Team"] || {};
+  const value = sideNode.xg ?? sideNode.expectedGoals ?? sideNode.totalXg;
+  return Number.isFinite(Number(value)) ? Number(value) : null;
+}
+
+function normalizeOpenFootContext(payload) {
+  const root = payload?.data || {};
+  const analytics = root?.analytics || {};
+  return {
+    source: "OpenFoot",
+    meta: payload?.meta || null,
+    home: {
+      form: root?.home?.form || root?.homeTeam?.form || null,
+      elo: root?.home?.elo ?? root?.homeTeam?.elo ?? null,
+      tablePosition: root?.home?.tablePosition ?? root?.homeTeam?.tablePosition ?? null,
+      restDays: root?.home?.restDays ?? null,
+      venueRecord: root?.home?.venueRecord ?? null,
+    },
+    away: {
+      form: root?.away?.form || root?.awayTeam?.form || null,
+      elo: root?.away?.elo ?? root?.awayTeam?.elo ?? null,
+      tablePosition: root?.away?.tablePosition ?? root?.awayTeam?.tablePosition ?? null,
+      restDays: root?.away?.restDays ?? null,
+      venueRecord: root?.away?.venueRecord ?? null,
+    },
+    analytics: {
+      expectedGoals: analytics?.expectedGoals ?? null,
+      oddsBenchmark: analytics?.oddsBenchmark ?? null,
+      momentum: analytics?.momentum ?? null,
+    },
+    headToHead: root?.headToHead || null,
+    freshness: root?.freshness || null,
+  };
+}
+export async function getOpenFootMatchIntelligence({ date, home, away } = {}) {
+  if (!env.openFootKey) {
+    return {
+      provider: "OpenFoot",
+      available: false,
+      reason: "not-configured",
+      match: null,
+      context: null,
+      xg: null,
+      events: null,
+      lineups: null,
+      capabilities: {
+        context: false,
+        xg: false,
+        events: false,
+        lineups: false,
+      },
+    };
+  }
+
+  const targetDate = date
+    ? new Date(date).toISOString().slice(0, 10)
+    : todayInTimezone("UTC");
+
+  try {
+    const payload = await cached(
+      cacheKey("openfoot-matches", targetDate),
+      5 * 60 * 1000,
+      async () => fetchOpenFoot("/matches", { date: targetDate }),
+    );
+    const matches = Array.isArray(payload?.data)
+      ? payload.data.map(normalizeOpenFootMatch)
+      : [];
+    const match = matches.find(item =>
+      teamNameMatch(item.home.name, home) && teamNameMatch(item.away.name, away),
+    ) || matches.find(item =>
+      teamNameMatch(item.home.name, away) && teamNameMatch(item.away.name, home),
+    );
+
+    if (!match) {
+      return {
+        provider: "OpenFoot",
+        available: false,
+        reason: "not-found",
+        match: null,
+        context: null,
+        xg: null,
+        events: null,
+        lineups: null,
+        capabilities: { context: false, xg: false, events: false, lineups: false },
+      };
+    }
+
+    const [contextResult, xgResult, eventsResult, lineupsResult] = await Promise.allSettled([
+      cached(cacheKey("openfoot-context", match.id), 10 * 60 * 1000, async () => fetchOpenFoot("/matches/" + encodeURIComponent(match.id) + "/context")),
+      cached(cacheKey("openfoot-xg", match.id), 10 * 60 * 1000, async () => fetchOpenFoot("/matches/" + encodeURIComponent(match.id) + "/xg")),
+      cached(cacheKey("openfoot-events", match.id), 60 * 1000, async () => fetchOpenFoot("/matches/" + encodeURIComponent(match.id) + "/events")),
+      cached(cacheKey("openfoot-lineups", match.id), 5 * 60 * 1000, async () => fetchOpenFoot("/matches/" + encodeURIComponent(match.id) + "/lineups")),
+    ]);
+
+    const unwrap = result => result.status === "fulfilled" && result.value ? normalizeOpenFootEnvelope(result.value) : null;
+    const context = unwrap(contextResult);
+    const xgEnvelope = unwrap(xgResult);
+    const eventsEnvelope = unwrap(eventsResult);
+    const lineupsEnvelope = unwrap(lineupsResult);
+
+    const xgRoot = xgEnvelope?.data || null;
+    const xg = xgRoot
+      ? {
+          home: pickXgTotal(xgRoot, "home"),
+          away: pickXgTotal(xgRoot, "away"),
+          shots: Array.isArray(xgRoot?.shots) ? xgRoot.shots.slice(0, 120) : null,
+          meta: xgEnvelope?.meta || null,
+        }
+      : null;
+
+    const classify = result => {
+      if (result.status === "fulfilled") return "ready";
+      return openFootErrorState(result.reason);
+    };
+
+    return {
+      provider: "OpenFoot",
+      available: true,
+      reason: null,
+      match,
+      context: context ? normalizeOpenFootContext(context) : null,
+      xg,
+      events: eventsEnvelope?.data || null,
+      lineups: lineupsEnvelope?.data || null,
+      capabilities: {
+        context: classify(contextResult) === "ready",
+        xg: classify(xgResult) === "ready",
+        events: classify(eventsResult) === "ready",
+        lineups: classify(lineupsResult) === "ready",
+      },
+      access: {
+        context: classify(contextResult),
+        xg: classify(xgResult),
+        events: classify(eventsResult),
+        lineups: classify(lineupsResult),
+      },
+    };
+  } catch (error) {
+    return {
+      provider: "OpenFoot",
+      available: false,
+      reason: openFootErrorState(error),
+      message: String(error?.message || "OpenFoot request failed").slice(0, 180),
+      match: null,
+      context: null,
+      xg: null,
+      events: null,
+      lineups: null,
+      capabilities: { context: false, xg: false, events: false, lineups: false },
+    };
+  }
 }
 
 export async function getWorld({ date = todayInTimezone(), city = "", league = env.defaultLeague, season = env.defaultSeason } = {}) {
