@@ -89,7 +89,7 @@ export default function FootballWorld({ apiUrl, data, loading }) {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || "Standings unavailable.");
       setSelectedStandings(body.standings || null);
-    } catch (error) {
+    } catch {
       setSelectedStandings(null);
     } finally {
       setStandingsLoading(false);
@@ -117,7 +117,7 @@ export default function FootballWorld({ apiUrl, data, loading }) {
 
   const configuredProviders = Object.entries(data?.providers || {}).filter(([key, provider]) => key !== "weather" && provider?.configured).length;
   const hasExternalContent = Boolean(data?.fixtures?.length || data?.standings || data?.news?.length || data?.highlights?.length);
-  const hasContent = Boolean(hasExternalContent || data?.weather);
+
 
   return (
     <section className="football-world-panel">
@@ -179,7 +179,13 @@ export default function FootballWorld({ apiUrl, data, loading }) {
 
           {tab === "standings" && (
             <div className="world-standings-wrap">
-              <div className="world-section-top"><div><span className="eyebrow">LEAGUE TABLE</span><h3>{data?.standings?.league?.name || "World standings"}</h3></div></div>
+              <div className="world-section-top">
+                <div><span className="eyebrow">LEAGUE TABLE</span><h3>{standingsSource?.league?.name || "World standings"}</h3></div>
+                <select className="world-league-select" value={selectedLeague} onChange={event => loadStandings(event.target.value)}>
+                  <option value="">Choose league</option>
+                  {leagueOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                </select>
+              </div>
               {standingsLoading ? (
                 <div className="world-subtle-empty">Loading the selected league table…</div>
               ) : topStandings.length ? (
