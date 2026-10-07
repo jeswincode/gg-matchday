@@ -82,10 +82,6 @@ router.get("/standings", async (req, res) => {
       code: error?.code || "standings_unavailable",
       details: error?.details || null,
     });
-  } catch (error) {
-    console.error("Football World standings error:", error);
-    return res.status(502).json({ message: "External standings are temporarily unavailable." });
-  }
 });
 
 router.get("/news", async (req, res) => {
