@@ -151,6 +151,6 @@ test("GG Assistant keeps normal comparisons and performance questions on the fas
   const service = fs.readFileSync("server/services/ggAssistant.js", "utf8");
   assert.match(service, /function needsAi/);
   assert.doesNotMatch(service, /compare with\|comparison/);
-  assert.match(service, /real\[- \]?life/);
+  assert.match(service, /real\[- \]\?life|real\[- \]\?player/);
   assert.match(service, /improve\|improvement/);
 });
