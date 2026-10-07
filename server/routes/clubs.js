@@ -170,20 +170,26 @@ router.get("/home", requireAuth, async (req, res) => {
   if (!playerId) return;
 
   try {
-    const [clubs, applications, joinRequests, auction] = await Promise.all([
+    const [clubs, applications, joinRequests] = await Promise.all([
       Club.find({ status: "approved" }).sort({ nameNormalized: 1 }).lean(),
       ClubFormationApplication.find({ memberIds: playerId }).sort({ createdAt: -1 }).lean(),
       JoinRequest.find({ playerId, status: "pending" }).sort({ createdAt: -1 }).lean(),
-      AuctionOffer.find({
-        $or: [
-          { playerId, status: { $in: ["active", "chosenByPlayer", "approved"] } },
-          { status: "chosenByPlayer" },
-        ],
-      }).sort({ createdAt: -1 }).lean(),
     ]);
 
     const currentClub =
       clubs.find(club => club.memberIds?.some(id => String(id) === String(playerId))) || null;
+
+    const captainClubIds = currentClub &&
+      currentClub.captainIds?.some(id => String(id) === String(playerId))
+      ? [currentClub._id]
+      : [];
+
+    const auction = await AuctionOffer.find({
+      $or: [
+        { playerId, status: { $in: ["active", "chosenByPlayer", "approved"] } },
+        ...(captainClubIds.length ? [{ clubId: { $in: captainClubIds }, status: "chosenByPlayer" }] : []),
+      ],
+    }).sort({ createdAt: -1 }).lean();
 
     const clubIds = currentClub ? [currentClub._id] : [];
     const clubMatches = clubIds.length
@@ -193,7 +199,7 @@ router.get("/home", requireAuth, async (req, res) => {
       : [];
 
     const clubMap = new Map(clubs.map(club => [String(club._id), club]));
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
     const todayMatches = clubMatches
       .filter(match => matchDateKey(match) === today && ["requested", "accepted", "completed"].includes(match.status))
       .map(match => publicMatchSnapshot(match, clubMap));
