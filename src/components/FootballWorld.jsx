@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDate } from "../lib/date";
 import "./football-world.css";
 
@@ -157,19 +157,13 @@ export default function FootballWorld({ apiUrl, data, loading }) {
   const [playerError, setPlayerError] = useState("");
   const [selectedLeague, setSelectedLeague] = useState("");
   const [selectedStandings, setSelectedStandings] = useState(null);
+  const [leagueOptions, setLeagueOptions] = useState([]);
+  const [leagueOptionsLoading, setLeagueOptionsLoading] = useState(false);
+  const [standingsError, setStandingsError] = useState("");
   const [standingsLoading, setStandingsLoading] = useState(false);
   const [intelligenceFixture, setIntelligenceFixture] = useState(null);
   const [intelligenceData, setIntelligenceData] = useState(null);
   const [intelligenceLoading, setIntelligenceLoading] = useState(false);
-
-  const leagueOptions = [
-    ["39", "Premier League"],
-    ["140", "LaLiga"],
-    ["2", "UEFA Champions League"],
-    ["78", "Bundesliga"],
-    ["135", "Serie A"],
-    ["61", "Ligue 1"],
-  ];
 
   const standingsSource = selectedStandings || data?.standings;
   const topStandings = useMemo(() => {
@@ -177,18 +171,51 @@ export default function FootballWorld({ apiUrl, data, loading }) {
     return group.slice(0, 6);
   }, [standingsSource]);
 
+  useEffect(() => {
+    if (tab !== "standings") return;
+    if (leagueOptions.length || leagueOptionsLoading) return;
+    loadLeagueOptions();
+  }, [tab, leagueOptions.length, leagueOptionsLoading]);
+
   const loadStandings = async league => {
     setSelectedLeague(league);
     setStandingsLoading(true);
+    setStandingsError("");
     try {
-      const response = await fetch(apiUrl + "/world/standings?league=" + encodeURIComponent(league) + "&season=" + new Date().getFullYear());
+      const response = await fetch(apiUrl + "/world/standings?league=" + encodeURIComponent(league));
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.message || "Standings unavailable.");
+      if (!response.ok) {
+        const message = body?.details?.availableSeasons?.length
+          ? "No standings-covered season is available for this competition."
+          : (body.message || "Standings unavailable.");
+        throw new Error(message);
+      }
       setSelectedStandings(body.standings || null);
-    } catch {
+    } catch (error) {
       setSelectedStandings(null);
+      setStandingsError(error.message || "Standings unavailable.");
     } finally {
       setStandingsLoading(false);
+    }
+  };
+
+  const loadLeagueOptions = async () => {
+    setLeagueOptionsLoading(true);
+    try {
+      const response = await fetch(apiUrl + "/world/standings/leagues");
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || "League coverage unavailable.");
+      const options = Array.isArray(body.leagues) ? body.leagues : [];
+      setLeagueOptions(options);
+      const firstAvailable = options.find(item => item.available);
+      if (!selectedLeague && firstAvailable) {
+        await loadStandings(String(firstAvailable.id));
+      }
+    } catch (error) {
+      setLeagueOptions([]);
+      setStandingsError(error.message || "League coverage unavailable.");
+    } finally {
+      setLeagueOptionsLoading(false);
     }
   };
 
@@ -333,13 +360,21 @@ export default function FootballWorld({ apiUrl, data, loading }) {
             <div className="world-standings-wrap">
               <div className="world-section-top">
                 <div><span className="eyebrow">LEAGUE TABLE</span><h3>{standingsSource?.league?.name || "World standings"}</h3></div>
-                <select className="world-league-select" value={selectedLeague} onChange={event => loadStandings(event.target.value)}>
-                  <option value="">Choose league</option>
-                  {leagueOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                <select className="world-league-select" value={selectedLeague} onChange={event => loadStandings(event.target.value)} disabled={leagueOptionsLoading}>
+                  <option value="">{leagueOptionsLoading ? "Loading competitions…" : "Choose league"}</option>
+                  {leagueOptions.map(item => (
+                    <option key={String(item.id)} value={String(item.id)} disabled={!item.available}>
+                      {item.name}{item.available ? "" : " · unavailable"}
+                    </option>
+                  ))}
                 </select>
               </div>
               {standingsLoading ? (
                 <div className="world-subtle-empty">Loading the selected league table…</div>
+              ) : standingsError ? (
+                <div className="world-subtle-empty world-standings-error">
+                  {standingsError}
+                </div>
               ) : topStandings.length ? (
                 <div className="world-standings-table">
                   {topStandings.map(row => (
