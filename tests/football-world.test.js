@@ -131,3 +131,19 @@ test("Football World uses safe defaults when optional runtime settings are absen
   assert.match(ui, /API-Football is not connected yet/);
   assert.match(ui, /No standings were returned for this competition yet/);
 });
+
+
+test("Standings now resolve provider-supported seasons instead of forcing the browser year", () => {
+  const service = fs.readFileSync("server/services/footballWorld.js", "utf8");
+  const route = fs.readFileSync("server/routes/world.js", "utf8");
+  const ui = fs.readFileSync("src/components/FootballWorld.jsx", "utf8");
+
+  assert.match(service, /getLeagueSeasonCoverage/);
+  assert.match(service, /standingsAvailable/);
+  assert.match(service, /resolvedSeason/);
+  assert.match(route, /\/standings\/leagues/);
+  assert.match(route, /code: error\?\.code/);
+  assert.doesNotMatch(ui, /season=\" \+ new Date\(\)\.getFullYear\(\)/);
+  assert.match(ui, /Loading competitions/);
+  assert.match(ui, /unavailable/);
+});
