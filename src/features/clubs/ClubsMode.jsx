@@ -169,40 +169,61 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           ...(authUser ? [api("/clubs/formation/me")] : []),
         ];
 
-    Promise.all(requests)
-      .then(results => {
+    Promise.allSettled(requests)
+      .then(settled => {
         if (!active) return;
 
-        setMeta(results[0]);
+        const valueAt = index => settled[index]?.status === "fulfilled" ? settled[index].value : null;
+        const failed = settled
+          .map((result, index) => result.status === "rejected" ? index : -1)
+          .filter(index => index >= 0);
+
+        setMeta(valueAt(0));
 
         if (adminOnlyView) {
-          const overview = results[1] || {};
+          const overview = valueAt(1) || {};
           setAdminOverview(overview);
-          setAdminClubs(Array.isArray(results[2]) ? results[2] : []);
-          setAdminMatches(Array.isArray(results[3]) ? results[3] : []);
-          setAdminApplications(Array.isArray(results[4]) ? results[4] : []);
-          setClubs(Array.isArray(results[2]) ? results[2].filter(club => club.status === "approved") : []);
-          setClubMatches(Array.isArray(results[3]) ? results[3] : []);
+          setAdminClubs(Array.isArray(valueAt(2)) ? valueAt(2) : []);
+          setAdminMatches(Array.isArray(valueAt(3)) ? valueAt(3) : []);
+          setAdminApplications(Array.isArray(valueAt(4)) ? valueAt(4) : []);
+          setClubs(Array.isArray(valueAt(2)) ? valueAt(2).filter(club => club.status === "approved") : []);
+          setClubMatches(Array.isArray(valueAt(3)) ? valueAt(3) : []);
           setPlayers([]);
           setApplications([]);
+
+          const adminLabels = ["Clubs configuration", "Admin overview", "Club directory", "Club matches", "Applications"];
+          const adminFailures = failed.map(index => adminLabels[index]).filter(Boolean);
+          if (adminFailures.length) {
+            setError("Couldn’t load " + adminFailures.join(", ").toLowerCase() + ". Use Refresh to retry.");
+          } else {
+            setError("");
+          }
         } else {
-          setClubs(Array.isArray(results[1]) ? results[1] : []);
-          setPlayers(Array.isArray(results[2]) ? results[2] : []);
-          setClubMatches(Array.isArray(results[3]) ? results[3] : []);
-          setApplications(authUser && Array.isArray(results[4]) ? results[4] : []);
+          setClubs(Array.isArray(valueAt(1)) ? valueAt(1) : []);
+          setPlayers(Array.isArray(valueAt(2)) ? valueAt(2) : []);
+          setClubMatches(Array.isArray(valueAt(3)) ? valueAt(3) : []);
+          setApplications(authUser && Array.isArray(valueAt(4)) ? valueAt(4) : []);
+
+          const viewerLabels = ["Clubs configuration", "Club directory", "Players", "Club matches", "Formation status"];
+          const criticalFailures = failed.filter(index => index === 0 || index === 1);
+          if (criticalFailures.length) {
+            const labels = criticalFailures.map(index => viewerLabels[index]).filter(Boolean);
+            setError("Couldn’t load " + labels.join(" or ").toLowerCase() + ". Please refresh.");
+          } else {
+            // Formation/match data is supplemental. Do not block the whole UI
+            // or flash a generic global error when one optional request fails.
+            setError("");
+          }
 
           if (authUser) {
-            Promise.all([api("/clubs/wallet/me"), api("/clubs/join-requests/me")])
-              .then(([walletData, joinData]) => {
+            Promise.allSettled([api("/clubs/wallet/me"), api("/clubs/join-requests/me")])
+              .then(([walletResult, joinResult]) => {
                 if (!active) return;
-                setWallet(walletData);
-                setJoinRequests(Array.isArray(joinData) ? joinData : []);
-              })
-              .catch(() => {});
+                if (walletResult.status === "fulfilled") setWallet(walletResult.value);
+                if (joinResult.status === "fulfilled") setJoinRequests(Array.isArray(joinResult.value) ? joinResult.value : []);
+              });
           }
         }
-
-        setError("");
       })
       .catch(requestError => {
         if (!active) return;
@@ -314,7 +335,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setReviewCandidates(Array.isArray(eligible) ? eligible : []);
       setReceivedReviews(Array.isArray(received) ? received : []);
     } catch (e) {
-      setError(e.message);
+      setError(e.message || "Couldn’t load your Club reviews.");
     } finally {
       setReviewLoading(false);
     }
@@ -809,7 +830,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         if (active) setReviewCandidates(Array.isArray(data) ? data : []);
       })
       .catch(e => {
-        if (active) setError(e.message);
+        if (active) setError(e.message || "Couldn’t load Club player history.");
       });
     return () => {
       active = false;
@@ -824,7 +845,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         if (active) setClubDiscovery(Array.isArray(data) ? data : []);
       })
       .catch(e => {
-        if (active) setError(e.message);
+        if (active) setError(e.message || "Couldn’t load player discovery. Please retry.");
       });
     return () => {
       active = false;
