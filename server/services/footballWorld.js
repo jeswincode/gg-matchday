@@ -78,6 +78,51 @@ function providerState(configured, error = null) {
   };
 }
 
+export async function getStandingsLeagueOptions() {
+  const options = [
+    ["39", "Premier League"],
+    ["140", "LaLiga"],
+    ["2", "UEFA Champions League"],
+    ["78", "Bundesliga"],
+    ["135", "Serie A"],
+    ["61", "Ligue 1"],
+  ];
+
+  if (!env.apiFootballKey) {
+    return options.map(([id, name]) => ({
+      id,
+      name,
+      available: false,
+      reason: "provider_not_configured",
+    }));
+  }
+
+  const results = await Promise.all(options.map(async ([id, fallbackName]) => {
+    try {
+      const coverage = await getLeagueSeasonCoverage(id);
+      const current = coverage?.seasons?.find(item => item.current && item.standings)
+        || coverage?.seasons?.find(item => item.standings);
+      return {
+        id,
+        name: coverage?.league?.name || fallbackName,
+        available: Boolean(current),
+        currentSeason: current?.year ?? null,
+        currentSeasonStart: current?.start ?? null,
+        currentSeasonEnd: current?.end ?? null,
+      };
+    } catch (error) {
+      return {
+        id,
+        name: fallbackName,
+        available: false,
+        reason: error?.code || "unavailable",
+      };
+    }
+  }));
+
+  return results;
+}
+
 export function getProviderStatus() {
   return {
     apiFootball: providerState(Boolean(env.apiFootballKey)),
@@ -188,44 +233,136 @@ export async function getFixtures({ date = todayInTimezone(), league = "" } = {}
   return Array.isArray(data?.response) ? data.response.map(normalizeFixture).slice(0, 18) : [];
 }
 
-export async function getStandings({ league = env.defaultLeague, season = env.defaultSeason } = {}) {
-  if (!env.apiFootballKey || !league || !season) return null;
-  const data = await cached(
-    cacheKey("standings", String(league) + ":" + String(season)),
-    30 * 60 * 1000,
-    async () => fetchApiFootball("/standings", { league, season }),
+async function getLeagueSeasonCoverage(league) {
+  const id = String(league || "").trim();
+  if (!id || !env.apiFootballKey) return null;
+
+  return cached(
+    cacheKey("league-coverage", id),
+    12 * 60 * 60 * 1000,
+    async () => {
+      const data = await fetchApiFootball("/leagues", { id });
+      const entry = Array.isArray(data?.response) ? data.response[0] : null;
+      if (!entry) return null;
+
+      const seasons = Array.isArray(entry.seasons) ? entry.seasons : [];
+      const ranked = [...seasons].sort((a, b) => {
+        if (Boolean(a.current) !== Boolean(b.current)) return a.current ? -1 : 1;
+        return Number(b.year || 0) - Number(a.year || 0);
+      });
+
+      const selected = ranked.find(item => item?.coverage?.standings === true) || ranked[0] || null;
+      return {
+        league: entry.league || {},
+        country: entry.country || {},
+        seasons: ranked.map(item => ({
+          year: item?.year ?? null,
+          current: Boolean(item?.current),
+          standings: Boolean(item?.coverage?.standings),
+          start: item?.start || null,
+          end: item?.end || null,
+        })),
+        selectedSeason: selected?.year ?? null,
+        selectedSeasonCurrent: Boolean(selected?.current),
+        standingsAvailable: Boolean(selected?.coverage?.standings),
+      };
+    },
   );
-  const first = Array.isArray(data?.response) ? data.response[0] : null;
-  return first
-    ? {
-        league: {
-          id: first.league?.id ?? league,
-          name: first.league?.name || "League",
-          logo: first.league?.logo || "",
-          country: first.league?.country || "",
-          season: first.league?.season ?? Number(season),
-        },
-        groups: Array.isArray(first.league?.standings)
-          ? first.league.standings.map(group =>
-              (Array.isArray(group) ? group : []).slice(0, 10).map(row => ({
-                rank: row.rank,
-                team: { id: row.team?.id ?? null, name: row.team?.name || "Team", logo: row.team?.logo || "" },
-                points: row.points ?? null,
-                played: row.all?.played ?? null,
-                wins: row.all?.win ?? null,
-                draws: row.all?.draw ?? null,
-                losses: row.all?.lose ?? null,
-                goalsFor: row.all?.goals?.for ?? null,
-                goalsAgainst: row.all?.goals?.against ?? null,
-                goalDiff: row.goalsDiff ?? null,
-                form: row.form || "",
-              })),
-            )
-          : [],
-      }
-    : null;
 }
 
+export async function getStandings({ league = env.defaultLeague, season = env.defaultSeason } = {}) {
+  if (!env.apiFootballKey || !league) return null;
+
+  const coverage = await getLeagueSeasonCoverage(league);
+  if (!coverage) {
+    const error = new Error("API-Football returned no league metadata for league " + league + ".");
+    error.code = "league_not_found";
+    error.provider = "api-football";
+    throw error;
+  }
+
+  const requestedSeason = Number(season);
+  const requested = coverage.seasons.find(item => Number(item.year) === requestedSeason);
+  const resolved = requested?.standings
+    ? requested
+    : coverage.seasons.find(item => item.current && item.standings)
+      || coverage.seasons.find(item => item.standings)
+      || null;
+
+  if (!resolved?.year || !resolved.standings) {
+    const error = new Error(
+      "API-Football does not report standings coverage for this competition."
+    );
+    error.code = "standings_not_covered";
+    error.provider = "api-football";
+    error.details = {
+      leagueId: String(league),
+      requestedSeason: Number.isFinite(requestedSeason) ? requestedSeason : null,
+      availableSeasons: coverage.seasons,
+    };
+    throw error;
+  }
+
+  const resolvedSeason = Number(resolved.year);
+  const data = await cached(
+    cacheKey("standings", String(league) + ":" + String(resolvedSeason)),
+    30 * 60 * 1000,
+    async () => fetchApiFootball("/standings", { league, season: resolvedSeason }),
+  );
+
+  const first = Array.isArray(data?.response) ? data.response[0] : null;
+  if (!first) {
+    const apiError = data?.errors;
+    const error = new Error(
+      typeof apiError === "object" && apiError
+        ? Object.values(apiError).join(" ")
+        : "API-Football returned no standings for the resolved league season."
+    );
+    error.code = "standings_empty";
+    error.provider = "api-football";
+    error.details = {
+      leagueId: String(league),
+      requestedSeason: Number.isFinite(requestedSeason) ? requestedSeason : null,
+      resolvedSeason,
+      apiErrors: apiError || null,
+    };
+    throw error;
+  }
+
+  return {
+    league: {
+      id: first.league?.id ?? league,
+      name: first.league?.name || coverage.league?.name || "League",
+      logo: first.league?.logo || coverage.league?.logo || "",
+      country: first.league?.country || coverage.country?.name || "",
+      season: first.league?.season ?? resolvedSeason,
+    },
+    requestedSeason: Number.isFinite(requestedSeason) ? requestedSeason : null,
+    resolvedSeason,
+    seasonWasAutoResolved: resolvedSeason !== requestedSeason,
+    groups: Array.isArray(first.league?.standings)
+      ? first.league.standings.map(group =>
+          (Array.isArray(group) ? group : []).slice(0, 10).map(row => ({
+            rank: row.rank,
+            team: {
+              id: row.team?.id ?? null,
+              name: row.team?.name || "Team",
+              logo: row.team?.logo || "",
+            },
+            points: row.points ?? null,
+            played: row.all?.played ?? null,
+            wins: row.all?.win ?? null,
+            draws: row.all?.draw ?? null,
+            losses: row.all?.lose ?? null,
+            goalsFor: row.all?.goals?.for ?? null,
+            goalsAgainst: row.all?.goals?.against ?? null,
+            goalDiff: row.goalsDiff ?? null,
+            form: row.form || "",
+          })),
+        )
+      : [],
+  };
+}
 export async function getFixtureDetail(fixtureId) {
   if (!env.apiFootballKey || !fixtureId) return null;
   const data = await fetchApiFootball("/fixtures", { ids: fixtureId });
