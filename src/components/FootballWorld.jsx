@@ -172,52 +172,56 @@ export default function FootballWorld({ apiUrl, data, loading }) {
   }, [standingsSource]);
 
   useEffect(() => {
-    if (tab !== "standings") return;
-    if (leagueOptions.length || leagueOptionsLoading) return;
-    loadLeagueOptions();
-  }, [tab, leagueOptions.length, leagueOptionsLoading]);
+    if (tab !== "standings" || leagueOptions.length || leagueOptionsLoading) return undefined;
 
-  const loadStandings = async league => {
-    setSelectedLeague(league);
-    setStandingsLoading(true);
-    setStandingsError("");
-    try {
-      const response = await fetch(apiUrl + "/world/standings?league=" + encodeURIComponent(league));
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const message = body?.details?.availableSeasons?.length
-          ? "No standings-covered season is available for this competition."
-          : (body.message || "Standings unavailable.");
-        throw new Error(message);
-      }
-      setSelectedStandings(body.standings || null);
-    } catch (error) {
-      setSelectedStandings(null);
-      setStandingsError(error.message || "Standings unavailable.");
-    } finally {
-      setStandingsLoading(false);
-    }
-  };
-
-  const loadLeagueOptions = async () => {
+    let active = true;
     setLeagueOptionsLoading(true);
-    try {
-      const response = await fetch(apiUrl + "/world/standings/leagues");
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.message || "League coverage unavailable.");
-      const options = Array.isArray(body.leagues) ? body.leagues : [];
-      setLeagueOptions(options);
-      const firstAvailable = options.find(item => item.available);
-      if (!selectedLeague && firstAvailable) {
-        await loadStandings(String(firstAvailable.id));
+    setStandingsError("");
+
+    (async () => {
+      try {
+        const response = await fetch(apiUrl + "/world/standings/leagues");
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.message || "League coverage unavailable.");
+        const options = Array.isArray(body.leagues) ? body.leagues : [];
+        if (!active) return;
+
+        setLeagueOptions(options);
+
+        const firstAvailable = options.find(item => item.available);
+        if (firstAvailable && !selectedLeague) {
+          setSelectedLeague(String(firstAvailable.id));
+          setStandingsLoading(true);
+
+          const standingsResponse = await fetch(
+            apiUrl + "/world/standings?league=" + encodeURIComponent(String(firstAvailable.id)),
+          );
+          const standingsBody = await standingsResponse.json().catch(() => ({}));
+
+          if (!standingsResponse.ok) {
+            throw new Error(standingsBody.message || "Standings unavailable.");
+          }
+
+          if (active) setSelectedStandings(standingsBody.standings || null);
+        }
+      } catch (error) {
+        if (active) {
+          setLeagueOptions([]);
+          setSelectedStandings(null);
+          setStandingsError(error.message || "League coverage unavailable.");
+        }
+      } finally {
+        if (active) {
+          setLeagueOptionsLoading(false);
+          setStandingsLoading(false);
+        }
       }
-    } catch (error) {
-      setLeagueOptions([]);
-      setStandingsError(error.message || "League coverage unavailable.");
-    } finally {
-      setLeagueOptionsLoading(false);
-    }
-  };
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [apiUrl, tab, leagueOptions.length, leagueOptionsLoading, selectedLeague]);
 
   const loadMatchIntelligence = async fixture => {
     if (intelligenceFixture?.id === fixture.id) {
