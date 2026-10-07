@@ -5,6 +5,28 @@ import "./clubs-mode.css";
 const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
 const formationLabels5 = ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"];
 
+const formationSteps = [
+  ["pendingMutualAgreement", "Players selected"],
+  ["pendingMutualAgreement", "All members accepted"],
+  ["pendingName", "Club name"],
+  ["captainVote", "Captain election"],
+  ["pendingAdminApproval", "Club details"],
+  ["approved", "Admin approval"],
+];
+
+function formationProgress(status) {
+  if (status === "rejected") return 0;
+  if (status === "approved") return formationSteps.length;
+  const order = {
+    pendingMutualAgreement: 1,
+    pendingName: 3,
+    pendingCaptainVoteSetup: 4,
+    captainVote: 4,
+    pendingAdminApproval: 5,
+  };
+  return order[status] || 1;
+}
+
 const formationSlots = {
   "1-2-1": [
     { x: 50, y: 84 }, { x: 33, y: 55 }, { x: 67, y: 55 }, { x: 50, y: 23 },
