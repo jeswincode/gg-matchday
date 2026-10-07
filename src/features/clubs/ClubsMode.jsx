@@ -1538,10 +1538,14 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </section>
         </>
       ) : adminOnlyView && activeSection === "adminDashboard" ? (
-        <section className="clubs-section">
-          <div className="clubs-section-heading">
-            <div><p className="clubs-eyebrow">CLUBS CONTROL CENTER</p><h2>Administration dashboard</h2><span>Manage approvals, monitor every Club, and track Club Match synchronization.</span></div>
-            <button type="button" className="clubs-secondary-button" onClick={async () => {
+        <section className="clubs-section clubs-admin-dashboard">
+          <div className="clubs-admin-hero">
+            <div className="clubs-admin-hero-copy">
+              <p className="clubs-eyebrow">CLUBS CONTROL CENTER</p>
+              <h2>Administration dashboard</h2>
+              <p>Approve formations, monitor Club health, resolve synchronization issues and keep the entire Clubs ecosystem moving.</p>
+            </div>
+            <button type="button" className="clubs-secondary-button clubs-admin-refresh" onClick={async () => {
               try {
                 const [overviewData, clubData, matchData, applicationData] = await Promise.all([
                   api("/clubs/admin/overview"), api("/clubs/admin/clubs"), api("/clubs/admin/matches"), api("/clubs/admin/applications"),
@@ -1553,17 +1557,22 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               } catch (e) { setError(e.message); }
             }}>Refresh</button>
           </div>
-          <div className="clubs-history-summary-grid">
+          <div className="clubs-history-summary-grid" aria-label="Clubs operational metrics">
             {[
-              ["Active Clubs", adminOverview?.counts?.activeClubs ?? 0],
-              ["Pending Approvals", adminOverview?.counts?.pendingApplications ?? 0],
-              ["Active Players", adminOverview?.counts?.activeMembers ?? 0],
-              ["Club Matches", adminOverview?.counts?.upcomingMatches ?? 0],
-              ["Completed", adminOverview?.counts?.completedMatches ?? 0],
-              ["Archived Clubs", adminOverview?.counts?.archivedClubs ?? 0],
-              ["Sync Failures", adminOverview?.counts?.syncFailures ?? 0],
-              ["Renewal Risks", adminOverview?.counts?.renewalRisks ?? 0],
-            ].map(([label, value]) => <div className="clubs-history-stat" key={label}><strong>{value}</strong><span>{label}</span></div>)}
+              ["Active Clubs", adminOverview?.counts?.activeClubs ?? 0, false],
+              ["Pending Approvals", adminOverview?.counts?.pendingApplications ?? 0, true],
+              ["Active Players", adminOverview?.counts?.activeMembers ?? 0, false],
+              ["Club Matches", adminOverview?.counts?.upcomingMatches ?? 0, false],
+              ["Completed", adminOverview?.counts?.completedMatches ?? 0, false],
+              ["Archived Clubs", adminOverview?.counts?.archivedClubs ?? 0, false],
+              ["Sync Failures", adminOverview?.counts?.syncFailures ?? 0, true],
+              ["Renewal Risks", adminOverview?.counts?.renewalRisks ?? 0, true],
+            ].map(([label, value, attention]) => (
+              <div className="clubs-history-stat" data-alert={attention && Number(value) > 0 ? "true" : undefined} key={label}>
+                <strong>{value}</strong>
+                <span>{label}</span>
+              </div>
+            ))}
           </div>
           <section className="clubs-subsection clubs-admin-attention">
             <div className="clubs-section-heading"><div><p className="clubs-eyebrow">NEEDS ATTENTION</p><h3>Operational queue</h3><span>Every item points to the workflow that needs review.</span></div><span>{adminOverview?.attention?.length || 0}</span></div>
@@ -1593,15 +1602,27 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             )}
           </section>
 
-          <section className="clubs-subsection">
-            <div className="clubs-section-heading"><div><p className="clubs-eyebrow">LATEST CLUBS</p><h3>Recently changed Clubs</h3></div><span>{adminOverview?.recentClubs?.length || 0}</span></div>
-            <div className="clubs-application-list">
-              {(adminOverview?.recentClubs || []).map(club => (
-                <article className="clubs-application" key={String(club._id)}>
-                  <div><p className="clubs-eyebrow">{String(club.status || "").toUpperCase()}</p><h3>{club.name}</h3><span>{club.memberIds?.length || 0}/5 members · {club.captainIds?.length || 0} captain(s) · {club.balance ?? 0} credits</span></div>
-                </article>
-              ))}
+          <section className="clubs-subsection clubs-admin-latest">
+            <div className="clubs-section-heading">
+              <div><p className="clubs-eyebrow">LATEST CLUBS</p><h3>Recently changed Clubs</h3></div>
+              <span>{adminOverview?.recentClubs?.length || 0}</span>
             </div>
+            {(adminOverview?.recentClubs || []).length === 0 ? (
+              <div className="clubs-empty"><strong>No Club changes yet.</strong><span>Approved, archived and recently created Clubs will appear here.</span></div>
+            ) : (
+              <div className="clubs-admin-latest-grid">
+                {(adminOverview?.recentClubs || []).map(club => (
+                  <article className="clubs-admin-club-card" key={String(club._id)}>
+                    <span className="clubs-admin-club-mark">GG</span>
+                    <div className="clubs-admin-club-copy">
+                      <strong>{club.name || "Unnamed Club"}</strong>
+                      <span>{club.memberIds?.length || 0}/5 players · {club.captainIds?.length || 0} captain{(club.captainIds?.length || 0) === 1 ? "" : "s"} · updated {club.updatedAt ? new Date(club.updatedAt).toLocaleDateString() : "recently"}</span>
+                    </div>
+                    <span className="clubs-admin-club-status" data-status={club.status}>{String(club.status || "unknown").replace(/([A-Z])/g, " $1")}</span>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         </section>
       ) : adminOnlyView && activeSection === "adminApplications" ? (
