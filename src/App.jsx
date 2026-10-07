@@ -85,10 +85,18 @@ function App() {
   const [experience,setExperience]=useState('startup');
   const [productMode,setProductMode]=useState(()=>{
     try {
-      return new URLSearchParams(window.location.search).get("mode") === "clubs" ? "clubs" : "matchday";
+      const saved=localStorage.getItem("gg-product-mode");
+      if(saved === "clubs" || saved === "matchday") return saved;
+
+      const legacyMode=new URLSearchParams(window.location.search).get("mode");
+      if(legacyMode === "clubs") {
+        localStorage.setItem("gg-product-mode","clubs");
+        return "clubs";
+      }
     } catch {
-      return "matchday";
+      // Storage can be unavailable in private/restricted browser contexts.
     }
+    return "matchday";
   });
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
@@ -111,12 +119,15 @@ function App() {
     setModeTransition(transition);
     setProductMode(nextMode);
     try{
+      localStorage.setItem("gg-product-mode",nextMode);
+
+      // Product mode is an application state, not a route. Keep the canonical
+      // public URL clean and compatible with old ?mode=clubs links.
       const url=new URL(window.location.href);
-      if(nextMode==="clubs") url.searchParams.set("mode","clubs");
-      else url.searchParams.delete("mode");
-      window.history.replaceState({}, "", url);
+      url.searchParams.delete("mode");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
     }catch{
-      // URL history is optional in restricted browser environments.
+      // URL history/storage are optional in restricted browser environments.
     }
     window.setTimeout(()=>setModeTransition(null),720);
   },[modeTransition,productMode,theme]);
@@ -213,6 +224,18 @@ function App() {
       setSwipeAnimating(false);
     },240);
   }
+  useEffect(()=>{
+    try{
+      const url=new URL(window.location.href);
+      if(url.searchParams.has("mode")){
+        url.searchParams.delete("mode");
+        window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
+      }
+    }catch{
+      // Ignore URL cleanup failures.
+    }
+  },[]);
+
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
   useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
