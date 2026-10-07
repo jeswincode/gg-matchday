@@ -824,13 +824,25 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [activeSection, ultimateSubsection, clubMatches, authUser]);
 
   useEffect(() => {
-    if (!authUser) return undefined;
+    if (!authUser?.playerProfile) return undefined;
+
     let active = true;
-    refreshCommandCenter().then(data => {
+    const timer = window.setTimeout(async () => {
       if (!active) return;
-    });
+      setCommandCenterLoading(true);
+      try {
+        const data = await api("/clubs/home");
+        if (active) setCommandCenter(data || null);
+      } catch (error) {
+        console.warn("Clubs command center refresh failed:", error?.message || error);
+      } finally {
+        if (active) setCommandCenterLoading(false);
+      }
+    }, 0);
+
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
   }, [authUser]);
 
