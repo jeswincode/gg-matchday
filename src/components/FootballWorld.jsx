@@ -14,10 +14,10 @@ function ProviderStatus({ providers }) {
   );
 }
 
-function FixtureCard({ fixture, artwork }) {
+function FixtureCard({ fixture, artwork, onIntelligence, active }) {
   const fallbackArtwork = name => (artwork || []).find(item => item.name?.toLowerCase() === String(name || "").toLowerCase());
   return (
-    <article className="world-fixture-card">
+    <article className={"world-fixture-card" + (active ? " is-active" : "")}>
       <div className="world-fixture-meta">
         <span>{fixture.league?.name || "Football"}</span>
         <strong data-live={fixture.live ? "true" : "false"}>{fixture.live ? "LIVE" : fixture.statusLong || fixture.status || "SCHEDULED"}</strong>
@@ -39,7 +39,100 @@ function FixtureCard({ fixture, artwork }) {
         <span>{fixture.venue?.city || fixture.venue?.name || "Venue TBC"}</span>
         <span>{fixture.date ? new Date(fixture.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "TBC"}</span>
       </div>
+      <button type="button" className="world-intelligence-button" onClick={onIntelligence}>
+        {active ? "CLOSE INTELLIGENCE" : "MATCH INTELLIGENCE →"}
+      </button>
     </article>
+  );
+}
+
+function IntelligenceValue({ value, suffix = "" }) {
+  return value === null || value === undefined || value === "" ? "—" : String(value) + suffix;
+}
+
+function MatchIntelligence({ data, loading, fixture }) {
+  if (loading) {
+    return <div className="world-intelligence-panel"><div><span className="eyebrow">MATCH INTELLIGENCE</span><h3>{fixture.home?.name} vs {fixture.away?.name}</h3><p>Resolving this fixture across OpenFoot sources…</p></div><div className="world-intelligence-skeleton" /></div>;
+  }
+
+  if (!data?.available) {
+    const reason = {
+      "not-configured": "OpenFoot is not connected on the GG backend yet.",
+      "not-found": "OpenFoot does not currently have a matching fixture for this game.",
+      authentication: "OpenFoot rejected the backend key.",
+      quota: "OpenFoot monthly quota has been reached.",
+      plan: "This match intelligence requires an OpenFoot plan with the relevant capability.",
+      unavailable: "OpenFoot is temporarily unavailable.",
+    }[data?.reason] || "Match intelligence is not available for this fixture.";
+
+    return (
+      <div className="world-intelligence-panel">
+        <div>
+          <span className="eyebrow">MATCH INTELLIGENCE · OPENFOOT</span>
+          <h3>{fixture.home?.name} vs {fixture.away?.name}</h3>
+          <p>{reason}</p>
+          <small>GG Matchday continues to use the official fixture source above; OpenFoot is supplementary context only.</small>
+        </div>
+      </div>
+    );
+  }
+
+  const context = data.context;
+  const xg = data.xg;
+  return (
+    <div className="world-intelligence-panel">
+      <div className="world-intelligence-heading">
+        <div>
+          <span className="eyebrow">MATCH INTELLIGENCE · OPENFOOT</span>
+          <h3>{fixture.home?.name} vs {fixture.away?.name}</h3>
+          <p>External context, form and analytics. Nothing here changes GG Matchday ratings.</p>
+        </div>
+        <span className="world-intelligence-source">OPENFOOT</span>
+      </div>
+
+      <div className="world-intelligence-grid">
+        <div className="world-intelligence-card">
+          <span>FORM</span>
+          <div className="world-intelligence-duo">
+            <div><b>{fixture.home?.name}</b><strong>{context?.home?.form || "—"}</strong></div>
+            <div><b>{fixture.away?.name}</b><strong>{context?.away?.form || "—"}</strong></div>
+          </div>
+        </div>
+
+        <div className="world-intelligence-card">
+          <span>ELO</span>
+          <div className="world-intelligence-duo">
+            <div><b>{fixture.home?.name}</b><strong><IntelligenceValue value={context?.home?.elo} /></strong></div>
+            <div><b>{fixture.away?.name}</b><strong><IntelligenceValue value={context?.away?.elo} /></strong></div>
+          </div>
+        </div>
+
+        <div className="world-intelligence-card">
+          <span>EXPECTED GOALS</span>
+          <div className="world-intelligence-duo">
+            <div><b>{fixture.home?.name}</b><strong><IntelligenceValue value={xg?.home} /></strong></div>
+            <div><b>{fixture.away?.name}</b><strong><IntelligenceValue value={xg?.away} /></strong></div>
+          </div>
+        </div>
+
+        <div className="world-intelligence-card">
+          <span>TABLE POSITION</span>
+          <div className="world-intelligence-duo">
+            <div><b>{fixture.home?.name}</b><strong><IntelligenceValue value={context?.home?.tablePosition} /></strong></div>
+            <div><b>{fixture.away?.name}</b><strong><IntelligenceValue value={context?.away?.tablePosition} /></strong></div>
+          </div>
+        </div>
+      </div>
+
+      {(data.capabilities?.events || data.capabilities?.lineups || data.capabilities?.xg) && (
+        <div className="world-intelligence-capabilities">
+          {data.capabilities?.events && <span>EVENTS</span>}
+          {data.capabilities?.lineups && <span>LINEUPS</span>}
+          {data.capabilities?.xg && <span>XG SHOT MAP</span>}
+          <small>Source: OpenFoot · availability varies by match and plan.</small>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -65,6 +158,9 @@ export default function FootballWorld({ apiUrl, data, loading }) {
   const [selectedLeague, setSelectedLeague] = useState("");
   const [selectedStandings, setSelectedStandings] = useState(null);
   const [standingsLoading, setStandingsLoading] = useState(false);
+  const [intelligenceFixture, setIntelligenceFixture] = useState(null);
+  const [intelligenceData, setIntelligenceData] = useState(null);
+  const [intelligenceLoading, setIntelligenceLoading] = useState(false);
 
   const leagueOptions = [
     ["39", "Premier League"],
@@ -93,6 +189,41 @@ export default function FootballWorld({ apiUrl, data, loading }) {
       setSelectedStandings(null);
     } finally {
       setStandingsLoading(false);
+    }
+  };
+
+  const loadMatchIntelligence = async fixture => {
+    if (intelligenceFixture?.id === fixture.id) {
+      setIntelligenceFixture(null);
+      setIntelligenceData(null);
+      return;
+    }
+
+    setIntelligenceFixture(fixture);
+    setIntelligenceData(null);
+    setIntelligenceLoading(true);
+
+    try {
+      const date = fixture.date ? new Date(fixture.date).toISOString() : "";
+      const url = apiUrl +
+        "/world/openfoot/intelligence?home=" +
+        encodeURIComponent(fixture.home?.name || "") +
+        "&away=" +
+        encodeURIComponent(fixture.away?.name || "") +
+        "&date=" +
+        encodeURIComponent(date);
+      const response = await fetch(url);
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || "OpenFoot intelligence unavailable.");
+      setIntelligenceData(body);
+    } catch (error) {
+      setIntelligenceData({
+        available: false,
+        reason: "unavailable",
+        message: error?.message || "OpenFoot intelligence unavailable.",
+      });
+    } finally {
+      setIntelligenceLoading(false);
     }
   };
 
@@ -163,8 +294,23 @@ export default function FootballWorld({ apiUrl, data, loading }) {
               <div className="world-feature-column">
                 <div className="world-section-top"><div><span className="eyebrow">TODAY</span><h3>Live & upcoming football</h3></div><span>{data?.fixtures?.length || 0} fixtures</span></div>
                 <div className="world-fixtures-grid">
-                  {(data?.fixtures || []).slice(0, 6).map(fixture => <FixtureCard key={String(fixture.id)} fixture={fixture} artwork={data?.artwork} />)}
+                  {(data?.fixtures || []).slice(0, 6).map(fixture => (
+                    <FixtureCard
+                      key={String(fixture.id)}
+                      fixture={fixture}
+                      artwork={data?.artwork}
+                      active={intelligenceFixture?.id === fixture.id}
+                      onIntelligence={() => loadMatchIntelligence(fixture)}
+                    />
+                  ))}
                 </div>
+                {intelligenceFixture && (
+                  <MatchIntelligence
+                    data={intelligenceData}
+                    loading={intelligenceLoading}
+                    fixture={intelligenceFixture}
+                  />
+                )}
                 {!data?.fixtures?.length && <div className="world-subtle-empty">No external fixtures available yet. Add an API-Football key to activate the live fixture feed.</div>}
               </div>
               <aside className="world-side-card">
