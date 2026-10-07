@@ -137,7 +137,7 @@ test("GG Assistant has a fast lane for deterministic GG questions", () => {
 
   assert.match(service, /SNAPSHOT_TTL_MS/);
   assert.match(service, /fastAnswer/);
-  assert.match(service, /Who has the most goals/);
+  assert.match(service, /most goals\|top scorer/);
   assert.match(service, /You can .* opening|Got it — opening/);
   assert.match(service, /generatedBy: "fast"/);
   assert.match(service, /needsAi/);
