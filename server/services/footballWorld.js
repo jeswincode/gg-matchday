@@ -13,10 +13,10 @@ const env = {
   scoreBatToken: process.env.SCOREBAT_API_TOKEN || "",
   sportsDbKey: process.env.THE_SPORTS_DB_KEY || "",
   openFootKey: process.env.OPENFOOT_API_KEY || "",
-  defaultLeague: process.env.FOOTBALL_DEFAULT_LEAGUE || "",
-  defaultSeason: process.env.FOOTBALL_DEFAULT_SEASON || "",
+  defaultLeague: process.env.FOOTBALL_DEFAULT_LEAGUE || "39",
+  defaultSeason: process.env.FOOTBALL_DEFAULT_SEASON || String(new Date().getFullYear()),
   timezone: process.env.FOOTBALL_TIMEZONE || "Asia/Kolkata",
-  defaultWeatherCity: process.env.FOOTBALL_DEFAULT_WEATHER_CITY || "",
+  defaultWeatherCity: process.env.FOOTBALL_DEFAULT_WEATHER_CITY || "Bengaluru",
   cacheSeconds: Math.max(60, Number(process.env.FOOTBALL_WORLD_CACHE_SECONDS || 300)),
 };
 
