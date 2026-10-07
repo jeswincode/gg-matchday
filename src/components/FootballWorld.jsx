@@ -61,11 +61,39 @@ export default function FootballWorld({ apiUrl, data, loading }) {
   const [playerLoading, setPlayerLoading] = useState(false);
   const [externalPlayers, setExternalPlayers] = useState([]);
   const [playerError, setPlayerError] = useState("");
+  const [selectedLeague, setSelectedLeague] = useState("");
+  const [selectedStandings, setSelectedStandings] = useState(null);
+  const [standingsLoading, setStandingsLoading] = useState(false);
 
+  const leagueOptions = [
+    ["39", "Premier League"],
+    ["140", "LaLiga"],
+    ["2", "UEFA Champions League"],
+    ["78", "Bundesliga"],
+    ["135", "Serie A"],
+    ["61", "Ligue 1"],
+  ];
+
+  const standingsSource = selectedStandings || data?.standings;
   const topStandings = useMemo(() => {
-    const group = data?.standings?.groups?.[0] || [];
+    const group = standingsSource?.groups?.[0] || [];
     return group.slice(0, 6);
-  }, [data]);
+  }, [standingsSource]);
+
+  const loadStandings = async league => {
+    setSelectedLeague(league);
+    setStandingsLoading(true);
+    try {
+      const response = await fetch(apiUrl + "/world/standings?league=" + encodeURIComponent(league) + "&season=" + new Date().getFullYear());
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || "Standings unavailable.");
+      setSelectedStandings(body.standings || null);
+    } catch (error) {
+      setSelectedStandings(null);
+    } finally {
+      setStandingsLoading(false);
+    }
+  };
 
   const searchWorldPlayer = async event => {
     event.preventDefault();
@@ -150,7 +178,9 @@ export default function FootballWorld({ apiUrl, data, loading }) {
           {tab === "standings" && (
             <div className="world-standings-wrap">
               <div className="world-section-top"><div><span className="eyebrow">LEAGUE TABLE</span><h3>{data?.standings?.league?.name || "World standings"}</h3></div></div>
-              {topStandings.length ? (
+              {standingsLoading ? (
+                <div className="world-subtle-empty">Loading the selected league table…</div>
+              ) : topStandings.length ? (
                 <div className="world-standings-table">
                   {topStandings.map(row => (
                     <div className="world-standing-row" key={String(row.team?.id || row.rank)}>
