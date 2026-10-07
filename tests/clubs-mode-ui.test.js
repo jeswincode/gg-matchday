@@ -145,3 +145,12 @@ test("GG Assistant has a fast lane for deterministic GG questions", () => {
   assert.match(ui, /GG is thinking through that analysis/);
   assert.match(ui, /GG is checking the Matchday database/);
 });
+
+
+test("GG Assistant keeps normal comparisons and performance questions on the fast lane", () => {
+  const service = fs.readFileSync("server/services/ggAssistant.js", "utf8");
+  assert.match(service, /function needsAi/);
+  assert.doesNotMatch(service, /compare with\|comparison/);
+  assert.match(service, /real\[- \]\?life|real\[- \]\?player/);
+  assert.match(service, /improve\|improvement/);
+});

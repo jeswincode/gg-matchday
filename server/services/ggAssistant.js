@@ -77,7 +77,7 @@ function navigationIntent(message) {
 
 function needsAi(message) {
   const q = normalize(message);
-  return /\b(real[- ]?life|similar to|resembles|resemble|comparable to|compare with|comparison|why|how|analysis|analy[sz]e|tactical|style|strengths?|weaknesses?|what should|what can)\b/.test(q);
+  return /\b(real[- ]?life|similar to|resembles|resemble|comparable to|real[- ]?player|why|analysis|analy[sz]e|tactical|style|strengths?|weaknesses?|improve|improvement|what should|what can|explain)\b/.test(q);
 }
 
 function fastAnswer(message, facts, intent) {
