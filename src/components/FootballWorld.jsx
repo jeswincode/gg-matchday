@@ -55,7 +55,7 @@ function NewsCard({ item }) {
   );
 }
 
-export default function FootballWorld({ data, loading }) {
+export default function FootballWorld({ apiUrl, data, loading }) {
   const [tab, setTab] = useState("fixtures");
   const [playerQuery, setPlayerQuery] = useState("");
   const [playerLoading, setPlayerLoading] = useState(false);
@@ -74,7 +74,7 @@ export default function FootballWorld({ data, loading }) {
     setPlayerLoading(true);
     setPlayerError("");
     try {
-      const response = await fetch("/api/world/players/search?q=" + encodeURIComponent(query));
+      const response = await fetch(apiUrl + "/world/players/search?q=" + encodeURIComponent(query));
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || "Search failed.");
       setExternalPlayers(Array.isArray(body.players) ? body.players : []);
