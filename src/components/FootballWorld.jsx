@@ -115,8 +115,9 @@ export default function FootballWorld({ apiUrl, data, loading }) {
     }
   };
 
-  const configuredProviders = Object.values(data?.providers || {}).filter(provider => provider?.configured).length;
-  const hasContent = Boolean(data?.fixtures?.length || data?.standings || data?.news?.length || data?.highlights?.length || data?.weather);
+  const configuredProviders = Object.entries(data?.providers || {}).filter(([key, provider]) => key !== "weather" && provider?.configured).length;
+  const hasExternalContent = Boolean(data?.fixtures?.length || data?.standings || data?.news?.length || data?.highlights?.length);
+  const hasContent = Boolean(hasExternalContent || data?.weather);
 
   return (
     <section className="football-world-panel">
@@ -147,7 +148,7 @@ export default function FootballWorld({ apiUrl, data, loading }) {
 
       {loading ? (
         <div className="world-loading-grid"><div /><div /><div /></div>
-      ) : !hasContent && configuredProviders === 0 ? (
+      ) : !hasExternalContent && configuredProviders === 0 ? (
         <div className="world-empty-state">
           <span className="world-empty-icon">🌍</span>
           <strong>Your Football World is ready.</strong>
