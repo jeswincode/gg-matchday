@@ -11,6 +11,7 @@ import AdminPage from './features/admin/AdminPage';
 import MatchRecordForm from './features/matches/MatchRecordForm';
 import ClubsMode from './features/clubs/ClubsMode';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
+import GGAssistant from './components/GGAssistant';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
@@ -242,6 +243,48 @@ function App() {
   useEffect(()=>{api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey]);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
+
+  function handleAssistantNavigate(action) {
+    if (!action?.type) return;
+
+    if (action.type === "player" && action.playerId) {
+      showPlayer(action.playerId);
+      return;
+    }
+
+    if (action.type === "clubs" || action.type === "clubs-my-club" || action.type === "clubs-players" || action.type === "clubs-reviews") {
+      try {
+        const focus = {
+          clubs: "overview",
+          "clubs-my-club": "myClub",
+          "clubs-players": "players",
+          "clubs-reviews": "reviews",
+        }[action.type];
+        if (focus) localStorage.setItem("gg-clubs-focus", focus);
+      } catch {
+        // Focus persistence is optional.
+      }
+      switchProductMode("clubs");
+      return;
+    }
+
+    const tab = {
+      home: TABS.HOME,
+      record: TABS.RECORD,
+      leaderboard: TABS.LEADERBOARD,
+      calendar: TABS.CALENDAR,
+      players: TABS.PLAYERS,
+    }[action.type];
+
+    if (tab) {
+      closeModal();
+      setActiveTab(tab);
+    }
+
+    if (action.type === "hall-of-fame") {
+      setModal("hall");
+    }
+  }
 
   // =========================================================
   // NAVIGATION
@@ -2334,6 +2377,7 @@ function App() {
     return (
       <>
         <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
+        <GGAssistant onNavigate={handleAssistantNavigate} isSignedIn={Boolean(authUser)} />
         {modeTransitionLayer}
       </>
     );
@@ -2755,6 +2799,7 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
       </Suspense>
+      <GGAssistant onNavigate={handleAssistantNavigate} isSignedIn={Boolean(authUser)} />
       {modeTransitionLayer}
     </main>
   );
