@@ -34,3 +34,5 @@
 @media(max-width:900px){.world-content-grid{grid-template-columns:1fr}.world-fixtures-grid,.world-news-grid,.world-highlights-grid,.world-player-results{grid-template-columns:1fr}}
 @media(max-width:640px){.football-world-panel{padding:16px;border-radius:19px}.world-panel-header{align-items:flex-start;flex-direction:column}.world-panel-badge{width:100%;text-align:left}.world-weather-card{grid-template-columns:1fr}.world-weather-main{font-size:48px}.world-weather-stats{grid-template-columns:repeat(2,1fr)}.world-weather-stats span:nth-child(3){border-left:0;border-top:1px solid var(--border)}.world-weather-stats span:nth-child(4){border-top:1px solid var(--border)}}
 @media(prefers-reduced-motion:reduce){.world-loading-grid div{animation:none}}
+.world-league-select{width:auto;min-width:170px;min-height:36px;padding:0 9px;border-radius:999px;font-size:10px;font-weight:800;background:var(--panel-soft)}
+@media(max-width:640px){.world-section-top{align-items:flex-start;flex-direction:column}.world-league-select{width:100%}}
