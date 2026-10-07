@@ -31,22 +31,25 @@ async function cached(key, ttlMs, loader) {
   return value;
 }
 
+function parseJsonSafely(text) {
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return {};
+  }
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, {
     ...options,
     headers: { Accept: "application/json", ...(options.headers || {}) },
   });
   const text = await response.text();
+  const payload = parseJsonSafely(text);
   if (!response.ok) {
-    let payload = {};
-    try { payload = text ? JSON.parse(text) : {}; } catch { payload = {}; }
     throw new Error(payload?.message || payload?.error || "External football provider returned " + response.status);
   }
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return {};
-  }
+  return payload;
 }
 
 function todayInTimezone(timeZone = env.timezone) {
