@@ -72,7 +72,7 @@ export function getProviderStatus() {
   };
 }
 
-function normalizeFixture(item) {
+export function normalizeFixture(item) {
   const fixture = item?.fixture || {};
   const teams = item?.teams || {};
   const goals = item?.goals || {};
