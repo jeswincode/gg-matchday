@@ -24,8 +24,11 @@ export function activeCaptainApprovalComplete(captainIds, approvalIds) {
 export function validateRetention(memberIds, retainedPlayerIds, captainIds) {
   const members = new Set((memberIds || []).map(String));
   const retained = [...new Set((retainedPlayerIds || []).map(String))];
-  if (members.size < 4 || members.size > 5 || retained.length > members.size || retained.some(id => !members.has(id))) {
+  if (members.size < 4 || members.size > 5) {
     throw new Error("A Club must contain four or five members while active.");
+  }
+  if (retained.length > members.size || retained.length > 5 || retained.some(id => !members.has(id))) {
+    throw new Error("A Club renewal can retain only players from the active four or five player squad.");
   }
   if (retained.length >= 4) {
     const retainedCaptains = (captainIds || []).filter(id => retained.includes(String(id)));
