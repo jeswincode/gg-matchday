@@ -3,15 +3,12 @@ import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import {
   buildStatistics,
-  compareByGG,
   getMatchScores,
   id,
   sortDefensive,
   sortGoldenBoot,
-  sortOffensive,
   sortPlaymaker,
 } from "./statistics.js";
-import { effectiveMatchRating } from "./ratings/index.js";
 
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const API_KEY = process.env.GEMINI_API_KEY;
@@ -19,6 +16,7 @@ const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 const navigationActions = [
   ["home", "Open Home"],
+  ["player", "Open Player Profile"],
   ["record", "Open Match Record"],
   ["leaderboard", "Open Leaderboard"],
   ["calendar", "Open Calendar"],
