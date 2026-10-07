@@ -500,11 +500,6 @@ function normalizeOpenFootContext(payload) {
     freshness: root?.freshness || null,
   };
 }
-
-function hasUsefulObject(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value) && Object.keys(value).length);
-}
-
 export async function getOpenFootMatchIntelligence({ date, home, away } = {}) {
   if (!env.openFootKey) {
     return {
