@@ -2799,8 +2799,12 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
       </Suspense>
-      <GGAssistant onNavigate={handleAssistantNavigate} isSignedIn={Boolean(authUser)} />
-      <GGAssistant onNavigate={handleAssistantNavigate} isSignedIn={Boolean(authUser)} />
+      <GGAssistant
+        onNavigate={handleAssistantNavigate}
+        isSignedIn={Boolean(authUser)}
+        players={players}
+        viewerPlayerId={backendUser?.playerProfile || ""}
+      />
       {modeTransitionLayer}
     </main>
   );
