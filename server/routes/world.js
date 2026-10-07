@@ -82,6 +82,7 @@ router.get("/standings", async (req, res) => {
       code: error?.code || "standings_unavailable",
       details: error?.details || null,
     });
+  }
 });
 
 router.get("/news", async (req, res) => {
