@@ -6,7 +6,7 @@ import ClubFormationApplication from "../models/clubs/ClubFormationApplication.j
 import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
-import { requireAuth, requireAdmin, optionalAuth } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import {
   CLUB_FORMATIONS,
   CLUB_FORMATIONS_4,
@@ -1725,7 +1725,7 @@ router.post("/matches/:matchId/cancel", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/", optionalAuth, async (req, res) => {
+router.get("/", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
 
   try {
@@ -1733,14 +1733,6 @@ router.get("/", optionalAuth, async (req, res) => {
       .select("_id name nameNormalized description logoUrl memberIds captainIds status approvedAt")
       .sort({ nameNormalized: 1 })
       .lean();
-    const playerId = req.user?.playerProfile ? String(req.user.playerProfile) : "";
-    if (playerId) {
-      const memberClub = clubs.find(club => club.memberIds?.some(id => String(id) === playerId));
-      if (memberClub) {
-        const fullClub = await Club.findById(memberClub._id).select("balance").lean();
-        if (fullClub) memberClub.balance = fullClub.balance;
-      }
-    }
     return res.json(clubs);
   } catch (error) {
     console.error("Error fetching clubs:", error);
