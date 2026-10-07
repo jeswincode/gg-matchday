@@ -460,7 +460,20 @@ router.get("/formation/me", requireAuth, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    return res.json(applications);
+    const allMemberIds = [...new Set(applications.flatMap(application => (application.memberIds || []).map(String)))];
+    const memberPlayers = allMemberIds.length
+      ? await Player.find({ _id: { $in: allMemberIds } })
+          .select("_id name position profileImage ovrSnapshot.currentOvr")
+          .lean()
+      : [];
+    const playersById = new Map(memberPlayers.map(player => [String(player._id), player]));
+
+    const enriched = applications.map(application => ({
+      ...application,
+      members: (application.memberIds || []).map(id => playersById.get(String(id)) || { _id: id, name: "Player" }),
+    }));
+
+    return res.json(enriched);
   } catch (error) {
     console.error("Load formation applications error:", error);
     return res.status(500).json({
@@ -801,6 +814,73 @@ router.get("/auction/me", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Load auction state error:", error);
     return res.status(500).json({ message: "Failed to load your auction state." });
+  }
+});
+
+router.get("/players/discovery", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const [players, activeContracts, recentMatches] = await Promise.all([
+      Player.find({})
+        .select("_id name position profileImage jerseyNumber ovrSnapshot.currentOvr")
+        .sort({ name: 1 })
+        .lean(),
+      ClubContract.find({ status: "active" }).select("playerId clubId").lean(),
+      Match.find({ "participants.0": { $exists: true } })
+        .sort({ date: -1, createdAt: -1 })
+        .limit(40)
+        .select("_id date participants events")
+        .lean(),
+    ]);
+
+    const activeIds = new Set(activeContracts.map(contract => String(contract.playerId)));
+    const byPlayer = new Map(players.map(player => [
+      String(player._id),
+      {
+        player,
+        matchesPlayed: 0,
+        goals: 0,
+        assists: 0,
+        ratings: [],
+      },
+    ]));
+
+    for (const match of recentMatches) {
+      for (const participant of match.participants || []) {
+        const id = String(participant.player);
+        const row = byPlayer.get(id);
+        if (!row) continue;
+        row.matchesPlayed += 1;
+        if (participant.rating != null) row.ratings.push(Number(participant.rating));
+      }
+      for (const event of match.events || []) {
+        const id = String(event.player);
+        const row = byPlayer.get(id);
+        if (!row) continue;
+        if (event.type === "goal") row.goals += 1;
+        if (event.type === "assist") row.assists += 1;
+      }
+    }
+
+    return res.json(players.map(player => {
+      const row = byPlayer.get(String(player._id));
+      const ratings = (row?.ratings || []).slice(0, 5);
+      const formAverage = ratings.length
+        ? (ratings.reduce((sum, value) => sum + value, 0) / ratings.length).toFixed(2)
+        : null;
+      return {
+        ...player,
+        currentOvr: player.ovrSnapshot?.currentOvr ?? null,
+        matchesPlayed: row?.matchesPlayed || 0,
+        goals: row?.goals || 0,
+        assists: row?.assists || 0,
+        formAverage,
+        available: !activeIds.has(String(player._id)),
+      };
+    }));
+  } catch (error) {
+    console.error("Club player discovery error:", error);
+    return res.status(500).json({ message: "Failed to load Club player discovery." });
   }
 });
 
