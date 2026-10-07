@@ -49,7 +49,14 @@ async function fetchJson(url, options = {}) {
   const text = await response.text();
   const payload = parseJsonSafely(text);
   if (!response.ok) {
-    throw new Error(payload?.message || payload?.error || "External football provider returned " + response.status);
+    const providerError = payload?.error;
+    const message = payload?.message ||
+      (typeof providerError === "string" ? providerError : providerError?.message) ||
+      "External football provider returned " + response.status;
+    const error = new Error(message);
+    error.code = typeof providerError === "object" ? providerError?.code : undefined;
+    error.status = response.status;
+    throw error;
   }
   return payload;
 }
@@ -398,10 +405,11 @@ function teamNameMatch(left, right) {
 function openFootErrorState(error) {
   const message = String(error?.message || error || "");
   const lower = message.toLowerCase();
-  if (lower.includes("api_key_required") || lower.includes("invalid_api_key")) return "authentication";
-  if (lower.includes("monthly_quota_exceeded") || lower.includes("429")) return "quota";
-  if (lower.includes("403") || lower.includes("plan")) return "plan";
-  if (lower.includes("404") || lower.includes("match_not_found")) return "not-found";
+  const code = String(error?.code || "").toLowerCase();
+  if (code === "api_key_required" || code === "invalid_api_key" || lower.includes("api key")) return "authentication";
+  if (code === "monthly_quota_exceeded" || lower.includes("429")) return "quota";
+  if (error?.status === 403 || code === "plan_restricted" || lower.includes("plan")) return "plan";
+  if (error?.status === 404 || code === "match_not_found" || lower.includes("404")) return "not-found";
   return "unavailable";
 }
 
