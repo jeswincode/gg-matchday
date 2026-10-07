@@ -170,11 +170,10 @@ router.get("/home", requireAuth, async (req, res) => {
   if (!playerId) return;
 
   try {
-    const [clubs, applications, joinRequests] = await Promise.all([
+    const [clubs, applications] = await Promise.all([
       Club.find({ status: "approved" }).sort({ nameNormalized: 1 }).lean(),
       ClubFormationApplication.find({ memberIds: playerId }).sort({ createdAt: -1 }).lean(),
-      JoinRequest.find({ playerId, status: "pending" }).sort({ createdAt: -1 }).lean(),
-    ]);
+     ]);
 
     const currentClub =
       clubs.find(club => club.memberIds?.some(id => String(id) === String(playerId))) || null;

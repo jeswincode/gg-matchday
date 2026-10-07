@@ -112,7 +112,15 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [offerPlayer, setOfferPlayer] = useState("");
   const [offerAmount, setOfferAmount] = useState("");
   const [offerClub, setOfferClub] = useState("");
-  const [activeSection, setActiveSection] = useState(isAdmin && !authUser?.playerProfile ? "adminDashboard" : "overview");
+  const [activeSection, setActiveSection] = useState(() => {
+    if (isAdmin && !authUser?.playerProfile) return "adminDashboard";
+    try {
+      const focus = localStorage.getItem("gg-clubs-focus");
+      return ["overview", "myClub", "players", "reviews"].includes(focus) ? focus : "overview";
+    } catch {
+      return "overview";
+    }
+  });
   const [ultimateSubsection, setUltimateSubsection] = useState("overview");
   const [myClubSubsection, setMyClubSubsection] = useState("squad");
   const [playersSubsection, setPlayersSubsection] = useState("directory");
@@ -148,6 +156,14 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     setAnnouncement("");
     window.setTimeout(() => setAnnouncement(message), 20);
   };
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem("gg-clubs-focus");
+    } catch {
+      // Local storage is optional in restricted browser contexts.
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -648,7 +664,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     let active = true;
     if (activeSection !== "myClub" || !currentClub?._id) {
-      setClubWallet(null);
       return undefined;
     }
 
@@ -809,16 +824,25 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [activeSection, ultimateSubsection, clubMatches, authUser]);
 
   useEffect(() => {
-    if (!authUser) {
-      setCommandCenter(null);
-      return undefined;
-    }
+    if (!authUser?.playerProfile) return undefined;
+
     let active = true;
-    refreshCommandCenter().then(data => {
-      if (!active && data) setCommandCenter(null);
-    });
+    const timer = window.setTimeout(async () => {
+      if (!active) return;
+      setCommandCenterLoading(true);
+      try {
+        const data = await api("/clubs/home");
+        if (active) setCommandCenter(data || null);
+      } catch (error) {
+        console.warn("Clubs command center refresh failed:", error?.message || error);
+      } finally {
+        if (active) setCommandCenterLoading(false);
+      }
+    }, 0);
+
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
   }, [authUser]);
 
