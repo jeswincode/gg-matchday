@@ -21,6 +21,7 @@ import systemRoutes from "./routes/system.js";
 import ggAdminRoutes from "./routes/ggAdmin.js";
 import clubsRoutes from "./routes/clubs.js";
 import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
+import worldRoutes from "./routes/world.js";
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
 app.use(express.json({limit:"64kb"}));
 app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
+app.use("/api/world", worldRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/matches", matchDetailRoutes);
 
