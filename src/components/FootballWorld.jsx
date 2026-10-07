@@ -311,7 +311,13 @@ export default function FootballWorld({ apiUrl, data, loading }) {
                     fixture={intelligenceFixture}
                   />
                 )}
-                {!data?.fixtures?.length && <div className="world-subtle-empty">No external fixtures available yet. Add an API-Football key to activate the live fixture feed.</div>}
+                {!data?.fixtures?.length && (
+                  <div className="world-subtle-empty">
+                    {data?.providers?.apiFootball?.configured
+                      ? "No external fixtures were returned for today. Try again later or switch to another Football World view."
+                      : "API-Football is not connected yet. Add API_FOOTBALL_KEY on the GG backend to activate live fixtures."}
+                  </div>
+                )}
               </div>
               <aside className="world-side-card">
                 <span className="eyebrow">WHY THIS EXISTS</span>
@@ -344,7 +350,11 @@ export default function FootballWorld({ apiUrl, data, loading }) {
                     </div>
                   ))}
                 </div>
-              ) : <div className="world-subtle-empty">Choose a default league and season in the backend environment to activate standings.</div>}
+              ) : <div className="world-subtle-empty">
+                  {data?.providers?.apiFootball?.configured
+                    ? "No standings were returned for this competition yet. Choose a league above and retry."
+                    : "API-Football standings are unavailable because the provider is not connected yet."}
+                </div>}
             </div>
           )}
 
@@ -390,7 +400,7 @@ export default function FootballWorld({ apiUrl, data, loading }) {
 
           {tab === "weather" && (
             <div className="world-weather-card">
-              <div><span className="eyebrow">MATCHDAY CONDITIONS</span><h3>{data?.weather?.location?.name || "Location not configured"}</h3><p>{data?.weather?.description || "Set a default football city in the backend environment."}</p></div>
+              <div><span className="eyebrow">MATCHDAY CONDITIONS</span><h3>{data?.weather?.location?.name || "Bengaluru"}</h3><p>{data?.weather?.description || "Weather is temporarily unavailable."}</p></div>
               <div className="world-weather-main">{data?.weather?.temperature ?? "—"}<sup>°C</sup></div>
               <div className="world-weather-stats">
                 <span><b>{data?.weather?.apparentTemperature ?? "—"}°</b><small>FEELS LIKE</small></span>
