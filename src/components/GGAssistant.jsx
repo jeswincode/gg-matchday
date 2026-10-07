@@ -27,17 +27,6 @@ export default function GGAssistant({ onNavigate, isSignedIn = false, players = 
     return () => window.clearTimeout(timer);
   }, [open]);
 
-  useEffect(() => {
-    if (!compareOpen) return;
-    const viewer = players.find(player => String(player._id) === String(viewerPlayerId));
-    setCompareA(current => current || (viewer ? String(viewer._id) : ""));
-    setCompareB(current => {
-      if (current && current !== String(viewer?._id || "")) return current;
-      const firstOther = players.find(player => String(player._id) !== String(viewer?._id || ""));
-      return firstOther ? String(firstOther._id) : "";
-    });
-  }, [compareOpen, players, viewerPlayerId]);
-
   if (!isSignedIn) return null;
 
   const ask = async value => {
@@ -81,8 +70,9 @@ export default function GGAssistant({ onNavigate, isSignedIn = false, players = 
 
   const startComparison = (useViewer = false) => {
     const viewer = players.find(player => String(player._id) === String(viewerPlayerId));
-    setCompareA(useViewer && viewer ? String(viewer._id) : "");
-    const firstOther = players.find(player => String(player._id) !== String(viewer?._id || ""));
+    const viewerId = viewer ? String(viewer._id) : "";
+    const firstOther = players.find(player => String(player._id) !== viewerId);
+    setCompareA(useViewer ? viewerId : "");
     setCompareB(firstOther ? String(firstOther._id) : "");
     setCompareOpen(true);
   };
