@@ -8,6 +8,7 @@ import {
   getWeather,
   getWorld,
   getProviderStatus,
+  getStandingsLeagueOptions,
   searchExternalPlayer,
   getOpenFootMatchIntelligence,
 } from "../services/footballWorld.js";
@@ -58,13 +59,28 @@ router.get("/fixture/:id", async (req, res) => {
   }
 });
 
+router.get("/standings/leagues", async (req, res) => {
+  try {
+    return res.json({ leagues: await getStandingsLeagueOptions() });
+  } catch (error) {
+    console.error("Football World standings leagues error:", error);
+    return res.status(502).json({ message: "External league coverage is temporarily unavailable." });
+  }
+});
+
 router.get("/standings", async (req, res) => {
   try {
-    return res.json({
-      standings: await getStandings({
-        league: req.query.league || undefined,
-        season: req.query.season || undefined,
-      }),
+    const standings = await getStandings({
+      league: req.query.league || undefined,
+      season: req.query.season || undefined,
+    });
+    return res.json({ standings });
+  } catch (error) {
+    console.error("Football World standings error:", error);
+    return res.status(502).json({
+      message: error?.message || "External standings are temporarily unavailable.",
+      code: error?.code || "standings_unavailable",
+      details: error?.details || null,
     });
   } catch (error) {
     console.error("Football World standings error:", error);
