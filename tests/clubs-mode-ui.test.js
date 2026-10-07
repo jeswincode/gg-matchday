@@ -85,6 +85,7 @@ test("Clubs renewal policy allows 4-5 retained players and archives smaller outc
 
 test("Club public responses do not expose Club wallet balance and auction offers are authenticated", () => {
   const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
 
   assert.match(routes, /router\.get\("\/", async/);
   assert.match(routes, /\.select\("_id name nameNormalized description logoUrl memberIds captainIds status approvedAt"\)/);
