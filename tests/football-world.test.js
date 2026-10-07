@@ -84,3 +84,38 @@ test("Football World is wired to the public API route and Home UI", () => {
   assert.match(env, /SCOREBAT_API_TOKEN/);
   assert.match(env, /THE_SPORTS_DB_KEY/);
 });
+
+
+test("OpenFoot is optional and fails closed when no server key is configured", async () => {
+  const world = await import("../server/services/footballWorld.js");
+  assert.ok(world.getProviderStatus().openFoot);
+  const result = await world.getOpenFootMatchIntelligence({
+    date: "2026-10-07T18:00:00.000Z",
+    home: "Arsenal",
+    away: "Chelsea",
+  });
+  assert.equal(result.provider, "OpenFoot");
+  assert.equal(result.available, false);
+  assert.equal(result.reason, "not-configured");
+  assert.equal(result.capabilities.context, false);
+});
+
+test("OpenFoot integration is on-demand and UI exposes match intelligence without mixing GG ratings", () => {
+  const service = fs.readFileSync("server/services/footballWorld.js", "utf8");
+  const route = fs.readFileSync("server/routes/world.js", "utf8");
+  const ui = fs.readFileSync("src/components/FootballWorld.jsx", "utf8");
+  const css = fs.readFileSync("src/components/football-world.css", "utf8");
+  const env = fs.readFileSync(".env.example", "utf8");
+
+  assert.match(service, /OPENFOOT_API_KEY/);
+  assert.match(service, /getOpenFootMatchIntelligence/);
+  assert.match(service, /\/matches\/.*\/context/);
+  assert.match(service, /\/matches\/.*\/xg/);
+  assert.match(service, /Authorization: "Bearer "/);
+  assert.match(route, /router\.get\("\/openfoot\/intelligence"/);
+  assert.match(ui, /MATCH INTELLIGENCE →/);
+  assert.match(ui, /OpenFoot/);
+  assert.match(ui, /Nothing here changes GG Matchday ratings/);
+  assert.match(css, /\.world-intelligence-panel/);
+  assert.match(env, /OPENFOOT_API_KEY/);
+});
