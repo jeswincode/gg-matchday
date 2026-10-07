@@ -143,7 +143,7 @@ test("Standings now resolve provider-supported seasons instead of forcing the br
   assert.match(service, /resolvedSeason/);
   assert.match(route, /\/standings\/leagues/);
   assert.match(route, /code: error\?\.code/);
-  assert.doesNotMatch(ui, /season=\" \+ new Date\(\)\.getFullYear\(\)/);
+  assert.doesNotMatch(ui, /new Date\(\)\.getFullYear\(\)/);
   assert.match(ui, /Loading competitions/);
   assert.match(ui, /unavailable/);
 });
