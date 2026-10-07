@@ -15,7 +15,7 @@ function monthName(month){
   return new Date(2026,month-1,1).toLocaleString(undefined,{month:"long"});
 }
 
-export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshKey}){
+export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshKey,footballWorld}){
   const today=new Date();
   const [calendarMonth,setCalendarMonth]=useState(today.getMonth()+1);
   const [calendarYear,setCalendarYear]=useState(today.getFullYear());
@@ -133,6 +133,34 @@ export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshK
               })}
             </div>
           </>
+        )}
+      </section>
+
+      <section className="section-block calendar-world-section">
+        <SectionHeading eyebrow="FOOTBALL WORLD" title="Today beyond GG" />
+        {(footballWorld?.fixtures || []).length ? (
+          <div className="calendar-world-fixtures">
+            {(footballWorld.fixtures || []).slice(0, 4).map(fixture => (
+              <article className="calendar-world-fixture" key={String(fixture.id)}>
+                <div>
+                  <span>{fixture.league?.name || "Football"}</span>
+                  <strong data-live={fixture.live ? "true" : "false"}>{fixture.live ? "LIVE" : fixture.statusLong || fixture.status || "SCHEDULED"}</strong>
+                </div>
+                <div className="calendar-world-teams">
+                  <span>{fixture.home?.name}</span>
+                  <b>{fixture.home?.goals == null ? "VS" : String(fixture.home.goals) + " : " + String(fixture.away?.goals ?? 0)}</b>
+                  <span>{fixture.away?.name}</span>
+                </div>
+                <small>{fixture.venue?.city || "Venue TBC"} · {fixture.date ? new Date(fixture.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "TBC"}</small>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <span>🌍</span>
+            <h3>No external fixtures loaded</h3>
+            <p>Connect the Football World provider to add real-world fixtures beside your GG archive.</p>
+          </div>
         )}
       </section>
 
