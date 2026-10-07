@@ -77,7 +77,7 @@ function navigationIntent(message) {
 
 function needsAi(message) {
   const q = normalize(message);
-  return /\b(real[- ]?life|similar to|resembles|resemble|comparable to|real[- ]?player|why|analysis|analy[sz]e|tactical|style|strengths?|weaknesses?|improve|improvement|what should|what can|explain)\b/.test(q);
+  return isRealLifeComparison(q) || /\b(similar to|resembles|resemble|comparable to|why|analysis|analy[sz]e|tactical|style|strengths?|weaknesses?|improve|improvement|what should|what can|explain)\b/.test(q);
 }
 
 function fastAnswer(message, facts, intent) {
@@ -199,6 +199,25 @@ function findMentionedPlayers(message, players) {
     .map(({ player }) => player);
 }
 
+function isComparisonQuestion(message) {
+  return /\b(compare|comparison|versus|vs\.?|better|difference|between)\b/.test(normalize(message));
+}
+
+function isRealLifeComparison(message) {
+  const q = normalize(message);
+  return /\b(real[- ]?life|real[- ]?player|footballer|pro player|professional player)\b/.test(q) && isComparisonQuestion(q);
+}
+
+function withViewerPlayer(message, mentionedPlayers, players, viewerPlayerId) {
+  const q = normalize(message);
+  if (!viewerPlayerId || !/\b(me|myself|my)\b/.test(q)) return mentionedPlayers;
+
+  const viewer = players.find(player => id(player) === String(viewerPlayerId));
+  if (!viewer) return mentionedPlayers;
+  if (mentionedPlayers.some(player => id(player) === id(viewer))) return mentionedPlayers;
+  return [viewer, ...mentionedPlayers];
+}
+
 function compactStat(row) {
   return {
     playerId: row.playerId,
@@ -221,9 +240,9 @@ function compactStat(row) {
   };
 }
 
-function deterministicIntent(message, stats, players) {
+function deterministicIntent(message, stats, players, viewerPlayerId = null) {
   const q = normalize(message);
-  const mentioned = findMentionedPlayers(message, players);
+  const mentioned = withViewerPlayer(message, findMentionedPlayers(message, players), players, viewerPlayerId);
   const first = mentioned[0] || null;
 
   if (/\b(hall of fame|hall|legends)\b/.test(q)) {
@@ -278,7 +297,8 @@ function deterministicIntent(message, stats, players) {
 }
 
 function buildFacts(message, players, matches, rows, viewerPlayerId) {
-  const mentioned = findMentionedPlayers(message, players);
+  let mentioned = findMentionedPlayers(message, players);
+  mentioned = withViewerPlayer(message, mentioned, players, viewerPlayerId);
   const viewer = viewerPlayerId ? rows.find(row => String(row.playerId) === String(viewerPlayerId)) : null;
   const recent = [...matches]
     .sort((a, b) => new Date(b.date) - new Date(a.date) || new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
@@ -360,25 +380,57 @@ export async function answerAssistant({ message, viewerPlayerId, rateLimitKey })
 
   const snapshot = await getStatisticsSnapshot();
   const { players, matches, rows } = snapshot;
-  const intent = deterministicIntent(prompt, rows, players);
+  const intent = deterministicIntent(prompt, rows, players, viewerPlayerId);
   const facts = buildFacts(prompt, players, matches, rows, viewerPlayerId);
 
   const fast = !needsAi(prompt) ? fastAnswer(prompt, facts, intent) : null;
   if (fast) return fast;
 
-  const fallback = {
-    answer: fallbackReply(prompt, facts, intent),
-    action: intent.action,
-    generatedBy: "fallback",
-  };
+  const fallback = isRealLifeComparison(prompt)
+    ? {
+        answer: "I can make a stylistic real-life comparison, but I couldn’t complete the AI analysis right now. I’d rather not invent a footballer comparison.",
+        action: facts.mentionedPlayers[0]
+          ? { type: "player", label: "VIEW " + facts.mentionedPlayers[0].name.toUpperCase() + " →", playerId: facts.mentionedPlayers[0].playerId }
+          : null,
+        generatedBy: "fallback",
+      }
+    : {
+        answer: fallbackReply(prompt, facts, intent),
+        action: intent.action,
+        generatedBy: "fallback",
+      };
 
   if (!ai) return fallback;
 
   try {
-    const response = await ai.interactions.create({
-      model: MODEL,
-      store: false,
-      input: `You are GG Assistant, the football concierge inside GG Matchday.
+    const realLifeMode = isRealLifeComparison(prompt);
+    const aiInstruction = realLifeMode
+      ? `You are GG Assistant, a football analyst inside GG Matchday.
+
+Answer the user's real-life footballer comparison question.
+
+For this specific request:
+- You MAY use your general football knowledge to choose an approximate stylistic comparison.
+- Do not claim the GG player is statistically equal to the professional player.
+- Compare role, position, attacking/creative profile, chance creation, scoring profile and broad playing style.
+- Keep it clearly framed as an approximate stylistic comparison, not an official scouting conclusion.
+- Use the verified GG facts below for the GG player's side of the comparison.
+- If the available GG facts are insufficient for a responsible comparison, say so.
+- Do not invent GG statistics.
+- Do not expose internal IDs.
+- Keep the answer concise but useful.
+
+Return ONLY JSON with exactly:
+{
+  "answer": "string",
+  "actionType": "player|none",
+  "actionLabel": "string",
+  "playerId": "string"
+}
+
+Verified GG facts:
+${JSON.stringify(facts, null, 2)}`
+      : `You are GG Assistant, the football concierge inside GG Matchday.
 
 Your job:
 - Answer questions about the GG Matchday football database.
@@ -399,16 +451,18 @@ ${navigationActions.map(([type, label]) => type + " = " + label).join("\n")}
 Return ONLY JSON:
 {
   "answer": "string",
-  "action": {
-    "type": "home|record|leaderboard|calendar|players|hall-of-fame|clubs|clubs-my-club|clubs-players|clubs-reviews|player",
-    "label": "short action label"
-  } | null,
-  "playerId": "only when action.type is player, otherwise null"
+  "actionType": "home|record|leaderboard|calendar|players|hall-of-fame|clubs|clubs-my-club|clubs-players|clubs-reviews|player|none",
+  "actionLabel": "short action label",
+  "playerId": "only when actionType is player, otherwise empty string"
 }
 
 Verified facts:
-${JSON.stringify(facts, null, 2)}
-`,
+${JSON.stringify(facts, null, 2)}`;
+
+    const response = await ai.interactions.create({
+      model: MODEL,
+      store: false,
+      input: aiInstruction,
       response_format: {
         type: "text",
         mime_type: "application/json",
@@ -416,39 +470,40 @@ ${JSON.stringify(facts, null, 2)}
           type: "object",
           properties: {
             answer: { type: "string" },
-            action: {
-              anyOf: [
-                {
-                  type: "object",
-                  properties: {
-                    type: { type: "string" },
-                    label: { type: "string" },
-                  },
-                  required: ["type", "label"],
-                },
-                { type: "null" },
-              ],
-            },
-            playerId: { anyOf: [{ type: "string" }, { type: "null" }] },
+            actionType: { type: "string" },
+            actionLabel: { type: "string" },
+            playerId: { type: "string" },
           },
-          required: ["answer", "action", "playerId"],
+          required: ["answer", "actionType", "actionLabel", "playerId"],
         },
       },
     });
 
     const parsed = JSON.parse(response.output_text || "{}");
     const allowed = new Set(navigationActions.map(([type]) => type));
-    const actionType = parsed.action?.type;
-    const safeAction =
-      allowed.has(actionType)
-        ? {
-            type: actionType,
-            label: clean(parsed.action.label) || "OPEN →",
-            ...(actionType === "player" && facts.mentionedPlayers.some(player => String(player.playerId) === String(parsed.playerId))
-              ? { playerId: String(parsed.playerId) }
-              : {}),
-          }
-        : intent.action;
+    const actionType = String(parsed.actionType || "none");
+    let safeAction = null;
+
+    if (allowed.has(actionType)) {
+      if (actionType === "player") {
+        const playerId = String(parsed.playerId || "");
+        const mentioned = facts.mentionedPlayers.some(player => String(player.playerId) === playerId);
+        if (mentioned) {
+          safeAction = {
+            type: "player",
+            label: clean(parsed.actionLabel) || "OPEN PLAYER →",
+            playerId,
+          };
+        }
+      } else {
+        safeAction = {
+          type: actionType,
+          label: clean(parsed.actionLabel) || "OPEN →",
+        };
+      }
+    }
+
+    if (!safeAction) safeAction = realLifeMode ? fallback.action : intent.action;
 
     return {
       answer: clean(parsed.answer) || fallback.answer,

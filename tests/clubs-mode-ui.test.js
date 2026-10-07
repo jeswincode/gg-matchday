@@ -154,3 +154,19 @@ test("GG Assistant keeps normal comparisons and performance questions on the fas
   assert.match(service, /real\[- \]\?life|real\[- \]\?player/);
   assert.match(service, /improve\|improvement/);
 });
+
+
+test("GG Assistant comparison prompts are universal and real-life comparisons have a dedicated AI path", () => {
+  const ui = fs.readFileSync("src/components/GGAssistant.jsx", "utf8");
+  const service = fs.readFileSync("server/services/ggAssistant.js", "utf8");
+
+  assert.match(ui, /Compare two players/);
+  assert.match(ui, /Compare me with a player/);
+  assert.match(ui, /Choose any two players/);
+  assert.match(ui, /players\.map/);
+  assert.doesNotMatch(ui, /Compare Jeswin and Richu/);
+  assert.match(service, /isRealLifeComparison/);
+  assert.match(service, /You MAY use your general football knowledge/);
+  assert.match(service, /couldn’t complete the AI analysis/);
+  assert.match(service, /withViewerPlayer/);
+});

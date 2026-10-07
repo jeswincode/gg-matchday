@@ -6,12 +6,15 @@ const suggestions = [
   "Who is #1 on the leaderboard?",
   "Who has the most goals?",
   "Show me my recent form",
-  "Compare Jeswin and Richu",
+  "Compare two players",
   "Take me to Clubs",
 ];
 
-export default function GGAssistant({ onNavigate, isSignedIn = false }) {
+export default function GGAssistant({ onNavigate, isSignedIn = false, players = [], viewerPlayerId = "" }) {
   const [open, setOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [compareA, setCompareA] = useState("");
+  const [compareB, setCompareB] = useState("");
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -63,6 +66,24 @@ export default function GGAssistant({ onNavigate, isSignedIn = false }) {
     onNavigate(action);
   };
 
+  const playerName = playerId => players.find(player => String(player._id) === String(playerId))?.name || "Player";
+
+  const startComparison = (useViewer = false) => {
+    const viewer = players.find(player => String(player._id) === String(viewerPlayerId));
+    const viewerId = viewer ? String(viewer._id) : "";
+    const firstOther = players.find(player => String(player._id) !== viewerId);
+    setCompareA(useViewer ? viewerId : "");
+    setCompareB(firstOther ? String(firstOther._id) : "");
+    setCompareOpen(true);
+  };
+
+  const submitComparison = event => {
+    event.preventDefault();
+    if (!compareA || !compareB || compareA === compareB || busy) return;
+    ask(`Compare ${playerName(compareA)} and ${playerName(compareB)}.`);
+    setCompareOpen(false);
+  };
+
   return (
     <>
       {!open && (
@@ -96,10 +117,20 @@ export default function GGAssistant({ onNavigate, isSignedIn = false }) {
                 <p>Ask about a player, the leaderboard, your form, a match, or where to find something.</p>
                 <div className="gg-assistant-suggestions">
                   {suggestions.map(suggestion => (
-                    <button key={suggestion} type="button" onClick={() => ask(suggestion)} disabled={busy}>
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => suggestion === "Compare two players" ? startComparison(false) : ask(suggestion)}
+                      disabled={busy}
+                    >
                       {suggestion}
                     </button>
                   ))}
+                  {viewerPlayerId && players.length > 1 && (
+                    <button type="button" onClick={() => startComparison(true)} disabled={busy}>
+                      Compare me with a player
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -125,6 +156,44 @@ export default function GGAssistant({ onNavigate, isSignedIn = false }) {
               </>
             )}
           </div>
+
+          {compareOpen && (
+            <div className="gg-assistant-compare" role="dialog" aria-label="Compare two players">
+              <div className="gg-assistant-compare-head">
+                <div>
+                  <p className="eyebrow">PLAYER COMPARISON</p>
+                  <strong>Choose any two players</strong>
+                  <span>GG will compare their official Matchday performance.</span>
+                </div>
+                <button type="button" className="gg-assistant-compare-close" onClick={() => setCompareOpen(false)} aria-label="Close player comparison">×</button>
+              </div>
+              <form onSubmit={submitComparison}>
+                <label>
+                  Player 1
+                  <select value={compareA} onChange={event => setCompareA(event.target.value)} disabled={busy}>
+                    <option value="">Choose a player</option>
+                    {players.map(player => (
+                      <option key={String(player._id)} value={String(player._id)}>{player.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="gg-assistant-compare-vs">VS</div>
+                <label>
+                  Player 2
+                  <select value={compareB} onChange={event => setCompareB(event.target.value)} disabled={busy}>
+                    <option value="">Choose a player</option>
+                    {players.map(player => (
+                      <option key={String(player._id)} value={String(player._id)} disabled={String(player._id) === String(compareA)}>{player.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="gg-assistant-compare-actions">
+                  <button type="button" className="secondary-button" onClick={() => setCompareOpen(false)}>Cancel</button>
+                  <button type="submit" className="save-button" disabled={busy || !compareA || !compareB || compareA === compareB}>Compare →</button>
+                </div>
+              </form>
+            </div>
+          )}
 
           {error && (
             <div className="gg-assistant-error" role="alert">
