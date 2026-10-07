@@ -170,3 +170,12 @@ test("GG Assistant comparison prompts are universal and real-life comparisons ha
   assert.match(service, /couldn’t complete the AI analysis/);
   assert.match(service, /withViewerPlayer/);
 });
+
+
+test("App mounts one Ask GG instance with the live player directory", () => {
+  const app = fs.readFileSync("src/App.jsx", "utf8");
+  const mounts = app.match(/<GGAssistant\b/g) || [];
+  assert.equal(mounts.length, 2);
+  assert.match(app, /players=\{players\}/);
+  assert.match(app, /viewerPlayerId=\{backendUser\?\.playerProfile/);
+});
