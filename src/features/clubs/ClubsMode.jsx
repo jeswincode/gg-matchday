@@ -112,7 +112,15 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [offerPlayer, setOfferPlayer] = useState("");
   const [offerAmount, setOfferAmount] = useState("");
   const [offerClub, setOfferClub] = useState("");
-  const [activeSection, setActiveSection] = useState(isAdmin && !authUser?.playerProfile ? "adminDashboard" : "overview");
+  const [activeSection, setActiveSection] = useState(() => {
+    if (isAdmin && !authUser?.playerProfile) return "adminDashboard";
+    try {
+      const focus = localStorage.getItem("gg-clubs-focus");
+      return ["overview", "myClub", "players", "reviews"].includes(focus) ? focus : "overview";
+    } catch {
+      return "overview";
+    }
+  });
   const [ultimateSubsection, setUltimateSubsection] = useState("overview");
   const [myClubSubsection, setMyClubSubsection] = useState("squad");
   const [playersSubsection, setPlayersSubsection] = useState("directory");
@@ -148,6 +156,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     setAnnouncement("");
     window.setTimeout(() => setAnnouncement(message), 20);
   };
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem("gg-clubs-focus");
+    } catch {}
+  }, []);
 
   useEffect(() => {
     let active = true;
