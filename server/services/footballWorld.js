@@ -39,7 +39,7 @@ async function fetchJson(url, options = {}) {
   const text = await response.text();
   if (!response.ok) {
     let payload = {};
-    try { payload = text ? JSON.parse(text) : {}; } catch {}
+    try { payload = text ? JSON.parse(text) : {}; } catch { payload = {}; }
     throw new Error(payload?.message || payload?.error || "External football provider returned " + response.status);
   }
   try {
