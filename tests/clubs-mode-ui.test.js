@@ -16,6 +16,8 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(component, /clubs-scout-card/);
   assert.match(component, /clubs-review-received/);
   assert.match(component, /NEEDS ATTENTION/);
+  assert.match(component, /clubs-history-summary-grid/);
+  assert.match(component, /clubs-admin-club-card/);
   for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2", "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]) {
     assert.match(component, new RegExp(formation));
   }
@@ -31,6 +33,8 @@ test("Clubs mode is available from the main navigation to every viewer", () => {
   const app = fs.readFileSync("src/App.jsx", "utf8");
   assert.match(app, /<button className="secondary-button" type="button" onClick=\{\(\)=>switchProductMode\("clubs"\)\}>Clubs<\/button>/);
   assert.doesNotMatch(app, /Clubs is temporarily locked/);
+  assert.match(app, /localStorage\.setItem\("gg-product-mode",nextMode\)/);
+  assert.match(app, /url\.searchParams\.delete\("mode"\)/);
 });
 
 test("Clubs API uses per-endpoint permissions instead of a global admin lock", () => {
@@ -89,4 +93,14 @@ test("Club public responses do not expose Club wallet balance and auction offers
   assert.match(routes, /router\.get\("\/players\/discovery"/);
   assert.match(component, /api\("\/clubs\/" \+ currentClub\._id \+ "\/wallet"\)/);
   assert.match(component, /clubWallet\?\.club\?\.balance/);
+});
+
+
+test("Clubs admin KPI and latest-club surfaces have dedicated responsive styles", () => {
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  assert.match(styles, /\.clubs-history-summary-grid\s*\{/);
+  assert.match(styles, /\.clubs-history-stat\s*\{/);
+  assert.match(styles, /\.clubs-admin-club-card\s*\{/);
+  assert.match(styles, /@media \(max-width: 920px\)/);
+  assert.match(styles, /@media \(max-width: 520px\)/);
 });
