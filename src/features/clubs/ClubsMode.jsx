@@ -160,7 +160,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     try {
       localStorage.removeItem("gg-clubs-focus");
-    } catch {}
+    } catch {
+      // Local storage is optional in restricted browser contexts.
+    }
   }, []);
 
   useEffect(() => {
@@ -662,7 +664,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     let active = true;
     if (activeSection !== "myClub" || !currentClub?._id) {
-      setClubWallet(null);
       return undefined;
     }
 
@@ -823,13 +824,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [activeSection, ultimateSubsection, clubMatches, authUser]);
 
   useEffect(() => {
-    if (!authUser) {
-      setCommandCenter(null);
-      return undefined;
-    }
+    if (!authUser) return undefined;
     let active = true;
     refreshCommandCenter().then(data => {
-      if (!active && data) setCommandCenter(null);
+      if (!active) return;
     });
     return () => {
       active = false;
