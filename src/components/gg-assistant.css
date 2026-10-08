@@ -84,3 +84,6 @@
   .gg-assistant-compare{margin:0 8px 8px;padding:12px;}
   .gg-assistant-compare-actions{position:sticky;bottom:0;padding-top:6px;background:linear-gradient(transparent,var(--panel-soft) 22%);}
 }
+.gg-assistant-card{display:grid;gap:6px;margin:12px 0;padding:12px 14px;border:1px solid rgba(221,182,76,.28);border-radius:14px;background:rgba(255,255,255,.045)}
+.gg-assistant-card strong{color:#f2ca63;letter-spacing:.04em}.gg-assistant-card span,.gg-assistant-card small{color:rgba(255,255,255,.72);font-size:.82rem}.gg-assistant-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.gg-assistant-card-grid span,.gg-assistant-card--ranking>span{display:flex;justify-content:space-between;gap:12px}.gg-assistant-card em{font-style:normal;color:#fff;white-space:nowrap}
+@media(max-width:560px){.gg-assistant-card-grid{grid-template-columns:1fr}.gg-assistant-shell{max-height:calc(100dvh - 24px)}}

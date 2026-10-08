@@ -41,7 +41,7 @@ export default function GGAssistant({ onNavigate, isSignedIn = false, players = 
     try {
       const result = await api("/assistant", {
         method: "POST",
-        body: { message: prompt },
+        body: { message: prompt, context: messages.filter(item => item.role === "assistant").flatMap(item => item.context || []).slice(-8) },
       });
 
       setMessages(current => [
@@ -51,6 +51,8 @@ export default function GGAssistant({ onNavigate, isSignedIn = false, players = 
           text: result.answer || "I couldn't find a useful answer.",
           action: result.action || null,
           generatedBy: result.generatedBy || "fallback",
+          cards: Array.isArray(result.cards) ? result.cards : [],
+          context: Array.isArray(result.context) ? result.context : [],
         },
       ]);
     } catch (requestError) {
@@ -140,6 +142,19 @@ export default function GGAssistant({ onNavigate, isSignedIn = false, players = 
                     <span className="gg-assistant-message-label">{item.role === "user" ? "YOU" : "GG"}</span>
                     <div>
                       <p>{item.text}</p>
+                      {item.cards?.map((card, cardIndex) => (
+                        <div className={`gg-assistant-card gg-assistant-card--${card.type}`} key={`${card.type}-${cardIndex}`}>
+                          {card.type === "player_card" && card.player && (
+                            <><strong>{card.player.name}</strong><span>{card.player.position || "GG Player"} · {card.player.matches ?? 0} matches · {card.player.goals ?? 0}G · {card.player.assists ?? 0}A</span><small>GG Rating {card.player.ggRating ?? "Not yet rated"}</small></>
+                          )}
+                          {card.type === "comparison" && card.comparison?.players && (
+                            <><strong>Comparison</strong><div className="gg-assistant-card-grid">{card.comparison.players.map(player => <span key={player.playerId}><b>{player.name}</b><em>{player.ggRating ?? "—"} GG · {player.goals}G · {player.assists}A</em></span>)}</div></>
+                          )}
+                          {card.type === "ranking" && card.rows?.length > 0 && (
+                            <><strong>{card.metric === "goals" ? "Goal ranking" : card.metric === "assists" ? "Assist ranking" : "GG Rating ranking"}</strong>{card.rows.slice(0, 5).map((row, rowIndex) => <span key={row.playerId}><b>#{rowIndex + 1} {row.name}</b><em>{row[card.metric] ?? "—"}</em></span>)}</>
+                          )}
+                        </div>
+                      ))}
                       {item.action && (
                         <button type="button" className="gg-assistant-action" onClick={() => runAction(item.action)}>
                           {item.action.label || "OPEN →"}

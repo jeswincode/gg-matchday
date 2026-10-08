@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import Player from "../models/Player.js";
 import Match from "../models/Match.js";
+import { createAssistantTools } from "./assistantTools.js";
 import {
   buildStatistics,
   getMatchScores,
@@ -330,6 +331,18 @@ function buildFacts(message, players, matches, rows, viewerPlayerId) {
   };
 }
 
+function structuredResult(result, facts, tools, prompt) {
+  const mentioned = facts.mentionedPlayers || [];
+  const cards = [];
+  if (mentioned.length === 1) cards.push({ type: "player_card", player: tools.getPlayer(mentioned[0].name) });
+  if (mentioned.length >= 2 && /\b(compare|versus|vs\.?|better|difference|between|them)\b/.test(normalize(prompt))) {
+    cards.push({ type: "comparison", comparison: tools.comparePlayers(mentioned.map(player => player.name)) });
+  }
+  if (/\b(leaderboard|#?1|number one|best player|top player)\b/.test(normalize(prompt))) cards.push({ type: "ranking", metric: "ggRating", rows: tools.getLeaderboard(5) });
+  if (/\b(most goals|top scorer|golden boot)\b/.test(normalize(prompt))) cards.push({ type: "ranking", metric: "goals", rows: tools.getGoldenBoot(5) });
+  if (/\b(most assists|best playmaker|top assist)\b/.test(normalize(prompt))) cards.push({ type: "ranking", metric: "assists", rows: tools.getAssistLeader(5) });
+  return { ...result, type: cards[0]?.type || (result.action ? "navigation" : "answer"), cards, context: mentioned.map(player => ({ playerId: player.playerId, name: player.name })) };
+}
 function fallbackReply(message, facts, intent) {
   const q = normalize(message);
   if (/\bmost goals|top scorer|golden boot\b/.test(q)) {
@@ -360,8 +373,15 @@ function fallbackReply(message, facts, intent) {
   return "I can help you find players, understand stats, compare performances, check the leaderboard, or navigate GG Matchday.";
 }
 
-export async function answerAssistant({ message, viewerPlayerId, rateLimitKey }) {
-  const prompt = clean(message);
+export async function answerAssistant({ message, viewerPlayerId, rateLimitKey, conversationContext = [] }) {
+  const rawPrompt = clean(message);
+  const contextNames = (Array.isArray(conversationContext) ? conversationContext : [])
+    .filter(item => item?.name)
+    .slice(-4)
+    .map(item => item.name);
+  const prompt = contextNames.length && /\b(them|those players|that player|him|her)\b/i.test(rawPrompt)
+    ? `${rawPrompt} Context players: ${contextNames.join(", ")}`
+    : rawPrompt;
   if (prompt.length < 1 || prompt.length > 1000) {
     throw new Error("Ask GG something between 1 and 1000 characters.");
   }
@@ -380,11 +400,12 @@ export async function answerAssistant({ message, viewerPlayerId, rateLimitKey })
 
   const snapshot = await getStatisticsSnapshot();
   const { players, matches, rows } = snapshot;
+  const tools = createAssistantTools({ players, matches, rows, viewerPlayerId });
   const intent = deterministicIntent(prompt, rows, players, viewerPlayerId);
   const facts = buildFacts(prompt, players, matches, rows, viewerPlayerId);
 
   const fast = !needsAi(prompt) ? fastAnswer(prompt, facts, intent) : null;
-  if (fast) return fast;
+  if (fast) return structuredResult(fast, facts, tools, prompt);
 
   const fallback = isRealLifeComparison(prompt)
     ? {
@@ -400,7 +421,7 @@ export async function answerAssistant({ message, viewerPlayerId, rateLimitKey })
         generatedBy: "fallback",
       };
 
-  if (!ai) return fallback;
+  if (!ai) return structuredResult(fallback, facts, tools, prompt);
 
   try {
     const realLifeMode = isRealLifeComparison(prompt);
@@ -508,12 +529,12 @@ ${JSON.stringify(facts, null, 2)}`;
     return {
       answer: clean(parsed.answer) || fallback.answer,
       action: safeAction,
-      generatedBy: "gemini",
+      ...structuredResult({ answer: clean(parsed.answer) || fallback.answer, action: safeAction, generatedBy: "gemini" }, facts, tools, prompt),
     };
   } catch (error) {
     console.error("GG Assistant Gemini error:", error?.message || error);
     return {
-      ...fallback,
+      ...structuredResult(fallback, facts, tools, prompt),
       aiError: error?.message || "Gemini unavailable",
     };
   }
