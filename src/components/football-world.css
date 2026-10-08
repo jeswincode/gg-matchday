@@ -56,3 +56,7 @@
 .world-intelligence-skeleton{height:150px;margin-top:12px;border-radius:13px;background:linear-gradient(90deg,var(--panel),var(--panel-soft),var(--panel));background-size:200% 100%;animation:world-skeleton 1.2s infinite}
 @media(max-width:640px){.world-intelligence-grid{grid-template-columns:1fr}.world-intelligence-heading{flex-direction:column}.world-intelligence-source{align-self:flex-start}.world-intelligence-panel{padding:14px}}
 @media(prefers-reduced-motion:reduce){.world-intelligence-skeleton{animation:none}}
+
+.world-provider-status span[data-status="error"]{color:#ff9a9a;border-color:rgba(255,120,120,.25)}
+.world-provider-alert{display:grid;gap:3px;margin:10px 0 0;padding:10px 12px;border:1px solid rgba(255,120,120,.2);border-radius:12px;background:rgba(255,120,120,.055);font-size:10px}
+.world-provider-alert strong{font-size:10px}.world-provider-alert span{color:var(--muted);line-height:1.45}
