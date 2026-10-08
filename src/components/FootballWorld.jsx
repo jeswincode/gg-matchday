@@ -220,42 +220,6 @@ export default function FootballWorld({ apiUrl, data, loading }) {
     }
   };
 
-  const loadStandings = async league => {
-    const targetLeague = String(league || "39");
-    setSelectedLeague(targetLeague);
-    setStandingsLoading(true);
-    setStandingsError("");
-
-    try {
-      const response = await fetch(
-        apiUrl + "/world/standings?league=" + encodeURIComponent(targetLeague),
-      );
-      const body = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(body.message || "Standings are temporarily unavailable.");
-      }
-
-      if (!body.standings?.groups?.length) {
-        throw new Error("This competition has no standings data available right now.");
-      }
-
-      setSelectedStandings(body.standings);
-    } catch (error) {
-      setSelectedStandings(null);
-      setStandingsError(error.message || "Standings are temporarily unavailable.");
-    } finally {
-      setStandingsLoading(false);
-    }
-  };
-
-  const handleTabChange = value => {
-    setTab(value);
-    if (value === "standings" && !selectedStandings && !data?.standings && !standingsLoading) {
-      loadStandings(selectedLeague);
-    }
-  };
-
   const loadMatchIntelligence = async fixture => {
     if (intelligenceFixture?.id === fixture.id) {
       setIntelligenceFixture(null);
