@@ -7,6 +7,7 @@ const OPEN_METEO_GEOCODING = "https://geocoding-api.open-meteo.com/v1/search";
 const OPENFOOT_BASE = "https://openfootapi.com/v1";
 
 const cache = new Map();
+const EXTERNAL_REQUEST_TIMEOUT_MS = 8_000;
 const env = {
   apiFootballKey: process.env.API_FOOTBALL_KEY || "",
   newsDataKey: process.env.NEWSDATA_API_KEY || "",
@@ -42,23 +43,38 @@ function parseJsonSafely(text) {
 }
 
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: { Accept: "application/json", ...(options.headers || {}) },
-  });
-  const text = await response.text();
-  const payload = parseJsonSafely(text);
-  if (!response.ok) {
-    const providerError = payload?.error;
-    const message = payload?.message ||
-      (typeof providerError === "string" ? providerError : providerError?.message) ||
-      "External football provider returned " + response.status;
-    const error = new Error(message);
-    error.code = typeof providerError === "object" ? providerError?.code : undefined;
-    error.status = response.status;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), EXTERNAL_REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: { Accept: "application/json", ...(options.headers || {}) },
+    });
+    const text = await response.text();
+    const payload = parseJsonSafely(text);
+    if (!response.ok) {
+      const providerError = payload?.error;
+      const message = payload?.message ||
+        (typeof providerError === "string" ? providerError : providerError?.message) ||
+        "External football provider returned " + response.status;
+      const error = new Error(message);
+      error.code = typeof providerError === "object" ? providerError?.code : undefined;
+      error.status = response.status;
+      throw error;
+    }
+    return payload;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      const timeoutError = new Error("External football provider timed out.");
+      timeoutError.code = "provider_timeout";
+      throw timeoutError;
+    }
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return payload;
 }
 
 function todayInTimezone(timeZone = env.timezone) {

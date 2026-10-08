@@ -129,7 +129,7 @@ test("Football World uses safe defaults when optional runtime settings are absen
   assert.match(source, /FOOTBALL_DEFAULT_WEATHER_CITY \|\| "Bengaluru"/);
   assert.match(ui, /No external fixtures were returned for today/);
   assert.match(ui, /API-Football is not connected yet/);
-  assert.match(ui, /No standings were returned for this competition yet/);
+  assert.match(ui, /Choose a competition above to load its latest standings/);
 });
 
 
@@ -144,6 +144,20 @@ test("Standings now resolve provider-supported seasons instead of forcing the br
   assert.match(route, /\/standings\/leagues/);
   assert.match(route, /code: error\?\.code/);
   assert.doesNotMatch(ui, /new Date\(\)\.getFullYear\(\)/);
-  assert.match(ui, /Loading competitions/);
+  assert.doesNotMatch(ui, /Loading competitions/);
   assert.match(ui, /unavailable/);
+});
+
+
+test("Football World standings selector does not block on external league discovery", () => {
+  const ui = fs.readFileSync("src/components/FootballWorld.jsx", "utf8");
+  const service = fs.readFileSync("server/services/footballWorld.js", "utf8");
+
+  assert.match(ui, /STANDINGS_LEAGUES/);
+  assert.match(ui, /handleTabChange/);
+  assert.match(ui, /loadStandings\(selectedLeague\)/);
+  assert.doesNotMatch(ui, /Loading competitions/);
+  assert.doesNotMatch(ui, /standings\/leagues/);
+  assert.match(service, /EXTERNAL_REQUEST_TIMEOUT_MS = 8_000/);
+  assert.match(service, /provider_timeout/);
 });
