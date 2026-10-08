@@ -129,7 +129,7 @@ test("Football World uses safe defaults when optional runtime settings are absen
   assert.match(source, /FOOTBALL_DEFAULT_WEATHER_CITY \|\| "Bengaluru"/);
   assert.match(ui, /No external fixtures were returned for today/);
   assert.match(ui, /API-Football is not connected yet/);
-  assert.match(ui, /No standings were returned for this competition yet/);
+  assert.match(ui, /Choose a competition above to load its latest standings/);
 });
 
 
@@ -144,7 +144,7 @@ test("Standings now resolve provider-supported seasons instead of forcing the br
   assert.match(route, /\/standings\/leagues/);
   assert.match(route, /code: error\?\.code/);
   assert.doesNotMatch(ui, /new Date\(\)\.getFullYear\(\)/);
-  assert.match(ui, /Loading competitions/);
+  assert.doesNotMatch(ui, /Loading competitions/);
   assert.match(ui, /unavailable/);
 });
 
