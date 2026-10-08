@@ -9,7 +9,7 @@ const OPENFOOT_BASE = "https://openfootapi.com/v1";
 const cache = new Map();
 const EXTERNAL_REQUEST_TIMEOUT_MS = 8_000;
 const env = {
-  apiFootballKey: process.env.API_FOOTBALL_KEY || "",
+  apiFootballKey: String(process.env.API_FOOTBALL_KEY || "").trim(),
   newsDataKey: process.env.NEWSDATA_API_KEY || "",
   scoreBatToken: process.env.SCOREBAT_API_TOKEN || "",
   sportsDbKey: process.env.THE_SPORTS_DB_KEY || "",
@@ -236,7 +236,28 @@ async function fetchApiFootball(path, params = {}) {
     if (value !== undefined && value !== null && value !== "") search.set(key, String(value));
   });
   const url = API_FOOTBALL_BASE + path + (search.size ? "?" + search.toString() : "");
-  return fetchJson(url, { headers: { "x-apisports-key": env.apiFootballKey } });
+  const data = await fetchJson(url, { headers: { "x-apisports-key": env.apiFootballKey } });
+
+  const providerErrors = data?.errors;
+  const hasProviderErrors =
+    Array.isArray(providerErrors) ? providerErrors.length > 0 :
+    providerErrors && typeof providerErrors === "object" ? Object.keys(providerErrors).length > 0 :
+    Boolean(providerErrors);
+
+  if (hasProviderErrors) {
+    const message = Array.isArray(providerErrors)
+      ? providerErrors.join(" ")
+      : typeof providerErrors === "object"
+        ? Object.values(providerErrors).join(" ")
+        : String(providerErrors);
+    const error = new Error(message || "API-Football returned an API error.");
+    error.code = "api_football_provider_error";
+    error.provider = "api-football";
+    error.apiErrors = providerErrors;
+    throw error;
+  }
+
+  return data;
 }
 
 export async function getFixtures({ date = todayInTimezone(), league = "" } = {}) {
@@ -289,7 +310,19 @@ async function getLeagueSeasonCoverage(league) {
 export async function getStandings({ league = env.defaultLeague, season = env.defaultSeason } = {}) {
   if (!env.apiFootballKey || !league) return null;
 
-  const coverage = await getLeagueSeasonCoverage(league);
+  let coverage;
+  try {
+    coverage = await getLeagueSeasonCoverage(league);
+  } catch (error) {
+    const wrapped = new Error(
+      error?.message || "API-Football could not load league metadata for league " + league + "."
+    );
+    wrapped.code = error?.code || "league_metadata_error";
+    wrapped.provider = "api-football";
+    wrapped.apiErrors = error?.apiErrors || null;
+    throw wrapped;
+  }
+
   if (!coverage) {
     const error = new Error("API-Football returned no league metadata for league " + league + ".");
     error.code = "league_not_found";
@@ -795,10 +828,31 @@ export async function getWorld({ date = todayInTimezone(), city = "", league = e
     .map(result => result.status === "fulfilled" ? result.value : null)
     .filter(Boolean);
 
+  const providerErrors = {
+    apiFootball: fixturesResult.status === "rejected"
+      ? {
+          message: String(fixturesResult.reason?.message || "API-Football request failed").slice(0, 180),
+          code: fixturesResult.reason?.code || "provider_error",
+        }
+      : standingsResult.status === "rejected"
+        ? {
+            message: String(standingsResult.reason?.message || "API-Football standings request failed").slice(0, 180),
+            code: standingsResult.reason?.code || "provider_error",
+          }
+        : null,
+    newsData: newsResult.status === "rejected"
+      ? String(newsResult.reason?.message || "NewsData request failed").slice(0, 180)
+      : null,
+    scoreBat: highlightsResult.status === "rejected"
+      ? String(highlightsResult.reason?.message || "ScoreBat request failed").slice(0, 180)
+      : null,
+  };
+
   return {
     updatedAt: new Date().toISOString(),
     timezone: env.timezone,
     providers: getProviderStatus(),
+    providerErrors,
     fixtures,
     standings: standingsResult.status === "fulfilled" ? standingsResult.value : null,
     news: newsResult.status === "fulfilled" ? newsResult.value : [],
