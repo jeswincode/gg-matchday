@@ -161,3 +161,20 @@ test("Football World standings selector does not block on external league discov
   assert.match(service, /EXTERNAL_REQUEST_TIMEOUT_MS = 8_000/);
   assert.match(service, /provider_timeout/);
 });
+
+
+test("API-Football provider errors are not hidden behind empty results", () => {
+  const service = fs.readFileSync("server/services/footballWorld.js", "utf8");
+  const ui = fs.readFileSync("src/components/FootballWorld.jsx", "utf8");
+
+  assert.match(service, /const providerErrors = data\?\.errors/);
+  assert.match(service, /apiFootballKey: String\(process\.env\.API_FOOTBALL_KEY \|\| ""\)\.trim\(\)/);
+  assert.match(ui, /Some Football World data needs attention/);
+  assert.match(ui, /API-Football:/);
+});
+
+test("Football World external requests have a hard timeout", () => {
+  const service = fs.readFileSync("server/services/footballWorld.js", "utf8");
+  assert.match(service, /EXTERNAL_REQUEST_TIMEOUT_MS = 8_000/);
+  assert.match(service, /provider_timeout/);
+});

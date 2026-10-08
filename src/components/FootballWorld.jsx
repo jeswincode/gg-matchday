@@ -2,14 +2,19 @@ import { useMemo, useState } from "react";
 import { formatDate } from "../lib/date";
 import "./football-world.css";
 
-function ProviderStatus({ providers }) {
+function ProviderStatus({ providers, providerErrors }) {
   const items = Object.entries(providers || {});
   if (!items.length) return null;
   return (
     <div className="world-provider-status">
-      {items.map(([key, provider]) => (
-        <span key={key} data-status={provider.status}>{key.replace(/([A-Z])/g, " $1")}</span>
-      ))}
+      {items.map(([key, provider]) => {
+        const hasError = Boolean(providerErrors?.[key]);
+        return (
+          <span key={key} data-status={hasError ? "error" : provider.status}>
+            {key.replace(/([A-Z])/g, " $1")}{hasError ? " · issue" : ""}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -292,6 +297,15 @@ export default function FootballWorld({ apiUrl, data, loading }) {
         </div>
       </div>
 
+      {Object.values(data?.providerErrors || {}).some(Boolean) && (
+        <div className="world-provider-alert">
+          <strong>Some Football World data needs attention.</strong>
+          {data?.providerErrors?.apiFootball?.message && (
+            <span>API-Football: {data.providerErrors.apiFootball.message}</span>
+          )}
+        </div>
+      )}
+
       <div className="world-tabs" role="tablist" aria-label="Football World">
         {[
           ["fixtures", "Live & Fixtures"],
@@ -313,7 +327,7 @@ export default function FootballWorld({ apiUrl, data, loading }) {
           <strong>Your Football World is ready.</strong>
           <p>Connect the optional football providers on the GG backend to unlock fixtures, standings, external player search, news and highlights. Weather can run without an API key.</p>
           <small>Your GG Matchday data remains fully independent and authoritative.</small>
-          <ProviderStatus providers={data?.providers} />
+          <ProviderStatus providers={data?.providers} providerErrors={data?.providerErrors} />
         </div>
       ) : (
         <>
