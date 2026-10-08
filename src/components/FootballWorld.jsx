@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { formatDate } from "../lib/date";
 import "./football-world.css";
 
@@ -136,6 +136,15 @@ function MatchIntelligence({ data, loading, fixture }) {
   );
 }
 
+const STANDINGS_LEAGUES = [
+  { id: "39", name: "Premier League" },
+  { id: "140", name: "LaLiga" },
+  { id: "2", name: "UEFA Champions League" },
+  { id: "78", name: "Bundesliga" },
+  { id: "135", name: "Serie A" },
+  { id: "61", name: "Ligue 1" },
+];
+
 function NewsCard({ item }) {
   return (
     <a className="world-news-card" href={item.url || "#"} target="_blank" rel="noreferrer">
@@ -155,10 +164,8 @@ export default function FootballWorld({ apiUrl, data, loading }) {
   const [playerLoading, setPlayerLoading] = useState(false);
   const [externalPlayers, setExternalPlayers] = useState([]);
   const [playerError, setPlayerError] = useState("");
-  const [selectedLeague, setSelectedLeague] = useState("");
+  const [selectedLeague, setSelectedLeague] = useState("39");
   const [selectedStandings, setSelectedStandings] = useState(null);
-  const [leagueOptions, setLeagueOptions] = useState([]);
-  const [leagueOptionsLoading, setLeagueOptionsLoading] = useState(false);
   const [standingsError, setStandingsError] = useState("");
   const [standingsLoading, setStandingsLoading] = useState(false);
   const [intelligenceFixture, setIntelligenceFixture] = useState(null);
@@ -171,57 +178,47 @@ export default function FootballWorld({ apiUrl, data, loading }) {
     return group.slice(0, 6);
   }, [standingsSource]);
 
-  useEffect(() => {
-    if (tab !== "standings" || leagueOptions.length || leagueOptionsLoading) return undefined;
+  const loadStandings = async league => {
+    const targetLeague = String(league || "39");
+    setSelectedLeague(targetLeague);
+    setStandingsLoading(true);
+    setStandingsError("");
 
-    let active = true;
+    try {
+      const response = await fetch(
+        apiUrl + "/world/standings?league=" + encodeURIComponent(targetLeague),
+      );
+      const body = await response.json().catch(() => ({}));
 
-    (async () => {
-      setLeagueOptionsLoading(true);
-      setStandingsError("");
-      try {
-        const response = await fetch(apiUrl + "/world/standings/leagues");
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(body.message || "League coverage unavailable.");
-        const options = Array.isArray(body.leagues) ? body.leagues : [];
-        if (!active) return;
-
-        setLeagueOptions(options);
-
-        const firstAvailable = options.find(item => item.available);
-        if (firstAvailable && !selectedLeague) {
-          setSelectedLeague(String(firstAvailable.id));
-          setStandingsLoading(true);
-
-          const standingsResponse = await fetch(
-            apiUrl + "/world/standings?league=" + encodeURIComponent(String(firstAvailable.id)),
-          );
-          const standingsBody = await standingsResponse.json().catch(() => ({}));
-
-          if (!standingsResponse.ok) {
-            throw new Error(standingsBody.message || "Standings unavailable.");
-          }
-
-          if (active) setSelectedStandings(standingsBody.standings || null);
-        }
-      } catch (error) {
-        if (active) {
-          setLeagueOptions([]);
-          setSelectedStandings(null);
-          setStandingsError(error.message || "League coverage unavailable.");
-        }
-      } finally {
-        if (active) {
-          setLeagueOptionsLoading(false);
-          setStandingsLoading(false);
-        }
+      if (!response.ok) {
+        throw new Error(body.message || "Standings are temporarily unavailable.");
       }
-    })();
 
-    return () => {
-      active = false;
-    };
-  }, [apiUrl, tab, leagueOptions.length, leagueOptionsLoading, selectedLeague]);
+      if (!body.standings?.groups?.length) {
+        throw new Error("This competition has no standings data available right now.");
+      }
+
+      setSelectedStandings(body.standings);
+    } catch (error) {
+      setSelectedStandings(null);
+      setStandingsError(error.message || "Standings are temporarily unavailable.");
+    } finally {
+      setStandingsLoading(false);
+    }
+  };
+
+  const handleTabChange = value => {
+    setTab(value);
+
+    if (
+      value === "standings" &&
+      !selectedStandings &&
+      !data?.standings &&
+      !standingsLoading
+    ) {
+      loadStandings(selectedLeague);
+    }
+  };
 
   const loadMatchIntelligence = async fixture => {
     if (intelligenceFixture?.id === fixture.id) {
@@ -326,7 +323,7 @@ export default function FootballWorld({ apiUrl, data, loading }) {
           ["players", "World Players"],
           ["weather", "Conditions"],
         ].map(([value, label]) => (
-          <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => setTab(value)}>{label}</button>
+          <button key={value} type="button" role="tab" aria-selected={tab === value} className={tab === value ? "active" : ""} onClick={() => handleTabChange(value)}>{label}</button>
         ))}
       </div>
 
@@ -386,12 +383,9 @@ export default function FootballWorld({ apiUrl, data, loading }) {
             <div className="world-standings-wrap">
               <div className="world-section-top">
                 <div><span className="eyebrow">LEAGUE TABLE</span><h3>{standingsSource?.league?.name || "World standings"}</h3></div>
-                <select className="world-league-select" value={selectedLeague} onChange={event => loadStandings(event.target.value)} disabled={leagueOptionsLoading}>
-                  <option value="">{leagueOptionsLoading ? "Loading competitions…" : "Choose league"}</option>
-                  {leagueOptions.map(item => (
-                    <option key={String(item.id)} value={String(item.id)} disabled={!item.available}>
-                      {item.name}{item.available ? "" : " · unavailable"}
-                    </option>
+                <select className="world-league-select" value={selectedLeague} onChange={event => loadStandings(event.target.value)} disabled={standingsLoading}>
+                  {STANDINGS_LEAGUES.map(league => (
+                    <option key={league.id} value={league.id}>{league.name}</option>
                   ))}
                 </select>
               </div>
@@ -413,7 +407,7 @@ export default function FootballWorld({ apiUrl, data, loading }) {
                 </div>
               ) : <div className="world-subtle-empty">
                   {data?.providers?.apiFootball?.configured
-                    ? "No standings were returned for this competition yet. Choose a league above and retry."
+                    ? "Choose a competition above to load its latest standings."
                     : "API-Football standings are unavailable because the provider is not connected yet."}
                 </div>}
             </div>
