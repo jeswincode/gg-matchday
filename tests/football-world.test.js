@@ -147,3 +147,17 @@ test("Standings now resolve provider-supported seasons instead of forcing the br
   assert.match(ui, /Loading competitions/);
   assert.match(ui, /unavailable/);
 });
+
+
+test("Football World standings selector does not block on external league discovery", () => {
+  const ui = fs.readFileSync("src/components/FootballWorld.jsx", "utf8");
+  const service = fs.readFileSync("server/services/footballWorld.js", "utf8");
+
+  assert.match(ui, /STANDINGS_LEAGUES/);
+  assert.match(ui, /handleTabChange/);
+  assert.match(ui, /loadStandings\(selectedLeague\)/);
+  assert.doesNotMatch(ui, /Loading competitions/);
+  assert.doesNotMatch(ui, /standings\/leagues/);
+  assert.match(service, /EXTERNAL_REQUEST_TIMEOUT_MS = 8_000/);
+  assert.match(service, /provider_timeout/);
+});
