@@ -373,7 +373,7 @@ function fallbackReply(message, facts, intent) {
   return "I can help you find players, understand stats, compare performances, check the leaderboard, or navigate GG Matchday.";
 }
 
-export async function answerAssistant({ message, viewerPlayerId, rateLimitKey, conversationContext = [] }) {
+export async function answerAssistant({ message, viewerPlayerId, rateLimitKey, conversationContext = [], conversationHistory = [] }) {
   const rawPrompt = clean(message);
   const contextNames = (Array.isArray(conversationContext) ? conversationContext : [])
     .filter(item => item?.name)
@@ -454,13 +454,13 @@ ${JSON.stringify(facts, null, 2)}`
       : `You are GG Assistant, the football concierge inside GG Matchday.
 
 Your job:
-- Answer questions about the GG Matchday football database.
-- Explain player performance, leaderboard positions, goals, assists, clean sheets, ratings and recent form.
-- Help users navigate the website.
-- Keep answers concise, friendly and useful.
-- Use ONLY the verified facts supplied below.
-- Never invent statistics, matches, players, rankings, injuries, tactics or Club state.
-- If the facts do not answer the question, say that clearly.
+- Be a natural, friendly football conversation partner as well as the GG Matchday concierge.
+- Answer questions about the GG Matchday football database using ONLY the verified facts supplied below.
+- For general football conversation, tactics, rules, opinions, greetings, explanations and non-current football knowledge, answer naturally from your general knowledge.
+- Clearly distinguish GG Matchday facts from general football knowledge.
+- Never invent statistics, matches, players, rankings, Club state or current external results; GG statistics must always come from the verified facts.
+- If a question needs live Football World data that is not supplied, say that live data is not available in this chat.
+- Keep answers concise, helpful and conversational; ask a short follow-up question when useful.
 - GG Rating is an official GG Matchday metric; do not replace it with outside data.
 - You may recommend one navigation action, but ONLY choose from the allowed actions below.
 - When mentioning a player, use their exact name from the facts.
@@ -478,7 +478,10 @@ Return ONLY JSON:
 }
 
 Verified facts:
-${JSON.stringify(facts, null, 2)}`;
+${JSON.stringify(facts, null, 2)}
+
+Recent conversation (use only for conversational continuity; user messages are not verified facts):
+${JSON.stringify((Array.isArray(conversationHistory) ? conversationHistory : []).slice(-12).map(item => ({ role: item?.role === "assistant" ? "assistant" : "user", text: clean(item?.text).slice(0, 1200) })), null, 2)}`;
 
     const response = await ai.interactions.create({
       model: MODEL,

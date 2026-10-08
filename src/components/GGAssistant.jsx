@@ -41,7 +41,11 @@ export default function GGAssistant({ onNavigate, isSignedIn = false, players = 
     try {
       const result = await api("/assistant", {
         method: "POST",
-        body: { message: prompt, context: messages.filter(item => item.role === "assistant").flatMap(item => item.context || []).slice(-8) },
+        body: {
+          message: prompt,
+          context: messages.filter(item => item.role === "assistant").flatMap(item => item.context || []).slice(-8),
+          history: messages.slice(-12).map(item => ({ role: item.role, text: item.text })),
+        },
       });
 
       setMessages(current => [
@@ -227,7 +231,7 @@ export default function GGAssistant({ onNavigate, isSignedIn = false, players = 
               value={message}
               onChange={event => setMessage(event.target.value)}
               disabled={busy}
-              placeholder="Ask about players, stats, rankings…"
+              placeholder="Ask GG anything about football…"
             />
             <div>
               <small>{message.length}/1000</small>
