@@ -19,6 +19,15 @@ function clubYearMonth(value) {
   return { year: Number(parts.year), month: Number(parts.month) };
 }
 
+export function clubDateStartUtc(dateKey) {
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(String(dateKey || ""));
+  if (!match) throw new Error("Club dates must use YYYY-MM-DD.");
+  const [, year, month, day] = match;
+  const utc = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (clubDateKey(utc) !== dateKey) throw new Error("Invalid Club date.");
+  return new Date(`${dateKey}T00:00:00+05:30`);
+}
+
 function istMonthBoundaryUtc(year, zeroBasedMonth) {
   return new Date(Date.UTC(year, zeroBasedMonth, 1, 0, 0, 0, 0) - IST_OFFSET_MS);
 }

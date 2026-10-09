@@ -142,10 +142,11 @@ router.get("/meta", (req, res) => {
 
 
 function matchDateKey(match) {
-  const value = match?.fixtureDate || match?.scheduledAt || match?.date;
+  if (match?.fixtureDate) return String(match.fixtureDate).slice(0, 10);
+  const value = match?.scheduledAt || match?.date;
   if (!value) return "";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+  return Number.isNaN(date.getTime()) ? "" : clubDateKey(date);
 }
 
 function publicMatchSnapshot(match, clubsById) {
@@ -2099,7 +2100,7 @@ router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
         target: "adminMatches",
         entityId: String(match._id),
         title: "Pending Club Match request",
-        subtitle: "Fixture " + (match.fixtureDate || new Date(match.scheduledAt).toISOString().slice(0, 10)),
+        subtitle: "Fixture " + matchDateKey(match),
         detail: days <= 1 ? "Fixture is within 24 hours." : "Awaiting receiving Club response.",
         actionLabel: "OPEN MATCH →",
         createdAt: match.createdAt,

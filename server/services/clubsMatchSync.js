@@ -6,7 +6,7 @@ import ClubHistory from "../models/clubs/ClubHistory.js";
 import Match from "../models/Match.js";
 import Club from "../models/clubs/Club.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
-import { normalizeClubName } from "../config/clubsRules.js";
+import { normalizeClubName, clubDateKey, clubDateStartUtc } from "../config/clubsRules.js";
 
 const idOf = value => String(value?._id || value);
 
@@ -90,11 +90,11 @@ export async function attachMainMatchToClubMatch(mainMatch) {
     return { linked: false, clubMatchIds: [], affectedClubIds: [], reason: "participant-club-membership-mismatch" };
   }
 
-  const dayKey = new Date(mainMatch.date).toISOString().slice(0, 10);
+  const dayKey = clubDateKey(mainMatch.date);
   const clubDocs = await Club.find({ status: "approved" }).select("_id name nameNormalized").lean();
   const clubsById = new Map(clubDocs.map(club => [String(club._id), club]));
 
-  const dayStart = new Date(dayKey + "T00:00:00.000Z");
+  const dayStart = clubDateStartUtc(dayKey);
   const dayEnd = new Date(dayStart);
   dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 

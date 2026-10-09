@@ -24,6 +24,7 @@ import {
   clubMatchRequestExpiry,
   normalizeFixtureDate,
   clubDateKey,
+  clubDateStartUtc,
   CLUBS_TIME_ZONE,
 } from "../server/config/clubsRules.js";
 import {
@@ -242,4 +243,8 @@ test("Club available budget excludes active commitments", () => {
   assert.equal(availableClubBalance({ balance: 300, committedBalance: 175 }), 125);
   assert.equal(availableClubBalance({ balance: 300 }), 300);
   assert.equal(availableClubBalance({ balance: 300, committedBalance: 500 }), 0);
+});
+
+test("Club date bounds start at midnight in Asia/Kolkata", () => {
+  assert.equal(clubDateStartUtc("2026-10-09").toISOString(), "2026-10-08T18:30:00.000Z");
 });
