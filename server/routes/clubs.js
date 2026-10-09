@@ -28,6 +28,7 @@ import {
 } from "../config/clubsRules.js";
 import { pingClubsDatabase, getClubsConnection } from "../config/clubsDatabase.js";
 import { calculatePlayerAttributes } from "../services/playerAttributes.js";
+import { effectiveMatchRating } from "../services/ratings/index.js";
 import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
 import PlayerWallet from "../models/clubs/PlayerWallet.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
@@ -864,7 +865,8 @@ router.get("/players/discovery", async (req, res) => {
         const row = byPlayer.get(id);
         if (!row) continue;
         row.matchesPlayed += 1;
-        if (participant.rating != null) row.ratings.push(Number(participant.rating));
+        const effectiveRating = effectiveMatchRating(participant);
+        if (effectiveRating !== null) row.ratings.push(effectiveRating);
       }
       for (const event of match.events || []) {
         const id = String(event.player);
