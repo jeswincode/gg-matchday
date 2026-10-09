@@ -6,6 +6,7 @@ import notificationRoutes from "./routes/notifications.js";
 import weatherRoutes from "./routes/weather.js";
 import express from "express";
 import cors from "cors";
+import { createCorsOptions } from "./config/corsPolicy.js";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 
@@ -20,14 +21,14 @@ import immersiveNewsRoutes from "./routes/immersiveNews.js";
 import systemRoutes from "./routes/system.js";
 import ggAdminRoutes from "./routes/ggAdmin.js";
 import clubsRoutes from "./routes/clubs.js";
+import { pingClubsDatabase } from "./config/clubsDatabase.js";
 import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
 
 dotenv.config();
 
 const app = express();
 
-const allowedOrigins = (process.env.CORS_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean);
-app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
+app.use(cors(createCorsOptions()));
 app.use(express.json({limit:"64kb"}));
 app.use("/api/chat", chatRoutes);
 app.use("/api/weather", weatherRoutes);
@@ -49,17 +50,28 @@ app.use("/api/clubs", clubsRoutes);
 app.use("/api/clubs", playerClubHistoryRoutes);
 
 app.get("/api/health", async (req, res) => {
+  let coreConnected = false;
+  let clubsConnected = false;
   try {
-    if (!mongoose.connection.db) {
-      return res.status(503).json({ success: false, status: "degraded", database: "disconnected" });
+    if (mongoose.connection.db) {
+      await mongoose.connection.db.admin().ping();
+      coreConnected = true;
     }
-
-    await mongoose.connection.db.admin().ping();
-    return res.json({ success: true, status: "ok", database: "connected" });
   } catch (error) {
-    console.error("Health check database error:", error);
-    return res.status(503).json({ success: false, status: "degraded", database: "disconnected" });
+    console.error("Core database health check error:", error);
   }
+  try {
+    clubsConnected = await pingClubsDatabase();
+  } catch (error) {
+    console.error("Clubs database health check error:", error);
+  }
+  const healthy = coreConnected && clubsConnected;
+  return res.status(healthy ? 200 : 503).json({
+    success: healthy,
+    status: healthy ? "ok" : "degraded",
+    database: coreConnected ? "connected" : "disconnected",
+    clubsDatabase: clubsConnected ? "connected" : "disconnected",
+  });
 });
 
 app.use((error, req, res, next) => {
