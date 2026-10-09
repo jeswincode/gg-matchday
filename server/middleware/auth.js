@@ -28,14 +28,14 @@ export async function requireAuth(
       const roleHeader = String(req.headers["x-e2e-test-role"] || "viewer");
       const role = ["viewer", "editor", "admin"].includes(roleHeader) ? roleHeader : "viewer";
       const requestedPlayerId = String(req.headers["x-e2e-test-player-id"] || "");
-      const playerProfile = role === "viewer" && mongoose.isValidObjectId(requestedPlayerId)
+      const playerProfile = mongoose.isValidObjectId(requestedPlayerId)
         ? new mongoose.Types.ObjectId(requestedPlayerId)
         : null;
       const uid = `e2e-test:${role}:${playerProfile ? String(playerProfile) : "unlinked"}`;
       const user = await User.findOneAndUpdate(
         { firebaseUid: uid },
         { $set: {
-          name: "Playwright ${role}",
+          name: `Playwright ${role}`,
           email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
           profileImage: "",
           role,
