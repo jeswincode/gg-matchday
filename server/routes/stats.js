@@ -114,7 +114,7 @@ router.get("/overview", safe(async (req, res) => {
               $filter: {
                 input: { $ifNull: ["$events", []] },
                 as: "event",
-                cond: { $eq: ["$event.type", "goal"] },
+                cond: { $eq: ["$$event.type", "goal"] },
               },
             },
           },
@@ -128,7 +128,7 @@ router.get("/overview", safe(async (req, res) => {
                     0,
                     {
                       $convert: {
-                        input: "$participant.ownGoals",
+                        input: "$$participant.ownGoals",
                         to: "double",
                         onError: 0,
                         onNull: 0,
@@ -153,7 +153,7 @@ router.get("/overview", safe(async (req, res) => {
                           $gt: [
                             {
                               $convert: {
-                                input: "$participant.ownGoals",
+                                input: "$$participant.ownGoals",
                                 to: "double",
                                 onError: 0,
                                 onNull: 0,
