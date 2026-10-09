@@ -1006,9 +1006,13 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
   try {
     let result;
     await session.withTransaction(async () => {
+      const now = new Date();
       const offer = await AuctionOffer.findById(req.params.offerId).session(session);
       if (!offer) throw new Error("Offer not found.");
-      if (!["chosenByPlayer"].includes(offer.status)) throw new Error("The player must choose this offer before captain approval.");
+      if (offer.status !== "chosenByPlayer") throw new Error("The player must choose this offer before captain approval.");
+      if (!offer.expiresAt || new Date(offer.expiresAt) <= now) {
+        throw new Error("This signing offer has expired and can no longer be approved.");
+      }
       const club = await Club.findOne({ _id: offer.clubId, status: "approved" }).session(session);
       if (!club) throw new Error("Club not found.");
       if (!club.captainIds.some(id => String(id) === String(playerId))) throw new Error("Only an elected captain can approve the signing.");
