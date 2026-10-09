@@ -45,11 +45,13 @@ export default function HomePage({
         <div className="feature-label">⚡ MATCHDAY MOMENT</div>
         <h2>
           {latestMatch
-            ? latestTopScorer && latestTopScorer.goals >= 3
-              ? `${latestTopScorer.name} lights up the match with a hat-trick.`
-              : latestTopScorer && latestTopScorer.goals === 2
-                ? `${latestTopScorer.name} delivers a two-goal performance.`
-                : `${latestMatch.name} adds another chapter to the GG story.`
+            ? latestTopScorer && latestTopScorer.goals >= 4
+              ? `${latestTopScorer.name} dominates with a ${latestTopScorer.goals}-goal haul.`
+              : latestTopScorer && latestTopScorer.goals === 3
+                ? `${latestTopScorer.name} lights up the match with a hat-trick.`
+                : latestTopScorer && latestTopScorer.goals === 2
+                  ? `${latestTopScorer.name} delivers a two-goal performance.`
+                  : `${latestMatch.name} adds another chapter to the GG story.`
             : "Your football story starts here."}
         </h2>
         <p>
