@@ -1295,7 +1295,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
           source: "renewal",
           renewalNumber: (contracts.find(c => String(c.playerId) === String(retainedId))?.renewalNumber || 0) + 1,
         }));
-        await ClubContract.create(newContracts, { session });
+        await ClubContract.create(newContracts, { session, ordered: true });
         club.memberIds = retained;
         club.captainIds = club.captainIds.filter(id => retainedSet.has(String(id)));
         if (!club.captainIds.length) throw new Error("At least one captain must remain for renewal.");
@@ -2257,7 +2257,7 @@ router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async 
         await PlayerWallet.updateOne({ playerId }, { $setOnInsert: { playerId, balance: 0 } }, { upsert: true, session });
       }
       await ClubWalletTransaction.create([{ clubId: club._id, type: "starting_balance", amount: CLUB_STARTING_BALANCE, balanceAfter: CLUB_STARTING_BALANCE, description: "Club starting balance." }], { session });
-      await ClubHistory.create([{ clubId: club._id, eventType: "formed", description: "Club approved and officially formed.", metadata: { formationApplicationId: application._id } }, { clubId: club._id, eventType: "adminApproved", description: "Club application approved by admin." }], { session });
+      await ClubHistory.create([{ clubId: club._id, eventType: "formed", description: "Club approved and officially formed.", metadata: { formationApplicationId: application._id } }, { clubId: club._id, eventType: "adminApproved", description: "Club application approved by admin." }], { session, ordered: true });
       application.status = "approved";
       application.approvedClubId = club._id;
       application.rejectionReason = "";
