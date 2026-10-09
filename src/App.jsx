@@ -11,8 +11,6 @@ import AdminPage from './features/admin/AdminPage';
 import MatchRecordForm from './features/matches/MatchRecordForm';
 import ClubsMode from './features/clubs/ClubsMode';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
-import GGAssistant from './components/GGAssistant';
-import FootballWorld from './components/FootballWorld';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
@@ -245,48 +243,6 @@ function App() {
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
 
-  function handleAssistantNavigate(action) {
-    if (!action?.type) return;
-
-    if (action.type === "player" && action.playerId) {
-      showPlayer(action.playerId);
-      return;
-    }
-
-    if (action.type === "clubs" || action.type === "clubs-my-club" || action.type === "clubs-players" || action.type === "clubs-reviews") {
-      try {
-        const focus = {
-          clubs: "overview",
-          "clubs-my-club": "myClub",
-          "clubs-players": "players",
-          "clubs-reviews": "reviews",
-        }[action.type];
-        if (focus) localStorage.setItem("gg-clubs-focus", focus);
-      } catch {
-        // Focus persistence is optional.
-      }
-      switchProductMode("clubs");
-      return;
-    }
-
-    const tab = {
-      home: TABS.HOME,
-      record: TABS.RECORD,
-      leaderboard: TABS.LEADERBOARD,
-      calendar: TABS.CALENDAR,
-      players: TABS.PLAYERS,
-    }[action.type];
-
-    if (tab) {
-      closeModal();
-      setActiveTab(tab);
-    }
-
-    if (action.type === "hall-of-fame") {
-      setModal("hall");
-    }
-  }
-
   // =========================================================
   // NAVIGATION
   // =========================================================
@@ -343,10 +299,6 @@ function App() {
     leaderboard,
     setLeaderboard,
   ] = useState([]);
-
-  const [worldData, setWorldData] = useState(null);
-  const [worldLoading, setWorldLoading] = useState(true);
-
 
   const [
     loadingPlayers,
@@ -656,27 +608,11 @@ function App() {
     loadNews();
     loadLeaderboard("all");
     loadAwards();
-    loadFootballWorld();
-  }, []);
+}, []);
 
   // =========================================================
   // LOADERS
   // =========================================================
-
-  async function loadFootballWorld() {
-    try {
-      setWorldLoading(true);
-      const response = await fetch(`${API_URL}/world`);
-      if (!response.ok) throw new Error("Football World could not be loaded.");
-      const data = await response.json();
-      setWorldData(data || null);
-    } catch (error) {
-      console.warn("Football World unavailable:", error?.message || error);
-      setWorldData(null);
-    } finally {
-      setWorldLoading(false);
-    }
-  }
 
   async function loadPlayers() {
     try {
@@ -2397,7 +2333,6 @@ function App() {
     return (
       <>
         <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
-        <GGAssistant onNavigate={handleAssistantNavigate} isSignedIn={Boolean(authUser)} players={players} viewerPlayerId={backendUser?.playerProfile || ""} />
         {modeTransitionLayer}
       </>
     );
@@ -2601,7 +2536,6 @@ function App() {
           news={news}
           newsLoading={newsLoading}
           leaderboard={leaderboard}
-          footballWorld={<FootballWorld apiUrl={API_URL} data={worldData} loading={worldLoading} />}
           onHallOfFame={() => setModal('hall')}
           onPlayer={showPlayer}
           onLeaderboard={() => setActiveTab(TABS.LEADERBOARD)}
@@ -2670,7 +2604,6 @@ function App() {
       {activeTab === TABS.CALENDAR && (
         <Calendar
           apiUrl={API_URL}
-          footballWorld={worldData}
           canEdit={isEditor}
           onOpen={showMatch}
           onEdit={startEditingMatch}
@@ -2821,12 +2754,6 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
       </Suspense>
-      <GGAssistant
-        onNavigate={handleAssistantNavigate}
-        isSignedIn={Boolean(authUser)}
-        players={players}
-        viewerPlayerId={backendUser?.playerProfile || ""}
-      />
       {modeTransitionLayer}
     </main>
   );
