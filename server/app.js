@@ -3,6 +3,7 @@ import "dotenv/config";
 import matchDetailRoutes from "./routes/matchDetail.js";
 import chatRoutes from "./routes/chat.js";
 import notificationRoutes from "./routes/notifications.js";
+import weatherRoutes from "./routes/weather.js";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -29,6 +30,7 @@ const allowedOrigins = (process.env.CORS_ORIGINS || "").split(",").map(value => 
 app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
 app.use(express.json({limit:"64kb"}));
 app.use("/api/chat", chatRoutes);
+app.use("/api/weather", weatherRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/matches", matchDetailRoutes);
 
