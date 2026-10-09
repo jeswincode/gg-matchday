@@ -208,7 +208,7 @@ test("V3 Club Match requests use a 24-hour expiry and fixture dates are date-onl
   assert.equal(clubMatchRequestExpiry(created).toISOString(), "2026-10-01T00:00:00.000Z");
   assert.deepEqual(
     normalizeFixtureDate("2026-10-10"),
-    { key: "2026-10-10", date: new Date("2026-10-10T00:00:00.000Z") },
+    { key: "2026-10-10", date: new Date("2026-10-09T18:30:00.000Z") },
   );
   assert.throws(() => normalizeFixtureDate("2026-10-10T12:00"), /valid Club Match date/i);
 });
@@ -249,4 +249,12 @@ test("Club available budget excludes active commitments", () => {
 
 test("Club date bounds start at midnight in Asia/Kolkata", () => {
   assert.equal(clubDateStartUtc("2026-10-09").toISOString(), "2026-10-08T18:30:00.000Z");
+});
+
+
+test("date-only fixtures persist at midnight in Asia/Kolkata", () => {
+  const fixture = normalizeFixtureDate("2026-10-10");
+  assert.equal(fixture.key, "2026-10-10");
+  assert.equal(fixture.date.toISOString(), "2026-10-09T18:30:00.000Z");
+  assert.equal(clubDateKey(fixture.date), fixture.key);
 });
