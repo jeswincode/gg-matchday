@@ -17,7 +17,8 @@ export async function settleClubMatchRewards({ clubMatchId, session }) {
     return { alreadySettled: true, clubMatch };
   }
 
-  const mainMatch = await Match.findById(clubMatch.mainMatchId).lean().session(session);
+  // Match lives in the core database connection; only Clubs documents participate in this transaction.
+  const mainMatch = await Match.findById(clubMatch.mainMatchId).lean();
   if (!mainMatch) throw new Error("Linked main Match Record not found.");
 
   const scoreA = Number(clubMatch.clubAScore || 0);
