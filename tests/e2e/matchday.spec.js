@@ -22,7 +22,7 @@ async function stubPublicApi(page) {
 }
 
 async function enterGuestMatchday(page) {
-  await page.goto("/");
+  await page.goto("/?e2eRole=guest");
   await page.getByRole("button", { name: "Explore as Guest" }).click();
   await expect(page.getByRole("button", { name: "Leaderboard" })).toBeVisible();
 }
@@ -53,7 +53,7 @@ test("editor can authenticate and record a match through the real browser and AP
   await expect(page.getByRole("heading", { name: /Welcome back, Playwright/i })).toBeVisible();
   await page.getByRole("button", { name: /ENTER MATCHDAY/i }).click();
 
-  await page.getByRole("button", { name: "Record", exact: true }).first().click();
+  await page.getByRole("button", { name: /Record/ }).first().click();
   await expect(page.getByRole("heading", { name: "Record a Match" })).toBeVisible();
   await page.getByLabel("Match name").fill("E2E Browser Regression Match");
   await page.getByRole("button", { name: "E2E Player One Side 1" }).click();
