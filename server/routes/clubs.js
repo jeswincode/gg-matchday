@@ -1205,7 +1205,8 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
       return res.status(409).json({ message: "Renewal requires a 4-5 player club." });
     }
 
-    const retained = validateRetention(state.club.memberIds, req.body?.retainedPlayerIds, state.club.captainIds);
+    const requestedRetention = req.body?.retainedPlayerIds;
+    const retained = validateRetention(state.club.memberIds, Array.isArray(requestedRetention) ? requestedRetention : state.club.memberIds, state.club.captainIds);
     const activeContracts = await ClubContract.find({ clubId, status: "active" }).sort({ endAt: 1 }).lean();
     if (activeContracts.length < CLUB_MIN_MEMBERS || activeContracts.length > CLUB_MAX_MEMBERS) {
       return res.status(409).json({ message: "The club must have 4 or 5 active contracts to renew." });
@@ -1275,7 +1276,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
           return;
         }
 
-        const nextEnd = new Date(Date.UTC(boundaryAt.getUTCFullYear(), boundaryAt.getUTCMonth() + 2, 1));
+        const nextEnd = nextRenewalBoundary(boundaryAt);
         const newContracts = retained.map(retainedId => ({
           clubId,
           playerId: retainedId,

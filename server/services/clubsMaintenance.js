@@ -13,8 +13,8 @@ export async function runClubsMaintenance(now = new Date()) {
   );
 
   await AuctionOffer.updateMany(
-    { status: "active", expiresAt: { $lte: now } },
-    { $set: { status: "cancelled" } },
+    { status: { $in: ["active", "chosenByPlayer"] }, expiresAt: { $ne: null, $lte: now } },
+    { $set: { status: "cancelled", captainApprovalIds: [] } },
   );
 
   const reserved = await AuctionOffer.aggregate([

@@ -307,9 +307,9 @@ export function resolvePlayerAttributesReadOnly(player, matches = []) {
   const snapshotPreferred = Array.isArray(snapshot?.sourcePreferredPositions) ? snapshot.sourcePreferredPositions : [];
   const latestMatchTime = latestMatchSourceTime(matches);
   const snapshotSourceTime = snapshot?.sourceUpdatedAt ? new Date(snapshot.sourceUpdatedAt).getTime() : null;
-  const historyChanged = latestMatchTime === null
+  const historyChanged = Number(snapshot?.matchesPlayed || 0) !== (matches || []).length || (latestMatchTime === null
     ? snapshotSourceTime !== null
-    : snapshotSourceTime === null || latestMatchTime > snapshotSourceTime;
+    : snapshotSourceTime === null || latestMatchTime > snapshotSourceTime);
   const attributesChanged =
     String(snapshot?.sourcePosition || "") !== String(player?.position || "") ||
     JSON.stringify(snapshotPreferred) !== JSON.stringify(preferred) ||
