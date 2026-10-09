@@ -521,6 +521,13 @@ function App() {
       const params = new URLSearchParams(window.location.search);
       const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
       const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
+      if (role === "guest") {
+        setAuthUser(null);
+        setBackendUser(null);
+        setAuthLoading(false);
+        setMessage("");
+        return () => { active = false; };
+      }
       const headers = {
         "X-E2E-Test-Token": import.meta.env.VITE_E2E_TEST_AUTH_SECRET,
         "X-E2E-Test-Role": role,
