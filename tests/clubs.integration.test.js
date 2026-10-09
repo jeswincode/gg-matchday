@@ -342,6 +342,15 @@ test("GET player attributes is read-only when there is no current snapshot", asy
   assert.deepEqual(after?.ovrSnapshot, before?.ovrSnapshot);
 });
 
+test("GET Player Wallet is read-only when the wallet has not been created yet", async () => {
+  const player = players[8];
+  assert.equal(await PlayerWallet.exists({ playerId: player._id }), null);
+  const response = await request("/clubs/wallet/me", { playerId: player._id });
+  assert.equal(response.status, 200, JSON.stringify(response.data));
+  assert.equal(Number(response.data.wallet.balance), 0);
+  assert.equal(await PlayerWallet.exists({ playerId: player._id }), null);
+});
+
 test("GET Club Matches is read-only and does not expire stale requests", async () => {
   const oldDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const matchId = new mongoose.Types.ObjectId();
