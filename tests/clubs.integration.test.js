@@ -23,6 +23,8 @@ const { default: PlayerWalletTransaction } = await import("../server/models/club
 const { default: ClubMatch } = await import("../server/models/clubs/ClubMatch.js");
 const { default: ClubFormationApplication } = await import("../server/models/clubs/ClubFormationApplication.js");
 const { default: ClubHistory } = await import("../server/models/clubs/ClubHistory.js");
+const { default: ClubPlayerStats } = await import("../server/models/clubs/ClubPlayerStats.js");
+const { rebuildClubPlayerStats } = await import("../server/services/clubsMatchSync.js");
 const { default: Match } = await import("../server/models/Match.js");
 const { default: PlayerStats } = await import("../server/models/PlayerStats.js");
 const { default: SeasonStats } = await import("../server/models/SeasonStats.js");
@@ -331,6 +333,32 @@ test("Club fixture sync and settlement work through the HTTP routes", async () =
   const repeat = await request(`/clubs/matches/${booking.data._id}/settle`, { method: "POST", role: "admin", body: {} });
   assert.equal(repeat.status, 200, JSON.stringify(repeat.data));
   assert.equal((await Club.findById(auctionClub._id).lean()).balance, balanceAfter);
+});
+
+test("Club player-history ratings use effectiveMatchRating for legacy own-goal records", async () => {
+  const linkedClubMatch = await ClubMatch.findOne({
+    status: "completed",
+    mainMatchId: { $ne: null },
+    $or: [{ clubAId: auctionClub._id }, { clubBId: auctionClub._id }],
+  }).lean();
+  assert.ok(linkedClubMatch, "the prior fixture-sync test should have linked a Club Match");
+
+  const mainMatch = await Match.findById(linkedClubMatch.mainMatchId);
+  const participant = mainMatch.participants.find(item => String(item.player) === String(players[0]._id));
+  assert.ok(participant, "the auction Club player should be part of the linked Match");
+  participant.rating = 8;
+  participant.ratingSystem = "legacy";
+  participant.ownGoals = 1;
+  await mainMatch.save();
+
+  await rebuildClubPlayerStats(auctionClub._id);
+  const stats = await ClubPlayerStats.findOne({
+    clubId: auctionClub._id,
+    playerId: players[0]._id,
+  }).lean();
+  assert.ok(stats);
+  assert.equal(stats.ratedMatches, 1);
+  assert.equal(stats.ratingTotal, 7, "the legacy own-goal penalty must be applied once in Club history");
 });
 
 test("GET player attributes is read-only when there is no current snapshot", async () => {
