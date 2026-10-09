@@ -132,6 +132,7 @@ router.patch("/:id/preferred-positions", requireAuth, requireEditor, async (req,
     if (uniquePositions.some(value => !approvedPositions.includes(value))) return res.status(400).json({ message: "Choose valid preferred positions." });
     player.preferredPositions = uniquePositions;
     await player.save();
+    await refreshPlayerAttributes(player._id);
     res.json(player);
   } catch (error) { console.error("Error updating preferred positions:", error); res.status(500).json({ message: "Failed to update preferred positions." }); }
 });
@@ -142,6 +143,7 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
     const player = await Player.findById(req.params.id);
     if (!player) return res.status(404).json({ message: "Player not found." });
     const { name, profileImage, height, weight, position, preferredPositions, preferredFoot, jerseyNumber, dateOfBirth, bio } = req.body;
+    const previousOvrInputs = JSON.stringify({ position: player.position || "", preferredPositions: player.preferredPositions || [] });
     if (!name || !name.trim()) return res.status(400).json({ message: "Player name is required." });
     const cleanName = name.trim();
     const duplicate = await Player.findOne({ name: cleanName, _id: { $ne: req.params.id } });
@@ -168,6 +170,8 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
     if (player.weight !== null && (!Number.isFinite(player.weight) || player.weight < 0 || player.weight > 300)) return res.status(400).json({ message: "Weight must be between 0 and 300 kg." });
     if (player.jerseyNumber !== null && (!Number.isInteger(player.jerseyNumber) || player.jerseyNumber < 0 || player.jerseyNumber > 99)) return res.status(400).json({ message: "Jersey number must be between 0 and 99." });
     await player.save();
+    const currentOvrInputs = JSON.stringify({ position: player.position || "", preferredPositions: player.preferredPositions || [] });
+    if (currentOvrInputs !== previousOvrInputs) await refreshPlayerAttributes(player._id);
     res.json(player);
   } catch (error) {
     if (error?.message === "Preferred foot is invalid." || error?.message === "Date of birth is invalid.") return res.status(400).json({ message: error.message });
