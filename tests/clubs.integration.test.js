@@ -343,7 +343,7 @@ test("GET player attributes is read-only when there is no current snapshot", asy
 });
 
 test("GET Player Wallet is read-only when the wallet has not been created yet", async () => {
-  const player = players[8];
+  const [player] = await Player.create([{ name: "Wallet Readonly Regression Player", position: "CM" }]);
   assert.equal(await PlayerWallet.exists({ playerId: player._id }), null);
   const response = await request("/clubs/wallet/me", { playerId: player._id });
   assert.equal(response.status, 200, JSON.stringify(response.data));
