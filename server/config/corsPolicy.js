@@ -19,7 +19,9 @@ export function createCorsOptions(nodeEnv = process.env.NODE_ENV) {
       callback(null, isAllowedCorsOrigin(origin, nodeEnv));
     },
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-E2E-Test-Token", "X-E2E-Test-Role", "X-E2E-Test-Player-Id"],
+    allowedHeaders: nodeEnv === "production"
+      ? ["Content-Type", "Authorization"]
+      : ["Content-Type", "Authorization", "X-E2E-Test-Token", "X-E2E-Test-Role", "X-E2E-Test-Player-Id"],
     maxAge: 86400,
   };
 }

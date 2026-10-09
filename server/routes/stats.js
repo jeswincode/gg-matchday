@@ -20,12 +20,12 @@ import {
   buildHeadToHead,
   buildPlayerPerformanceAnalytics,
   getMatchScores,
-  round,
 } from "../services/statistics.js";
 import { classifyPlayerStyles } from "../services/playerStyles.js";
 import { loadPlayerStatistics } from "../services/persistedStatistics.js";
 
 const router = express.Router();
+const round = value => Number(Number(value).toFixed(2));
 const safe = fn => async (req, res) => {
   try {
     await fn(req, res);
@@ -77,7 +77,7 @@ const groupMatchYears = () => Match.aggregate([
   } },
   { $sort: { _id: -1 } },
 ]);
-const annualAwardsFromSnapshots = (players, rows, year) => {
+const annualAwardsFromSnapshots = (rows, year) => {
   const selections = [];
   const rated = rows.filter(row => row.ggRating !== null).sort(compareByGG);
   const eligible = rows.filter(row => row.eligible);
@@ -107,7 +107,7 @@ router.get("/overview", safe(async (req, res) => {
   const [players, matches] = await Promise.all([Player.countDocuments(), Match.countDocuments()]);
   let goals = 0;
   const cursor = Match.find({})
-    .select("teamA.score teamB.score events participants.team participants.ownGoals")
+    .select("teamA.score teamB.score events participants.player participants.team participants.ownGoals")
     .lean()
     .cursor();
   for await (const match of cursor) goals += totalGoals(match);
@@ -253,7 +253,7 @@ router.get("/seasons", safe(async (req, res) => {
     ]);
     const clasicoAwards = selectAwards(players, clasicoMatches.filter(match => isClasico(match.name)), { year })
       .filter(award => award.type === "clasico");
-    const computed = annualAwardsFromSnapshots(players, rows, year);
+    const computed = annualAwardsFromSnapshots(rows, year);
     if (clasicoAwards[0]) computed.push({ ...clasicoAwards[0], finalized: false });
     const byType = new Map(computed.map(award => [award.type, award]));
     for (const award of persistedAwards.filter(item => Number(item.year) === year)) {
