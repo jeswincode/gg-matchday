@@ -19,3 +19,21 @@ test('award tie-breakers prefer GG rating after the primary achievement',()=>{co
 test('only approved supported positions and permanent side values are accepted',()=>{assert.deepEqual(validatePreferences({preferredPositions:['CAM','CAM','LW'],clasicoSide:'Messi'},{}),{preferredPositions:['CAM','LW'],clasicoSide:'Messi'});assert.throws(()=>validatePreferences({clasicoSide:'Ronaldo'},{clasicoSide:'Messi'}),/permanent/);assert.throws(()=>validatePreferences({preferredPositions:['random']},{}));});
 test('chat validates content and uses calendar months in configured local timezone',()=>{assert.equal(messageText(' hi '),'hi');assert.throws(()=>messageText(' '));assert.throws(()=>messageText('x'.repeat(501)));assert.notEqual(chatMonth(new Date('2026-09-30T18:29:59Z')),chatMonth(new Date('2026-09-30T18:30:00Z')));});
 test('score resolution preserves legacy stored scores and derives detailed scores',()=>{const legacy={teamA:{score:4},teamB:{score:2},participants:[],events:[]};assert.deepEqual(getMatchScores(legacy),{teamA:4,teamB:2});const detailed={teamA:{score:99},teamB:{score:99},participants:[{player:'a',team:'A',ownGoals:1},{player:'b',team:'B',ownGoals:0}],events:[{player:'a',type:'goal'},{player:'b',type:'goal'}]};assert.deepEqual(getMatchScores(detailed),{teamA:1,teamB:2});});
+
+
+test('GG-v3 own-goal penalties are not subtracted a second time in derived statistics', () => {
+  const matches = Array.from({ length: 5 }, (_, index) => ({
+    _id: `gg-v3-own-goal-${index}`,
+    date: `2026-09-0${index + 1}`,
+    teamA: { score: 1 },
+    teamB: { score: 0 },
+    participants: [
+      { player: 'a', team: 'A', rating: 7.5, ratingSystem: 'gg-v3', ownGoals: 1, defensivePerformance: 7 },
+      { player: 'b', team: 'B', rating: 6, ratingSystem: 'gg-v3', ownGoals: 0, defensivePerformance: 6 },
+    ],
+    events: [{ player: 'a', type: 'goal' }],
+  }));
+  const stats = buildStatistics(players, matches).find(row => row.playerId === 'a');
+  assert.equal(stats.ratedMatches, 5);
+  assert.equal(stats.averageRating, 7.5);
+});

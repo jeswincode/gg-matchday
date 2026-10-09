@@ -147,11 +147,9 @@ export function normalizeFixtureDate(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) {
     throw new Error("Choose a valid Club Match date.");
   }
-  const parsed = new Date(key + "T00:00:00.000Z");
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== key) {
-    throw new Error("Choose a valid Club Match date.");
-  }
-  return { key, date: parsed };
+  // Store the compatibility timestamp at the beginning of the canonical IST
+  // fixture day; UTC midnight would represent 05:30 in Asia/Kolkata.
+  return { key, date: clubDateStartUtc(key) };
 }
 
 export function clubMatchRequestExpiry(createdAt) {

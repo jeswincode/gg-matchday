@@ -23,6 +23,8 @@ const { default: PlayerWalletTransaction } = await import("../server/models/club
 const { default: ClubMatch } = await import("../server/models/clubs/ClubMatch.js");
 const { default: ClubFormationApplication } = await import("../server/models/clubs/ClubFormationApplication.js");
 const { default: ClubHistory } = await import("../server/models/clubs/ClubHistory.js");
+const { default: ClubPlayerStats } = await import("../server/models/clubs/ClubPlayerStats.js");
+const { rebuildClubPlayerStats } = await import("../server/services/clubsMatchSync.js");
 const { default: Match } = await import("../server/models/Match.js");
 const { default: PlayerStats } = await import("../server/models/PlayerStats.js");
 const { default: SeasonStats } = await import("../server/models/SeasonStats.js");
@@ -157,6 +159,37 @@ test("Club HTTP auction flow reserves, releases, and consumes wallet commitments
   assert.ok(wallet.memberIds.some(playerId => String(playerId) === String(players[4]._id)));
   assert.ok(await ClubContract.exists({ clubId: club._id, playerId: players[4]._id, status: "active" }));
   assert.equal((await PlayerWallet.findOne({ playerId: players[4]._id }).lean()).balance, 200);
+});
+
+test("HTTP signing approval rejects an expired chosen offer before maintenance runs", async () => {
+  const club = await Club.create({
+    name: "Expired Offer Integration FC",
+    description: "Expired signing offer regression test",
+    memberIds: players.slice(0, 4).map(player => player._id),
+    captainIds: players.slice(0, 2).map(player => player._id),
+    status: "approved",
+    balance: 300,
+    committedBalance: 50,
+  });
+  const offer = await AuctionOffer.create({
+    playerId: players[8]._id,
+    clubId: club._id,
+    amount: 50,
+    status: "chosenByPlayer",
+    expiresAt: new Date(Date.now() - 60_000),
+    captainApprovalIds: [],
+  });
+
+  const response = await request(`/clubs/auction/offers/${offer._id}/approve`, {
+    method: "POST",
+    playerId: players[0]._id,
+  });
+  assert.equal(response.status, 400, JSON.stringify(response.data));
+  assert.match(response.data.message, /expired/i);
+  assert.equal(await ClubContract.exists({ clubId: club._id, playerId: players[8]._id, status: "active" }), null);
+  const unchangedClub = await Club.findById(club._id).lean();
+  assert.equal(unchangedClub.memberIds.length, 4);
+  assert.equal(unchangedClub.balance, 300);
 });
 
 test("HTTP formation flow covers member approval, captain voting, and admin approval", async () => {
@@ -302,6 +335,32 @@ test("Club fixture sync and settlement work through the HTTP routes", async () =
   assert.equal((await Club.findById(auctionClub._id).lean()).balance, balanceAfter);
 });
 
+test("Club player-history ratings use effectiveMatchRating for legacy own-goal records", async () => {
+  const linkedClubMatch = await ClubMatch.findOne({
+    status: "completed",
+    mainMatchId: { $ne: null },
+    $or: [{ clubAId: auctionClub._id }, { clubBId: auctionClub._id }],
+  }).lean();
+  assert.ok(linkedClubMatch, "the prior fixture-sync test should have linked a Club Match");
+
+  const mainMatch = await Match.findById(linkedClubMatch.mainMatchId);
+  const participant = mainMatch.participants.find(item => String(item.player) === String(players[0]._id));
+  assert.ok(participant, "the auction Club player should be part of the linked Match");
+  participant.rating = 8;
+  participant.ratingSystem = "legacy";
+  participant.ownGoals = 1;
+  await mainMatch.save();
+
+  await rebuildClubPlayerStats(auctionClub._id);
+  const stats = await ClubPlayerStats.findOne({
+    clubId: auctionClub._id,
+    playerId: players[0]._id,
+  }).lean();
+  assert.ok(stats);
+  assert.equal(stats.ratedMatches, 1);
+  assert.equal(stats.ratingTotal, 7, "the legacy own-goal penalty must be applied once in Club history");
+});
+
 test("GET player attributes is read-only when there is no current snapshot", async () => {
   const player = players[9];
   const before = await Player.findById(player._id).select("ovrSnapshot").lean();
@@ -309,6 +368,15 @@ test("GET player attributes is read-only when there is no current snapshot", asy
   assert.equal(response.status, 200, JSON.stringify(response.data));
   const after = await Player.findById(player._id).select("ovrSnapshot").lean();
   assert.deepEqual(after?.ovrSnapshot, before?.ovrSnapshot);
+});
+
+test("GET Player Wallet is read-only when the wallet has not been created yet", async () => {
+  const [player] = await Player.create([{ name: "Wallet Readonly Regression Player", position: "CM" }]);
+  assert.equal(await PlayerWallet.exists({ playerId: player._id }), null);
+  const response = await request("/clubs/wallet/me", { playerId: player._id });
+  assert.equal(response.status, 200, JSON.stringify(response.data));
+  assert.equal(Number(response.data.wallet.balance), 0);
+  assert.equal(await PlayerWallet.exists({ playerId: player._id }), null);
 });
 
 test("GET Club Matches is read-only and does not expire stale requests", async () => {

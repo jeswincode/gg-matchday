@@ -115,27 +115,74 @@ export async function loadPlayerStatistics(players, { year = null } = {}) {
   const list = Array.isArray(players) ? players : [];
   if (!list.length) return [];
   const numericYear = year == null ? null : Number(year);
-  if (numericYear !== null && (!Number.isInteger(numericYear) || numericYear < 2000 || numericYear > 2100)) throw new Error("Choose a valid year.");
+  if (numericYear !== null && (!Number.isInteger(numericYear) || numericYear < 2000 || numericYear > 2100)) {
+    throw new Error("Choose a valid year.");
+  }
 
   const ids = list.map(player => player._id).filter(Boolean);
+  const period = numericYear === null ? {} : dateQuery(numericYear);
   const snapshots = numericYear === null
     ? await PlayerStats.find({ playerId: { $in: ids } }).lean()
     : await SeasonStats.find({ playerId: { $in: ids }, year: numericYear }).lean();
-  const rows = new Map(snapshots.map(snapshot => [String(snapshot.playerId), snapshot.stats]));
-  const missing = list.filter(player => !rows.has(String(player._id)));
-  const period = numericYear === null ? {} : dateQuery(numericYear);
+  const snapshotById = new Map(snapshots.map(snapshot => [String(snapshot.playerId), snapshot]));
 
-  for (const batch of chunks(missing)) {
+  // Validate snapshot freshness using indexed aggregation metadata instead of
+  // trusting persisted rows indefinitely or loading all history for every read.
+  const sourceRows = await Match.aggregate([
+    { $match: { "participants.player": { $in: ids }, ...period } },
+    { $unwind: "$participants" },
+    { $match: { "participants.player": { $in: ids } } },
+    {
+      $group: {
+        _id: { playerId: "$participants.player", matchId: "$_id" },
+        latestSourceAt: { $max: { $ifNull: ["$updatedAt", "$date"] } },
+      },
+    },
+    {
+      $group: {
+        _id: "$_id.playerId",
+        matchCount: { $sum: 1 },
+        sourceLatestMatchAt: { $max: "$latestSourceAt" },
+      },
+    },
+  ]);
+  const sourceById = new Map(sourceRows.map(row => [String(row._id), row]));
+  const stalePlayers = list.filter(player => {
+    const key = String(player._id);
+    const snapshot = snapshotById.get(key);
+    const source = sourceById.get(key);
+    const expectedCount = Number(source?.matchCount || 0);
+    const snapshotCount = Number(snapshot?.matchCount ?? -1);
+    const expectedTime = source?.sourceLatestMatchAt
+      ? new Date(source.sourceLatestMatchAt).getTime()
+      : null;
+    const snapshotTime = snapshot?.sourceLatestMatchAt
+      ? new Date(snapshot.sourceLatestMatchAt).getTime()
+      : null;
+    return !snapshot || snapshotCount !== expectedCount || snapshotTime !== expectedTime;
+  });
+
+  const rows = new Map(
+    [...snapshotById.entries()].map(([playerId, snapshot]) => [playerId, snapshot.stats]),
+  );
+  // Missing or stale rows are calculated from only affected-player history.
+  // This read path stays read-only; normal mutations/maintenance persist repairs.
+  for (const batch of chunks(stalePlayers)) {
     const history = await Match.find({
       "participants.player": { $in: batch.map(player => player._id) },
       ...period,
     }).select(MATCH_FIELDS).lean();
-    for (const player of batch) rows.set(
-      String(player._id),
-      buildStatistics([player], matchesForPlayer(history, player._id))[0],
-    );
+    for (const player of batch) {
+      rows.set(
+        String(player._id),
+        buildStatistics([player], matchesForPlayer(history, player._id))[0],
+      );
+    }
   }
-  return list.map(player => decorateStats(rows.get(String(player._id)) || buildStatistics([player], [])[0], player));
+  return list.map(player => decorateStats(
+    rows.get(String(player._id)) || buildStatistics([player], [])[0],
+    player,
+  ));
 }
 
 export function startStatisticsMaintenanceWorker(intervalMs = 24 * 60 * 60 * 1000) {

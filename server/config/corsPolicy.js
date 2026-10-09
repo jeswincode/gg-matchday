@@ -7,7 +7,7 @@ const DEVELOPMENT_ORIGINS = new Set([
 ]);
 
 export function isAllowedCorsOrigin(origin, nodeEnv = process.env.NODE_ENV) {
-  if (!origin) return true;
+  if (!origin) return false;
   if (nodeEnv === "production") return PRODUCTION_ORIGINS.has(origin);
   const configured = String(process.env.CORS_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean);
   return PRODUCTION_ORIGINS.has(origin) || DEVELOPMENT_ORIGINS.has(origin) || configured.includes(origin);

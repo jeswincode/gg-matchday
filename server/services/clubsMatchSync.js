@@ -7,6 +7,7 @@ import Match from "../models/Match.js";
 import Club from "../models/clubs/Club.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { normalizeClubName, clubDateKey, clubDateStartUtc } from "../config/clubsRules.js";
+import { effectiveMatchRating } from "./ratings/index.js";
 
 const idOf = value => String(value?._id || value);
 
@@ -197,7 +198,7 @@ export async function attachMainMatchToClubMatch(mainMatch) {
           clubBId: sideBClub._id,
           requestedByClubId: null,
           fixtureDate: dayKey,
-          scheduledAt: new Date(dayKey + "T00:00:00.000Z"),
+          scheduledAt: clubDateStartUtc(dayKey),
           source: "unbooked",
           status: "completed",
           mainMatchId: mainMatch._id,
@@ -284,8 +285,9 @@ export async function rebuildClubPlayerStats(clubId) {
       assists += (mainMatch.events || []).filter(event => event.type === "assist" && idOf(event.player) === playerId).length;
       if (idOf(mainMatch.motmWinner) === playerId) motm += 1;
 
-      if (Number.isFinite(Number(participant.rating))) {
-        ratingTotal += Number(participant.rating);
+      const effectiveRating = effectiveMatchRating(participant);
+      if (effectiveRating !== null) {
+        ratingTotal += effectiveRating;
         ratedMatches += 1;
       }
       if (!lastPlayedAt || new Date(mainMatch.date) > new Date(lastPlayedAt)) {

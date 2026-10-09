@@ -22,7 +22,7 @@ async function stubPublicApi(page) {
 }
 
 async function enterGuestMatchday(page) {
-  await page.goto("/");
+  await page.goto("/?e2eRole=guest");
   await page.getByRole("button", { name: "Explore as Guest" }).click();
   await expect(page.getByRole("button", { name: "Leaderboard" })).toBeVisible();
 }
@@ -45,4 +45,21 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
   await expect(navigation.getByRole("button", { name: /Players/ })).toBeVisible();
   await navigation.getByRole("button", { name: /Calendar/ }).click();
   await expect(page.locator(".bottom-nav")).toBeVisible();
+});
+
+
+test("editor can authenticate and record a match through the real browser and API", async ({ page }) => {
+  await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
+  await expect(page.getByRole("heading", { name: /Welcome back, Playwright/i })).toBeVisible();
+  await page.getByRole("button", { name: /ENTER MATCHDAY/i }).click();
+
+  await page.getByRole("button", { name: /Record/ }).first().click();
+  await expect(page.getByRole("heading", { name: "Record a Match" })).toBeVisible();
+  await page.getByLabel("Match name").fill("E2E Browser Regression Match");
+  await page.getByRole("button", { name: "E2E Player One Side 1" }).click();
+  await page.getByRole("button", { name: "E2E Player Two Side 2" }).click();
+  await page.getByRole("button", { name: "Save Match" }).click();
+
+  await expect(page.getByText("Match recorded.")).toBeVisible();
+  await expect(page.getByText("E2E Browser Regression Match")).toBeVisible();
 });

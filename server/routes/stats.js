@@ -49,14 +49,6 @@ const resultForPlayer = (match, playerId) => {
     ? (scores.teamA > scores.teamB ? "W" : scores.teamA === scores.teamB ? "D" : "L")
     : (scores.teamB > scores.teamA ? "W" : scores.teamB === scores.teamA ? "D" : "L");
 };
-const totalGoals = match => {
-  const hasDetailedData =
-    (Array.isArray(match?.events) && match.events.length > 0) ||
-    (Array.isArray(match?.participants) && match.participants.some(participant => Number(participant.ownGoals || 0) > 0));
-  if (!hasDetailedData) return Number(match?.teamA?.score || 0) + Number(match?.teamB?.score || 0);
-  const scores = getMatchScores(match);
-  return scores.teamA + scores.teamB;
-};
 const positionMatches = (stats, position) => {
   const pattern = ({
     attackers: /ST|CF|LW|RW|FORWARD|ATTACK/,
@@ -104,14 +96,96 @@ const annualAwardsFromSnapshots = (rows, year) => {
 };
 
 router.get("/overview", safe(async (req, res) => {
-  const [players, matches] = await Promise.all([Player.countDocuments(), Match.countDocuments()]);
-  let goals = 0;
-  const cursor = Match.find({})
-    .select("teamA.score teamB.score events participants.player participants.team participants.ownGoals")
-    .lean()
-    .cursor();
-  for await (const match of cursor) goals += totalGoals(match);
-  res.json({ players, matches, goals });
+  const [players, matches, totals] = await Promise.all([
+    Player.countDocuments(),
+    Match.countDocuments(),
+    Match.aggregate([
+      {
+        $project: {
+          storedScoreTotal: {
+            $add: [
+              { $ifNull: ["$teamA.score", 0] },
+              { $ifNull: ["$teamB.score", 0] },
+            ],
+          },
+          normalGoalCount: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$events", []] },
+                as: "event",
+                cond: { $eq: ["$event.type", "goal"] },
+              },
+            },
+          },
+          ownGoalCount: {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$participants", []] },
+                as: "participant",
+                in: {
+                  $max: [
+                    0,
+                    {
+                      $convert: {
+                        input: "$participant.ownGoals",
+                        to: "double",
+                        onError: 0,
+                        onNull: 0,
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          hasDetailedData: {
+            $or: [
+              { $gt: [{ $size: { $ifNull: ["$events", []] } }, 0] },
+              {
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: { $ifNull: ["$participants", []] },
+                        as: "participant",
+                        cond: {
+                          $gt: [
+                            {
+                              $convert: {
+                                input: "$participant.ownGoals",
+                                to: "double",
+                                onError: 0,
+                                onNull: 0,
+                              },
+                            },
+                            0,
+                          ],
+                        },
+                      },
+                    },
+                  },
+                  0,
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          totalGoals: {
+            $cond: [
+              "$hasDetailedData",
+              { $add: ["$normalGoalCount", "$ownGoalCount"] },
+              "$storedScoreTotal",
+            ],
+          },
+        },
+      },
+      { $group: { _id: null, goals: { $sum: "$totalGoals" } } },
+    ]),
+  ]);
+  res.json({ players, matches, goals: Number(totals[0]?.goals || 0) });
 }));
 
 router.get("/leaderboard", safe(async (req, res) => {

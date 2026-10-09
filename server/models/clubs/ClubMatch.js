@@ -8,7 +8,7 @@ const clubMatchSchema = new mongoose.Schema(
     requestedByClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
     // Canonical Club Match scheduling value. It is date-only (YYYY-MM-DD).
     fixtureDate: { type: String, default: null, match: /^\d{4}-\d{2}-\d{2}$/ },
-    // Kept as UTC midnight for compatibility with existing Club Match consumers.
+    // Canonical timestamp for date-only fixtures: midnight Asia/Kolkata (UTC+05:30).
     scheduledAt: { type: Date, required: true },
     source: { type: String, enum: ["booked", "unbooked"], default: "booked", index: true },
     captainResponses: [{

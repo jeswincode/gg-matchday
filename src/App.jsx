@@ -269,7 +269,12 @@ function App() {
   const [
     authLoading,
     setAuthLoading,
-  ] = useState(Boolean(auth));
+  ] = useState(
+    Boolean(auth) || Boolean(
+      import.meta.env.VITE_E2E_TEST_AUTH_SECRET &&
+      new URLSearchParams(window.location.search).get("e2eRole") !== "guest",
+    ),
+  );
 
   const [
     message,
@@ -516,6 +521,47 @@ function App() {
   // =========================================================
 
   useEffect(() => {
+    if (import.meta.env.VITE_E2E_TEST_AUTH_SECRET) {
+      let active = true;
+      const params = new URLSearchParams(window.location.search);
+      const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
+      const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
+      if (role === "guest") {
+        // Initial state is already signed out and not loading for explicit E2E
+        // guest mode, so avoid redundant state updates during effect setup.
+        return () => { active = false; };
+      }
+      const headers = {
+        "X-E2E-Test-Token": import.meta.env.VITE_E2E_TEST_AUTH_SECRET,
+        "X-E2E-Test-Role": role,
+        ...(playerId ? { "X-E2E-Test-Player-Id": playerId } : {}),
+      };
+      fetch(`${API_URL}/auth/me`, { headers })
+        .then(async response => {
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.message || "Test authentication failed.");
+          if (!active) return;
+          setAuthUser({
+            uid: `e2e-test:${role}:${playerId || "unlinked"}`,
+            displayName: data.user?.name || `Playwright ${role}`,
+            email: data.user?.email || "playwright@test.invalid",
+            photoURL: "",
+            getIdToken: async () => "",
+          });
+          setBackendUser(data.user || null);
+          setMessage("");
+        })
+        .catch(error => {
+          if (!active) return;
+          setBackendUser(null);
+          setMessage(`Test authentication failed: ${error.message}`);
+        })
+        .finally(() => {
+          if (active) setAuthLoading(false);
+        });
+      return () => { active = false; };
+    }
+
     if (!auth) return;
 
     let active = true;
@@ -839,6 +885,21 @@ function App() {
     url,
     options = {}
   ) {
+    if (import.meta.env.VITE_E2E_TEST_AUTH_SECRET) {
+      const params = new URLSearchParams(window.location.search);
+      const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
+      const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...(options.headers || {}),
+          "X-E2E-Test-Token": import.meta.env.VITE_E2E_TEST_AUTH_SECRET,
+          "X-E2E-Test-Role": role,
+          ...(playerId ? { "X-E2E-Test-Player-Id": playerId } : {}),
+        },
+      });
+    }
+
     if (
       !auth?.currentUser
     ) {

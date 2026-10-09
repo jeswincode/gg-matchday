@@ -28,6 +28,7 @@ import {
 } from "../config/clubsRules.js";
 import { pingClubsDatabase, getClubsConnection } from "../config/clubsDatabase.js";
 import { calculatePlayerAttributes } from "../services/playerAttributes.js";
+import { effectiveMatchRating } from "../services/ratings/index.js";
 import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
 import PlayerWallet from "../models/clubs/PlayerWallet.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
@@ -757,7 +758,7 @@ router.get("/wallet/me", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
-  const wallet = await PlayerWallet.findOneAndUpdate({ playerId }, { $setOnInsert: { playerId, balance: 0 } }, { upsert: true, new: true }).lean();
+  const wallet = await PlayerWallet.findOne({ playerId }).lean() || { playerId, balance: 0 };
   const transactions = await PlayerWalletTransaction.find({ playerId }).sort({ createdAt: -1 }).limit(25).lean();
   return res.json({ wallet, transactions });
 });
@@ -864,7 +865,8 @@ router.get("/players/discovery", async (req, res) => {
         const row = byPlayer.get(id);
         if (!row) continue;
         row.matchesPlayed += 1;
-        if (participant.rating != null) row.ratings.push(Number(participant.rating));
+        const effectiveRating = effectiveMatchRating(participant);
+        if (effectiveRating !== null) row.ratings.push(effectiveRating);
       }
       for (const event of match.events || []) {
         const id = String(event.player);
@@ -1006,9 +1008,13 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
   try {
     let result;
     await session.withTransaction(async () => {
+      const now = new Date();
       const offer = await AuctionOffer.findById(req.params.offerId).session(session);
       if (!offer) throw new Error("Offer not found.");
-      if (!["chosenByPlayer"].includes(offer.status)) throw new Error("The player must choose this offer before captain approval.");
+      if (offer.status !== "chosenByPlayer") throw new Error("The player must choose this offer before captain approval.");
+      if (!offer.expiresAt || new Date(offer.expiresAt) <= now) {
+        throw new Error("This signing offer has expired and can no longer be approved.");
+      }
       const club = await Club.findOne({ _id: offer.clubId, status: "approved" }).session(session);
       if (!club) throw new Error("Club not found.");
       if (!club.captainIds.some(id => String(id) === String(playerId))) throw new Error("Only an elected captain can approve the signing.");
@@ -1025,7 +1031,6 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
       if (Number(club.balance || 0) < Number(offer.amount) || Number(club.committedBalance || 0) < Number(offer.amount)) {
         await reserveClubWallet({ clubId: club._id, amount: offer.amount, session });
       }
-      const now = new Date();
       const endAt = nextRenewalBoundary(now);
       const updatedClub = await Club.findOneAndUpdate(
         { _id: club._id, status: "approved", memberIds: { $not: { $size: CLUB_MAX_MEMBERS }, $ne: offer.playerId } },
