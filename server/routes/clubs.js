@@ -23,6 +23,7 @@ import {
   clubMatchRequestExpiry,
   normalizeFixtureDate,
   clubDateKey,
+  clubDateStartUtc,
   resolveCaptainVote,
 } from "../config/clubsRules.js";
 import { pingClubsDatabase, getClubsConnection } from "../config/clubsDatabase.js";
@@ -1207,15 +1208,22 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
     }
 
     const requestedRetention = req.body?.retainedPlayerIds;
-    const retained = validateRetention(state.club.memberIds, Array.isArray(requestedRetention) ? requestedRetention : state.club.memberIds, state.club.captainIds);
+    if (requestedRetention !== undefined && !Array.isArray(requestedRetention)) {
+      return res.status(400).json({ message: "Retained players must be submitted as a list." });
+    }
+    const retained = validateRetention(state.club.memberIds, requestedRetention, state.club.captainIds);
     const activeContracts = await ClubContract.find({ clubId, status: "active" }).sort({ endAt: 1 }).lean();
     if (activeContracts.length < CLUB_MIN_MEMBERS || activeContracts.length > CLUB_MAX_MEMBERS) {
       return res.status(409).json({ message: "The club must have 4 or 5 active contracts to renew." });
     }
-    const boundaryAt = activeContracts[0].endAt;
-    if (new Date() < new Date(boundaryAt)) return res.status(409).json({ message: "This club's renewal boundary has not arrived yet." });
+    const storedBoundaryAt = activeContracts[0].endAt;
+    const boundaryAt = clubDateStartUtc(clubDateKey(storedBoundaryAt));
+    if (new Date() < boundaryAt) return res.status(409).json({ message: "This club's renewal boundary has not arrived yet." });
 
     let decision = await ClubRenewalDecision.findOne({ clubId, boundaryAt });
+    if (!decision && new Date(storedBoundaryAt).getTime() !== boundaryAt.getTime()) {
+      decision = await ClubRenewalDecision.findOne({ clubId, boundaryAt: storedBoundaryAt });
+    }
     if (!decision) {
       decision = await ClubRenewalDecision.create({
         clubId,
