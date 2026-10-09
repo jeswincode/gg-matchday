@@ -10,6 +10,7 @@ import Player from "../models/Player.js";
 import News from "../models/News.js";
 import { calculateGGParticipantRatings } from "../services/ratings/match.js";
 import { refreshPlayerAttributes } from "../services/playerAttributes.js";
+import { rebuildPlayerStatistics } from "../services/persistedStatistics.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { clubsIntegrationConfigured, enqueueClubSyncJob, syncMainMatchToClubs } from "../services/clubsSync.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
@@ -643,7 +644,10 @@ router.post(
       scheduleHistory();
       try {
         const affectedPlayerIds = [...new Set(participants.map(participant => String(participant.player)))];
-        await Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId)));
+        await Promise.all([
+          Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId))),
+          rebuildPlayerStatistics(affectedPlayerIds),
+        ]);
       } catch (ovrError) {
         console.error("Player OVR snapshot refresh failed:", ovrError);
       }
@@ -799,7 +803,10 @@ router.put(
 
       scheduleHistory();
       try {
-        await Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId)));
+        await Promise.all([
+          Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId))),
+          rebuildPlayerStatistics(affectedPlayerIds),
+        ]);
       } catch (ovrError) {
         console.error("Player OVR snapshot refresh failed:", ovrError);
       }
@@ -870,7 +877,10 @@ router.delete(
 
       try {
         const affectedPlayerIds = [...new Set((match.participants || []).map(participant => String(participant.player)))];
-        await Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId)));
+        await Promise.all([
+          Promise.all(affectedPlayerIds.map(playerId => refreshPlayerAttributes(playerId))),
+          rebuildPlayerStatistics(affectedPlayerIds),
+        ]);
       } catch (ovrError) {
         console.error("Player OVR snapshot refresh after deletion failed:", ovrError);
       }
