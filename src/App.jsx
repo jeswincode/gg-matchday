@@ -269,7 +269,12 @@ function App() {
   const [
     authLoading,
     setAuthLoading,
-  ] = useState(Boolean(auth) || Boolean(import.meta.env.VITE_E2E_TEST_AUTH_SECRET));
+  ] = useState(
+    Boolean(auth) || Boolean(
+      import.meta.env.VITE_E2E_TEST_AUTH_SECRET &&
+      new URLSearchParams(window.location.search).get("e2eRole") !== "guest",
+    ),
+  );
 
   const [
     message,
@@ -522,10 +527,8 @@ function App() {
       const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
       const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
       if (role === "guest") {
-        setAuthUser(null);
-        setBackendUser(null);
-        setAuthLoading(false);
-        setMessage("");
+        // Initial state is already signed out and not loading for explicit E2E
+        // guest mode, so avoid redundant state updates during effect setup.
         return () => { active = false; };
       }
       const headers = {
