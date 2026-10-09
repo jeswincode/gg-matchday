@@ -2126,3 +2126,47 @@ html[data-product-mode="clubs"] body {
 .clubs-wallet-card>small{color:#a9a2a6;line-height:1.55}
 .clubs-wallet-card-muted{background:#121216;border-color:#29272b}
 @media(max-width:640px){.clubs-wallet-grid{grid-template-columns:1fr}.clubs-wallet-card{padding:17px}}
+
+
+/* Budget clarity: keep personal credits distinct from committed Club funds. */
+.clubs-wallet-grid-budget{align-items:stretch}
+.clubs-wallet-card-head,.clubs-budget-title-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.clubs-wallet-card-head>span:first-child{min-width:0}
+.clubs-wallet-status{display:inline-flex;align-items:center;justify-content:center;padding:5px 8px;border:1px solid rgba(217,160,162,.28);border-radius:999px;color:#e8b8b9;font-size:9px;font-weight:800;letter-spacing:.04em;white-space:nowrap}
+.clubs-wallet-status-muted{border-color:#353238;color:#a9a2a6}
+.clubs-wallet-main-value{font-size:clamp(32px,4vw,46px)!important;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.clubs-wallet-balance-note{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:11px;border-top:1px solid rgba(217,160,162,.16)}
+.clubs-wallet-balance-note span{color:#a9a2a6;font-size:11px}
+.clubs-wallet-balance-note strong{font-size:12px;font-variant-numeric:tabular-nums}
+.clubs-wallet-activity{display:grid;gap:0;padding:0;margin:0;list-style:none}
+.clubs-wallet-activity li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.07)}
+.clubs-wallet-activity li:last-child{border-bottom:0}
+.clubs-wallet-activity li>div{display:grid;gap:4px;min-width:0}
+.clubs-wallet-activity li>div strong{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.clubs-wallet-activity li>div small{color:#8f888c;font-size:10px}
+.clubs-wallet-amount-positive,.clubs-wallet-amount-negative{font-size:13px;font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+.clubs-wallet-amount-positive{color:#9bd6b0}
+.clubs-wallet-amount-negative{color:#efb9bc}
+.clubs-wallet-empty-activity{display:grid;gap:7px;padding:10px 0}
+.clubs-wallet-empty-activity strong{font-size:14px}
+.clubs-wallet-empty-activity small,.clubs-wallet-footnote{color:#a9a2a6;line-height:1.55}
+.clubs-wallet-footnote{margin:12px 2px 0;font-size:11px}
+.clubs-budget-title-row .clubs-wallet-status{margin-left:auto}
+.clubs-command-balance .clubs-command-balance-available{font-size:clamp(30px,3vw,38px)}
+.clubs-command-budget-breakdown{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:6px 0 3px;padding:12px 0;border-top:1px solid var(--clubs-edge);border-bottom:1px solid var(--clubs-edge);text-align:left}
+.clubs-command-budget-breakdown>div{display:grid;gap:5px;min-width:0}
+.clubs-command-budget-breakdown span{font-size:9px;letter-spacing:.08em;line-height:1.4}
+.clubs-command-budget-breakdown strong{font-size:16px;letter-spacing:-.01em;overflow-wrap:anywhere}
+.clubs-budget-meter{position:relative;width:100%;height:8px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.09)}
+.clubs-budget-meter>span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#bd888a,#e8b8b9);transition:width .25s ease}
+.clubs-budget-meter--club{margin:4px 0 2px}
+.clubs-command-balance>small{line-height:1.55;text-transform:none;letter-spacing:0;font-weight:600}
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-budget-meter>span{background:linear-gradient(90deg,#af8437,#efd18d)}
+html[data-theme="golden"][data-product-mode="clubs"] .clubs-wallet-status{border-color:rgba(211,173,91,.35);color:#efd18d}
+@media(max-width:640px){
+  .clubs-wallet-card-head{align-items:flex-start}
+  .clubs-wallet-status{font-size:8px}
+  .clubs-wallet-balance-note{align-items:flex-start;flex-direction:column}
+  .clubs-command-budget-breakdown{gap:8px}
+  .clubs-command-budget-breakdown strong{font-size:15px}
+}
