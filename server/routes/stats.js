@@ -17,6 +17,7 @@ import {
   selectAwards,
   id,
   compareByGG,
+  sortOverall,
   buildHeadToHead,
   buildPlayerPerformanceAnalytics,
   getMatchScores,
@@ -113,7 +114,7 @@ router.get("/overview", safe(async (req, res) => {
               $filter: {
                 input: { $ifNull: ["$events", []] },
                 as: "event",
-                cond: { $eq: ["$event.type", "goal"] },
+                cond: { $eq: ["$$event.type", "goal"] },
               },
             },
           },
@@ -127,7 +128,7 @@ router.get("/overview", safe(async (req, res) => {
                     0,
                     {
                       $convert: {
-                        input: "$participant.ownGoals",
+                        input: "$$participant.ownGoals",
                         to: "double",
                         onError: 0,
                         onNull: 0,
@@ -152,7 +153,7 @@ router.get("/overview", safe(async (req, res) => {
                           $gt: [
                             {
                               $convert: {
-                                input: "$participant.ownGoals",
+                                input: "$$participant.ownGoals",
                                 to: "double",
                                 onError: 0,
                                 onNull: 0,
@@ -206,8 +207,16 @@ router.get("/leaderboard", safe(async (req, res) => {
   }
 
   const filtered = req.query.position ? rows.filter(stats => positionMatches(stats, req.query.position)) : rows;
+  // Snapshot reads are per-player, so their stored ranks are not globally meaningful.
+  // Re-sort the entire filtered cohort and assign positions only after comparison.
+  const leaderboard = [...filtered].sort(sortOverall).map((stats, index, sorted) => ({
+    ...stats,
+    rank: stats.ggRating === null
+      ? null
+      : sorted.slice(0, index).filter(previous => previous.ggRating !== null).length + 1,
+  }));
   res.json({
-    leaderboard: filtered,
+    leaderboard,
     offensive: filtered.filter(stats => stats.eligible).sort(sortOffensive),
     defensive: filtered.filter(stats => stats.eligible && stats.defensiveEligible).sort(sortDefensive),
   });
