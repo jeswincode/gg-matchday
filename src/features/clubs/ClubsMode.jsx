@@ -645,6 +645,14 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
   const currentClub =
     clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null;
+  const playerCredits = Math.max(0, Number(wallet?.wallet?.balance ?? 0));
+  const recentPlayerTransactions = Array.isArray(wallet?.transactions) ? wallet.transactions.slice(0, 3) : [];
+  const clubTotalBudget = Math.max(0, Number(clubWallet?.club?.balance ?? currentClub?.balance ?? 0));
+  const clubCommittedBudget = Math.max(0, Number(clubWallet?.club?.committedBalance ?? currentClub?.committedBalance ?? 0));
+  const clubAvailableBudget = Math.max(0, clubTotalBudget - clubCommittedBudget);
+  const clubReservedPercent = clubTotalBudget > 0
+    ? Math.min(100, Math.round((clubCommittedBudget / clubTotalBudget) * 100))
+    : 0;
   const myCaptainClubs = clubs.filter(club =>
     club.memberIds?.some(id => String(id) === currentPlayerId) &&
     club.captainIds?.some(id => String(id) === currentPlayerId),
@@ -1071,19 +1079,54 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
       {authUser && (
         <section className="clubs-section">
-          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">PLAYER WALLET</p><h2>Your individual budget</h2></div></div>
-          <div className="clubs-wallet-grid">
-            <article className="clubs-wallet-card">
-              <span>AVAILABLE PLAYER CREDITS</span>
-              <strong>{Number(wallet?.wallet?.balance ?? 0).toLocaleString("en-IN")}</strong>
-              <small>Credits available for your personal Club activities.</small>
+          <div className="clubs-section-heading">
+            <div><p className="clubs-eyebrow">PLAYER WALLET</p><h2>Your individual budget</h2></div>
+            <span>Personal credits · separate from Club funds</span>
+          </div>
+          <div className="clubs-wallet-grid clubs-wallet-grid-budget">
+            <article className="clubs-wallet-card clubs-wallet-card-primary">
+              <div className="clubs-wallet-card-head">
+                <span>SPENDABLE PLAYER CREDITS</span>
+                <span className="clubs-wallet-status">Available now</span>
+              </div>
+              <strong className="clubs-wallet-main-value">{playerCredits.toLocaleString("en-IN")}</strong>
+              <small>Your personal balance for eligible Club activities, including placing match bets.</small>
+              <div className="clubs-wallet-balance-note">
+                <span>Available to you</span>
+                <strong>{playerCredits.toLocaleString("en-IN")} credits</strong>
+              </div>
             </article>
             <article className="clubs-wallet-card clubs-wallet-card-muted">
-              <span>PLAYER WALLET INFO</span>
-              <strong>Personal balance</strong>
-              <small>Club signing offers reserve credits from the Club budget. Matchday ratings are not affected by wallet activity.</small>
+              <div className="clubs-wallet-card-head">
+                <span>RECENT ACTIVITY</span>
+                <span className="clubs-wallet-status clubs-wallet-status-muted">{recentPlayerTransactions.length} recent</span>
+              </div>
+              {recentPlayerTransactions.length ? (
+                <ul className="clubs-wallet-activity">
+                  {recentPlayerTransactions.map((transaction, index) => {
+                    const amount = Number(transaction.amount || 0);
+                    return (
+                      <li key={transaction._id || transaction.idempotencyKey || index}>
+                        <div>
+                          <strong>{transaction.description || String(transaction.type || "Wallet transaction").replaceAll("_", " ")}</strong>
+                          <small>{transaction.createdAt ? new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" }).format(new Date(transaction.createdAt)) : "Recent transaction"}</small>
+                        </div>
+                        <span className={amount >= 0 ? "clubs-wallet-amount-positive" : "clubs-wallet-amount-negative"}>
+                          {amount > 0 ? "+" : amount < 0 ? "−" : ""}{Math.abs(amount).toLocaleString("en-IN")}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <div className="clubs-wallet-empty-activity">
+                  <strong>No wallet activity yet</strong>
+                  <small>Signing rewards, match rewards and eligible betting winnings will appear here.</small>
+                </div>
+              )}
             </article>
           </div>
+          <p className="clubs-wallet-footnote">Club bids reserve credits from the Club budget, not your Player Wallet. Wallet activity never changes GG Match ratings.</p>
         </section>
       )}
 
@@ -1823,9 +1866,27 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   </div>
                 </div>
                 <div className="clubs-command-balance">
-                  <span>AVAILABLE CLUB BUDGET</span>
-                  <strong>{Number(clubWallet?.club?.availableBalance ?? Math.max(0, Number(currentClub.balance ?? 0) - Number(currentClub.committedBalance ?? 0))).toLocaleString("en-IN")}</strong>
-                  <small>{Number(clubWallet?.club?.committedBalance ?? currentClub.committedBalance ?? 0).toLocaleString("en-IN")} credits reserved · {Number(clubWallet?.club?.balance ?? currentClub.balance ?? 0).toLocaleString("en-IN")} total budget</small>
+                  <div className="clubs-budget-title-row">
+                    <span>AVAILABLE CLUB BUDGET</span>
+                    <span className="clubs-wallet-status">Spendable</span>
+                  </div>
+                  <strong className="clubs-command-balance-available">{clubAvailableBudget.toLocaleString("en-IN")}</strong>
+                  <div className="clubs-command-budget-breakdown">
+                    <div><span>Reserved for offers</span><strong>{clubCommittedBudget.toLocaleString("en-IN")}</strong></div>
+                    <div><span>Total club funds</span><strong>{clubTotalBudget.toLocaleString("en-IN")}</strong></div>
+                  </div>
+                  <div
+                    className="clubs-budget-meter clubs-budget-meter--club"
+                    role="progressbar"
+                    aria-label="Club budget reserved by active signing offers"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={clubReservedPercent}
+                    aria-valuetext={`${clubReservedPercent}% of the Club budget is reserved`}
+                  >
+                    <span style={{ width: `${clubReservedPercent}%` }} />
+                  </div>
+                  <small>{clubReservedPercent}% reserved · {clubAvailableBudget.toLocaleString("en-IN")} credits remain available for new offers.</small>
                 </div>
               </header>
 
