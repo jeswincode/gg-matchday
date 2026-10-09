@@ -170,7 +170,7 @@ test("HTTP signing approval rejects an expired chosen offer before maintenance r
     committedBalance: 50,
   });
   const offer = await AuctionOffer.create({
-    playerId: players[4]._id,
+    playerId: players[8]._id,
     clubId: club._id,
     amount: 50,
     status: "chosenByPlayer",
@@ -184,7 +184,7 @@ test("HTTP signing approval rejects an expired chosen offer before maintenance r
   });
   assert.equal(response.status, 400, JSON.stringify(response.data));
   assert.match(response.data.message, /expired/i);
-  assert.equal(await ClubContract.exists({ clubId: club._id, playerId: players[4]._id, status: "active" }), null);
+  assert.equal(await ClubContract.exists({ clubId: club._id, playerId: players[8]._id, status: "active" }), null);
   const unchangedClub = await Club.findById(club._id).lean();
   assert.equal(unchangedClub.memberIds.length, 4);
   assert.equal(unchangedClub.balance, 300);
