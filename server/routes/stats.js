@@ -49,14 +49,6 @@ const resultForPlayer = (match, playerId) => {
     ? (scores.teamA > scores.teamB ? "W" : scores.teamA === scores.teamB ? "D" : "L")
     : (scores.teamB > scores.teamA ? "W" : scores.teamB === scores.teamA ? "D" : "L");
 };
-const totalGoals = match => {
-  const hasDetailedData =
-    (Array.isArray(match?.events) && match.events.length > 0) ||
-    (Array.isArray(match?.participants) && match.participants.some(participant => Number(participant.ownGoals || 0) > 0));
-  if (!hasDetailedData) return Number(match?.teamA?.score || 0) + Number(match?.teamB?.score || 0);
-  const scores = getMatchScores(match);
-  return scores.teamA + scores.teamB;
-};
 const positionMatches = (stats, position) => {
   const pattern = ({
     attackers: /ST|CF|LW|RW|FORWARD|ATTACK/,
