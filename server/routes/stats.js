@@ -205,7 +205,7 @@ router.get("/player/:id", safe(async (req, res) => {
   });
 }));
 
-router.get("/player/:id/performance", safe(async (req, res) => {
+router.get('/player/:id/performance', safe(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid player id." });
   const player = await Player.findById(req.params.id).lean();
   if (!player) return res.status(404).json({ message: "Player not found." });

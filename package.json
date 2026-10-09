@@ -10,7 +10,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "node --experimental-test-module-mocks --test tests/*.test.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
@@ -36,5 +37,8 @@
     "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.14",
     "vite": "^8.2.2"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }

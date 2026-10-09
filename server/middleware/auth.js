@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import { timingSafeEqual } from "node:crypto";
 import User from "../models/User.js";
 
 import getFirebaseAdmin from "../config/firebaseAdmin.js";
@@ -12,6 +14,41 @@ export async function requireAuth(
   next
 ) {
   try {
+    const testToken = String(req.headers["x-e2e-test-token"] || "");
+    if (testToken) {
+      const secret = String(process.env.E2E_TEST_AUTH_SECRET || "");
+      const expected = Buffer.from(secret);
+      const supplied = Buffer.from(testToken);
+      const matches = process.env.NODE_ENV !== "production" && secret.length > 0 &&
+        expected.length === supplied.length && timingSafeEqual(expected, supplied);
+      if (!matches) {
+        return res.status(401).json({ message: "Invalid test authentication token." });
+      }
+
+      const roleHeader = String(req.headers["x-e2e-test-role"] || "viewer");
+      const role = ["viewer", "editor", "admin"].includes(roleHeader) ? roleHeader : "viewer";
+      const requestedPlayerId = String(req.headers["x-e2e-test-player-id"] || "");
+      const playerProfile = role === "viewer" && mongoose.isValidObjectId(requestedPlayerId)
+        ? new mongoose.Types.ObjectId(requestedPlayerId)
+        : null;
+      const uid = `e2e-test:${role}:${playerProfile ? String(playerProfile) : "unlinked"}`;
+      const user = await User.findOneAndUpdate(
+        { firebaseUid: uid },
+        { $set: {
+          name: "Playwright ${role}",
+          email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
+          profileImage: "",
+          role,
+          accessRequest: "none",
+          playerProfile,
+        } },
+        { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true },
+      );
+      req.firebaseUser = { uid, testOnly: true };
+      req.user = user;
+      return next();
+    }
+
     const header =
       req.headers.authorization ||
       "";

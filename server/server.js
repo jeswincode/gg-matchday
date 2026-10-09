@@ -9,6 +9,9 @@ import {startStatisticsMaintenanceWorker} from './services/persistedStatistics.j
 
 async function startServer(){
   try{
+    if (process.env.NODE_ENV === "production" && process.env.E2E_TEST_AUTH_SECRET) {
+      throw new Error("E2E_TEST_AUTH_SECRET must never be configured in production.");
+    }
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB connected');
 
