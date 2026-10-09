@@ -133,6 +133,8 @@ test("renewal retention supports a 4-5 player active Club and archives smaller o
   const four = ["a", "b", "c", "d"];
   const five = ["a", "b", "c", "d", "e"];
   assert.deepEqual(validateRetention(four, four, ["a"]), four);
+  assert.deepEqual(validateRetention(four, undefined, ["a"]), four);
+  assert.deepEqual(validateRetention(five, null, ["a"]), five);
   assert.deepEqual(validateRetention(five, ["a", "b", "c", "d"], ["a"]), ["a", "b", "c", "d"]);
   assert.deepEqual(validateRetention(five, five, ["a"]), five);
   assert.deepEqual(validateRetention(five, [], ["a"]), []);

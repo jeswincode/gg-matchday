@@ -27,7 +27,7 @@ export function activeCaptainApprovalComplete(captainIds, approvalIds) {
 
 export function validateRetention(memberIds, retainedPlayerIds, captainIds) {
   const members = new Set((memberIds || []).map(String));
-  const retained = [...new Set((retainedPlayerIds || []).map(String))];
+  const retained = [...new Set((retainedPlayerIds == null ? [...members] : retainedPlayerIds).map(String))];
   if (members.size < 4 || members.size > 5) {
     throw new Error("A Club must contain four or five members while active.");
   }
