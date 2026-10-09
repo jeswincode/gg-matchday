@@ -21,7 +21,6 @@ export default function HomePage({
   news,
   newsLoading,
   leaderboard,
-  footballWorld,
   onHallOfFame,
   onPlayer,
   onLeaderboard,
@@ -81,8 +80,6 @@ export default function HomePage({
         <HomeStat label="MATCHES" value={overview?.matches ?? matches.length} />
         <HomeStat label="GOALS" value={overview?.goals ?? totalAllTimeGoals} />
       </section>
-
-      {footballWorld}
 
       <section className="home-section">
         <SectionHeading eyebrow="THE GG DESK" title="Latest News" />
