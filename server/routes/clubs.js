@@ -937,7 +937,8 @@ router.post("/auction/offers", requireAuth, async (req, res) => {
     });
     return res.status(201).json(offer);
   } catch (error) {
-    return res.status(error?.code === 11000 ? 409 : 400).json({ message: error.message || "Failed to create signing offer." });
+    const conflict = error?.code === 11000 || /insufficient available balance|budget reservation/i.test(String(error?.message || ""));
+    return res.status(conflict ? 409 : 400).json({ message: error.message || "Failed to create signing offer." });
   } finally {
     await session.endSession();
   }
