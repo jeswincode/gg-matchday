@@ -138,7 +138,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [auctionLoading, setAuctionLoading] = useState(false);
   const [joinDecisionReason, setJoinDecisionReason] = useState({});
   const [renewalState, setRenewalState] = useState(null);
-  const [retainedPlayers, setRetainedPlayers] = useState([]);
+  const [retainedPlayers, setRetainedPlayers] = useState(null);
+  const [renewalDraftClubId, setRenewalDraftClubId] = useState(null);
   const [renewalLoading, setRenewalLoading] = useState(false);
   const [reviewCandidates, setReviewCandidates] = useState([]);
   const [reviewForm, setReviewForm] = useState({ candidateKey: "", stars: 5, observation: "" });
@@ -441,8 +442,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setRenewalLoading(true);
       const data = await api("/clubs/" + clubId + "/renewal");
       setRenewalState(data || null);
-      if (!retainedPlayers.length && data?.club?.memberIds) {
-        setRetainedPlayers(data.club.memberIds.slice(0, 2).map(String));
+      if (data?.club?.memberIds && renewalDraftClubId !== String(data.club._id)) {
+        setRetainedPlayers((data.decision?.retainedPlayerIds || data.club.memberIds).map(String));
+        setRenewalDraftClubId(String(data.club._id));
       }
     } catch (e) {
       setError(e.message);
@@ -913,8 +915,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       .then(data => {
         if (!active) return;
         setRenewalState(data || null);
-        if (retainedPlayers.length === 0 && data?.club?.memberIds) {
-          setRetainedPlayers(data.club.memberIds.map(String));
+        if (data?.club?.memberIds && renewalDraftClubId !== String(data.club._id)) {
+          setRetainedPlayers((data.decision?.retainedPlayerIds || data.club.memberIds).map(String));
+          setRenewalDraftClubId(String(data.club._id));
         }
       })
       .catch(e => {
@@ -923,7 +926,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection, myClubSubsection, currentClub?._id, retainedPlayers.length]);
+  }, [authUser, activeSection, myClubSubsection, currentClub?._id, renewalDraftClubId]);
 
   const clubOvrValues = (currentClub?.memberIds || [])
     .map(id => Number(playerAttributes[String(id)]?.currentOvr ?? playerAttributes[String(id)]?.ovr))
@@ -1068,10 +1071,18 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
       {authUser && (
         <section className="clubs-section">
-          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUBS WALLET</p><h2>Your Clubs balance</h2></div></div>
-          <div className="clubs-empty">
-            <strong>{wallet?.wallet?.balance ?? 0} credits</strong>
-            <span>Signing payments and individual club rewards are tracked separately from Matchday GG ratings.</span>
+          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">PLAYER WALLET</p><h2>Your individual budget</h2></div></div>
+          <div className="clubs-wallet-grid">
+            <article className="clubs-wallet-card">
+              <span>AVAILABLE PLAYER CREDITS</span>
+              <strong>{Number(wallet?.wallet?.balance ?? 0).toLocaleString("en-IN")}</strong>
+              <small>Credits available for your personal Club activities.</small>
+            </article>
+            <article className="clubs-wallet-card clubs-wallet-card-muted">
+              <span>PLAYER WALLET INFO</span>
+              <strong>Personal balance</strong>
+              <small>Club signing offers reserve credits from the Club budget. Matchday ratings are not affected by wallet activity.</small>
+            </article>
           </div>
         </section>
       )}
@@ -1343,7 +1354,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   <h3>{club.name}</h3>
                   <span>{club.memberIds?.length || 0}/5 players · viewer formations in My Club</span>
                 </div>
-                <strong>{club.balance ?? 3000}</strong>
+                <strong>{Math.max(0, Number(club.balance ?? 3000) - Number(club.committedBalance ?? 0)).toLocaleString("en-IN")} available</strong>
               </article>
             ))}
           </div>
@@ -1812,9 +1823,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   </div>
                 </div>
                 <div className="clubs-command-balance">
-                  <span>CLUB BALANCE</span>
-                  <strong>{clubWallet?.club?.balance ?? currentClub.balance ?? 0}</strong>
-                  <small>credits</small>
+                  <span>AVAILABLE CLUB BUDGET</span>
+                  <strong>{Number(clubWallet?.club?.availableBalance ?? Math.max(0, Number(currentClub.balance ?? 0) - Number(currentClub.committedBalance ?? 0))).toLocaleString("en-IN")}</strong>
+                  <small>{Number(clubWallet?.club?.committedBalance ?? currentClub.committedBalance ?? 0).toLocaleString("en-IN")} credits reserved · {Number(clubWallet?.club?.balance ?? currentClub.balance ?? 0).toLocaleString("en-IN")} total budget</small>
                 </div>
               </header>
 
@@ -1994,7 +2005,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                                 <button
                                   type="button"
                                   className={retained ? "clubs-primary-button is-retained" : "clubs-secondary-button"}
-                                  onClick={() => setRetainedPlayers(current => retained ? current.filter(id => id !== String(playerId)) : current.length < 5 ? [...current, String(playerId)] : current)}
+                                  onClick={() => setRetainedPlayers(current => retained ? (current || []).filter(id => id !== String(playerId)) : (current || []).length < 5 ? [...(current || []), String(playerId)] : current)}
                                 >
                                   {retained ? "Retain" : "Select"}
                                 </button>
@@ -2005,7 +2016,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       </div>
                       {renewalState.isCaptain && (
                         <div className="clubs-renewal-action">
-                          <span>{retainedPlayers.length >= 4 ? "Ready to renew with " + retainedPlayers.length + " players." : "Retain 4–5 players to renew. Fewer than 4 archives the Club."}</span>
+                          <span>{(retainedPlayers || []).length >= 4 ? "Ready to renew with " + retainedPlayers.length + " players." : "Retain 4–5 players to renew. Fewer than 4 archives the Club."}</span>
                           <button type="button" className="clubs-primary-button" disabled={busyId === "renewal"} onClick={submitRenewal}>
                             {busyId === "renewal" ? "Submitting…" : "Submit Renewal Decision"}
                           </button>

@@ -22,6 +22,7 @@ import {
   validateAuctionBid,
   clubMatchRequestExpiry,
   normalizeFixtureDate,
+  clubDateKey,
   resolveCaptainVote,
 } from "../config/clubsRules.js";
 import { pingClubsDatabase, getClubsConnection } from "../config/clubsDatabase.js";
@@ -45,6 +46,8 @@ import {
   activeCaptainApprovalComplete,
   validateRetention,
   debitClubWallet,
+  reserveClubWallet,
+  releaseClubCommitment,
   creditPlayerWallet,
 } from "../services/clubsEconomy.js";
 
@@ -198,7 +201,7 @@ router.get("/home", requireAuth, async (req, res) => {
       : [];
 
     const clubMap = new Map(clubs.map(club => [String(club._id), club]));
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+    const today = clubDateKey();
     const todayMatches = clubMatches
       .filter(match => matchDateKey(match) === today && ["requested", "accepted", "completed"].includes(match.status))
       .map(match => publicMatchSnapshot(match, clubMap));
@@ -767,7 +770,10 @@ router.get("/clubs/:clubId/wallet", requireAuth, async (req, res) => {
     return res.status(403).json({ message: "Only Club members can view this Club wallet." });
   }
   const transactions = await ClubWalletTransaction.find({ clubId: req.params.clubId }).sort({ createdAt: -1 }).limit(25).lean();
-  return res.json({ club: state.club, transactions });
+  const source = state.club?.toObject ? state.club.toObject() : state.club;
+  const balance = Number(source?.balance || 0);
+  const committedBalance = Number(source?.committedBalance || 0);
+  return res.json({ club: { ...source, availableBalance: Math.max(0, balance - committedBalance) }, transactions });
 });
 
 router.get("/auction/me", requireAuth, async (req, res) => {
@@ -913,22 +919,29 @@ router.post("/auction/offers", requireAuth, async (req, res) => {
   const clubId = req.body?.clubId;
   const playerId = req.body?.playerId;
   if (!mongoose.isValidObjectId(clubId) || !mongoose.isValidObjectId(playerId)) return res.status(400).json({ message: "Valid club and player ids are required." });
+  const session = await getClubsConnection().startSession();
   try {
-    const state = await getUserClubCaptainState(req.user.playerProfile, clubId);
-    if (!state?.isCaptain) return res.status(403).json({ message: "Only a club captain can make a signing offer." });
-    if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "Your club already has five players." });
-    const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
-    if (activeContract) return res.status(409).json({ message: "That player is already under an active club contract." });
-    const highest = await AuctionOffer.findOne({ playerId, status: "active", expiresAt: { $gt: new Date() } }).sort({ amount: -1 }).lean();
-    const amount = validateAuctionBid(req.body?.amount, highest?.amount || 0);
-    if (state.club.balance < amount) return res.status(409).json({ message: "Your club does not have enough balance for that offer." });
-    const offer = await AuctionOffer.create({ clubId, playerId, amount, status: "active", expiresAt: auctionOfferExpiry() });
+    let offer;
+    await session.withTransaction(async () => {
+      const state = await getUserClubCaptainState(req.user.playerProfile, clubId);
+      if (!state?.isCaptain) throw new Error("Only a club captain can make a signing offer.");
+      if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("Your club already has five players.");
+      if (state.club.memberIds.some(id => String(id) === String(playerId))) throw new Error("That player is already in your club.");
+      const activeContract = await ClubContract.findOne({ playerId, status: "active" }).session(session).lean();
+      if (activeContract) throw new Error("That player is already under an active club contract.");
+      const highest = await AuctionOffer.findOne({ playerId, status: "active", expiresAt: { $gt: new Date() } }).sort({ amount: -1 }).session(session).lean();
+      const amount = validateAuctionBid(req.body?.amount, highest?.amount || 0);
+      await reserveClubWallet({ clubId, amount, session });
+      const created = await AuctionOffer.create([{ clubId, playerId, amount, status: "active", expiresAt: auctionOfferExpiry() }], { session });
+      offer = created[0];
+    });
     return res.status(201).json(offer);
   } catch (error) {
-    return res.status(400).json({ message: error.message || "Failed to create signing offer." });
+    return res.status(error?.code === 11000 ? 409 : 400).json({ message: error.message || "Failed to create signing offer." });
+  } finally {
+    await session.endSession();
   }
 });
-
 router.post("/auction/offers/:offerId/choose", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.offerId)) return res.status(400).json({ message: "Invalid offer id." });
@@ -954,11 +967,20 @@ router.post("/auction/offers/:offerId/choose", requireAuth, async (req, res) => 
         { new: true, session },
       );
       if (!chosen) throw new Error("This offer changed before it could be selected.");
-      await AuctionOffer.updateMany(
-        { playerId, _id: { $ne: offer._id }, status: "active" },
-        { $set: { status: "rejectedByPlayer" } },
-        { session },
-      );
+      const otherOffers = await AuctionOffer.find({ playerId, _id: { $ne: offer._id }, status: "active" }).session(session);
+      for (const otherOffer of otherOffers) {
+        const rejected = await AuctionOffer.findOneAndUpdate(
+          { _id: otherOffer._id, status: "active" },
+          { $set: { status: "rejectedByPlayer" } },
+          { new: true, session },
+        );
+        if (rejected) {
+          const otherClub = await Club.findById(rejected.clubId).session(session).lean();
+          if (Number(otherClub?.committedBalance || 0) >= Number(rejected.amount || 0)) {
+            await releaseClubCommitment({ clubId: rejected.clubId, amount: rejected.amount, session });
+          }
+        }
+      }
       result = chosen;
     });
     return res.json(result);
@@ -997,12 +1019,14 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
         result = { offer, club, pendingCaptainApproval: true };
         return;
       }
-      if (club.balance < offer.amount) throw new Error("The club does not have enough balance.");
+      if (Number(club.balance || 0) < Number(offer.amount) || Number(club.committedBalance || 0) < Number(offer.amount)) {
+        await reserveClubWallet({ clubId: club._id, amount: offer.amount, session });
+      }
       const now = new Date();
       const endAt = nextRenewalBoundary(now);
       const updatedClub = await Club.findOneAndUpdate(
-        { _id: club._id, status: "approved", memberIds: { $not: { $size: CLUB_MAX_MEMBERS } } },
-        { $push: { memberIds: offer.playerId } },
+        { _id: club._id, status: "approved", memberIds: { $not: { $size: CLUB_MAX_MEMBERS }, $ne: offer.playerId } },
+        { $addToSet: { memberIds: offer.playerId } },
         { new: true, session },
       );
       if (!updatedClub) throw new Error("The club changed before this signing could be completed.");
@@ -1014,6 +1038,7 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
         session,
         refs: { auctionOfferId: offer._id },
         idempotencyKey: "auction:" + offer._id,
+        commitmentAmount: offer.amount,
       });
       await creditPlayerWallet({
         playerId: offer.playerId,
@@ -1557,19 +1582,14 @@ router.post("/matches/:matchId/bets/settle", requireAuth, requireAdmin, async (r
 router.get("/matches", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
-    const now = new Date();
-    const stale = await ClubMatch.find({ status: "requested" }).select("_id createdAt scheduledAt").lean();
-    const expiredIds = stale.filter(item => now >= clubMatchRequestExpiry(item.createdAt)).map(item => item._id);
-    if (expiredIds.length) {
-      await ClubMatch.updateMany({ _id: { $in: expiredIds } }, { $set: { status: "declined", responseDecision: "decline" } });
-    }
     const matches = await ClubMatch.find({}).sort({ scheduledAt: -1 }).limit(100).lean();
     return res.json(matches);
   } catch (error) {
     console.error("Load club matches error:", error);
     return res.status(500).json({ message: "Failed to load club matches." });
   }
-});router.post("/matches", requireAuth, async (req, res) => {
+});
+router.post("/matches", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
@@ -1595,7 +1615,7 @@ router.get("/matches", async (req, res) => {
       return res.status(400).json({ message: dateError.message });
     }
 
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = clubDateKey();
     if (fixture.key <= todayKey) {
       return res.status(400).json({ message: "Choose a future Club Match date." });
     }
