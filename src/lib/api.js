@@ -5,6 +5,7 @@ function e2eAuthHeaders(){
  if(!import.meta.env.VITE_E2E_TEST_AUTH_SECRET)return {};
  const params=new URLSearchParams(window.location.search);
  const role=params.get('e2eRole')||import.meta.env.VITE_E2E_TEST_ROLE||'viewer';
+ if(role==='guest')return {};
  const playerId=params.get('e2ePlayerId')||import.meta.env.VITE_E2E_TEST_PLAYER_ID||'';
  return {'X-E2E-Test-Token':import.meta.env.VITE_E2E_TEST_AUTH_SECRET,'X-E2E-Test-Role':role,...(playerId?{'X-E2E-Test-Player-Id':playerId}:{})};
 }
