@@ -129,8 +129,8 @@ test("profile attribute resolution returns an unchanged cached snapshot without 
   const player = {
     _id: "p1", position: "CAM", preferredPositions: ["CM"], pace: 80, physical: 75,
     ovrSnapshot: {
-      currentOvr: 78, careerOvr: 76, confidence: 50, matchesPlayed: 6, ratedMatches: 6,
-      currentWindowMatches: 6, currentAttributes: { pace: 80, physical: 75, shooting: 78, passing: 79, dribbling: 77, defending: 60 },
+      currentOvr: 78, careerOvr: 76, confidence: 50, matchesPlayed: 1, ratedMatches: 1,
+      currentWindowMatches: 1, currentAttributes: { pace: 80, physical: 75, shooting: 78, passing: 79, dribbling: 77, defending: 60 },
       careerAttributes: {}, positionRatings: {}, calculatedAt: new Date("2026-10-01T00:00:00Z"),
       sourceUpdatedAt: new Date("2026-09-30T00:00:00Z"), sourcePosition: "CAM", sourcePreferredPositions: ["CM"],
     },
