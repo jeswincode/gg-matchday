@@ -20,7 +20,7 @@ function clubYearMonth(value) {
 }
 
 export function clubDateStartUtc(dateKey) {
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(String(dateKey || ""));
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey || ""));
   if (!match) throw new Error("Club dates must use YYYY-MM-DD.");
   const [, year, month, day] = match;
   const utc = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
