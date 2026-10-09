@@ -1,3 +1,28 @@
+export const CLUBS_TIME_ZONE = "Asia/Kolkata";
+const IST_OFFSET_MS = 330 * 60 * 1000;
+
+export function clubDateKey(value = new Date()) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error("Invalid Club date.");
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLUBS_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(date).map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function clubYearMonth(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error("Invalid contract date.");
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLUBS_TIME_ZONE, year: "numeric", month: "2-digit",
+  }).formatToParts(date).map(part => [part.type, part.value]));
+  return { year: Number(parts.year), month: Number(parts.month) };
+}
+
+function istMonthBoundaryUtc(year, zeroBasedMonth) {
+  return new Date(Date.UTC(year, zeroBasedMonth, 1, 0, 0, 0, 0) - IST_OFFSET_MS);
+}
+
 export const CLUB_MIN_MEMBERS = 4;
 export const CLUB_MAX_MEMBERS = 5;
 export const CLUB_STARTING_BALANCE = 3000;
@@ -137,36 +162,14 @@ export function validateFormation(formation) {
 }
 
 export function nextRenewalBoundary(date = new Date()) {
-  const source = new Date(date);
-
-  if (Number.isNaN(source.getTime())) {
-    throw new Error("Invalid contract date.");
-  }
-
-  return new Date(Date.UTC(
-    source.getUTCFullYear(),
-    source.getUTCMonth() + 2,
-    1,
-    0,
-    0,
-    0,
-    0,
-  ));
+  const { year, month } = clubYearMonth(date);
+  return istMonthBoundaryUtc(year, month - 1 + 2);
 }
 
 export function contractWindow(startDate) {
   const start = nextRenewalBoundary(startDate);
-  const end = new Date(Date.UTC(
-    start.getUTCFullYear(),
-    start.getUTCMonth() + 2,
-    1,
-    0,
-    0,
-    0,
-    0,
-  ));
-
-  return { start, end };
+  const { year, month } = clubYearMonth(start);
+  return { start, end: istMonthBoundaryUtc(year, month - 1 + 2) };
 }
 
 export function selectCaptainCandidates(members, ovrByPlayerId) {

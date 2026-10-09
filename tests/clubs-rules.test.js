@@ -22,6 +22,8 @@ import {
   validateAuctionBid,
   clubMatchRequestExpiry,
   normalizeFixtureDate,
+  clubDateKey,
+  CLUBS_TIME_ZONE,
 } from "../server/config/clubsRules.js";
 import {
   CLUB_FORMATIONS,
@@ -84,12 +86,12 @@ test("a club application accepts exactly four or five unique members", () => {
 test("contract renewal boundaries advance every two months from the first month boundary", () => {
   assert.equal(
     nextRenewalBoundary(new Date("2026-09-20T12:00:00Z")).toISOString(),
-    "2026-11-01T00:00:00.000Z",
+    "2026-10-31T18:30:00.000Z",
   );
 
   const window = contractWindow(new Date("2026-09-20T12:00:00Z"));
-  assert.equal(window.start.toISOString(), "2026-11-01T00:00:00.000Z");
-  assert.equal(window.end.toISOString(), "2027-01-01T00:00:00.000Z");
+  assert.equal(window.start.toISOString(), "2026-10-31T18:30:00.000Z");
+  assert.equal(window.end.toISOString(), "2026-12-31T18:30:00.000Z");
 });
 
 test("captain candidates are top two by OVR and a five-member vote can be completed by all five", () => {
@@ -227,3 +229,9 @@ test("Clubs meta exposes 4-5 member policy", async () => {
   assert.match(source, /every active member votes/);
 });
 
+
+
+test("Club date keys use Asia/Kolkata rather than the server UTC date", () => {
+  assert.equal(CLUBS_TIME_ZONE, "Asia/Kolkata");
+  assert.equal(clubDateKey(new Date("2026-10-08T20:00:00.000Z")), "2026-10-09");
+});
