@@ -8,6 +8,7 @@ import {
   nonNegativeMoney,
   activeCaptainApprovalComplete,
   validateRetention,
+  availableClubBalance,
 } from "../server/services/clubsEconomy.js";
 import {
   CLUB_BETTING_MIN_STAKE,
@@ -234,4 +235,11 @@ test("Clubs meta exposes 4-5 member policy", async () => {
 test("Club date keys use Asia/Kolkata rather than the server UTC date", () => {
   assert.equal(CLUBS_TIME_ZONE, "Asia/Kolkata");
   assert.equal(clubDateKey(new Date("2026-10-08T20:00:00.000Z")), "2026-10-09");
+});
+
+
+test("Club available budget excludes active commitments", () => {
+  assert.equal(availableClubBalance({ balance: 300, committedBalance: 175 }), 125);
+  assert.equal(availableClubBalance({ balance: 300 }), 300);
+  assert.equal(availableClubBalance({ balance: 300, committedBalance: 500 }), 0);
 });

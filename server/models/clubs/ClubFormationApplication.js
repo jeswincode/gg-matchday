@@ -68,6 +68,18 @@ const applicationSchema = new mongoose.Schema(
   { timestamps: true, collection: "clubFormationApplications", optimisticConcurrency: true },
 );
 
+applicationSchema.pre("validate", function validateCaptainMembership() {
+  const members = (this.memberIds || []).map(String);
+  const candidates = (this.captainCandidates || []).map(String);
+  const elected = (this.electedCaptainIds || []).map(String);
+  if (new Set(members).size !== members.length) this.invalidate("memberIds", "Club formation cannot contain duplicate members.");
+  if (new Set(candidates).size !== candidates.length || candidates.length > 2 || candidates.some(id => !members.includes(id))) {
+    this.invalidate("captainCandidates", "Captain candidates must be unique Club members.");
+  }
+  if (new Set(elected).size !== elected.length || elected.some(id => !members.includes(id))) {
+    this.invalidate("electedCaptainIds", "Elected captains must be unique Club members.");
+  }
+});
 applicationSchema.index({ founderPlayerId: 1, status: 1 });
 applicationSchema.index({ proposedNameNormalized: 1 });
 

@@ -34,6 +34,7 @@ const clubSchema = new mongoose.Schema(
       default: [],
     },
     balance: { type: Number, min: 0, required: true, default: CLUB_STARTING_BALANCE },
+    committedBalance: { type: Number, min: 0, required: true, default: 0 },
     status: {
       type: String,
       enum: ["draft", "pendingApproval", "approved", "rejected", "archived"],
@@ -46,8 +47,14 @@ const clubSchema = new mongoose.Schema(
   { timestamps: true, collection: "clubs" },
 );
 
-clubSchema.pre("validate", function normalizeName() {
+clubSchema.pre("validate", function normalizeNameAndValidateMembership() {
   this.nameNormalized = normalizeClubName(this.name);
+  const members = (this.memberIds || []).map(String);
+  const captains = (this.captainIds || []).map(String);
+  if (new Set(members).size !== members.length) this.invalidate("memberIds", "A Club cannot contain duplicate members.");
+  if (new Set(captains).size !== captains.length || captains.length > 2) this.invalidate("captainIds", "A Club must have at most two unique captains.");
+  if (captains.some(id => !members.includes(id))) this.invalidate("captainIds", "Every Club captain must be a Club member.");
+  if (Number(this.committedBalance || 0) > Number(this.balance || 0)) this.invalidate("committedBalance", "Committed balance cannot exceed the Club balance.");
 });
 
 clubSchema.index({ nameNormalized: 1 }, { unique: true });
