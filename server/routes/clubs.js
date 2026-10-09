@@ -1029,7 +1029,6 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
       if (Number(club.balance || 0) < Number(offer.amount) || Number(club.committedBalance || 0) < Number(offer.amount)) {
         await reserveClubWallet({ clubId: club._id, amount: offer.amount, session });
       }
-      const now = new Date();
       const endAt = nextRenewalBoundary(now);
       const updatedClub = await Club.findOneAndUpdate(
         { _id: club._id, status: "approved", memberIds: { $not: { $size: CLUB_MAX_MEMBERS }, $ne: offer.playerId } },
