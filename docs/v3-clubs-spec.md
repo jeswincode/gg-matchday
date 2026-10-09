@@ -28,9 +28,11 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - A player may have only one active club at a time.
 - Contracts renew on the first day every other month.
 - Example: a club formed on September 20 has its first renewal boundary on November 1, then January 1, March 1, and so on.
-- At renewal, the captain(s) decide whether to retain 0, 1 or 2 current players within the finalized renewal rule.
+- At renewal, all current members are retained by default: four-member Clubs retain four, and five-member Clubs retain five.
+- Captains may deselect players. Retaining four or five renews the Club; retaining fewer than four archives it and releases all contracts.
 - Released players return to the auction/player pool.
 - Players may transfer or join another club only when their active contract ends.
+- Club fixture dates and renewal boundaries use `Asia/Kolkata` as the canonical timezone, with date-only fixtures stored at midnight IST.
 
 ### Auctions and signing
 - Clubs bid money to sign an uncontracted player.
