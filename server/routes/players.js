@@ -6,7 +6,7 @@ import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
 import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
 import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
-import { calculatePlayerAttributes, refreshPlayerAttributes } from "../services/playerAttributes.js";
+import { resolvePlayerAttributesReadOnly, refreshPlayerAttributes } from "../services/playerAttributes.js";
 
 const router = express.Router();
 const invalidId = id => !mongoose.isValidObjectId(id);
@@ -21,99 +21,25 @@ router.get("/:id/attributes", async (req, res) => {
   try {
     const player = await Player.findById(req.params.id).lean();
     if (!player) return res.status(404).json({ message: "Player not found." });
-
-    const latestMatch = await Match.findOne({ "participants.player": player._id })
-      .sort({ updatedAt: -1, date: -1, createdAt: -1 })
-      .select("updatedAt date")
-      .lean();
-
-    const snapshot = player.ovrSnapshot;
-    const playerOvrStateChanged =
-      !snapshot?.calculatedAt ||
-      String(snapshot.sourcePosition || "") !== String(player.position || "") ||
-      JSON.stringify(snapshot.sourcePreferredPositions || []) !== JSON.stringify(player.preferredPositions || []) ||
-      Number(snapshot.currentAttributes?.pace ?? 0) !== Number(player.pace ?? 0) ||
-      Number(snapshot.currentAttributes?.physical ?? 0) !== Number(player.physical ?? 0);
-
-    const matchChangedAfterSnapshot =
-      latestMatch && snapshot?.sourceUpdatedAt &&
-      new Date(latestMatch.updatedAt || latestMatch.date).getTime() >
-        new Date(snapshot.sourceUpdatedAt).getTime();
-
-    if (snapshot?.calculatedAt && !playerOvrStateChanged && !matchChangedAfterSnapshot) {
-      return res.json({
-        playerId: player._id,
-        playerName: player.name,
-        position: primaryPositionCode(player.position) || player.position || "",
-        attributes: snapshot.currentAttributes,
-        currentAttributes: snapshot.currentAttributes,
-        careerAttributes: snapshot.careerAttributes,
-        ovr: snapshot.currentOvr,
-        currentOvr: snapshot.currentOvr,
-        careerOvr: snapshot.careerOvr,
-        positionRatings: snapshot.positionRatings || {},
-        matchesPlayed: snapshot.matchesPlayed,
-        ratedMatches: snapshot.ratedMatches,
-        currentWindowMatches: snapshot.currentWindowMatches,
-        confidence: snapshot.confidence,
-        sampleStage: snapshot.matchesPlayed < 3 ? "unrated" : snapshot.matchesPlayed < 5 ? "developing" : "established",
-        evidence: {
-          matchesAnalyzed: snapshot.matchesPlayed,
-          ratedMatches: snapshot.ratedMatches,
-          currentWindowMatches: snapshot.currentWindowMatches,
-          source: "GG Match Record",
-          derived: true,
-          cached: true,
-          calculatedAt: snapshot.calculatedAt,
-        },
-      });
-    }
-
     const matches = await Match.find({ "participants.player": player._id })
       .sort({ date: 1, createdAt: 1 })
-      .select("_id date updatedAt participants events teamA teamB")
+      .select("_id date updatedAt createdAt participants events teamA teamB")
       .lean();
-    const calculated = calculatePlayerAttributes(player, matches);
-    const sourceUpdatedAt = matches.reduce((latest, match) => {
-      const value = match.updatedAt || match.date;
-      if (!value) return latest;
-      const timestamp = new Date(value).getTime();
-      return !latest || timestamp > latest.getTime() ? new Date(timestamp) : latest;
-    }, null);
-
-    await Player.updateOne(
-      { _id: player._id },
-      { $set: {
-        ovrSnapshot: {
-          currentOvr: calculated.currentOvr,
-          careerOvr: calculated.careerOvr,
-          confidence: calculated.confidence,
-          matchesPlayed: calculated.matchesPlayed,
-          ratedMatches: calculated.ratedMatches,
-          currentWindowMatches: calculated.currentWindowMatches,
-          currentAttributes: calculated.currentAttributes,
-          careerAttributes: calculated.careerAttributes,
-          positionRatings: calculated.positionRatings,
-          calculatedAt: new Date(),
-          sourceUpdatedAt,
-          sourcePosition: player.position || "",
-          sourcePreferredPositions: Array.isArray(player.preferredPositions) ? player.preferredPositions : [],
-        },
-      }},
-    );
-
+    const result = resolvePlayerAttributesReadOnly(player, matches);
+    const { cached, ...attributes } = result;
     return res.json({
       playerId: player._id,
       playerName: player.name,
       position: primaryPositionCode(player.position) || player.position || "",
-      ...calculated,
+      ...attributes,
       evidence: {
         matchesAnalyzed: matches.length,
-        ratedMatches: calculated.ratedMatches,
-        currentWindowMatches: calculated.currentWindowMatches,
+        ratedMatches: result.ratedMatches,
+        currentWindowMatches: result.currentWindowMatches,
         source: "GG Match Record",
         derived: true,
-        cached: false,
+        cached,
+        ...(cached ? { calculatedAt: player.ovrSnapshot?.calculatedAt } : {}),
       },
     });
   } catch (error) {

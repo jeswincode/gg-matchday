@@ -1,6 +1,7 @@
 import Match from "../models/Match.js";
 import Player from "../models/Player.js";
 import { performanceEntries } from "./ratings/match.js";
+import { effectiveMatchRating } from "./ratings/index.js";
 
 export const CURRENT_MATCH_WINDOW = 10;
 export const CURRENT_DECAY = 0.92;
@@ -33,6 +34,10 @@ const DEFAULT_WEIGHTS = {
 };
 
 const clamp99 = value => Math.max(1, Math.min(99, Math.round(Number(value) || 0)));
+const directAttribute = value =>
+  value !== null && value !== undefined && String(value).trim() !== "" && Number.isFinite(Number(value))
+    ? clamp99(value)
+    : null;
 const scale10 = value =>
   clamp99(1 + (Math.max(0, Math.min(10, Number(value) || 0)) / 10) * 98);
 
@@ -173,7 +178,7 @@ function calculateAttributeSet(player, rows, recentOnly = false) {
   const carryingFrequencyScore = Math.min(10, carryingFrequency * 10);
 
   return {
-    pace: Number.isFinite(Number(player.pace)) ? clamp99(player.pace) : null,
+    pace: directAttribute(player.pace),
     shooting: scale10(
       0.45 * Math.min(10, goalsPerMatch * 4) +
         0.25 * attackingQuality +
@@ -195,7 +200,7 @@ function calculateAttributeSet(player, rows, recentOnly = false) {
         0.20 * defensiveQuality +
         0.10 * performance,
     ),
-    physical: Number.isFinite(Number(player.physical)) ? clamp99(player.physical) : null,
+    physical: directAttribute(player.physical),
   };
 }
 
@@ -233,7 +238,7 @@ export function calculatePlayerAttributes(player, matches) {
       );
 
       return {
-        rating: participant.rating == null ? null : Number(participant.rating),
+        rating: effectiveMatchRating(participant),
         defensivePerformance:
           participant.defensivePerformance == null
             ? null
@@ -282,6 +287,54 @@ export function calculatePlayerAttributes(player, matches) {
     confidence: confidenceFromSample(matchesPlayed, ratedMatches),
     sampleStage: matchesPlayed < 3 ? "unrated" : matchesPlayed < 5 ? "developing" : "established",
   };
+}
+
+
+function latestMatchSourceTime(matches) {
+  let latest = null;
+  for (const match of matches || []) {
+    const value = match.updatedAt || match.date;
+    if (!value) continue;
+    const timestamp = new Date(value).getTime();
+    if (Number.isFinite(timestamp) && (latest === null || timestamp > latest)) latest = timestamp;
+  }
+  return latest;
+}
+
+export function resolvePlayerAttributesReadOnly(player, matches = []) {
+  const snapshot = player?.ovrSnapshot;
+  const preferred = Array.isArray(player?.preferredPositions) ? player.preferredPositions : [];
+  const snapshotPreferred = Array.isArray(snapshot?.sourcePreferredPositions) ? snapshot.sourcePreferredPositions : [];
+  const latestMatchTime = latestMatchSourceTime(matches);
+  const snapshotSourceTime = snapshot?.sourceUpdatedAt ? new Date(snapshot.sourceUpdatedAt).getTime() : null;
+  const historyChanged = latestMatchTime === null
+    ? snapshotSourceTime !== null
+    : snapshotSourceTime === null || latestMatchTime > snapshotSourceTime;
+  const attributesChanged =
+    String(snapshot?.sourcePosition || "") !== String(player?.position || "") ||
+    JSON.stringify(snapshotPreferred) !== JSON.stringify(preferred) ||
+    (snapshot?.currentAttributes?.pace ?? null) !== directAttribute(player?.pace) ||
+    (snapshot?.currentAttributes?.physical ?? null) !== directAttribute(player?.physical);
+
+  if (snapshot?.calculatedAt && !attributesChanged && !historyChanged) {
+    const count = snapshot.matchesPlayed || 0;
+    return {
+      attributes: snapshot.currentAttributes,
+      currentAttributes: snapshot.currentAttributes,
+      careerAttributes: snapshot.careerAttributes,
+      ovr: snapshot.currentOvr,
+      currentOvr: snapshot.currentOvr,
+      careerOvr: snapshot.careerOvr,
+      positionRatings: snapshot.positionRatings || {},
+      matchesPlayed: count,
+      ratedMatches: snapshot.ratedMatches || 0,
+      currentWindowMatches: snapshot.currentWindowMatches || 0,
+      confidence: snapshot.confidence || 0,
+      sampleStage: count < 3 ? "unrated" : count < 5 ? "developing" : "established",
+      cached: true,
+    };
+  }
+  return { ...calculatePlayerAttributes(player, matches), cached: false };
 }
 
 

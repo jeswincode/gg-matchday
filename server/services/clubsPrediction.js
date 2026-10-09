@@ -2,7 +2,8 @@ import Club from "../models/clubs/Club.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import Match from "../models/Match.js";
 import Player from "../models/Player.js";
-import { calculatePlayerAttributes } from "./playerAttributes.js";
+import { resolvePlayerAttributesReadOnly } from "./playerAttributes.js";
+import { effectiveMatchRating } from "./ratings/index.js";
 import { CLUB_PREDICTION_WEIGHTS } from "../config/clubsRules.js";
 
 const clamp = value => Math.max(0, Math.min(1, Number(value) || 0));
@@ -20,18 +21,27 @@ async function clubSnapshot(clubId, completedMatches) {
 
   const ovrValues = [];
   const ratingValues = [];
-  const players = await Player.find({ _id: { $in: club.memberIds || [] } }).select("_id position").lean();
+  const players = await Player.find({ _id: { $in: club.memberIds || [] } }).lean();
   const playerMap = new Map(players.map(player => [String(player._id), player]));
+  const playerHistory = club.memberIds?.length
+    ? await Match.find({ "participants.player": { $in: club.memberIds } })
+        .select("_id date updatedAt createdAt participants events teamA teamB")
+        .lean()
+    : [];
   for (const playerId of club.memberIds || []) {
-    const matches = mainMatches.filter(match =>
+    const player = playerMap.get(String(playerId)) || { _id: playerId, position: "" };
+    const matches = playerHistory.filter(match =>
       (match.participants || []).some(participant => String(participant.player?._id || participant.player) === String(playerId)),
     );
-    const player = playerMap.get(String(playerId)) || { _id: playerId, position: "" };
-    const attrs = calculatePlayerAttributes(player, matches);
-    if (attrs.ovr != null) ovrValues.push(attrs.ovr);
-    for (const match of matches) {
+    const attrs = resolvePlayerAttributesReadOnly(player, matches);
+    if (attrs.currentOvr != null) ovrValues.push(attrs.currentOvr);
+    const clubHistory = mainMatches.filter(match =>
+      (match.participants || []).some(participant => String(participant.player?._id || participant.player) === String(playerId)),
+    );
+    for (const match of clubHistory) {
       const participant = (match.participants || []).find(item => String(item.player?._id || item.player) === String(playerId));
-      if (Number.isFinite(Number(participant?.rating))) ratingValues.push(Number(participant.rating) / 10);
+      const rating = effectiveMatchRating(participant);
+      if (rating !== null) ratingValues.push(rating / 10);
     }
   }
 

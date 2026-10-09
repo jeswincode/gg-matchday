@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calculatePlayerAttributes } from "../server/services/playerAttributes.js";
+import { calculatePlayerAttributes, resolvePlayerAttributesReadOnly } from "../server/services/playerAttributes.js";
 import { performanceEntries } from "../server/services/ratings/match.js";
 
 test("pace and physical are manual values while OVR uses available attributes", () => {
@@ -122,4 +122,37 @@ test("current OVR is stable when callers provide matches out of chronological or
 
   assert.equal(shuffled.currentOvr, ordered.currentOvr);
   assert.equal(shuffled.careerOvr, ordered.careerOvr);
+});
+
+
+test("profile attribute resolution returns an unchanged cached snapshot without writing", () => {
+  const player = {
+    _id: "p1", position: "CAM", preferredPositions: ["CM"], pace: 80, physical: 75,
+    ovrSnapshot: {
+      currentOvr: 78, careerOvr: 76, confidence: 50, matchesPlayed: 6, ratedMatches: 6,
+      currentWindowMatches: 6, currentAttributes: { pace: 80, physical: 75, shooting: 78, passing: 79, dribbling: 77, defending: 60 },
+      careerAttributes: {}, positionRatings: {}, calculatedAt: new Date("2026-10-01T00:00:00Z"),
+      sourceUpdatedAt: new Date("2026-09-30T00:00:00Z"), sourcePosition: "CAM", sourcePreferredPositions: ["CM"],
+    },
+  };
+  const matches = [{
+    _id: "m1", date: new Date("2026-09-29T00:00:00Z"), updatedAt: new Date("2026-09-30T00:00:00Z"),
+    participants: [{ player: "p1", team: "A", rating: 8, ownGoals: 0 }], events: [],
+  }];
+  const result = resolvePlayerAttributesReadOnly(player, matches);
+  assert.equal(result.cached, true);
+  assert.equal(result.currentOvr, 78);
+  assert.equal(result.currentAttributes.pace, 80);
+  assert.equal(result.currentAttributes.physical, 75);
+});
+
+test("legacy own goals use effective match rating consistently in OVR derivation", () => {
+  const matches = [{
+    _id: "m1", date: new Date("2026-01-01T00:00:00Z"),
+    participants: [{ player: "p1", team: "A", rating: 8, ownGoals: 1, ratingSystem: "legacy" }],
+    events: [],
+  }];
+  const result = calculatePlayerAttributes({ _id: "p1", position: "CAM", pace: 80, physical: 80 }, matches);
+  assert.equal(result.ratedMatches, 1);
+  assert.ok(result.currentAttributes.shooting < 99);
 });
