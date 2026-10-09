@@ -19,13 +19,28 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
-  webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 4173 --strictPort",
-    url: "http://127.0.0.1:4173",
-    reuseExistingServer: !ci,
-    timeout: 60_000,
-    env: {
-      VITE_API_URL: "http://127.0.0.1:5000/api",
+  webServer: [
+    {
+      command: "node tests/e2e/test-server.js",
+      url: "http://127.0.0.1:5000/api/health",
+      reuseExistingServer: !ci,
+      timeout: 120_000,
+      env: {
+        NODE_ENV: "test",
+        E2E_TEST_AUTH_SECRET: "gg-matchday-e2e-only-secret",
+      },
     },
-  },
+    {
+      command: "npm run dev -- --host 127.0.0.1 --port 4173 --strictPort",
+      url: "http://127.0.0.1:4173",
+      reuseExistingServer: !ci,
+      timeout: 60_000,
+      env: {
+        VITE_API_URL: "http://127.0.0.1:5000/api",
+        VITE_E2E_TEST_AUTH_SECRET: "gg-matchday-e2e-only-secret",
+        VITE_E2E_TEST_ROLE: "editor",
+        VITE_E2E_TEST_PLAYER_ID: "65a000000000000000000001",
+      },
+    },
+  ],
 });
