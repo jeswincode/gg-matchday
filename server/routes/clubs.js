@@ -757,7 +757,7 @@ router.get("/wallet/me", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
-  const wallet = await PlayerWallet.findOneAndUpdate({ playerId }, { $setOnInsert: { playerId, balance: 0 } }, { upsert: true, new: true }).lean();
+  const wallet = await PlayerWallet.findOne({ playerId }).lean() || { playerId, balance: 0 };
   const transactions = await PlayerWalletTransaction.find({ playerId }).sort({ createdAt: -1 }).limit(25).lean();
   return res.json({ wallet, transactions });
 });
