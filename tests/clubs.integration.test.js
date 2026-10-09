@@ -194,7 +194,3 @@ test("Club model refuses duplicate members and non-member captains", async () =>
   );
 });
 
-function clubIdPlaceholder() {
-  // Deliberately points at the real test Club so the fixture has valid references.
-  return players[0]?._id || new mongoose.Types.ObjectId();
-}

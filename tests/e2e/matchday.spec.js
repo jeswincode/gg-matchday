@@ -41,8 +41,8 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
   await enterGuestMatchday(page);
   const navigation = page.locator(".bottom-nav");
   await expect(navigation).toBeVisible();
-  await page.getByRole("button", { name: "Players" }).click();
-  await expect(page.getByRole("button", { name: "Players" })).toBeVisible();
-  await page.getByRole("button", { name: "Calendar" }).click();
+  await navigation.getByRole("button", { name: /Players/ }).click();
+  await expect(navigation.getByRole("button", { name: /Players/ })).toBeVisible();
+  await navigation.getByRole("button", { name: /Calendar/ }).click();
   await expect(page.locator(".bottom-nav")).toBeVisible();
 });
