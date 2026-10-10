@@ -50,8 +50,8 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
 
 test("editor can authenticate and record a match through the real browser and API", async ({ page }) => {
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
-  await expect(page.getByRole("heading", { name: /Welcome back, Playwright/i })).toBeVisible();
-  await page.getByRole("button", { name: /ENTER MATCHDAY/i }).click();
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
 
   await page.getByRole("button", { name: /Record/ }).first().click();
   await expect(page.getByRole("heading", { name: "Record a Match" })).toBeVisible();

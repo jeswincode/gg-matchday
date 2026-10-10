@@ -2394,7 +2394,7 @@ function App() {
   }
 
   if (activeExperience === "welcome") {
-    return <WelcomeScreen user={authUser} onEnter={() => setExperience("app")} />;
+    return <WelcomeScreen onEnter={() => setExperience("app")} />;
   }
 
   return (
