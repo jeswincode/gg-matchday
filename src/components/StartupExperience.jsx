@@ -80,7 +80,7 @@ export function WelcomeScreen({ onEnter }) {
   const [posterFailed, setPosterFailed] = useState(false);
 
   return (
-    <main className={`gg-welcome-screen gg-welcome-image-screen${posterLoaded ? " is-ready" : ""}`}>
+    <main className={`gg-welcome-screen gg-welcome-image-screen${posterLoaded || posterFailed ? " is-ready" : ""}`}>
       <div className={`gg-welcome-poster-frame${posterLoaded ? " is-loaded" : ""}${!posterLoaded && !posterFailed ? " is-loading" : ""}${posterFailed ? " has-error" : ""}`}>
         {!posterFailed && (
           <img
