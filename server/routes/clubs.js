@@ -321,15 +321,29 @@ router.get("/home", requireAuth, async (req, res) => {
         }
       } else if (pendingFormation.status === "pendingCaptainDetailsApproval") {
         const isElectedCaptain = pendingFormation.electedCaptainIds?.some(id => String(id) === String(playerId));
+        const hasApprovedDetails = pendingFormation.detailsApprovedBy?.some(id => String(id) === String(playerId));
         nextAction = {
           type: "formation-details",
           section: "overview",
           eyebrow: "CLUB FORMATION",
-          title: isElectedCaptain ? "Confirm Club details" : "Captain details approval pending",
+          title: isElectedCaptain
+            ? hasApprovedDetails ? "Details approved — awaiting co-captain" : "Confirm Club details"
+            : "Captain details approval pending",
           description: isElectedCaptain
-            ? "Review the Club identity and approve the details before admin review."
+            ? hasApprovedDetails
+              ? "Your approval is recorded. The other elected captain must approve the same details."
+              : "Review the Club identity and approve the details before admin review."
             : "The elected captain(s) must approve the Club details before admin review.",
-          actionLabel: isElectedCaptain ? "CONFIRM CLUB DETAILS →" : "VIEW FORMATION →",
+          actionLabel: isElectedCaptain && !hasApprovedDetails ? "CONFIRM CLUB DETAILS →" : "VIEW FORMATION →",
+        };
+      } else if (pendingFormation.status === "pendingAdminApproval") {
+        nextAction = {
+          type: "formation-admin-review",
+          section: "overview",
+          eyebrow: "CLUB FORMATION",
+          title: "Club formation submitted",
+          description: "All elected captain(s) approved the details. Your application is waiting for administrator review.",
+          actionLabel: "VIEW FORMATION →",
         };
       }
     }
