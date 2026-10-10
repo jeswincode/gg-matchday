@@ -2406,3 +2406,221 @@ html[data-theme="golden"][data-product-mode="clubs"] .clubs-hub-next-step {borde
   .clubs-hub-next-action-copy h3 { font-size:13px; }
   .clubs-hub-next-action>.clubs-secondary-button { width:100%; }
 }
+
+
+/* ---------- Dark theme continuity: Matchday navy / blue atmosphere ---------- */
+/* Gold keeps its existing palette; these overrides only apply to Dark + Clubs. */
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app {
+  --clubs-bg: #080d17;
+  --clubs-panel: #101827;
+  --clubs-panel-2: #141f31;
+  --clubs-panel-3: #1b2940;
+  --clubs-surface: #101827;
+  --clubs-surface-2: #142238;
+  --clubs-border: #2a3b57;
+  --clubs-edge: #2a3b57;
+  --clubs-edge-soft: rgba(128, 169, 226, .16);
+  --clubs-text: #f2f6ff;
+  --clubs-muted: #93a1b8;
+  --clubs-accent: #dce8f8;
+  --clubs-accent-2: #83acd9;
+  --clubs-accent-contrast: #101a2b;
+  --clubs-shadow: 0 26px 70px rgba(0, 5, 17, .44);
+  --clubs-shadow-deep: 0 38px 100px rgba(0, 5, 17, .58);
+  background-color: var(--clubs-bg);
+  background-image:
+    radial-gradient(ellipse at 48% 10%, rgba(39, 101, 193, .31), transparent 43%),
+    radial-gradient(ellipse at 88% 38%, rgba(24, 75, 150, .22), transparent 39%),
+    linear-gradient(135deg, rgba(5, 11, 24, .58), rgba(5, 9, 19, .78)),
+    url("/charcoal.jpg");
+  background-size: cover, cover, cover, cover;
+  background-position: center, center, center, center;
+  background-attachment: fixed, fixed, fixed, fixed;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] body,
+html[data-theme="dark"][data-product-mode="clubs"] #root {
+  background-color: #080d17;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-topbar {
+  border-color: #293b58;
+  background:
+    radial-gradient(460px 210px at 82% 0%, rgba(65, 124, 210, .16), transparent 74%),
+    linear-gradient(145deg, #172238, #0d1422);
+  box-shadow:
+    0 20px 50px rgba(0, 5, 17, .38),
+    inset 0 1px 0 rgba(183, 209, 246, .07),
+    inset 0 -2px 0 rgba(0, 0, 0, .30);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-nav,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-section-tabs,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-subnav {
+  border-color: #263753;
+  background: linear-gradient(145deg, rgba(15, 24, 40, .97), rgba(9, 15, 27, .97));
+  box-shadow:
+    0 16px 36px rgba(0, 5, 17, .28),
+    inset 0 1px 0 rgba(173, 202, 245, .045);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-nav button,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-section-tabs button,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-subnav button {
+  color: #9aa9c1;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-nav button:hover,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-section-tabs button:hover,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-subnav button:hover {
+  border-color: rgba(130, 172, 230, .22);
+  background: rgba(74, 116, 179, .14);
+  color: #f0f5ff;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-nav button.active,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-section-tabs button.active,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-subnav button.active,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-pills button.active {
+  border-color: #d7e7ff;
+  background: linear-gradient(145deg, #e1edff, #9abce9);
+  color: #101a2b;
+  box-shadow:
+    0 6px 0 rgba(0, 5, 17, .35),
+    0 12px 24px rgba(58, 112, 194, .18),
+    inset 0 1px 0 rgba(255, 255, 255, .46);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-return-button,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-secondary-button {
+  border-color: #304563;
+  background: linear-gradient(145deg, #1a2940, #101a2a);
+  color: #e7efff;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app .clubs-primary-button {
+  border-color: #d7e7ff;
+  background: linear-gradient(145deg, #e1edff, #9abce9);
+  color: #101a2b;
+  box-shadow:
+    0 7px 0 rgba(0, 5, 17, .29),
+    0 15px 28px rgba(35, 83, 157, .16),
+    inset 0 1px 0 rgba(255, 255, 255, .42);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app input,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app select,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app textarea {
+  border-color: #2a3e5e;
+  background: #0b1322;
+  color: #f2f6ff;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app input:focus,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app select:focus,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app textarea:focus {
+  border-color: #7eaceb;
+  box-shadow:
+    inset 0 2px 7px rgba(0, 0, 0, .23),
+    0 0 0 3px rgba(79, 137, 217, .18);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-error,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-empty,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-application,
+html[data-theme="dark"][data-product-mode="clubs"] .club-card,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-match-card,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-subsection,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-command-header,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-squad-panel,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-squad-rail,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hub-stat,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hub-next-step,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hub-next-action,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hub-discovery-card,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-myclub-overview-stat,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-myclub-quick-actions {
+  border-color: var(--clubs-edge);
+  background-image: linear-gradient(145deg, rgba(22, 35, 56, .96), rgba(12, 19, 32, .97));
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hero,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-my-club-hero {
+  border-color: #2a3b57;
+  background:
+    radial-gradient(ellipse at 88% 8%, rgba(55, 108, 186, .15), transparent 38%),
+    linear-gradient(145deg, #162136, #0d1422);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-balance-card,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-my-club-balance {
+  border-color: #2f4567;
+  background: linear-gradient(145deg, #1a2940, #101a2b);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-section-heading > span,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hub-stat > span,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-myclub-overview-stat > span {
+  color: #91a9cc;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-balance-card strong,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-roster-ovr strong,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-roster-rating strong,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-squad-stat-strip strong,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hub-stat > strong,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-myclub-overview-stat > strong {
+  color: #c3dcff;
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .club-card-mark {
+  background: linear-gradient(145deg, #dceaff, #8fb4e5);
+  color: #111c2e;
+  box-shadow:
+    0 6px 0 rgba(0, 5, 17, .28),
+    0 12px 22px rgba(58, 112, 194, .16),
+    inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hub-next-action {
+  border-color: rgba(105, 157, 226, .40);
+  background: linear-gradient(115deg, rgba(35, 70, 119, .34), rgba(13, 21, 35, .96));
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app button:focus-visible,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app input:focus-visible,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app select:focus-visible,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-app textarea:focus-visible {
+  outline-color: #90b9f0;
+}
+
+/* Preserve the warm Gold theme exactly as designed. */
+
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-status-note,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-name-proposal textarea,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-vote-candidate,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hq-fixtures button,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-form-strip span,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hq-microstats span {
+  border-color: var(--clubs-border);
+  background: var(--clubs-surface-2);
+  color: var(--clubs-text);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper b {
+  background: var(--clubs-surface-2);
+  border-color: var(--clubs-border);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span[data-state="done"] b {
+  background: var(--clubs-accent);
+  color: var(--clubs-accent-contrast);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span[data-state="current"] b {
+  background: rgba(63, 112, 183, .12);
+  border-color: var(--clubs-accent-2);
+  color: #a8cdfb;
+  box-shadow: 0 0 0 3px rgba(83, 143, 223, .17);
+}
