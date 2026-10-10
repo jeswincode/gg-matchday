@@ -2415,19 +2415,23 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-app {
   --clubs-panel: #101827;
   --clubs-panel-2: #141f31;
   --clubs-panel-3: #1b2940;
+  --clubs-surface: #101827;
+  --clubs-surface-2: #142238;
+  --clubs-border: #2a3b57;
   --clubs-edge: #2a3b57;
   --clubs-edge-soft: rgba(128, 169, 226, .16);
   --clubs-text: #f2f6ff;
   --clubs-muted: #93a1b8;
   --clubs-accent: #dce8f8;
   --clubs-accent-2: #83acd9;
+  --clubs-accent-contrast: #101a2b;
   --clubs-shadow: 0 26px 70px rgba(0, 5, 17, .44);
   --clubs-shadow-deep: 0 38px 100px rgba(0, 5, 17, .58);
   background-color: var(--clubs-bg);
   background-image:
+    radial-gradient(ellipse at 48% 10%, rgba(39, 101, 193, .31), transparent 43%),
+    radial-gradient(ellipse at 88% 38%, rgba(24, 75, 150, .22), transparent 39%),
     linear-gradient(135deg, rgba(5, 11, 24, .58), rgba(5, 9, 19, .78)),
-    radial-gradient(ellipse at 48% 10%, rgba(39, 101, 193, .27), transparent 43%),
-    radial-gradient(ellipse at 88% 38%, rgba(24, 75, 150, .18), transparent 39%),
     url("/charcoal.jpg");
   background-size: cover, cover, cover, cover;
   background-position: center, center, center, center;
@@ -2591,3 +2595,32 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-app textarea:focus-vis
 }
 
 /* Preserve the warm Gold theme exactly as designed. */
+
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-status-note,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-name-proposal textarea,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-vote-candidate,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hq-fixtures button,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-form-strip span,
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-hq-microstats span {
+  border-color: var(--clubs-border);
+  background: var(--clubs-surface-2);
+  color: var(--clubs-text);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper b {
+  background: var(--clubs-surface-2);
+  border-color: var(--clubs-border);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span[data-state="done"] b {
+  background: var(--clubs-accent);
+  color: var(--clubs-accent-contrast);
+}
+
+html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span[data-state="current"] b {
+  background: rgba(63, 112, 183, .12);
+  border-color: var(--clubs-accent-2);
+  color: #a8cdfb;
+  box-shadow: 0 0 0 3px rgba(83, 143, 223, .17);
+}
