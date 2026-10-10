@@ -39,6 +39,7 @@ test("Welcome poster stays clean in both themes and respects reduced motion", ()
   assert.ok(component.includes("posterLoaded || posterFailed ? \" is-ready\" : \"\""));
   assert.ok(styles.includes("aspect-ratio: 1648 / 719"));
   assert.ok(styles.includes("width: min(195vw, 840px)"));
+  assert.ok(styles.includes("top: 0;\n    transform: translateX(-50%);\n    width: min(195vw, 840px)"));
   assert.ok(styles.includes("top: calc(min(85.1vw, 366.5px) + 12px)"));
   assert.ok(styles.includes(".gg-welcome-image-screen.is-ready .gg-welcome-mobile-button"));
   assert.ok(styles.includes(".gg-welcome-image-button {\n    display: none;"));
