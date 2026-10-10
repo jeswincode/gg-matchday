@@ -105,3 +105,30 @@ test("Clubs admin KPI and latest-club surfaces have dedicated responsive styles"
   assert.match(styles, /@media \(max-width: 920px\)/);
   assert.match(styles, /@media \(max-width: 520px\)/);
 });
+
+test("Club formation stepper distinguishes captain-details approval from admin approval", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
+  const model = fs.readFileSync("server/models/clubs/ClubFormationApplication.js", "utf8");
+
+  assert.match(component, /\["pendingCaptainDetailsApproval", "Club details"\]/);
+  assert.match(component, /\["pendingAdminApproval", "Admin approval"\]/);
+  assert.match(component, /pendingCaptainDetailsApproval: 5/);
+  assert.match(component, /pendingAdminApproval: 6/);
+  assert.match(component, /Waiting for captain details approval/);
+  assert.match(component, /Waiting for admin approval/);
+  assert.match(component, /application\.electedCaptainIds\?\.some/);
+  assert.match(component, /application\.detailsApprovedBy\?\.some/);
+  assert.match(component, /detailDrafts\[application\._id\] \?\? application\.details \?\? ""/);
+  assert.match(component, /<textarea/);
+  assert.match(component, /waitingForCoCaptain/);
+  assert.match(styles, /\.clubs-name-proposal textarea/);
+  assert.match(styles, /\.clubs-formation-status-note/);
+
+  assert.match(model, /"pendingCaptainDetailsApproval"/);
+  assert.match(routes, /function captainDetailsAreApproved/);
+  assert.match(routes, /if \(!captainDetailsAreApproved\(application\)\)/);
+  assert.match(routes, /Every elected captain must approve non-empty Club details before admin approval/);
+  assert.match(routes, /normalizeLegacyFormationStage/);
+});

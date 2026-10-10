@@ -241,8 +241,31 @@ test("HTTP formation flow covers member approval, captain voting, and admin appr
     });
     assert.equal(voteResult.status, 200, JSON.stringify(voteResult.data));
   }
-  assert.equal(voteResult.data.status, "pendingAdminApproval");
+  assert.equal(voteResult.data.status, "pendingCaptainDetailsApproval");
   assert.deepEqual(voteResult.data.electedCaptainIds.map(String), [chosenCandidate]);
+
+  const earlyAdminApproval = await request(`/clubs/admin/applications/${formationApplicationId}/approve`, {
+    method: "POST",
+    role: "admin",
+    body: {},
+  });
+  assert.equal(earlyAdminApproval.status, 400, JSON.stringify(earlyAdminApproval.data));
+  assert.equal(await Club.exists({ name: "Integration Academy FC" }), null);
+
+  const nonCaptain = invitedPlayers.find(player => String(player._id) !== chosenCandidate);
+  const forbiddenDetails = await request(`/clubs/formation/${formationApplicationId}/details`, {
+    method: "POST",
+    playerId: nonCaptain._id,
+    body: { details: "HTTP integration Club formation." },
+  });
+  assert.equal(forbiddenDetails.status, 403, JSON.stringify(forbiddenDetails.data));
+
+  const emptyDetails = await request(`/clubs/formation/${formationApplicationId}/details`, {
+    method: "POST",
+    playerId: chosenCandidate,
+    body: { details: "  " },
+  });
+  assert.equal(emptyDetails.status, 400, JSON.stringify(emptyDetails.data));
 
   const details = await request(`/clubs/formation/${formationApplicationId}/details`, {
     method: "POST",
@@ -250,6 +273,12 @@ test("HTTP formation flow covers member approval, captain voting, and admin appr
     body: { details: "HTTP integration Club formation." },
   });
   assert.equal(details.status, 200, JSON.stringify(details.data));
+  assert.equal(details.data.status, "pendingAdminApproval");
+  assert.deepEqual(details.data.detailsApprovedBy.map(String), [chosenCandidate]);
+
+  const adminApplications = await request("/clubs/admin/applications", { role: "admin" });
+  assert.equal(adminApplications.status, 200, JSON.stringify(adminApplications.data));
+  assert.ok(adminApplications.data.some(application => String(application._id) === formationApplicationId));
 
   const approved = await request(`/clubs/admin/applications/${formationApplicationId}/approve`, {
     method: "POST",
@@ -263,6 +292,113 @@ test("HTTP formation flow covers member approval, captain voting, and admin appr
   assert.equal(formedClub.captainIds.length, 1);
   assert.ok(formedClub.captainIds.every(id => formedClub.memberIds.some(memberId => String(memberId) === String(id))));
   assert.equal(await ClubContract.countDocuments({ clubId: formedClub._id, status: "active" }), 4);
+});
+
+
+test("co-captains must approve the same saved Club details before admin review", async () => {
+  const roster = await Player.create(Array.from({ length: 4 }, (_, index) => ({
+    name: `Co-Captain Detail Player ${index + 1}`,
+    position: "CM",
+  })));
+  for (const player of roster) {
+    const linked = await request("/auth/me", { playerId: player._id });
+    assert.equal(linked.status, 200, JSON.stringify(linked.data));
+  }
+
+  const electedCaptainIds = roster.slice(0, 2).map(player => player._id);
+  const application = await ClubFormationApplication.create({
+    founderPlayerId: roster[0]._id,
+    memberIds: roster.map(player => player._id),
+    memberApprovals: roster.map(player => ({ playerId: player._id, status: "accepted", respondedAt: new Date() })),
+    proposedName: "Co-Captain Details FC",
+    proposedNameNormalized: "co-captain details fc",
+    details: "",
+    electedCaptainIds,
+    detailsApprovedBy: [],
+    status: "pendingCaptainDetailsApproval",
+  });
+
+  const forbidden = await request(`/clubs/formation/${application._id}/details`, {
+    method: "POST",
+    playerId: roster[2]._id,
+    body: { details: "Club identity" },
+  });
+  assert.equal(forbidden.status, 403);
+
+  const firstApproval = await request(`/clubs/formation/${application._id}/details`, {
+    method: "POST",
+    playerId: electedCaptainIds[0],
+    body: { details: "An identity agreed by both elected captains." },
+  });
+  assert.equal(firstApproval.status, 200, JSON.stringify(firstApproval.data));
+  assert.equal(firstApproval.data.status, "pendingCaptainDetailsApproval");
+  assert.deepEqual(firstApproval.data.detailsApprovedBy.map(String), [String(electedCaptainIds[0])]);
+
+  const blockedAdminApproval = await request(`/clubs/admin/applications/${application._id}/approve`, {
+    method: "POST",
+    role: "admin",
+    body: {},
+  });
+  assert.equal(blockedAdminApproval.status, 400);
+  assert.equal(await Club.exists({ name: "Co-Captain Details FC" }), null);
+
+  // The second captain's saved text is prefilled in the UI. If that captain edits it,
+  // the first captain's earlier approval is invalidated and must be recorded again.
+  const secondChangesDetails = await request(`/clubs/formation/${application._id}/details`, {
+    method: "POST",
+    playerId: electedCaptainIds[1],
+    body: { details: "An updated identity agreed by both elected captains." },
+  });
+  assert.equal(secondChangesDetails.status, 200, JSON.stringify(secondChangesDetails.data));
+  assert.equal(secondChangesDetails.data.status, "pendingCaptainDetailsApproval");
+  assert.deepEqual(secondChangesDetails.data.detailsApprovedBy.map(String), [String(electedCaptainIds[1])]);
+
+  const firstReapproval = await request(`/clubs/formation/${application._id}/details`, {
+    method: "POST",
+    playerId: electedCaptainIds[0],
+    body: { details: "An updated identity agreed by both elected captains." },
+  });
+  assert.equal(firstReapproval.status, 200, JSON.stringify(firstReapproval.data));
+  assert.equal(firstReapproval.data.status, "pendingAdminApproval");
+  assert.equal(firstReapproval.data.details, "An updated identity agreed by both elected captains.");
+  assert.deepEqual(
+    firstReapproval.data.detailsApprovedBy.map(String).sort(),
+    electedCaptainIds.map(String).sort(),
+  );
+});
+
+test("legacy applications cannot bypass details approval and are migrated back to the correct stage", async () => {
+  const roster = await Player.create(Array.from({ length: 4 }, (_, index) => ({
+    name: `Legacy Details Player ${index + 1}`,
+    position: "CM",
+  })));
+  const captainId = roster[0]._id;
+  const application = await ClubFormationApplication.create({
+    founderPlayerId: captainId,
+    memberIds: roster.map(player => player._id),
+    memberApprovals: roster.map(player => ({ playerId: player._id, status: "accepted", respondedAt: new Date() })),
+    proposedName: "Legacy Details FC",
+    proposedNameNormalized: "legacy details fc",
+    electedCaptainIds: [captainId],
+    details: "",
+    detailsApprovedBy: [],
+    status: "pendingAdminApproval",
+  });
+
+  const directApproval = await request(`/clubs/admin/applications/${application._id}/approve`, {
+    method: "POST",
+    role: "admin",
+    body: {},
+  });
+  assert.equal(directApproval.status, 400);
+  assert.equal(await Club.exists({ name: "Legacy Details FC" }), null);
+
+  const linked = await request("/auth/me", { playerId: captainId });
+  assert.equal(linked.status, 200, JSON.stringify(linked.data));
+  const ownApplications = await request("/clubs/formation/me", { playerId: captainId });
+  assert.equal(ownApplications.status, 200, JSON.stringify(ownApplications.data));
+  const migrated = ownApplications.data.find(row => String(row._id) === String(application._id));
+  assert.equal(migrated.status, "pendingCaptainDetailsApproval");
 });
 
 test("Club fixture sync and settlement work through the HTTP routes", async () => {
