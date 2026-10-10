@@ -1017,7 +1017,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       {error && <div className="clubs-error" role="alert">{error}</div>}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
-            <div className="clubs-section-tabs" role="tablist" aria-label="Club Hub sections">
+      {activeSection === "overview" && ultimateSubsection === "overview" ? (
+        <>
+      <div className="clubs-section-tabs" role="tablist" aria-label="Club Hub sections">
         <button type="button" role="tab" aria-selected={ultimateSubsection === "overview"} className={ultimateSubsection === "overview" ? "active" : ""} onClick={() => setUltimateSubsection("overview")}>Club Hub</button>
         <button type="button" role="tab" aria-selected={ultimateSubsection === "matches"} className={ultimateSubsection === "matches" ? "active" : ""} onClick={() => setUltimateSubsection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
       </div>
@@ -1357,6 +1359,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           </div>
         </section>
       )}
+        </>
       ) : activeSection === "overview" && ultimateSubsection === "matches" ? (
       <>
       <div className="clubs-section-tabs" role="tablist" aria-label="Ultimate Clubs sections">
