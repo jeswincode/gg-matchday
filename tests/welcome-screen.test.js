@@ -12,7 +12,7 @@ test("Welcome screen displays the supplied poster with a real Enter Matchday but
   assert.match(component, /fetchPriority="high"/);
   assert.match(component, /loading="eager"/);
   assert.match(styles, /\.gg-welcome-poster-frame\.is-loading \.gg-welcome-image-button/);
-  assert.match(component, /className="gg-welcome-screen gg-welcome-image-screen"/);
+  assert.match(component, /gg-welcome-screen gg-welcome-image-screen/);
   assert.match(component, /className=\{\x60gg-welcome-image-button/);
   assert.match(component, /onClick=\{onEnter\}/);
   assert.match(component, /aria-label="Enter Matchday"/);
@@ -33,4 +33,10 @@ test("Welcome poster stays clean in both themes and respects reduced motion", ()
   assert.match(styles, /\.gg-welcome-screen\.gg-welcome-image-screen::before/);
   assert.match(styles, /@media \(max-aspect-ratio: 3 \/ 4\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.ok(component.includes('className="gg-welcome-mobile-button"'));
+  assert.ok(component.includes("SAME PLAYERS. NEW STORIES."));
+  assert.ok(styles.includes("aspect-ratio: 1648 / 719"));
+  assert.ok(styles.includes("width: min(142vw, 700px)"));
+  assert.ok(styles.includes(".gg-welcome-image-screen.is-ready .gg-welcome-mobile-button"));
+  assert.ok(styles.includes(".gg-welcome-image-button {\n    display: none;"));
 });
