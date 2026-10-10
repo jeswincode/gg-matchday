@@ -2,16 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-test("Clubs mode uses the viewer formation set and theme-aware premium dashboard", () => {
+test("Clubs mode keeps formation controls, discovery and admin surfaces while using task navigation", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
   const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
 
   assert.match(component, /Ultimate Clubs/);
   assert.match(component, /Player History/);
-  assert.match(component, /Ultimate Clubs sections/);
-  assert.match(component, /My Club sections/);
+  assert.match(component, /data-primary-tab="overview"/);
+  assert.match(component, /data-primary-tab="myClub"/);
+  assert.doesNotMatch(component, /aria-label="Ultimate Clubs sections"/);
+  assert.doesNotMatch(component, /aria-label="My Club sections"/);
   assert.match(component, /clubs-subnav/);
-  assert.match(component, /clubs-hub-next-step/);
+  assert.match(component, /clubs-hub-discovery-grid/);
   assert.match(component, /clubs-formation-stepper/);
   assert.match(component, /clubs-scout-card/);
   assert.match(component, /clubs-review-received/);
