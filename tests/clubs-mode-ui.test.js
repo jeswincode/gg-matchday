@@ -132,3 +132,11 @@ test("Club formation stepper distinguishes captain-details approval from admin a
   assert.match(routes, /Every elected captain must approve non-empty Club details before admin approval/);
   assert.match(routes, /normalizeLegacyFormationStage/);
 });
+
+test("Clubs command center explains both captain-details and admin-review waiting states", () => {
+  const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
+  assert.match(routes, /title: "Club formation submitted"/);
+  assert.match(routes, /waiting for administrator review/i);
+  assert.match(routes, /Details approved — awaiting co-captain/);
+  assert.match(routes, /The other elected captain must approve the same details/);
+});
