@@ -2089,7 +2089,15 @@ router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
       Club.countDocuments({}),
       Club.countDocuments({ status: "approved" }),
       Club.countDocuments({ status: "archived" }),
-      ClubFormationApplication.countDocuments({ status: "pendingAdminApproval" }),
+      (async () => {
+        const formationDocs = await ClubFormationApplication.find({
+          status: { $in: ["pendingCaptainDetailsApproval", "pendingAdminApproval"] },
+        });
+        for (const application of formationDocs) await normalizeLegacyFormationStage(application);
+        return formationDocs.filter(application =>
+          application.status === "pendingAdminApproval" && captainDetailsAreApproved(application),
+        ).length;
+      })(),
       ClubContract.countDocuments({ status: "active" }),
       ClubMatch.countDocuments({ status: { $in: ["requested", "accepted"] } }),
       ClubMatch.countDocuments({ status: "completed" }),
@@ -2117,9 +2125,14 @@ router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
 
     const attention = [];
 
-    const pendingApplicationDocs = await ClubFormationApplication.find({
-      status: "pendingAdminApproval",
-    }).sort({ createdAt: 1 }).limit(8).lean();
+    const formationDocs = await ClubFormationApplication.find({
+      status: { $in: ["pendingCaptainDetailsApproval", "pendingAdminApproval"] },
+    }).sort({ createdAt: 1 });
+    for (const application of formationDocs) await normalizeLegacyFormationStage(application);
+    const pendingApplicationDocs = formationDocs
+      .filter(application => application.status === "pendingAdminApproval" && captainDetailsAreApproved(application))
+      .slice(0, 8)
+      .map(application => application.toObject());
 
     for (const application of pendingApplicationDocs) {
       attention.push({
@@ -2290,7 +2303,10 @@ router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (
   try {
     const application = await ClubFormationApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ message: "Club formation application not found." });
-    if (application.status !== "pendingAdminApproval") return res.status(409).json({ message: "Only pending applications can be rejected." });
+    await normalizeLegacyFormationStage(application);
+    if (application.status !== "pendingAdminApproval" || !captainDetailsAreApproved(application)) {
+      return res.status(409).json({ message: "Only fully captain-approved applications can be rejected at admin review." });
+    }
     const reason = String(req.body?.reason || "").trim();
     if (!reason) return res.status(400).json({ message: "A rejection reason is required." });
     application.rejectionReason = reason;
