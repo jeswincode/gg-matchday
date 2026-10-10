@@ -226,8 +226,12 @@ test("Dark Clubs theme shares Matchday's navy and blue palette without changing 
 
   assert.match(darkTheme, /--clubs-bg:\s*#080d17/i);
   assert.match(darkTheme, /--clubs-panel:\s*#101827/i);
-  assert.match(darkTheme, /rgba\(39, 101, 193, \.27\)/);
+  assert.match(darkTheme, /--clubs-surface-2:\s*#142238/i);
+  assert.match(darkTheme, /--clubs-border:\s*#2a3b57/i);
+  assert.match(darkTheme, /--clubs-accent-contrast:\s*#101a2b/i);
+  assert.match(darkTheme, /rgba\(39, 101, 193, \.31\)/);
   assert.match(darkTheme, /#dce8f8/i);
+  assert.match(darkTheme, /\.clubs-formation-stepper span\[data-state="current"\] b/);
   assert.match(darkTheme, /html\[data-theme="dark"\]\[data-product-mode="clubs"\]/);
   assert.match(darkTheme, /Preserve the warm Gold theme exactly as designed/);
   assert.doesNotMatch(darkTheme, /html\[data-theme="golden"\]/);
