@@ -3,8 +3,9 @@ function scorerSummary(match) {
   for (const event of Array.isArray(match?.events) ? match.events : []) {
     if (event?.type !== "goal") continue;
     const player = event.player;
-    const playerId = String(player?._id ?? (typeof player === "string" ? player : ""));
-    const name = String(player?.name || (typeof player === "string" ? player : "") || "Unknown player").trim();
+    const objectIdString = player && typeof player.toString === "function" ? player.toString() : "";
+    const playerId = String(player?._id ?? (objectIdString && objectIdString !== "[object Object]" ? objectIdString : ""));
+    const name = String(player?.name || (typeof player === "string" ? player : "") || playerId || "Unknown player").trim();
     const key = playerId || name;
     const current = counts.get(key) || { name, goals: 0 };
     current.goals += 1;
