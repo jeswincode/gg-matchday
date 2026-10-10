@@ -1,6 +1,6 @@
 import test,{before,after,mock} from 'node:test';import assert from 'node:assert/strict';import mongoose from 'mongoose';import {MongoMemoryReplSet} from 'mongodb-memory-server';
 process.env.ADMIN_EMAIL='admin@example.invalid';process.env.GEMINI_API_KEY='';process.env.CHAT_ENABLED='true';
-mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other'].includes(token))throw new Error('Invalid test token');return {uid:`test-${token}`,email:`${token}@example.invalid`,name:`Test ${token}`};}})});
+mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other','racer'].includes(token))throw new Error('Invalid test token');return {uid:`test-${token}`,email:`${token}@example.invalid`,name:`Test ${token}`};}})});
 const {default:app}=await import('../server/app.js');const {default:User}=await import('../server/models/User.js');const {default:Match}=await import('../server/models/Match.js');const {default:Player}=await import('../server/models/Player.js');const {default:Award}=await import('../server/models/Award.js');const {default:Achievement}=await import('../server/models/Achievement.js');const {default:Vote}=await import('../server/models/Vote.js');const {default:ProfileChangeRequest}=await import('../server/models/ProfileChangeRequest.js');const {default:ChatMessage}=await import('../server/models/ChatMessage.js');const {syncHistory}=await import('../server/services/history.js');
 let database,server,origin,p1,p2,matchId,viewer;
 async function request(path,{token,method='GET',body}={}){const response=await fetch(origin+'/api'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,data:await response.json()};}
@@ -119,3 +119,8 @@ test('GG audit detects stored rating inconsistencies without rewriting them',asy
 });
 
 test('closed-period awards and career achievements remain immutable across subsequent corrections',async()=>{for(let i=0;i<9;i++)await Match.create({...payload(),date:new Date('2025-06-01'),teamA:{label:'A',score:1},teamB:{label:'B',score:0}});await syncHistory();const original=await Award.findOne({key:'player:2025:0'}).lean();assert.ok(original);await Match.updateMany({date:{$lt:new Date('2026-01-01')}},{$set:{'participants.0.rating':0,'participants.1.rating':10}});await syncHistory();const kept=await Award.findOne({key:'player:2025:0'}).lean();assert.equal(String(kept.player),String(original.player));assert.ok(await Achievement.exists({player:p1._id,key:'goals:10'}));});
+test('concurrent first sign-ins for one Firebase UID safely reuse the created user',async()=>{
+  const results=await Promise.all(Array.from({length:12},()=>request('/auth/me',{token:'racer'})));
+  assert.ok(results.every(result=>result.status===200),JSON.stringify(results.map(result=>({status:result.status,data:result.data}))));
+  assert.equal(await User.countDocuments({firebaseUid:'test-racer'}),1);
+});
