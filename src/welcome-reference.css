@@ -165,6 +165,7 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
 
   .gg-welcome-poster-frame {
     top: 0;
+    transform: translateX(-50%);
     width: min(195vw, 840px);
     height: auto;
     aspect-ratio: 1648 / 719;
