@@ -225,7 +225,7 @@ router.delete("/:id", requireAuth, requireEditor, async (req, res) => {
 
       if (clubReferences.some(Boolean)) {
         return res.status(409).json({
-          message: "This player has Ultimate Clubs membership, wallet, auction, review, or history records and cannot be deleted. Keep the profile to preserve Club records.",
+          message: "This player has Ultimate Clubs history or wallet records and cannot be deleted. Keep the profile to preserve Club records.",
         });
       }
     }
