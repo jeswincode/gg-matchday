@@ -104,3 +104,29 @@ test("leaderboard globally sorts ratings and assigns unique table ranks", async 
   assert.ok(leaderRow.ggRating > runnerUpRow.ggRating);
   assert.ok(leaderRow.rank < runnerUpRow.rank);
 });
+
+test("overview preserves legacy stored scores when a match only has assist events", async () => {
+  const scorer = await Player.create({ name: "Legacy Assist Only Scorer" });
+  const teammate = await Player.create({ name: "Legacy Assist Only Teammate" });
+  const before = await get("/api/stats/overview");
+  assert.equal(before.status, 200);
+
+  await Match.collection.insertOne({
+    _id: new mongoose.Types.ObjectId(),
+    date: new Date("2024-03-15T12:00:00.000Z"),
+    name: "Legacy score with assist event only",
+    teamA: { label: "A", score: 2 },
+    teamB: { label: "B", score: 1 },
+    participants: [
+      { player: scorer._id, team: "A", rating: 8, defensivePerformance: 7, ownGoals: 0 },
+      { player: teammate._id, team: "B", rating: 7, defensivePerformance: 6, ownGoals: 0 },
+    ],
+    events: [{ player: scorer._id, type: "assist" }],
+    createdAt: new Date("2024-03-15T12:00:00.000Z"),
+    updatedAt: new Date("2024-03-15T12:00:00.000Z"),
+  });
+
+  const after = await get("/api/stats/overview");
+  assert.equal(after.status, 200);
+  assert.equal(after.data.goals - before.data.goals, 3);
+});
