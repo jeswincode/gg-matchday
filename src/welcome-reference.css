@@ -1,105 +1,169 @@
-/* Reference-matched GG Matchday welcome screen overrides. */
-.gg-welcome-shell {
-  width: min(980px, 104vw);
-  aspect-ratio: 920 / 760;
-  min-height: 0;
-  height: auto;
+/* GG Matchday poster-led welcome screen.
+   The poster itself contains the artwork and button label; the real button
+   below is a transparent, accessible hit target precisely aligned over it. */
+
+.gg-welcome-screen.gg-welcome-image-screen {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  background: #030303;
+  color: #fff;
 }
 
-.gg-welcome-emblem svg {
+html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen {
+  background: #030303;
+}
+
+.gg-welcome-screen.gg-welcome-image-screen::before,
+.gg-welcome-screen.gg-welcome-image-screen::after,
+html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::before,
+html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
+  content: none;
+  display: none;
+  background: none;
+}
+
+.gg-welcome-poster-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(100vw, 177.586dvh);
+  aspect-ratio: 1648 / 928;
+  transform: translate(-50%, -50%);
+  overflow: visible;
+  isolation: isolate;
+  background: #030303;
+}
+
+.gg-welcome-poster {
+  display: block;
   width: 100%;
   height: 100%;
+  object-fit: contain;
+  object-position: center;
+  opacity: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+  transition: opacity 140ms ease-out;
 }
 
-.gg-welcome-emblem .gg-emblem-logo-shadow {
-  fill: none;
-  stroke: rgba(11, 8, 4, .78);
-  stroke-width: 61;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.48));
+.gg-welcome-poster-frame.is-loaded .gg-welcome-poster {
+  opacity: 1;
 }
 
-.gg-welcome-emblem .gg-emblem-logo {
-  fill: none;
-  stroke: url(#ggWelcomeGold);
-  stroke-width: 45;
-  stroke-linecap: butt;
-  stroke-linejoin: miter;
-  filter: drop-shadow(0 0 9px rgba(241,199,91,.18)) drop-shadow(0 8px 19px rgba(0,0,0,.34));
-}
-
-.gg-welcome-emblem .gg-emblem-ring { stroke-width: 7; opacity: .9; }
-.gg-welcome-emblem .gg-emblem-ring-soft { opacity: .55; }
-.gg-welcome-emblem .gg-emblem-ring-inner { opacity: .8; }
-
-.gg-welcome-emblem .gg-emblem-accent {
-  filter: drop-shadow(0 0 9px rgba(241,199,91,.20)) drop-shadow(0 10px 20px rgba(0,0,0,.4));
-}
-
-.gg-welcome-content { padding: 6% 26% 4%; }
-
-.gg-welcome-content::before {
-  content: "";
+.gg-welcome-image-button {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(560px, 58%);
-  height: min(320px, 48%);
-  transform: translate(-50%, -50%);
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse, rgba(1,5,12,.46) 0%, rgba(1,5,12,.22) 46%, transparent 76%);
+  z-index: 2;
+  left: 33.25%;
+  top: 77.45%;
+  width: 33.5%;
+  height: 9.6%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 225, 142, .72);
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffe28a, #c8912d);
+  color: #120d03;
+  font-size: clamp(10px, 1.05vw, 17px);
+  font-weight: 900;
+  letter-spacing: .055em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow 160ms ease, background 160ms ease;
 }
 
-@media (max-width: 700px) {
-  .gg-welcome-shell {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 110vw;
-    height: auto;
-    aspect-ratio: 920 / 760;
-    min-height: 0;
-    margin: 0;
-    padding: 0;
-    transform: translate(-50%, -50%) !important;
-    animation: none !important;
-  }
-
-  .gg-welcome-content {
-    left: 0;
-    right: 0;
-    width: 100%;
-    padding: 8% 28% 5%;
-  }
-
-  .gg-welcome-emblem {
-    transform: none;
-    animation: gg-mobile-emblem-float-centered 7s ease-in-out infinite;
-  }
-
-  .gg-welcome-emblem .gg-emblem-logo-shadow { stroke-width: 56; }
-  .gg-welcome-emblem .gg-emblem-logo { stroke-width: 41; }
+.gg-welcome-image-button.is-image-overlay {
+  border-color: transparent;
+  background: transparent;
+  color: transparent;
+  font-size: 0;
+  letter-spacing: 0;
+  box-shadow: none;
 }
 
-@media (max-width: 430px) {
-  .gg-welcome-shell {
-    left: 50%;
-    top: 50%;
-    width: 100vw;
-    transform: translate(-50%, -50%) !important;
-  }
-
-  .gg-welcome-content {
-    padding: 10% 14% 6%;
-  }
-
-  .gg-welcome-emblem .gg-emblem-logo-shadow { stroke-width: 51; }
-  .gg-welcome-emblem .gg-emblem-logo { stroke-width: 37; }
+.gg-welcome-image-button.is-image-overlay:hover {
+  background: rgba(255, 225, 142, .035);
+  box-shadow: 0 0 0 1px rgba(255, 225, 142, .16), 0 0 30px rgba(245, 195, 75, .12);
 }
 
-@keyframes gg-mobile-emblem-float-centered {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+.gg-welcome-image-button:focus-visible {
+  outline: 3px solid #ffe28a;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 7px rgba(245, 195, 75, .2);
+}
+
+.gg-welcome-poster-frame.has-error {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+  border: 1px solid rgba(241, 199, 91, .22);
+}
+
+.gg-welcome-poster-fallback {
+  max-width: 620px;
+  text-align: center;
+}
+
+.gg-welcome-poster-brand {
+  margin: 0;
+  color: #f1c75b;
+  font-size: clamp(28px, 5vw, 72px);
+  font-weight: 950;
+  letter-spacing: .1em;
+}
+
+.gg-welcome-poster-help {
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, .72);
+  font-size: clamp(12px, 1.3vw, 16px);
+}
+
+.gg-welcome-poster-help code {
+  color: #ffe28a;
+  overflow-wrap: anywhere;
+}
+
+.gg-welcome-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* On portrait screens, fill the screen's height with the poster and keep the
+   central title and enter target visible; the frame remains undistorted. */
+@media (max-aspect-ratio: 3 / 4) {
+  .gg-welcome-poster-frame {
+    width: auto;
+    height: 100dvh;
+    aspect-ratio: 1648 / 928;
+  }
+
+  .gg-welcome-image-button {
+    min-width: 0;
+    font-size: 11px;
+  }
+
+  .gg-welcome-image-button.is-image-overlay {
+    font-size: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gg-welcome-poster {
+    transition: none;
+  }
+
+  .gg-welcome-image-button {
+    transition: none;
+  }
 }
