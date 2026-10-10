@@ -55,6 +55,7 @@ const applicationSchema = new mongoose.Schema(
         "pendingName",
         "pendingCaptainVoteSetup",
         "captainVote",
+        "pendingCaptainDetailsApproval",
         "pendingAdminApproval",
         "rejected",
         "approved",
