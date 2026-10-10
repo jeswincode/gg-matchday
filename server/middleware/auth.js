@@ -122,21 +122,35 @@ export async function requireAuth(
           ? "admin"
           : "viewer";
 
-      user =
-        await User.create({
+      try {
+        user = await User.create({
           firebaseUid,
-
           email,
-
           name,
-
           profileImage: photoURL,
-
           role,
-
-          accessRequest:
-            "none",
+          accessRequest: "none",
         });
+      } catch (createError) {
+        // Several API calls can arrive immediately after the same first login.
+        // If another request inserted this Firebase UID first, reuse that row
+        // instead of turning the losing request into a spurious 401.
+        const firebaseUidCollision =
+          createError?.code === 11000 &&
+          (createError?.keyPattern?.firebaseUid || String(createError?.message || "").includes("firebaseUid_1"));
+        if (!firebaseUidCollision) throw createError;
+
+        user = await User.findOne({ firebaseUid });
+        if (!user) throw createError;
+
+        let changed = false;
+        if (email && email !== user.email) { user.email = email; changed = true; }
+        if (name && name !== user.name) { user.name = name; changed = true; }
+        if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
+        if (email && email === configuredAdminEmail && user.role !== "admin") { user.role = "admin"; changed = true; }
+        if (email && email === configuredAdminEmail && user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+        if (changed) await user.save();
+      }
     } else {
       const configuredAdminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase().trim();
       let changed = false;

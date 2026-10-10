@@ -4,6 +4,7 @@ import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
+import { getClubsConnection } from "../config/clubsDatabase.js";
 import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
 import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
 import { resolvePlayerAttributesReadOnly, refreshPlayerAttributes } from "../services/playerAttributes.js";
@@ -189,6 +190,46 @@ router.delete("/:id", requireAuth, requireEditor, async (req, res) => {
     if (linkedAccount) return res.status(409).json({ message: "This player is linked to a user account and cannot be deleted. Unlink the account first." });
     if (pendingRequest) return res.status(409).json({ message: "This player has a pending profile request and cannot be deleted." });
     if (hasMatchHistory) return res.status(409).json({ message: "This player has match history and cannot be deleted. Keep the profile instead." });
+
+    // Player IDs are referenced by the separate Clubs database as well as by
+    // core Matchday records. Never delete a player while historical Club data
+    // still points at the profile, and fail closed if Clubs is configured but
+    // unavailable so that a temporary DB outage cannot bypass this protection.
+    if (String(process.env.CLUBS_MONGODB_URI || "").trim()) {
+      const clubsConnection = getClubsConnection();
+      if (clubsConnection.readyState !== 1 || !clubsConnection.db) {
+        return res.status(503).json({
+          message: "Clubs data is temporarily unavailable. Player deletion is blocked until Clubs data is healthy.",
+        });
+      }
+
+      const playerId = player._id;
+      const clubReferences = await Promise.all([
+        clubsConnection.collection("clubs").findOne({ $or: [{ memberIds: playerId }, { captainIds: playerId }] }, { projection: { _id: 1 } }),
+        clubsConnection.collection("clubContracts").findOne({ playerId }, { projection: { _id: 1 } }),
+        clubsConnection.collection("clubHistory").findOne({ playerId }, { projection: { _id: 1 } }),
+        clubsConnection.collection("clubFormationApplications").findOne({ $or: [
+          { founderPlayerId: playerId }, { memberIds: playerId }, { "memberApprovals.playerId": playerId },
+          { captainCandidates: playerId }, { "captainVotes.voterPlayerId": playerId },
+          { "captainVotes.candidatePlayerId": playerId }, { electedCaptainIds: playerId },
+          { detailsApprovedBy: playerId },
+        ] }, { projection: { _id: 1 } }),
+        clubsConnection.collection("auctionOffers").findOne({ $or: [{ playerId }, { captainApprovalIds: playerId }] }, { projection: { _id: 1 } }),
+        clubsConnection.collection("joinRequests").findOne({ $or: [{ playerId }, { captainApprovalIds: playerId }] }, { projection: { _id: 1 } }),
+        clubsConnection.collection("playerWallets").findOne({ playerId }, { projection: { _id: 1 } }),
+        clubsConnection.collection("playerWalletTransactions").findOne({ playerId }, { projection: { _id: 1 } }),
+        clubsConnection.collection("clubMatchBets").findOne({ playerId }, { projection: { _id: 1 } }),
+        clubsConnection.collection("clubPlayerStats").findOne({ playerId }, { projection: { _id: 1 } }),
+        clubsConnection.collection("playerReviews").findOne({ $or: [{ reviewerPlayerId: playerId }, { reviewedPlayerId: playerId }] }, { projection: { _id: 1 } }),
+      ]);
+
+      if (clubReferences.some(Boolean)) {
+        return res.status(409).json({
+          message: "This player has Ultimate Clubs history or wallet records and cannot be deleted. Keep the profile to preserve Club records.",
+        });
+      }
+    }
+
     await Player.findByIdAndDelete(req.params.id);
     res.json({ message: "Player deleted.", player });
   } catch (error) { console.error("Error deleting player:", error); res.status(500).json({ message: "Failed to delete player." }); }

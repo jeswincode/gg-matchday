@@ -425,3 +425,24 @@ test("Club model refuses duplicate members and non-member captains", async () =>
   );
 });
 
+
+test("player deletion preserves profiles referenced by Ultimate Clubs history", async () => {
+  const [historicalPlayer] = await Player.create([{
+    name: "Club History Protected Player",
+    position: "CM",
+  }]);
+  await ClubHistory.create({
+    clubId: auctionClub._id,
+    eventType: "memberJoined",
+    playerId: historicalPlayer._id,
+    description: "Historical reference that must survive player-management operations.",
+  });
+
+  const response = await request(`/players/${historicalPlayer._id}`, {
+    method: "DELETE",
+    role: "editor",
+  });
+  assert.equal(response.status, 409, JSON.stringify(response.data));
+  assert.match(response.data.message, /Ultimate Clubs history/i);
+  assert.ok(await Player.exists({ _id: historicalPlayer._id }));
+});

@@ -19,3 +19,21 @@ test('populated participant own goals still credit the opponent',async()=>{
  assert.equal(match.teamA.score,1);
  assert.equal(match.teamB.score,1);
 });
+
+test('validating an existing legacy match with assist-only events preserves stored scores',async()=>{
+ const match=Match.hydrate({
+  _id:new mongoose.Types.ObjectId(),
+  date:new Date('2026-09-12'),
+  name:'Legacy assist-only score preservation',
+  teamA:{label:'Team A',score:2},
+  teamB:{label:'Team B',score:1},
+  participants:[
+   {player:a,team:'A',rating:8,defensivePerformance:7,ownGoals:0},
+   {player:b,team:'B',rating:7,defensivePerformance:6,ownGoals:0},
+  ],
+  events:[{player:a,type:'assist'}],
+ });
+ await match.validate();
+ assert.equal(match.teamA.score,2);
+ assert.equal(match.teamB.score,1);
+});

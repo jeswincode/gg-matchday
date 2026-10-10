@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
+import { buildFallbackMatchNews, normalizeGoalMilestoneHeadline } from "./matchNews.js";
 
 dotenv.config();
 
@@ -20,136 +21,6 @@ function cleanText(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function buildFallbackNews(match) {
-  const teamA =
-    match.teamA?.label ||
-    "Side 1";
-
-  const teamB =
-    match.teamB?.label ||
-    "Side 2";
-
-  const scoreA =
-    Number(
-      match.teamA?.score || 0
-    );
-
-  const scoreB =
-    Number(
-      match.teamB?.score || 0
-    );
-
-  const goalEvents =
-    (
-      match.events || []
-    ).filter(
-      (event) =>
-        event.type === "goal"
-    );
-
-  const scorerCounts = {};
-
-  for (const event of goalEvents) {
-    const playerName =
-      event.player?.name ||
-      "Unknown player";
-
-    scorerCounts[playerName] =
-      (
-        scorerCounts[playerName] ||
-        0
-      ) + 1;
-  }
-
-  const scorers =
-    Object.entries(
-      scorerCounts
-    ).sort(
-      (a, b) =>
-        b[1] - a[1]
-    );
-
-  const topScorer =
-    scorers[0] || null;
-
-  let headline;
-
-  let summary;
-
-  let body;
-
-  let icon;
-
-  if (
-    topScorer &&
-    topScorer[1] >= 3
-  ) {
-    headline =
-      `${topScorer[0]} hits a hat-trick`;
-
-    summary =
-      `${topScorer[0]} scored ${topScorer[1]} times in a standout performance.`;
-
-    body =
-      `${topScorer[0]} found the net ${topScorer[1]} times as ${teamA} and ${teamB} finished ${scoreA}-${scoreB}.`;
-
-    icon = "🔥";
-  } else if (
-    topScorer &&
-    topScorer[1] === 2
-  ) {
-    headline =
-      `${topScorer[0]} bags a brace`;
-
-    summary =
-      `${topScorer[0]} scored twice in ${match.name || "the match"}.`;
-
-    body =
-      `${topScorer[0]} found the net twice as the match finished ${scoreA}-${scoreB}.`;
-
-    icon = "⚡";
-  } else if (
-    scoreA === scoreB
-  ) {
-    headline =
-      `${match.name || "Football Match"} ends all square`;
-
-    summary =
-      `${teamA} and ${teamB} could not be separated after a ${scoreA}-${scoreB} draw.`;
-
-    body =
-      `Both sides finished level at ${scoreA}-${scoreB}.`;
-
-    icon = "🤝";
-  } else {
-    const winner =
-      scoreA > scoreB
-        ? teamA
-        : teamB;
-
-    headline =
-      `${winner} takes the win`;
-
-    summary =
-      `${winner} came out on top in ${match.name || "the match"}.`;
-
-    body =
-      `${winner} finished ahead ${scoreA}-${scoreB}.`;
-
-    icon = "🏆";
-  }
-
-  return {
-    headline,
-    summary,
-    body,
-    icon,
-    generatedBy:
-      "fallback",
-    aiError: null,
-  };
 }
 
 function getVerifiedFacts(match) {
@@ -225,7 +96,7 @@ export async function generateMatchNews(
   match
 ) {
   const fallback =
-    buildFallbackNews(
+    buildFallbackMatchNews(
       match
     );
 
@@ -378,8 +249,9 @@ ${JSON.stringify(
 
     return {
       headline:
-        cleanText(
-          parsed.headline
+        normalizeGoalMilestoneHeadline(
+          cleanText(parsed.headline),
+          match,
         ),
 
       summary:
