@@ -7,7 +7,10 @@ This document is the implementation checklist for the Clubs mode. The source of 
 ### Club formation
 - A club has a minimum of 4 and a maximum of 5 active players.
 - Four or five players must mutually agree before a club can be submitted.
-- The flow is: founder starts formation -> invites the other players -> all selected members accept -> club name proposal -> captain vote -> captain fills club details -> admin approval.
+- The flow is: founder starts formation -> invites the other players -> all selected members accept -> Club name proposal -> captain vote -> elected captain(s) submit and approve non-empty Club details -> admin approval.
+- The application status after the last captain vote is `pendingCaptainDetailsApproval`; it becomes `pendingAdminApproval` only when every elected captain has approved the same saved details text.
+- If a co-captain changes the details text, previous captain approvals are reset so each elected captain must approve the updated text.
+- Only elected captains can submit the details approval. The admin application queue and approval endpoint must reject any formation that has not completed this gate.
 - The fifth player is optional during formation; the fourth invitee creates a 5-player Club.
 - Club names are globally unique across active and archived Clubs.
 - Once an official club name is approved, it is permanent.
