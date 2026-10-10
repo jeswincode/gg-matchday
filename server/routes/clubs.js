@@ -101,8 +101,17 @@ async function normalizeLegacyFormationStage(application) {
   application.status = application.electedCaptainIds?.length
     ? "pendingCaptainDetailsApproval"
     : "pendingCaptainVoteSetup";
-  await application.save();
-  return application;
+  try {
+    await application.save();
+    return application;
+  } catch (error) {
+    // The same legacy application may be opened simultaneously by two members
+    // or by a captain and an admin. Reload the winning transition on a version race.
+    if (error?.name !== "VersionError") throw error;
+    const latest = await ClubFormationApplication.findById(application._id);
+    if (!latest) throw error;
+    return latest;
+  }
 }
 
 async function getActiveContract(playerIds) {
