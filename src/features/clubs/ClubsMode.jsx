@@ -1276,6 +1276,22 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
       )}
+      {(commandCenterLoading && !commandCenter) || (commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear") ? (
+        <section className="clubs-hub-next-action" aria-live="polite">
+          <div className="clubs-hub-next-action-icon" aria-hidden="true">{commandCenterLoading && !commandCenter ? "…" : "!"}</div>
+          <div className="clubs-hub-next-action-copy">
+            <p className="clubs-eyebrow">{commandCenter?.nextAction?.eyebrow || "YOUR NEXT ACTION"}</p>
+            <h3>{commandCenterLoading && !commandCenter ? "Checking your next step…" : commandCenter.nextAction.title}</h3>
+            <p>{commandCenterLoading && !commandCenter ? "Loading formation, fixtures and Club decisions." : commandCenter.nextAction.description}</p>
+          </div>
+          {commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear" && (
+            <button type="button" className="clubs-secondary-button" onClick={() => openCommandAction(commandCenter.nextAction)}>
+              {commandCenter.nextAction.actionLabel || "Open next step →"}
+            </button>
+          )}
+        </section>
+      ) : null}
+
 
       <section className="clubs-hub-stat-grid" aria-label="Club overview">
         <article className="clubs-hub-stat"><span>OFFICIAL CLUBS</span><strong>{loading ? "—" : clubs.length}</strong><small>Browse available Clubs</small></article>
