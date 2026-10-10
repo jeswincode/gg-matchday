@@ -1730,6 +1730,13 @@ html[data-theme="golden"][data-product-mode="clubs"] .clubs-nav-badge {
 .clubs-formation-stepper span[data-state="current"] { color:var(--clubs-accent); }
 .clubs-formation-stepper span[data-state="current"] b { border-color:var(--clubs-accent); color:var(--clubs-accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--clubs-accent) 12%, transparent); }
 .clubs-formation-step-caption { display:block; margin-top:8px; color:var(--clubs-muted); font-size:10px; font-weight:900; letter-spacing:.12em; }
+.clubs-name-proposal { min-width:min(100%,520px); flex-wrap:wrap; align-items:flex-start; }
+.clubs-field-label { width:100%; color:var(--clubs-muted); font-size:11px; font-weight:800; letter-spacing:.06em; }
+.clubs-name-proposal textarea { flex:1 1 280px; min-width:0; width:100%; min-height:88px; resize:vertical; padding:12px 13px; border:1px solid var(--clubs-border); border-radius:12px; background:var(--clubs-surface-2); color:var(--clubs-text); font:inherit; line-height:1.5; }
+.clubs-name-proposal textarea:focus { outline:2px solid color-mix(in srgb,var(--clubs-accent) 55%,transparent); outline-offset:1px; }
+.clubs-name-proposal small { flex-basis:100%; color:var(--clubs-muted); font-size:11px; line-height:1.45; }
+.clubs-formation-status-note { margin:0; padding:12px 14px; border:1px solid var(--clubs-border); border-radius:12px; color:var(--clubs-muted); background:var(--clubs-surface-2); font-size:12px; line-height:1.5; }
+
 
 .clubs-captain-vote { display:grid; gap:12px; min-width:min(100%,520px); }
 .clubs-captain-vote-head { display:flex; justify-content:space-between; gap:12px; align-items:end; }
