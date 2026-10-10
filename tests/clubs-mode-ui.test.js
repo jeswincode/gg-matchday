@@ -11,7 +11,7 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(component, /Ultimate Clubs sections/);
   assert.match(component, /My Club sections/);
   assert.match(component, /clubs-subnav/);
-  assert.match(component, /clubs-next-action/);
+  assert.match(component, /clubs-hub-next-step/);
   assert.match(component, /clubs-formation-stepper/);
   assert.match(component, /clubs-scout-card/);
   assert.match(component, /clubs-review-received/);
@@ -56,7 +56,7 @@ test("Clubs UI supports flexible 4-5 member formation and admin control center",
   assert.match(rules, /CLUB_MIN_MEMBERS = 4/);
   assert.match(rules, /CLUB_MAX_MEMBERS = 5/);
   assert.match(rules, /CLUB_FORMATIONS_5/);
-  assert.match(component, /Build a 4–5 player Club/);
+  assert.match(component, /Form a 4–5 player Club/);
   assert.match(component, /No fifth player/);
   assert.match(component, /activeSection === "adminDashboard"/);
   assert.match(component, /adminOnlyView/);
