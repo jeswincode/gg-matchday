@@ -1047,25 +1047,35 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       </section>
 
       <section className="clubs-hub-next-step">
-        <div className="clubs-hub-next-step-icon" aria-hidden="true">{currentClub ? "⚽" : applications.some(application => !["approved", "rejected"].includes(application.status)) ? "!" : "→"}</div>
+        <div className="clubs-hub-next-step-icon" aria-hidden="true">{commandCenterLoading && !commandCenter ? "…" : commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear" ? "!" : currentClub ? "⚽" : activeFormationApplication ? "!" : "→"}</div>
         <div className="clubs-hub-next-step-copy">
-          <p className="clubs-eyebrow">{currentClub ? "YOUR CLUB" : "YOUR NEXT STEP"}</p>
-          <h3>{currentClub
-            ? currentClub.name + " is ready to manage"
-            : applications.find(application => !["approved", "rejected"].includes(application.status))
-              ? (applications.find(application => !["approved", "rejected"].includes(application.status)).proposedName || "Your Club formation") + " · " + statusLabel(applications.find(application => !["approved", "rejected"].includes(application.status)).status)
-              : authUser ? "Start a Club or explore the directory" : "Sign in to form or join a Club"}</h3>
-          <p>{currentClub
-            ? "Open My Club for your live budget, members, formation, contracts and history."
-            : applications.some(application => !["approved", "rejected"].includes(application.status))
-              ? "Your application and the exact next action are listed in Formation progress below."
-              : "A Club has 4–5 players. Everyone in the proposed squad accepts, captains approve the details, and an admin completes approval."}</p>
+          <p className="clubs-eyebrow">{commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear" ? commandCenter.nextAction.eyebrow : currentClub ? "YOUR CLUB" : "YOUR NEXT STEP"}</p>
+          <h3>{commandCenterLoading && !commandCenter
+            ? "Checking your next step…"
+            : commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear"
+              ? commandCenter.nextAction.title
+              : currentClub
+                ? currentClub.name + " is ready to manage"
+                : activeFormationApplication
+                  ? (activeFormationApplication.proposedName || "Your Club formation") + " · " + statusLabel(activeFormationApplication.status)
+                  : authUser ? "Start a Club or explore the directory" : "Sign in to form or join a Club"}</h3>
+          <p>{commandCenterLoading && !commandCenter
+            ? "Loading formation, fixtures and decisions."
+            : commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear"
+              ? commandCenter.nextAction.description
+              : currentClub
+                ? "Open My Club for your live budget, members, formation, contracts and history."
+                : activeFormationApplication
+                  ? "Your application and the exact next action are listed in Formation progress below."
+                  : "A Club has 4–5 players. Everyone in the proposed squad accepts, captains approve the details, and an admin completes approval."}</p>
         </div>
-        {currentClub
-          ? <button type="button" className="clubs-secondary-button" onClick={() => setActiveSection("myClub")}>Open My Club →</button>
-          : authUser && applications.some(application => !["approved", "rejected"].includes(application.status))
-            ? <button type="button" className="clubs-secondary-button" onClick={() => window.setTimeout(() => document.getElementById("clubs-formation-pipeline")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40)}>View progress →</button>
-            : <button type="button" className="clubs-secondary-button" onClick={() => { if (!authUser) { announce("Sign in with a linked player profile to form a Club."); return; } setShowFormationForm(true); window.setTimeout(() => document.getElementById("clubs-formation-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }}>{authUser ? "Start formation →" : "How it works →"}</button>}
+        {commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear"
+          ? <button type="button" className="clubs-secondary-button" onClick={() => openCommandAction(commandCenter.nextAction)}>{commandCenter.nextAction.actionLabel || "View next step →"}</button>
+          : currentClub
+            ? <button type="button" className="clubs-secondary-button" onClick={() => setActiveSection("myClub")}>Open My Club →</button>
+            : activeFormationApplication
+              ? <button type="button" className="clubs-secondary-button" onClick={() => window.setTimeout(() => document.getElementById("clubs-formation-pipeline")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40)}>View progress →</button>
+              : <button type="button" className="clubs-secondary-button" onClick={() => { if (!authUser) { announce("Sign in with a linked player profile to form a Club."); return; } setShowFormationForm(true); window.setTimeout(() => document.getElementById("clubs-formation-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }}>{authUser ? "Start formation →" : "How it works →"}</button>}
       </section>
 
       <section className="clubs-hub-howto">
