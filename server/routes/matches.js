@@ -8,6 +8,7 @@ import express from "express";
 import Match from "../models/Match.js";
 import Player from "../models/Player.js";
 import News from "../models/News.js";
+import { buildFallbackMatchNews } from "../services/matchNews.js";
 import { calculateGGParticipantRatings } from "../services/ratings/match.js";
 import { refreshPlayerAttributes } from "../services/playerAttributes.js";
 import { rebuildPlayerStatistics } from "../services/persistedStatistics.js";
@@ -238,148 +239,12 @@ async function populateMatch(match) {
 // FALLBACK NEWS
 // ==================================================
 
-function createFallbackNews(match) {
-  const teamA =
-    match.teamA?.label ||
-    "Side 1";
-
-  const teamB =
-    match.teamB?.label ||
-    "Side 2";
-
-  const scoreA =
-    Number(
-      match.teamA?.score || 0
-    );
-
-  const scoreB =
-    Number(
-      match.teamB?.score || 0
-    );
-
-  const goalEvents =
-    (
-      match.events || []
-    ).filter(
-      (event) =>
-        event.type === "goal"
-    );
-
-  const scorerCounts = {};
-
-  for (const event of goalEvents) {
-    const playerName =
-      event.player?.name ||
-      "Unknown player";
-
-    scorerCounts[playerName] =
-      (
-        scorerCounts[playerName] ||
-        0
-      ) + 1;
-  }
-
-  const scorers =
-    Object.entries(
-      scorerCounts
-    ).sort(
-      (a, b) =>
-        b[1] - a[1]
-    );
-
-  const topScorer =
-    scorers[0] || null;
-
-  // DRAW
-  if (scoreA === scoreB) {
-    return {
-      headline:
-        `${match.name || "Football Match"} ends all square`,
-
-      summary:
-        `${teamA} and ${teamB} finished level at ${scoreA}-${scoreB}.`,
-
-      body:
-        `${teamA} and ${teamB} could not be separated as the match ended ${scoreA}-${scoreB}.`,
-
-      icon:
-        "🤝",
-    };
-  }
-
-  // HAT-TRICK
-  if (
-    topScorer &&
-    topScorer[1] >= 3
-  ) {
-    return {
-      headline:
-        `${topScorer[0]} hits a hat-trick`,
-
-      summary:
-        `${topScorer[0]} scored ${topScorer[1]} times in a standout performance.`,
-
-      body:
-        `${topScorer[0]} found the net ${topScorer[1]} times as ${teamA} and ${teamB} finished ${scoreA}-${scoreB}.`,
-
-      icon:
-        "🔥",
-    };
-  }
-
-  // BRACE
-  if (
-    topScorer &&
-    topScorer[1] === 2
-  ) {
-    return {
-      headline:
-        `${topScorer[0]} bags a brace`,
-
-      summary:
-        `${topScorer[0]} scored twice in ${match.name || "the match"}.`,
-
-      body:
-        `${topScorer[0]} found the net twice as the match finished ${scoreA}-${scoreB}.`,
-
-      icon:
-        "⚡",
-    };
-  }
-
-  // NORMAL WIN
-  const winner =
-    scoreA > scoreB
-      ? teamA
-      : teamB;
-
-  return {
-    headline:
-      `${winner} takes the win`,
-
-    summary:
-      `${winner} came out on top in ${match.name || "the match"}.`,
-
-    body:
-      `${winner} finished ahead ${scoreA}-${scoreB} in ${match.name || "the match"}.`,
-
-    icon:
-      "🏆",
-  };
-}
-
-// ==================================================
-// CREATE / UPGRADE NEWS
-// ==================================================
-
 async function createNewsForMatch(
   populatedMatch
 ) {
   try {
     const fallback =
-      createFallbackNews(
-        populatedMatch
-      );
+      buildFallbackMatchNews(populatedMatch);
 
     const firstGoal =
       (
@@ -391,43 +256,22 @@ async function createNewsForMatch(
           "goal"
       );
 
-    // Create fallback immediately.
-    const news =
-      await News.create({
-        type:
-          "match",
+    // Save a fresh replacement before cleaning up the previous article.
+    // If insert fails, the existing match report remains available.
+    const news = await News.create({
+      type: "match",
+      match: populatedMatch._id,
+      featuredPlayer: firstGoal?.player || null,
+      headline: fallback.headline,
+      summary: fallback.summary,
+      body: fallback.body,
+      icon: fallback.icon || "⚽",
+      tags: ["match", "football"],
+      generatedBy: "fallback",
+    });
+    await News.deleteMany({ match: populatedMatch._id, _id: { $ne: news._id } });
 
-        match:
-          populatedMatch._id,
-
-        featuredPlayer:
-          firstGoal?.player ||
-          null,
-
-        headline:
-          fallback.headline,
-
-        summary:
-          fallback.summary,
-
-        body:
-          fallback.body,
-
-        icon:
-          fallback.icon,
-
-        tags: [
-          "match",
-          "football",
-        ],
-
-        generatedBy:
-          "fallback",
-      });
-
-    console.log(
-      "📰 Fallback news created"
-    );
+    console.log("📰 Fallback news created");
 
     /*
       IMPORTANT:
@@ -784,12 +628,6 @@ router.put(
         ...(previous.participants || []).map(participant => String(participant.player)),
         ...(participants || []).map(participant => String(participant.player)),
       ])];
-
-      // Remove old generated article.
-      await News.deleteMany({
-        match:
-          match._id,
-      });
 
       const populatedMatch =
         await populateMatch(
