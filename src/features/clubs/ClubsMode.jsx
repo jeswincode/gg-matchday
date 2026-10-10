@@ -10,8 +10,8 @@ const formationSteps = [
   ["pendingMutualAgreement", "All members accepted"],
   ["pendingName", "Club name"],
   ["captainVote", "Captain election"],
-  ["pendingAdminApproval", "Club details"],
-  ["approved", "Admin approval"],
+  ["pendingCaptainDetailsApproval", "Club details"],
+  ["pendingAdminApproval", "Admin approval"],
 ];
 
 function formationProgress(status) {
@@ -22,7 +22,8 @@ function formationProgress(status) {
     pendingName: 3,
     pendingCaptainVoteSetup: 4,
     captainVote: 4,
-    pendingAdminApproval: 5,
+    pendingCaptainDetailsApproval: 5,
+    pendingAdminApproval: 6,
   };
   return order[status] || 1;
 }
@@ -81,6 +82,7 @@ function statusLabel(status) {
     pendingName: "Ready for club name",
     pendingCaptainVoteSetup: "Captain vote setup",
     captainVote: "Captain vote",
+    pendingCaptainDetailsApproval: "Waiting for captain details approval",
     pendingAdminApproval: "Waiting for admin approval",
     rejected: "Formation rejected",
   }[status] || status;
@@ -774,7 +776,27 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   const captainVote = async (applicationId, candidatePlayerId) => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/captain/vote", { method: "POST", body: { candidatePlayerId } }); await refreshApplications(); await refreshCommandCenter(); announce("Captain vote recorded."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
 
-  const submitDetails = async applicationId => { setError(""); try { setBusyId(applicationId); await api("/clubs/formation/" + applicationId + "/details", { method: "POST", body: { details: detailDrafts[applicationId] || "" } }); await refreshApplications(); announce("Club details approval recorded."); } catch (e) { setError(e.message); } finally { setBusyId(null); } };
+  const submitDetails = async (applicationId, savedDetails = "") => {
+    const details = String(detailDrafts[applicationId] ?? savedDetails ?? "").trim();
+    if (!details) {
+      setError("Add the Club details before approving them.");
+      return;
+    }
+    setError("");
+    try {
+      setBusyId(applicationId);
+      await api("/clubs/formation/" + applicationId + "/details", {
+        method: "POST",
+        body: { details },
+      });
+      await refreshApplications();
+      announce("Club details approval recorded.");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const proposeName = async applicationId => {
     const name = String(clubNameDrafts[applicationId] || "").trim();
@@ -1282,6 +1304,33 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 const canName =
                   application.status === "pendingName" &&
                   application.memberApprovals?.every(item => item.status === "accepted");
+                const isElectedCaptain = application.electedCaptainIds?.some(
+                  id => String(id) === currentPlayerId,
+                );
+                const hasApprovedDetails = application.detailsApprovedBy?.some(
+                  id => String(id) === currentPlayerId,
+                );
+                const detailsAreComplete = Boolean(String(application.details || "").trim()) &&
+                  (application.electedCaptainIds || []).length > 0 &&
+                  application.electedCaptainIds.every(id =>
+                    application.detailsApprovedBy?.some(approved => String(approved) === String(id)),
+                  );
+                const canApproveDetails =
+                  application.status === "pendingCaptainDetailsApproval" &&
+                  isElectedCaptain &&
+                  !hasApprovedDetails;
+                const waitingForCaptainDetails =
+                  application.status === "pendingCaptainDetailsApproval" &&
+                  !isElectedCaptain;
+                const waitingForCoCaptain =
+                  application.status === "pendingCaptainDetailsApproval" &&
+                  isElectedCaptain &&
+                  hasApprovedDetails;
+                const legacyDetailsStage =
+                  application.status === "pendingAdminApproval" &&
+                  !detailsAreComplete &&
+                  isElectedCaptain &&
+                  !hasApprovedDetails;
 
                 return (
                   <article className="clubs-application" key={application._id}>
@@ -1293,7 +1342,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                         {formationSteps.map(([stepStatus, label], index) => {
                           const step = index + 1;
                           const progress = formationProgress(application.status);
-                          const state = step < progress ? "done" : step === progress ? "current" : "todo";
+                          const state = application.status === "approved"
+                            ? "done"
+                            : step < progress ? "done" : step === progress ? "current" : "todo";
                           return <span key={stepStatus + label} data-state={state}><b>{state === "done" ? "✓" : step}</b>{label}</span>;
                         })}
                       </div>
@@ -1357,11 +1408,46 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                         <small className="clubs-captain-vote-note">Candidates are the two highest-OVR players in this formation. Every member must vote; a tie creates co-captains.</small>
                       </div>
                     )}
-                    {application.status === "pendingAdminApproval" && (
+                    {canApproveDetails && (
                       <div className="clubs-name-proposal">
-                        <input value={detailDrafts[application._id] || ""} onChange={event => setDetailDrafts(current => ({ ...current, [application._id]: event.target.value }))} placeholder="Club details / identity" maxLength={500} />
-                        <button type="button" className="clubs-primary-button" disabled={busyId === application._id} onClick={() => submitDetails(application._id)}>Approve Details</button>
+                        <label className="clubs-field-label" htmlFor={"club-details-" + application._id}>Club details / identity</label>
+                        <textarea
+                          id={"club-details-" + application._id}
+                          value={detailDrafts[application._id] ?? application.details ?? ""}
+                          onChange={event => setDetailDrafts(current => ({ ...current, [application._id]: event.target.value }))}
+                          placeholder="Describe your Club identity, values, or squad focus"
+                          maxLength={500}
+                          rows={3}
+                        />
+                        <small>All elected captain(s) must approve the same non-empty details before admin review.</small>
+                        <button type="button" className="clubs-primary-button" disabled={busyId === application._id} onClick={() => submitDetails(application._id, application.details)}>
+                          {busyId === application._id ? "Saving…" : "Approve Details"}
+                        </button>
                       </div>
+                    )}
+                    {waitingForCoCaptain && (
+                      <p className="clubs-formation-status-note">Your details approval is recorded. Waiting for the other elected captain to approve the same details.</p>
+                    )}
+                    {waitingForCaptainDetails && (
+                      <p className="clubs-formation-status-note">Waiting for the elected captain(s) to confirm the Club details.</p>
+                    )}
+                    {legacyDetailsStage && (
+                      <div className="clubs-name-proposal">
+                        <label className="clubs-field-label" htmlFor={"club-details-" + application._id}>Club details / identity</label>
+                        <textarea
+                          id={"club-details-" + application._id}
+                          value={detailDrafts[application._id] ?? application.details ?? ""}
+                          onChange={event => setDetailDrafts(current => ({ ...current, [application._id]: event.target.value }))}
+                          placeholder="Describe your Club identity, values, or squad focus"
+                          maxLength={500}
+                          rows={3}
+                        />
+                        <small>All elected captain(s) must approve the same non-empty details before admin review.</small>
+                        <button type="button" className="clubs-primary-button" disabled={busyId === application._id} onClick={() => submitDetails(application._id, application.details)}>Approve Details</button>
+                      </div>
+                    )}
+                    {application.status === "pendingAdminApproval" && detailsAreComplete && (
+                      <p className="clubs-formation-status-note">All elected captain(s) approved the details. Waiting for administrator approval.</p>
                     )}
                   </article>
                 );
