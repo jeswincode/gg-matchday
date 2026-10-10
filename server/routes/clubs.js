@@ -60,6 +60,7 @@ const FORMATION_ACTIVE_STATUSES = [
   "pendingName",
   "pendingCaptainVoteSetup",
   "captainVote",
+  "pendingCaptainDetailsApproval",
   "pendingAdminApproval",
 ];
 
@@ -81,6 +82,27 @@ function requireLinkedPlayer(req, res) {
     return null;
   }
   return playerId;
+}
+
+function captainDetailsAreApproved(application) {
+  const elected = (application?.electedCaptainIds || []).map(String);
+  const approvals = new Set((application?.detailsApprovedBy || []).map(String));
+  const details = String(application?.details || "").trim();
+  return Boolean(details) && elected.length > 0 && elected.every(id => approvals.has(id));
+}
+
+// Older deployments used pendingAdminApproval immediately after the captain vote.
+// Move unfinished applications back to the correct details stage when they are read.
+async function normalizeLegacyFormationStage(application) {
+  if (application?.status !== "pendingAdminApproval" || captainDetailsAreApproved(application)) {
+    return application;
+  }
+
+  application.status = application.electedCaptainIds?.length
+    ? "pendingCaptainDetailsApproval"
+    : "pendingCaptainVoteSetup";
+  await application.save();
+  return application;
 }
 
 async function getActiveContract(playerIds) {
@@ -238,7 +260,7 @@ router.get("/home", requireAuth, async (req, res) => {
       : [];
 
     const pendingFormation = applications.find(application =>
-      ["pendingMutualAgreement", "pendingName", "pendingCaptainVoteSetup", "captainVote", "pendingAdminApproval"].includes(application.status)
+      ["pendingMutualAgreement", "pendingName", "pendingCaptainVoteSetup", "captainVote", "pendingCaptainDetailsApproval", "pendingAdminApproval"].includes(application.status)
     );
 
     let nextAction = null;
@@ -288,6 +310,18 @@ router.get("/home", requireAuth, async (req, res) => {
             actionLabel: "CAST YOUR VOTE →",
           };
         }
+      } else if (pendingFormation.status === "pendingCaptainDetailsApproval") {
+        const isElectedCaptain = pendingFormation.electedCaptainIds?.some(id => String(id) === String(playerId));
+        nextAction = {
+          type: "formation-details",
+          section: "overview",
+          eyebrow: "CLUB FORMATION",
+          title: isElectedCaptain ? "Confirm Club details" : "Captain details approval pending",
+          description: isElectedCaptain
+            ? "Review the Club identity and approve the details before admin review."
+            : "The elected captain(s) must approve the Club details before admin review.",
+          actionLabel: isElectedCaptain ? "CONFIRM CLUB DETAILS →" : "VIEW FORMATION →",
+        };
       }
     }
 
@@ -467,9 +501,11 @@ router.get("/formation/me", requireAuth, async (req, res) => {
   try {
     const applications = await ClubFormationApplication.find({
       memberIds: playerId,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    }).sort({ createdAt: -1 });
+
+    for (const application of applications) {
+      await normalizeLegacyFormationStage(application);
+    }
 
     const allMemberIds = [...new Set(applications.flatMap(application => (application.memberIds || []).map(String)))];
     const memberPlayers = allMemberIds.length
@@ -480,7 +516,7 @@ router.get("/formation/me", requireAuth, async (req, res) => {
     const playersById = new Map(memberPlayers.map(player => [String(player._id), player]));
 
     const enriched = applications.map(application => ({
-      ...application,
+      ...application.toObject(),
       members: (application.memberIds || []).map(id => playersById.get(String(id)) || { _id: id, name: "Player" }),
     }));
 
@@ -1918,7 +1954,9 @@ router.post("/formation/:id/captain/vote", requireAuth, async (req, res) => {
     if (allMembersVoted) {
       const elected = resolveCaptainVote(application.captainCandidates, application.captainVotes);
       application.electedCaptainIds = elected;
-      application.status = "pendingAdminApproval";
+      application.details = "";
+      application.detailsApprovedBy = [];
+      application.status = "pendingCaptainDetailsApproval";
     }
 
     await application.save();
@@ -1935,27 +1973,54 @@ router.post("/formation/:id/details", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ message: "Invalid formation application id." });
+  }
   try {
     const application = await ClubFormationApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ message: "Club formation application not found." });
-    if (application.status !== "pendingAdminApproval") return res.status(409).json({ message: "Captain voting must be completed before club details are submitted." });
-    if (!application.electedCaptainIds.some(id => String(id) === String(playerId))) return res.status(403).json({ message: "Only the elected captain(s) can submit club details." });
-    if (application.electedCaptainIds.length === 2 && application.detailsApprovedBy?.some(id => String(id) === String(playerId))) return res.status(409).json({ message: "You have already approved these club details." });
-    const details = String(req.body?.details || "").trim();
-    if (String(application.details || "") !== details) {
+
+    // Older deployments used pendingAdminApproval for both captain details and admin review.
+    await normalizeLegacyFormationStage(application);
+    if (application.status !== "pendingCaptainDetailsApproval") {
+      return res.status(409).json({ message: "Club details are not awaiting captain approval." });
+    }
+    const electedCaptainIds = (application.electedCaptainIds || []).map(String);
+    if (!electedCaptainIds.includes(String(playerId))) {
+      return res.status(403).json({ message: "Only elected Club captains can approve Club details." });
+    }
+    if ((application.detailsApprovedBy || []).some(id => String(id) === String(playerId))) {
+      return res.status(409).json({ message: "You have already approved these Club details." });
+    }
+
+    const details = String(req.body?.details ?? application.details ?? "").trim();
+    if (!details) {
+      return res.status(400).json({ message: "Club details are required before approval." });
+    }
+    if (details.length > 500) {
+      return res.status(400).json({ message: "Club details must be 500 characters or fewer." });
+    }
+
+    if (String(application.details || "").trim() !== details) {
       application.details = details;
       application.detailsApprovedBy = [playerId];
     } else {
-      application.detailsApprovedBy = [...new Set([...(application.detailsApprovedBy || []).map(String), String(playerId)])];
+      application.detailsApprovedBy = [
+        ...new Set([...(application.detailsApprovedBy || []).map(String), String(playerId)]),
+      ];
     }
-    if (application.electedCaptainIds.every(id => application.detailsApprovedBy.some(approved => String(approved) === String(id)))) {
+
+    if (electedCaptainIds.every(id => application.detailsApprovedBy.some(approved => String(approved) === id))) {
       application.status = "pendingAdminApproval";
     }
     await application.save();
     return res.json(application);
   } catch (error) {
     console.error("Club details submission error:", error);
-    return res.status(400).json({ message: error.message || "Failed to save club details." });
+    if (error?.name === "VersionError") {
+      return res.status(409).json({ message: "Club details changed while you were approving them. Refresh and try again." });
+    }
+    return res.status(400).json({ message: error.message || "Failed to save Club details." });
   }
 });
 
@@ -2202,10 +2267,18 @@ async function buildAdminApplicationSnapshot(application) {
 router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
-    const applications = await ClubFormationApplication.find({ status: "pendingAdminApproval" })
-      .sort({ createdAt: 1 })
-      .lean();
-    return res.json(await Promise.all(applications.map(buildAdminApplicationSnapshot)));
+    const applications = await ClubFormationApplication.find({
+      status: { $in: ["pendingCaptainDetailsApproval", "pendingAdminApproval"] },
+    }).sort({ createdAt: 1 });
+
+    for (const application of applications) {
+      await normalizeLegacyFormationStage(application);
+    }
+
+    const readyForAdmin = applications
+      .filter(application => application.status === "pendingAdminApproval" && captainDetailsAreApproved(application))
+      .map(application => application.toObject());
+    return res.json(await Promise.all(readyForAdmin.map(buildAdminApplicationSnapshot)));
   } catch (error) {
     console.error("Load Clubs admin applications error:", error);
     return res.status(500).json({ message: "Failed to load Club applications." });
@@ -2238,7 +2311,8 @@ router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async 
     await session.withTransaction(async () => {
       const application = await ClubFormationApplication.findById(req.params.id).session(session);
       if (!application) throw new Error("Club formation application not found.");
-      if (application.status !== "pendingAdminApproval") throw new Error("Only pending applications can be approved.");
+      if (application.status !== "pendingAdminApproval") throw new Error("Club details must be approved by all elected captains before admin approval.");
+      if (!captainDetailsAreApproved(application)) throw new Error("Every elected captain must approve non-empty Club details before admin approval.");
       if (application.electedCaptainIds.length < 1) throw new Error("The club must have at least one elected captain.");
       const activeContracts = await ClubContract.find({ playerId: { $in: application.memberIds }, status: "active" }).session(session);
       if (activeContracts.length) throw new Error("A selected player is already in an active club.");
