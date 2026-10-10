@@ -1071,16 +1071,18 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <button aria-current={activeSection === "adminMatches" ? "page" : undefined} className={activeSection === "adminMatches" ? "active" : ""} type="button" onClick={() => setActiveSection("adminMatches")}>Matches</button>
         </nav>
       ) : (
-        <nav className="clubs-nav" aria-label="Clubs navigation">
-          <button data-primary-tab="overview" aria-current={activeSection === "overview" && ultimateSubsection === "overview" ? "page" : undefined} className={activeSection === "overview" && ultimateSubsection === "overview" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("overview")}>Club Hub</button>
-          <button data-primary-tab="myClub" aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("myClub")}>My Club</button>
-          <button data-primary-tab="market" aria-current={activeSection === "market" ? "page" : undefined} className={activeSection === "market" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("market")}>Market</button>
-          <button data-primary-tab="matches" aria-current={activeSection === "overview" && ultimateSubsection === "matches" ? "page" : undefined} className={activeSection === "overview" && ultimateSubsection === "matches" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
-          <button data-primary-tab="players" aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("players")}>Players</button>
-          <button data-primary-tab="reviews" aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("reviews")}>Reviews</button>
-          {isAdmin && <button data-primary-tab="admin" aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("admin")}>Admin</button>}
-        </nav>
-        <p className="clubs-swipe-hint" aria-hidden="true">Swipe left or right to switch tabs</p>
+        <>
+          <nav className="clubs-nav" aria-label="Clubs navigation">
+            <button data-primary-tab="overview" aria-current={activeSection === "overview" && ultimateSubsection === "overview" ? "page" : undefined} className={activeSection === "overview" && ultimateSubsection === "overview" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("overview")}>Club Hub</button>
+            <button data-primary-tab="myClub" aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("myClub")}>My Club</button>
+            <button data-primary-tab="market" aria-current={activeSection === "market" ? "page" : undefined} className={activeSection === "market" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("market")}>Market</button>
+            <button data-primary-tab="matches" aria-current={activeSection === "overview" && ultimateSubsection === "matches" ? "page" : undefined} className={activeSection === "overview" && ultimateSubsection === "matches" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
+            <button data-primary-tab="players" aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("players")}>Players</button>
+            <button data-primary-tab="reviews" aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("reviews")}>Reviews</button>
+            {isAdmin && <button data-primary-tab="admin" aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("admin")}>Admin</button>}
+          </nav>
+          <p className="clubs-swipe-hint" aria-hidden="true">Swipe left or right to switch tabs</p>
+        </>
       )}
 
       {error && <div className="clubs-error" role="alert">{error}</div>}
