@@ -649,6 +649,14 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
   const currentClub =
     clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null;
+  const activeFormationApplication = applications.find(application => !["approved", "rejected"].includes(application.status)) || null;
+  const currentClubMatches = currentClub
+    ? clubMatches.filter(match => [String(match.clubAId), String(match.clubBId)].includes(String(currentClub._id)))
+    : [];
+  const nextClubMatch = currentClubMatches
+    .filter(match => ["requested", "accepted"].includes(match.status))
+    .sort((a, b) => new Date(a.scheduledAt || a.fixtureDate || 0) - new Date(b.scheduledAt || b.fixtureDate || 0))[0] || null;
+  const completedClubMatches = currentClubMatches.filter(match => match.status === "completed");
   const playerCredits = Math.max(0, Number(wallet?.wallet?.balance ?? 0));
   const recentPlayerTransactions = Array.isArray(wallet?.transactions) ? wallet.transactions.slice(0, 3) : [];
   const clubTotalBudget = Math.max(0, Number(clubWallet?.club?.balance ?? currentClub?.balance ?? 0));
@@ -998,7 +1006,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </nav>
       ) : (
         <nav className="clubs-nav" aria-label="Clubs navigation">
-          <button aria-current={activeSection === "overview" ? "page" : undefined} className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("overview"); }}>Ultimate Clubs</button>
+          <button aria-current={activeSection === "overview" ? "page" : undefined} className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("overview"); }}>Club Hub</button>
           <button aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => { setActiveSection("myClub"); setMyClubSubsection("squad"); }}>My Club</button>
           <button aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
           <button aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
@@ -1861,11 +1869,27 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       )}
       <section className="clubs-section clubs-my-club-panel">
           {!currentClub ? (
-            <div className="clubs-empty clubs-empty--hero">
+            <div className="clubs-empty clubs-empty--hero clubs-myclub-empty">
               <span className="clubs-empty-icon">⚽</span>
-              <strong>You are not currently under a Club contract.</strong>
-              <span>Your previous Club history remains preserved. Explore the Clubs world to form a squad or join an existing Club.</span>
-              <button type="button" className="clubs-primary-button" onClick={() => setActiveSection("overview")}>Explore Clubs</button>
+              {activeFormationApplication ? (
+                <>
+                  <p className="clubs-eyebrow">FORMATION IN PROGRESS</p>
+                  <strong>{activeFormationApplication.proposedName || "Your Club formation"} is not an official Club yet.</strong>
+                  <span>Status: {statusLabel(activeFormationApplication.status)}. Your proposed squad and next action remain available in the Club Hub; Club spending and contracts activate only after admin approval.</span>
+                  <button type="button" className="clubs-primary-button" onClick={() => {
+                    setActiveSection("overview");
+                    setUltimateSubsection("overview");
+                    window.setTimeout(() => document.getElementById("clubs-formation-pipeline")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+                  }}>View formation progress</button>
+                </>
+              ) : (
+                <>
+                  <p className="clubs-eyebrow">YOUR CLUB DASHBOARD</p>
+                  <strong>You are not currently under a Club contract.</strong>
+                  <span>Your previous Club history remains preserved. Form a squad or browse approved Clubs to get started.</span>
+                  <button type="button" className="clubs-primary-button" onClick={() => setActiveSection("overview")}>Explore Club Hub</button>
+                </>
+              )}
             </div>
           ) : (
             <>
@@ -1904,6 +1928,39 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   <small>{clubReservedPercent}% reserved · {clubAvailableBudget.toLocaleString("en-IN")} credits remain available for new offers.</small>
                 </div>
               </header>
+
+              <section className="clubs-myclub-overview-grid" aria-label="My Club at a glance">
+                <article className="clubs-myclub-overview-stat">
+                  <span>ACTIVE SQUAD</span>
+                  <strong>{currentClub.memberIds?.length || 0}/5</strong>
+                  <small>{currentClub.captainIds?.length || 0} elected captain(s)</small>
+                </article>
+                <article className="clubs-myclub-overview-stat">
+                  <span>TEAM OVR</span>
+                  <strong>{clubOvr ?? "—"}</strong>
+                  <small>{squadHasCompleteOvr ? "Squad rating available" : "Developing from recorded player data"}</small>
+                </article>
+                <article className="clubs-myclub-overview-stat">
+                  <span>CLUB MATCHES</span>
+                  <strong>{completedClubMatches.length}</strong>
+                  <small>Completed fixtures and history</small>
+                </article>
+                <article className="clubs-myclub-overview-stat clubs-myclub-next-fixture">
+                  <span>{nextClubMatch ? "NEXT FIXTURE" : "FIXTURE STATUS"}</span>
+                  <strong>{nextClubMatch ? (nextClubMatch.clubAName || clubName(nextClubMatch.clubAId)) + " vs " + (nextClubMatch.clubBName || clubName(nextClubMatch.clubBId)) : "No upcoming fixture"}</strong>
+                  <small>{nextClubMatch
+                    ? (nextClubMatch.fixtureDate || new Date(nextClubMatch.scheduledAt).toLocaleDateString("en-IN")) + " · " + nextClubMatch.status
+                    : "Accepted and requested Club matches appear in Matches."}</small>
+                </article>
+              </section>
+
+              <div className="clubs-myclub-quick-actions">
+                <div><p className="clubs-eyebrow">QUICK ACTIONS</p><strong>Manage your Club without hunting through tabs.</strong></div>
+                <div className="clubs-myclub-quick-action-buttons">
+                  <button type="button" className="clubs-secondary-button" onClick={() => setMyClubSubsection("auctions")}>Manage signings →</button>
+                  <button type="button" className="clubs-secondary-button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("matches"); window.setTimeout(() => document.getElementById("clubs-match-center")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }}>Club matches →</button>
+                </div>
+              </div>
 
               <div className="clubs-command-grid">
                 <section className="clubs-squad-panel">
