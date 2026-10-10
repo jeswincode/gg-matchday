@@ -141,7 +141,20 @@ router.get("/overview", safe(async (req, res) => {
           },
           hasDetailedData: {
             $or: [
-              { $gt: [{ $size: { $ifNull: ["$events", []] } }, 0] },
+              {
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: { $ifNull: ["$events", []] },
+                        as: "event",
+                        cond: { $eq: ["$event.type", "goal"] },
+                      },
+                    },
+                  },
+                  0,
+                ],
+              },
               {
                 $gt: [
                   {
