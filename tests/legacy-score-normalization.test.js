@@ -15,3 +15,18 @@ test("event-backed matches still normalize their score", () => {
   assert.equal(match.teamA.score,2);
   assert.equal(match.teamB.score,1);
 });
+
+test("legacy matches with assist-only events preserve their stored score", () => {
+  const match = {
+    teamA: { score: 2 },
+    teamB: { score: 1 },
+    participants: [
+      { player: "a", team: "A", ownGoals: 0 },
+      { player: "b", team: "B", ownGoals: 0 },
+    ],
+    events: [{ player: "a", type: "assist" }],
+  };
+  normalizeMatchScores(match);
+  assert.equal(match.teamA.score, 2);
+  assert.equal(match.teamB.score, 1);
+});
