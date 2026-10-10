@@ -8,6 +8,10 @@ test("Welcome screen displays the supplied poster with a real Enter Matchday but
   const app = fs.readFileSync("src/App.jsx", "utf8");
 
   assert.match(component, /src="\/enter-matchday\.png"/);
+  assert.match(component, /className=\{\x60gg-welcome-poster-frame\$\{posterLoaded \? " is-loaded" : ""\}\$\{!posterLoaded && !posterFailed \? " is-loading" : ""\}/);
+  assert.match(component, /fetchPriority="high"/);
+  assert.match(component, /loading="eager"/);
+  assert.match(styles, /\.gg-welcome-poster-frame\.is-loading \.gg-welcome-image-button/);
   assert.match(component, /className="gg-welcome-screen gg-welcome-image-screen"/);
   assert.match(component, /className=\{\x60gg-welcome-image-button/);
   assert.match(component, /onClick=\{onEnter\}/);
