@@ -164,8 +164,8 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
   }
 
   .gg-welcome-poster-frame {
-    top: 33dvh;
-    width: min(142vw, 700px);
+    top: 0;
+    width: min(175vw, 700px);
     height: auto;
     aspect-ratio: 1648 / 719;
     overflow: hidden;
@@ -190,7 +190,7 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
   .gg-welcome-mobile-button {
     position: absolute;
     z-index: 3;
-    top: 53dvh;
+    top: calc(min(76.35vw, 305.5px) + 12px);
     left: 50%;
     display: flex;
     align-items: center;
@@ -237,7 +237,7 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
 
   .gg-welcome-mobile-footer {
     position: absolute;
-    top: calc(53dvh + clamp(52px, 7dvh, 64px) + 22px);
+    top: calc(min(76.35vw, 305.5px) + clamp(52px, 7dvh, 64px) + 34px);
     left: 0;
     right: 0;
     display: block;
@@ -253,7 +253,7 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
   }
 
   .gg-welcome-poster-frame.has-error {
-    top: 42dvh;
+    top: 12dvh;
     width: min(90vw, 620px);
     min-height: 180px;
     aspect-ratio: auto;
