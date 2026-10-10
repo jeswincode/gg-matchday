@@ -63,3 +63,39 @@ test("editor can authenticate and record a match through the real browser and AP
   await expect(page.getByText("Match recorded.")).toBeVisible();
   await expect(page.getByText("E2E Browser Regression Match")).toBeVisible();
 });
+
+test("Clubs Hub exposes task-based primary tabs and supports mobile swipe navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  const clubsApp = page.locator(".clubs-app");
+  await expect(clubsApp).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Club Hub" })).toBeVisible();
+
+  const nav = page.getByRole("navigation", { name: "Clubs navigation" });
+  for (const label of ["Club Hub", "My Club", "Market", "Matches", "Players", "Reviews"]) {
+    await expect(nav.getByRole("button", { name: new RegExp(label) })).toBeVisible();
+  }
+
+  // A left swipe on non-interactive page content advances one primary tab.
+  await clubsApp.evaluate(element => {
+    const start = new Event("touchstart", { bubbles: true });
+    Object.defineProperty(start, "changedTouches", { value: [{ clientX: 325, clientY: 370 }] });
+    element.dispatchEvent(start);
+    const end = new Event("touchend", { bubbles: true });
+    Object.defineProperty(end, "changedTouches", { value: [{ clientX: 185, clientY: 372 }] });
+    element.dispatchEvent(end);
+  });
+  await expect(nav.locator('[data-primary-tab="myClub"]')).toHaveAttribute("aria-current", "page");
+
+  // Market is a separate first-class destination, not a nested My Club tab.
+  await nav.getByRole("button", { name: "Market" }).click();
+  await expect(page.getByRole("heading", { name: "Send a signing offer" })).toBeVisible();
+  await expect(nav.locator('[data-primary-tab="market"]')).toHaveAttribute("aria-current", "page");
+
+  await nav.getByRole("button", { name: "Matches" }).click();
+  await expect(page.getByRole("heading", { name: "Schedule & fixtures" })).toBeVisible();
+  await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
+});

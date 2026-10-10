@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import "./clubs-mode.css";
 
@@ -103,6 +103,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [loading, setLoading] = useState(true);
   const [formationLoading, setFormationLoading] = useState(false);
   const [showFormationForm, setShowFormationForm] = useState(false);
+  const [showClubGuide, setShowClubGuide] = useState(false);
+  const swipeStartRef = useRef(null);
   const [respondingId, setRespondingId] = useState(null);
   const [nameSavingId, setNameSavingId] = useState(null);
   const [error, setError] = useState("");
@@ -319,9 +321,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   const openCommandAction = action => {
     if (!action) return;
-    if (action.section === "myClub") {
+    if (action.section === "myClub" && action.subsection === "auctions") {
+      setActiveSection("market");
+    } else if (action.section === "myClub") {
       setActiveSection("myClub");
-      setMyClubSubsection(action.subsection === "auctions" ? "auctions" : "squad");
+      setMyClubSubsection("squad");
     } else if (action.subsection === "matches") {
       setActiveSection("overview");
       setUltimateSubsection("matches");
@@ -681,6 +685,61 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     : (meta?.formations4?.length ? meta.formations4 : formationLabels4);
   const safeFormation = formations.includes(formation) ? formation : formations[0];
 
+  const primaryTabKeys = adminOnlyView
+    ? ["adminDashboard", "adminApplications", "adminClubs", "adminMatches"]
+    : ["overview", "myClub", "market", "matches", "players", "reviews", ...(isAdmin ? ["admin"] : [])];
+  const activePrimaryTabKey = adminOnlyView
+    ? activeSection
+    : activeSection === "overview"
+      ? ultimateSubsection === "matches" ? "matches" : "overview"
+      : activeSection;
+  const primaryTabLabels = {
+    overview: "Club Hub", myClub: "My Club", market: "Market", matches: "Matches",
+    players: "Players", reviews: "Reviews", admin: "Admin",
+    adminDashboard: "Dashboard", adminApplications: "Applications", adminClubs: "Clubs", adminMatches: "Matches",
+  };
+  const navigatePrimaryTab = key => {
+    if (adminOnlyView) {
+      setActiveSection(key);
+      return;
+    }
+    if (key === "overview") {
+      setActiveSection("overview");
+      setUltimateSubsection("overview");
+    } else if (key === "matches") {
+      setActiveSection("overview");
+      setUltimateSubsection("matches");
+    } else if (key === "myClub") {
+      setActiveSection("myClub");
+      setMyClubSubsection("squad");
+    } else {
+      setActiveSection(key);
+    }
+    announce("Opened " + (primaryTabLabels[key] || "Club") + ".");
+  };
+  const handleClubsTouchStart = event => {
+    const target = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
+    if (target?.closest?.("input, textarea, select, button, a, [contenteditable='true'], [data-no-tab-swipe], .clubs-nav, .clubs-section-tabs, .clubs-subnav")) {
+      swipeStartRef.current = null;
+      return;
+    }
+    const touch = event.changedTouches?.[0];
+    swipeStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+  const handleClubsTouchEnd = event => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+    if (!start) return;
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 72 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+    const currentIndex = primaryTabKeys.indexOf(activePrimaryTabKey);
+    if (currentIndex < 0) return;
+    const nextIndex = dx < 0 ? Math.min(primaryTabKeys.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
+    if (nextIndex !== currentIndex) navigatePrimaryTab(primaryTabKeys[nextIndex]);
+  };
   const currentClubMemberKey = (currentClub?.memberIds || []).map(String).join(",");
 
   useEffect(() => {
@@ -934,7 +993,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [authUser, activeSection, playersSubsection]);
 
   useEffect(() => {
-    if (!authUser || activeSection !== "myClub" || myClubSubsection !== "auctions") return undefined;
+    if (!authUser || activeSection !== "market") return undefined;
     let active = true;
     api("/clubs/auction/me")
       .then(data => {
@@ -946,7 +1005,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection, myClubSubsection]);
+  }, [authUser, activeSection]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "myClub" || myClubSubsection !== "squad" || !currentClub?._id) return undefined;
@@ -980,14 +1039,21 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     ? Math.round(clubOvrValues.reduce((sum, value) => sum + value, 0) / clubOvrValues.length)
     : null;
 
+  useEffect(() => {
+    const activeTab = document.querySelector('.clubs-nav [data-primary-tab="' + activePrimaryTabKey + '"]');
+    activeTab?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activePrimaryTabKey]);
+
   return (
-    <main className="clubs-app">
+    <main className="clubs-app" onTouchStart={handleClubsTouchStart} onTouchEnd={handleClubsTouchEnd} onTouchCancel={() => { swipeStartRef.current = null; }}>
       <header className="clubs-topbar">
         <div>
-          <p className="clubs-eyebrow">GG MATCHDAY / CLUBS</p>
-          <h1>Ultimate Clubs</h1>
+          <p className="clubs-eyebrow">GG MATCHDAY / ULTIMATE CLUBS</p>
+          <h1>{adminOnlyView ? "Clubs Admin" : "Club Hub"}</h1>
           <p className="clubs-subtitle">
-            Your Club world — squad identity, player market, matchday economy and competitive history.
+            {adminOnlyView
+              ? "Approvals, Club operations and matchday oversight."
+              : "Explore, form and manage your football world."}
           </p>
         </div>
         <button type="button" className="clubs-return-button" onClick={onReturnToMatchday}>
@@ -1005,13 +1071,18 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <button aria-current={activeSection === "adminMatches" ? "page" : undefined} className={activeSection === "adminMatches" ? "active" : ""} type="button" onClick={() => setActiveSection("adminMatches")}>Matches</button>
         </nav>
       ) : (
-        <nav className="clubs-nav" aria-label="Clubs navigation">
-          <button aria-current={activeSection === "overview" ? "page" : undefined} className={activeSection === "overview" ? "active" : ""} type="button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("overview"); }}>Club Hub</button>
-          <button aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => { setActiveSection("myClub"); setMyClubSubsection("squad"); }}>My Club</button>
-          <button aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => setActiveSection("players")}>Players</button>
-          <button aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => setActiveSection("reviews")}>Reviews</button>
-          {isAdmin && <button aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => setActiveSection("admin")}>Admin</button>}
-        </nav>
+        <>
+          <nav className="clubs-nav" aria-label="Clubs navigation">
+            <button data-primary-tab="overview" aria-current={activeSection === "overview" && ultimateSubsection === "overview" ? "page" : undefined} className={activeSection === "overview" && ultimateSubsection === "overview" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("overview")}>Club Hub</button>
+            <button data-primary-tab="myClub" aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("myClub")}>My Club</button>
+            <button data-primary-tab="market" aria-current={activeSection === "market" ? "page" : undefined} className={activeSection === "market" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("market")}>Market</button>
+            <button data-primary-tab="matches" aria-current={activeSection === "overview" && ultimateSubsection === "matches" ? "page" : undefined} className={activeSection === "overview" && ultimateSubsection === "matches" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
+            <button data-primary-tab="players" aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("players")}>Players</button>
+            <button data-primary-tab="reviews" aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("reviews")}>Reviews</button>
+            {isAdmin && <button data-primary-tab="admin" aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("admin")}>Admin</button>}
+          </nav>
+          <p className="clubs-swipe-hint" aria-hidden="true">Swipe left or right to switch tabs</p>
+        </>
       )}
 
       {error && <div className="clubs-error" role="alert">{error}</div>}
@@ -1019,71 +1090,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
       {activeSection === "overview" && ultimateSubsection === "overview" ? (
         <>
-      <div className="clubs-section-tabs" role="tablist" aria-label="Club Hub sections">
-        <button type="button" role="tab" aria-selected={ultimateSubsection === "overview"} className={ultimateSubsection === "overview" ? "active" : ""} onClick={() => setUltimateSubsection("overview")}>Club Hub</button>
-        <button type="button" role="tab" aria-selected={ultimateSubsection === "matches"} className={ultimateSubsection === "matches" ? "active" : ""} onClick={() => setUltimateSubsection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
-      </div>
-      <section className="clubs-hub-hero" aria-labelledby="clubs-hub-title">
-        <div className="clubs-hub-hero-copy">
-          <p className="clubs-eyebrow">YOUR CLUB HUB</p>
-          <h2 id="clubs-hub-title">Find your place in the Clubs world.</h2>
-          <p>Form a squad, discover official Clubs and track the next step in your application. Club finances, your squad and contracts live together in My Club.</p>
-          <div className="clubs-hub-actions">
-            <button type="button" className="clubs-primary-button" onClick={() => { setShowFormationForm(true); window.setTimeout(() => document.getElementById("clubs-formation-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }}>＋ Form a Club</button>
-            <button type="button" className="clubs-secondary-button" onClick={() => window.setTimeout(() => document.getElementById("clubs-official-directory")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40)}>Explore Clubs ↓</button>
-          </div>
-        </div>
-        <aside className="clubs-hub-starter-budget">
-          <span>CLUB STARTING BUDGET</span>
-          <strong>{Number(meta?.clubStartingBalance ?? 3000).toLocaleString("en-IN")}</strong>
-          <small>Opening funds for a newly approved Club — not your personal wallet.</small>
-        </aside>
-      </section>
-
-      <section className="clubs-hub-stat-grid" aria-label="Club overview">
-        <article className="clubs-hub-stat"><span>OFFICIAL CLUBS</span><strong>{loading ? "—" : clubs.length}</strong><small>Approved squads to explore</small></article>
-        <article className="clubs-hub-stat"><span>YOUR FORMATIONS</span><strong>{applications.filter(application => !["approved", "rejected"].includes(application.status)).length}</strong><small>Invitations and applications in progress</small></article>
-        <article className="clubs-hub-stat"><span>MATCH ACTIVITY</span><strong>{clubMatches.filter(match => ["requested", "accepted"].includes(match.status)).length}</strong><small>Fixtures awaiting action or kick-off</small></article>
-      </section>
-
-      <section className="clubs-hub-next-step">
-        <div className="clubs-hub-next-step-icon" aria-hidden="true">{commandCenterLoading && !commandCenter ? "…" : commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear" ? "!" : currentClub ? "⚽" : activeFormationApplication ? "!" : "→"}</div>
-        <div className="clubs-hub-next-step-copy">
-          <p className="clubs-eyebrow">{commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear" ? commandCenter.nextAction.eyebrow : currentClub ? "YOUR CLUB" : "YOUR NEXT STEP"}</p>
-          <h3>{commandCenterLoading && !commandCenter
-            ? "Checking your next step…"
-            : commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear"
-              ? commandCenter.nextAction.title
-              : currentClub
-                ? currentClub.name + " is ready to manage"
-                : activeFormationApplication
-                  ? (activeFormationApplication.proposedName || "Your Club formation") + " · " + statusLabel(activeFormationApplication.status)
-                  : authUser ? "Start a Club or explore the directory" : "Sign in to form or join a Club"}</h3>
-          <p>{commandCenterLoading && !commandCenter
-            ? "Loading formation, fixtures and decisions."
-            : commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear"
-              ? commandCenter.nextAction.description
-              : currentClub
-                ? "Open My Club for your live budget, members, formation, contracts and history."
-                : activeFormationApplication
-                  ? "Your application and the exact next action are listed in Formation progress below."
-                  : "A Club has 4–5 players. Everyone in the proposed squad accepts, captains approve the details, and an admin completes approval."}</p>
-        </div>
-        {commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear"
-          ? <button type="button" className="clubs-secondary-button" onClick={() => openCommandAction(commandCenter.nextAction)}>{commandCenter.nextAction.actionLabel || "View next step →"}</button>
-          : currentClub
-            ? <button type="button" className="clubs-secondary-button" onClick={() => setActiveSection("myClub")}>Open My Club →</button>
-            : activeFormationApplication
-              ? <button type="button" className="clubs-secondary-button" onClick={() => window.setTimeout(() => document.getElementById("clubs-formation-pipeline")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40)}>View progress →</button>
-              : <button type="button" className="clubs-secondary-button" onClick={() => { if (!authUser) { announce("Sign in with a linked player profile to form a Club."); return; } setShowFormationForm(true); window.setTimeout(() => document.getElementById("clubs-formation-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }}>{authUser ? "Start formation →" : "How it works →"}</button>}
-      </section>
-
-      <section className="clubs-hub-howto">
-        <div><span>01</span><strong>Build your squad</strong><small>Choose 4–5 linked player profiles.</small></div>
-        <div><span>02</span><strong>Agree as a team</strong><small>Members accept and elect captains.</small></div>
-        <div><span>03</span><strong>Get approved</strong><small>Captains confirm details before admin approval.</small></div>
-      </section>
-
       {authUser && (
         <section id="clubs-formation-pipeline" className="clubs-section clubs-hub-pipeline">
           <div className="clubs-section-heading">
@@ -1091,13 +1097,19 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               <p className="clubs-eyebrow">FORMATION PIPELINE</p>
               <h2>Your formation progress</h2>
             </div>
-            <span>{applications.filter(application => !["approved", "rejected"].includes(application.status)).length} active</span>
+            <div className="clubs-hub-pipeline-actions">
+              <span>{applications.filter(application => !["approved", "rejected"].includes(application.status)).length} active</span>
+              <button type="button" className="clubs-primary-button" onClick={() => {
+                setShowFormationForm(true);
+                window.setTimeout(() => document.getElementById("clubs-formation-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+              }}>＋ Form a Club</button>
+            </div>
           </div>
 
           {applications.length === 0 ? (
             <div className="clubs-empty">
               <strong>No active formation applications.</strong>
-              <span>Start a Club above or wait for a squad invitation. Your next action appears on each application.</span>
+              <span>Use Form a Club to invite a squad, or wait for an incoming invitation. Your next action appears here.</span>
             </div>
           ) : (
             <div className="clubs-application-list">
@@ -1264,6 +1276,49 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
       )}
+      {(commandCenterLoading && !commandCenter) || (commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear") ? (
+        <section className="clubs-hub-next-action" aria-live="polite">
+          <div className="clubs-hub-next-action-icon" aria-hidden="true">{commandCenterLoading && !commandCenter ? "…" : "!"}</div>
+          <div className="clubs-hub-next-action-copy">
+            <p className="clubs-eyebrow">{commandCenter?.nextAction?.eyebrow || "YOUR NEXT ACTION"}</p>
+            <h3>{commandCenterLoading && !commandCenter ? "Checking your next step…" : commandCenter.nextAction.title}</h3>
+            <p>{commandCenterLoading && !commandCenter ? "Loading formation, fixtures and Club decisions." : commandCenter.nextAction.description}</p>
+          </div>
+          {commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear" && (
+            <button type="button" className="clubs-secondary-button" onClick={() => openCommandAction(commandCenter.nextAction)}>
+              {commandCenter.nextAction.actionLabel || "Open next step →"}
+            </button>
+          )}
+        </section>
+      ) : null}
+
+
+      <section className="clubs-hub-stat-grid" aria-label="Club overview">
+        <article className="clubs-hub-stat"><span>OFFICIAL CLUBS</span><strong>{loading ? "—" : clubs.length}</strong><small>Browse available Clubs</small></article>
+        <article className="clubs-hub-stat"><span>YOUR FORMATIONS</span><strong>{applications.filter(application => !["approved", "rejected"].includes(application.status)).length}</strong><small>Applications in progress</small></article>
+        <article className="clubs-hub-stat"><span>UPCOMING MATCHES</span><strong>{clubMatches.filter(match => match.status === "accepted").length}</strong><small>Confirmed fixtures and matchday plans</small></article>
+      </section>
+
+      <section className="clubs-hub-discovery-grid" aria-label="Club discovery and help">
+        <article className="clubs-hub-discovery-card">
+          <div className="clubs-hub-discovery-icon" aria-hidden="true">⌕</div>
+          <div className="clubs-hub-discovery-copy"><p className="clubs-eyebrow">DISCOVER</p><h3>Find your Club</h3><p>Browse official Clubs, learn about their squads and explore available opportunities.</p></div>
+          <button type="button" className="clubs-secondary-button" onClick={() => window.setTimeout(() => document.getElementById("clubs-official-directory")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40)}>Browse directory →</button>
+        </article>
+        <article className="clubs-hub-discovery-card">
+          <div className="clubs-hub-discovery-icon" aria-hidden="true">?</div>
+          <div className="clubs-hub-discovery-copy"><p className="clubs-eyebrow">NEW TO ULTIMATE CLUBS?</p><h3>Know how it works</h3><p>Formation, member acceptance, captain elections, shared credits and contracts—all in one quick guide.</p></div>
+          <button type="button" className="clubs-secondary-button" aria-expanded={showClubGuide} onClick={() => setShowClubGuide(open => !open)}>{showClubGuide ? "Hide guide ↑" : "How it works →"}</button>
+        </article>
+      </section>
+      {showClubGuide && (
+        <section className="clubs-hub-guide" aria-label="How Ultimate Clubs works">
+          <div><span>01</span><strong>Build your squad</strong><small>Choose 4–5 linked player profiles.</small></div>
+          <div><span>02</span><strong>Agree as a team</strong><small>Every member accepts, then the squad elects captain(s).</small></div>
+          <div><span>03</span><strong>Confirm and approve</strong><small>Captain(s) approve Club details before an administrator creates the official Club.</small></div>
+          <p>A newly approved Club starts with <strong>3,000 shared Club credits</strong>. Those funds belong to the Club and are separate from your personal Player Wallet.</p>
+        </section>
+      )}
 
       <section id="clubs-formation-form" className="clubs-section clubs-hub-form-section">
         <div className="clubs-section-heading clubs-hub-form-heading">
@@ -1372,10 +1427,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </>
       ) : activeSection === "overview" && ultimateSubsection === "matches" ? (
       <>
-      <div className="clubs-section-tabs" role="tablist" aria-label="Ultimate Clubs sections">
-        <button type="button" role="tab" aria-selected={ultimateSubsection === "overview"} className={ultimateSubsection === "overview" ? "active" : ""} onClick={() => setUltimateSubsection("overview")}>Overview</button>
-        <button type="button" role="tab" aria-selected={ultimateSubsection === "matches"} className={ultimateSubsection === "matches" ? "active" : ""} onClick={() => setUltimateSubsection("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
-      </div>
       <section id="clubs-match-center" className="clubs-section clubs-matches-panel">
         <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUB MATCHES</p><h2>Schedule & fixtures</h2></div><span>{clubMatches.length} recorded</span></div>
         {authUser && myCaptainClubs.length > 0 && (
@@ -1501,9 +1552,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       <span data-availability={player.available ? "available" : "contracted"}>{player.available ? "Available for approach" : "Under Club contract"}</span>
                       {canOffer && <button type="button" className="clubs-secondary-button" onClick={() => {
                         setOfferPlayer(String(player._id));
-                        setActiveSection("myClub");
-                        setMyClubSubsection("auctions");
-                        window.setTimeout(() => document.getElementById("clubs-auction-desk")?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+                        setActiveSection("market"); window.setTimeout(() => document.getElementById("clubs-auction-desk")?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
                       }}>Make Offer</button>}
                       {current && <span>That’s you</span>}
                     </div>
@@ -1537,12 +1586,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
         </>
-      ) : activeSection === "myClub" && myClubSubsection === "auctions" ? (
+      ) : activeSection === "market" ? (
         <>
-        <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections">
-          <button type="button" role="tab" aria-selected={myClubSubsection === "squad"} className={myClubSubsection === "squad" ? "active" : ""} onClick={() => setMyClubSubsection("squad")}>Dashboard</button>
-          <button type="button" role="tab" aria-selected={myClubSubsection === "auctions"} className={myClubSubsection === "auctions" ? "active" : ""} onClick={() => setMyClubSubsection("auctions")}>Auctions</button>
-        </div>
         {authUser && myCaptainClubs.length > 0 ? (
         <section id="clubs-auction-desk" className="clubs-section clubs-market-offer-panel">
           <div className="clubs-section-heading"><div><p className="clubs-eyebrow">SIGNING MARKET</p><h2>Send a signing offer</h2></div></div>
@@ -1827,7 +1872,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </section>
       ) : activeSection === "myClub" && myClubSubsection === "squad" ? (
         <>
-        <div className="clubs-section-tabs" role="tablist" aria-label="My Club sections"><button type="button" role="tab" aria-selected={myClubSubsection === "squad"} className={myClubSubsection === "squad" ? "active" : ""} onClick={() => setMyClubSubsection("squad")}>Dashboard</button><button type="button" role="tab" aria-selected={myClubSubsection === "auctions"} className={myClubSubsection === "auctions" ? "active" : ""} onClick={() => setMyClubSubsection("auctions")}>Auctions</button></div>
       {authUser && (
         <section className="clubs-section clubs-wallet-dashboard">
           <div className="clubs-section-heading">
@@ -1970,7 +2014,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               <div className="clubs-myclub-quick-actions">
                 <div><p className="clubs-eyebrow">QUICK ACTIONS</p><strong>Manage your Club without hunting through tabs.</strong></div>
                 <div className="clubs-myclub-quick-action-buttons">
-                  <button type="button" className="clubs-secondary-button" onClick={() => setMyClubSubsection("auctions")}>Manage signings →</button>
+                  <button type="button" className="clubs-secondary-button" onClick={() => setActiveSection("market")}>Manage signings →</button>
                   <button type="button" className="clubs-secondary-button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("matches"); window.setTimeout(() => document.getElementById("clubs-match-center")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }}>Club matches →</button>
                 </div>
               </div>
