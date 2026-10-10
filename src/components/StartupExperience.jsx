@@ -81,13 +81,16 @@ export function WelcomeScreen({ onEnter }) {
 
   return (
     <main className="gg-welcome-screen gg-welcome-image-screen">
-      <div className={`gg-welcome-poster-frame${posterLoaded ? " is-loaded" : ""}${posterFailed ? " has-error" : ""}`}>
+      <div className={`gg-welcome-poster-frame${posterLoaded ? " is-loaded" : ""}${!posterLoaded && !posterFailed ? " is-loading" : ""}${posterFailed ? " has-error" : ""}`}>
         {!posterFailed && (
           <img
             className="gg-welcome-poster"
             src="/enter-matchday.png"
             alt="GG Matchday cinematic football poster with players in a floodlit stadium."
             draggable={false}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
             onLoad={() => setPosterLoaded(true)}
             onError={() => {
               setPosterLoaded(false);
