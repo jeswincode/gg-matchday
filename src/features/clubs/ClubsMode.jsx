@@ -84,6 +84,7 @@ function statusLabel(status) {
     captainVote: "Captain vote",
     pendingCaptainDetailsApproval: "Waiting for captain details approval",
     pendingAdminApproval: "Waiting for admin approval",
+    approved: "Club approved",
     rejected: "Formation rejected",
   }[status] || status;
 }
