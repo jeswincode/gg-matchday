@@ -7,65 +7,6 @@ function GGMark(){
   </div>;
 }
 
-function GGWelcomeEmblem(){
-  return <div className="gg-welcome-emblem" aria-hidden="true">
-    <svg viewBox="0 0 920 760" role="presentation" focusable="false">
-      <defs>
-        <linearGradient id="ggWelcomeGold" x1="8%" y1="2%" x2="92%" y2="98%">
-          <stop offset="0%" stopColor="#fff2ad"/>
-          <stop offset="18%" stopColor="#f8d76d"/>
-          <stop offset="46%" stopColor="#dcae3f"/>
-          <stop offset="74%" stopColor="#b57a21"/>
-          <stop offset="100%" stopColor="#f5d36b"/>
-        </linearGradient>
-        <linearGradient id="ggWelcomeEdge" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fff9cf"/>
-          <stop offset="48%" stopColor="#f1c64f"/>
-          <stop offset="100%" stopColor="#9f6820"/>
-        </linearGradient>
-        <radialGradient id="ggWelcomeGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#f7d36a" stopOpacity=".10"/>
-          <stop offset="60%" stopColor="#f7d36a" stopOpacity=".025"/>
-          <stop offset="100%" stopColor="#f7d36a" stopOpacity="0"/>
-        </radialGradient>
-      </defs>
-
-      <circle cx="460" cy="380" r="318" fill="url(#ggWelcomeGlow)"/>
-      <circle className="gg-emblem-ring-soft" cx="460" cy="380" r="338"/>
-      <circle className="gg-emblem-ring" cx="460" cy="380" r="306"/>
-      <circle className="gg-emblem-ring-inner" cx="460" cy="380" r="270"/>
-
-      <path
-        className="gg-emblem-logo-shadow"
-        d="M436 270 H302 C198 270 126 344 126 449 C126 555 199 630 302 630 H421 V515 H307 C261 515 232 489 232 450 C232 410 263 380 307 380 H363"
-      />
-      <path
-        className="gg-emblem-logo-shadow"
-        d="M484 270 H618 C722 270 794 344 794 449 C794 555 721 630 618 630 H499 V515 H613 C659 515 688 489 688 450 C688 410 657 380 613 380 H557"
-      />
-
-      <path
-        className="gg-emblem-logo"
-        d="M436 270 H302 C198 270 126 344 126 449 C126 555 199 630 302 630 H421 V515 H307 C261 515 232 489 232 450 C232 410 263 380 307 380 H363"
-      />
-      <path
-        className="gg-emblem-logo"
-        d="M484 270 H618 C722 270 794 344 794 449 C794 555 721 630 618 630 H499 V515 H613 C659 515 688 489 688 450 C688 410 657 380 613 380 H557"
-      />
-
-      <path className="gg-emblem-accent" d="M606 126 L720 240 L797 163 L752 323 L681 260 Z"/>
-      <path className="gg-emblem-accent" d="M314 634 L200 520 L123 597 L168 437 L239 500 Z"/>
-      <path className="gg-emblem-accent-line" d="M596 108 L709 222 L786 148"/>
-      <path className="gg-emblem-accent-line" d="M324 651 L211 538 L134 612"/>
-
-      <circle className="gg-emblem-node" cx="735" cy="198" r="7"/>
-      <circle className="gg-emblem-node" cx="182" cy="566" r="7"/>
-      <circle className="gg-emblem-node" cx="710" cy="148" r="4"/>
-      <circle className="gg-emblem-node" cx="205" cy="622" r="4"/>
-    </svg>
-  </div>;
-}
-
 export function StartupScreen({authLoading,onComplete}){
   const [minimumReady,setMinimumReady]=useState(false);
   const [phase,setPhase]=useState(0);
@@ -134,34 +75,50 @@ export function LoginDashboard({onSignIn,onGuest,busy,message}){
   </main>;
 }
 
-export function WelcomeScreen({user,onEnter}){
-  const name=user?.displayName||user?.email?.split("@")[0]||"Player";
-  return <main className="gg-welcome-screen">
-    <video
-      className="gg-welcome-video"
-      src="/ggmatchdaybg.mp4"
-      autoPlay
-      muted
-      loop
-      playsInline
-      preload="auto"
-      aria-hidden="true"
-    />
-    <div className="gg-welcome-video-overlay" aria-hidden="true"/>
-    <section className="gg-welcome-shell">
-      <GGWelcomeEmblem/>
-      <div className="gg-welcome-content">
-        <div className="gg-welcome-avatar">
-          {user?.photoURL?<img src={user.photoURL} alt=""/>:<span>{name.charAt(0).toUpperCase()}</span>}
-        </div>
-        <p className="gg-refined-eyebrow">MATCHDAY READY</p>
-        <h1>Welcome back, {name.split(" ")[0]} <span aria-hidden="true">👋</span></h1>
-        <p>Your Matchday is ready. Step in and keep your football story moving.</p>
-        <button type="button" className="gg-enter-button" onClick={onEnter}>
-          ENTER MATCHDAY <span aria-hidden="true">→</span>
+export function WelcomeScreen({ onEnter }) {
+  const [posterLoaded, setPosterLoaded] = useState(false);
+  const [posterFailed, setPosterFailed] = useState(false);
+
+  return (
+    <main className="gg-welcome-screen gg-welcome-image-screen">
+      <div className={`gg-welcome-poster-frame${posterLoaded ? " is-loaded" : ""}${posterFailed ? " has-error" : ""}`}>
+        {!posterFailed && (
+          <img
+            className="gg-welcome-poster"
+            src="/enter-matchday.png"
+            alt="GG Matchday cinematic football poster with players in a floodlit stadium."
+            draggable={false}
+            onLoad={() => setPosterLoaded(true)}
+            onError={() => {
+              setPosterLoaded(false);
+              setPosterFailed(true);
+            }}
+          />
+        )}
+
+        {posterFailed && (
+          <div className="gg-welcome-poster-fallback" role="status">
+            <p className="gg-welcome-poster-brand">GG MATCHDAY</p>
+            <p className="gg-welcome-poster-help">
+              Add <code>public/enter-matchday.png</code> to display the welcome artwork.
+            </p>
+          </div>
+        )}
+
+        <button
+          type="button"
+          className={`gg-welcome-image-button${posterLoaded ? " is-image-overlay" : ""}`}
+          onClick={onEnter}
+          aria-label="Enter Matchday"
+          title="Enter Matchday"
+        >
+          {posterLoaded ? (
+            <span className="gg-welcome-sr-only">Enter Matchday</span>
+          ) : (
+            <>ENTER MATCHDAY <span aria-hidden="true">→</span></>
+          )}
         </button>
-        <div className="gg-welcome-lines" aria-hidden="true"><span/><span/><span/></div>
       </div>
-    </section>
-  </main>;
+    </main>
+  );
 }
