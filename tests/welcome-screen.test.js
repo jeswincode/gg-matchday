@@ -27,6 +27,7 @@ test("Welcome screen displays the supplied poster with a real Enter Matchday but
 });
 
 test("Welcome poster stays clean in both themes and respects reduced motion", () => {
+  const component = fs.readFileSync("src/components/StartupExperience.jsx", "utf8");
   const styles = fs.readFileSync("src/welcome-reference.css", "utf8");
 
   assert.match(styles, /html\[data-theme="golden"\] \.gg-welcome-screen\.gg-welcome-image-screen/);
