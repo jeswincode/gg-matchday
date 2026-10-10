@@ -208,3 +208,28 @@ test("Club primary navigation uses top-level Market and Matches with guarded tou
   assert.match(styles, /scroll-snap-type:\s*x mandatory/);
   assert.match(styles, /@media\s*\(max-width:\s*760px\)/);
 });
+
+
+test("Dark Clubs theme shares Matchday's navy and blue palette without changing Gold", () => {
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  const darkThemeStart = styles.lastIndexOf("/* ---------- Dark theme continuity: Matchday navy / blue atmosphere ---------- */");
+  assert.ok(darkThemeStart >= 0, "Dark theme continuity overrides should be present");
+  const darkTheme = styles.slice(darkThemeStart);
+
+  for (const selector of [
+    ".clubs-app", ".clubs-topbar", ".clubs-nav", ".clubs-section-tabs",
+    ".clubs-primary-button", ".clubs-secondary-button", ".clubs-application",
+    ".club-card", ".clubs-hub-stat", ".clubs-myclub-overview-stat",
+  ]) {
+    assert.ok(darkTheme.includes(selector), `Dark blue theme should style ${selector}`);
+  }
+
+  assert.match(darkTheme, /--clubs-bg:\s*#080d17/i);
+  assert.match(darkTheme, /--clubs-panel:\s*#101827/i);
+  assert.match(darkTheme, /rgba\(39, 101, 193, \.27\)/);
+  assert.match(darkTheme, /#dce8f8/i);
+  assert.match(darkTheme, /html\[data-theme="dark"\]\[data-product-mode="clubs"\]/);
+  assert.match(darkTheme, /Preserve the warm Gold theme exactly as designed/);
+  assert.doesNotMatch(darkTheme, /html\[data-theme="golden"\]/);
+  assert.match(styles, /html\[data-theme="golden"\]\[data-product-mode="clubs"\] \.clubs-app/);
+});
