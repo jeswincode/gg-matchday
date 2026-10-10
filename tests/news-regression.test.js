@@ -74,3 +74,19 @@ test("news read routes correct stale headlines against populated match events", 
   assert.match(route, /path: "events\.player", select: "name profileImage"/);
   assert.match(route, /res\.json\(news\.map\(normalizeArticle\)\)/);
 });
+
+test("headline normalization does not misattribute a different player's legitimate hat-trick", () => {
+  const martin = { _id: "martin", name: "Martin" };
+  const kevin = { _id: "kevin", name: "Kevin" };
+  const match = {
+    ...matchWithGoals(0),
+    events: [
+      ...Array.from({ length: 4 }, () => ({ type: "goal", player: martin })),
+      ...Array.from({ length: 3 }, () => ({ type: "goal", player: kevin })),
+    ],
+  };
+  assert.equal(
+    normalizeGoalMilestoneHeadline("Kevin hits a hat-trick", match),
+    "Kevin hits a hat-trick",
+  );
+});
