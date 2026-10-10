@@ -11,7 +11,7 @@ test("Clubs mode uses the viewer formation set and theme-aware premium dashboard
   assert.match(component, /Ultimate Clubs sections/);
   assert.match(component, /My Club sections/);
   assert.match(component, /clubs-subnav/);
-  assert.match(component, /clubs-next-action/);
+  assert.match(component, /clubs-hub-next-step/);
   assert.match(component, /clubs-formation-stepper/);
   assert.match(component, /clubs-scout-card/);
   assert.match(component, /clubs-review-received/);
@@ -33,7 +33,9 @@ test("Clubs mode is available from the main navigation to every viewer", () => {
   const app = fs.readFileSync("src/App.jsx", "utf8");
   assert.match(app, /<button className="secondary-button" type="button" onClick=\{\(\)=>switchProductMode\("clubs"\)\}>Clubs<\/button>/);
   assert.doesNotMatch(app, /Clubs is temporarily locked/);
-  assert.match(app, /localStorage\.setItem\("gg-product-mode",nextMode\)/);
+  assert.match(app, /const \[productMode,setProductMode\]=useState\("matchday"\)/);
+  assert.doesNotMatch(app, /localStorage\.getItem\("gg-product-mode"\)/);
+  assert.doesNotMatch(app, /localStorage\.setItem\("gg-product-mode"/);
   assert.match(app, /url\.searchParams\.delete\("mode"\)/);
 });
 
@@ -54,7 +56,7 @@ test("Clubs UI supports flexible 4-5 member formation and admin control center",
   assert.match(rules, /CLUB_MIN_MEMBERS = 4/);
   assert.match(rules, /CLUB_MAX_MEMBERS = 5/);
   assert.match(rules, /CLUB_FORMATIONS_5/);
-  assert.match(component, /Build a 4–5 player Club/);
+  assert.match(component, /Form a 4–5 player Club/);
   assert.match(component, /No fifth player/);
   assert.match(component, /activeSection === "adminDashboard"/);
   assert.match(component, /adminOnlyView/);
@@ -139,4 +141,35 @@ test("Clubs command center explains both captain-details and admin-review waitin
   assert.match(routes, /waiting for administrator review/i);
   assert.match(routes, /Details approved — awaiting co-captain/);
   assert.match(routes, /The other elected captain must approve the same details/);
+});
+
+test("Club Hub and My Club dashboard keep related actions and budgets in the right place", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+
+  assert.match(component, /YOUR CLUB HUB/);
+  assert.match(component, /CLUB STARTING BUDGET/);
+  assert.match(component, /Opening funds for a newly approved Club — not your personal wallet/);
+  assert.match(component, /Your formation progress/);
+  assert.match(component, /OFFICIAL CLUB DIRECTORY/);
+  assert.match(component, /clubs-formation-form/);
+  assert.match(component, /clubs-official-directory/);
+  assert.match(component, /clubs-wallet-dashboard/);
+  assert.match(component, /MY CLUB \/ DASHBOARD/);
+  assert.match(component, /AVAILABLE CLUB BUDGET/);
+  assert.match(component, /clubs-myclub-overview-grid/);
+  assert.match(component, /clubs-myclub-quick-actions/);
+  assert.match(component, /FORMATION IN PROGRESS/);
+  assert.match(component, /Manage signings/);
+  assert.match(component, /Club matches/);
+
+  assert.match(styles, /\.clubs-hub-hero\s*\{/);
+  assert.match(styles, /\.clubs-hub-stat-grid\s*\{/);
+  assert.match(styles, /\.clubs-hub-next-step\s*\{/);
+  assert.match(styles, /\.clubs-hub-howto\s*\{/);
+  assert.match(styles, /\.clubs-hub-club-card\s*\{/);
+  assert.match(styles, /\.clubs-myclub-overview-grid\s*\{/);
+  assert.match(styles, /\.clubs-myclub-quick-actions\s*\{/);
+  assert.match(styles, /@media\s*\(max-width:\s*760px\)/);
+  assert.match(styles, /@media\s*\(max-width:\s*520px\)/);
 });

@@ -83,21 +83,9 @@ function localDateString(
 
 function App() {
   const [experience,setExperience]=useState('startup');
-  const [productMode,setProductMode]=useState(()=>{
-    try {
-      const saved=localStorage.getItem("gg-product-mode");
-      if(saved === "clubs" || saved === "matchday") return saved;
-
-      const legacyMode=new URLSearchParams(window.location.search).get("mode");
-      if(legacyMode === "clubs") {
-        localStorage.setItem("gg-product-mode","clubs");
-        return "clubs";
-      }
-    } catch {
-      // Storage can be unavailable in private/restricted browser contexts.
-    }
-    return "matchday";
-  });
+  // Product mode is intentionally session-only. A full reload always starts
+  // in the main Matchday Home experience, including when the previous mode was Clubs.
+  const [productMode,setProductMode]=useState("matchday");
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
@@ -118,16 +106,14 @@ function App() {
       : `to-matchday-${theme}`;
     setModeTransition(transition);
     setProductMode(nextMode);
-    try{
-      localStorage.setItem("gg-product-mode",nextMode);
-
-      // Product mode is an application state, not a route. Keep the canonical
-      // public URL clean and compatible with old ?mode=clubs links.
-      const url=new URL(window.location.href);
+    try {
+      // Product mode is application state, not a route. Keep the public URL
+      // canonical so refreshing always returns to Matchday Home.
+      const url = new URL(window.location.href);
       url.searchParams.delete("mode");
       window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
-    }catch{
-      // URL history/storage are optional in restricted browser environments.
+    } catch {
+      // URL history can be unavailable in restricted browser environments.
     }
     window.setTimeout(()=>setModeTransition(null),720);
   },[modeTransition,productMode,theme]);
