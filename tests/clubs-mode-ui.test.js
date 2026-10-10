@@ -143,14 +143,19 @@ test("Clubs command center explains both captain-details and admin-review waitin
   assert.match(routes, /The other elected captain must approve the same details/);
 });
 
-test("Club Hub and My Club dashboard keep related actions and budgets in the right place", () => {
+test("Club Hub is formation-first and keeps Club credits out of the first-screen showcase", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
   const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
 
-  assert.match(component, /YOUR CLUB HUB/);
-  assert.match(component, /CLUB STARTING BUDGET/);
-  assert.match(component, /Opening funds for a newly approved Club — not your personal wallet/);
+  assert.match(component, /<h1>\{adminOnlyView \? "Clubs Admin" : "Club Hub"\}<\/h1>/);
+  assert.match(component, /data-primary-tab="overview"/);
+  assert.match(component, /data-primary-tab="myClub"/);
+  assert.match(component, /data-primary-tab="market"/);
+  assert.match(component, /data-primary-tab="matches"/);
+  assert.match(component, /data-primary-tab="players"/);
+  assert.match(component, /data-primary-tab="reviews"/);
   assert.match(component, /Your formation progress/);
+  assert.match(component, /clubs-hub-pipeline-actions/);
   assert.match(component, /OFFICIAL CLUB DIRECTORY/);
   assert.match(component, /clubs-formation-form/);
   assert.match(component, /clubs-official-directory/);
@@ -162,14 +167,42 @@ test("Club Hub and My Club dashboard keep related actions and budgets in the rig
   assert.match(component, /FORMATION IN PROGRESS/);
   assert.match(component, /Manage signings/);
   assert.match(component, /Club matches/);
+  assert.doesNotMatch(component, /aria-labelledby="clubs-hub-title"/);
+  assert.doesNotMatch(component, /CLUB STARTING BUDGET/);
+  assert.doesNotMatch(component, /clubs-hub-starter-budget/);
 
-  assert.match(styles, /\.clubs-hub-hero\s*\{/);
+  const hubStart = component.indexOf('{activeSection === "overview" && ultimateSubsection === "overview" ? (');
+  const formation = component.indexOf('id="clubs-formation-pipeline"', hubStart);
+  const stats = component.indexOf('className="clubs-hub-stat-grid"', hubStart);
+  assert.ok(hubStart >= 0 && formation > hubStart && stats > formation, "Formation progress should appear before overview cards");
+
   assert.match(styles, /\.clubs-hub-stat-grid\s*\{/);
   assert.match(styles, /\.clubs-hub-next-step\s*\{/);
-  assert.match(styles, /\.clubs-hub-howto\s*\{/);
-  assert.match(styles, /\.clubs-hub-club-card\s*\{/);
+  assert.match(styles, /\.clubs-hub-discovery-grid\s*\{/);
+  assert.match(styles, /\.clubs-hub-pipeline-actions\s*\{/);
   assert.match(styles, /\.clubs-myclub-overview-grid\s*\{/);
   assert.match(styles, /\.clubs-myclub-quick-actions\s*\{/);
   assert.match(styles, /@media\s*\(max-width:\s*760px\)/);
   assert.match(styles, /@media\s*\(max-width:\s*520px\)/);
+});
+
+test("Club primary navigation uses top-level Market and Matches with guarded touch-swipe navigation", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+
+  assert.match(component, /const primaryTabKeys =/);
+  assert.match(component, /const navigatePrimaryTab = key =>/);
+  assert.match(component, /onTouchStart=\{handleClubsTouchStart\}/);
+  assert.match(component, /onTouchEnd=\{handleClubsTouchEnd\}/);
+  assert.match(component, /Math\.abs\(dx\) < 72/);
+  assert.match(component, /input, textarea, select, button, a, \[contenteditable='true'\]/);
+  assert.match(component, /activeSection === "market"/);
+  assert.match(component, /setActiveSection\("market"\)/);
+  assert.match(component, /Swipe left or right to switch tabs/);
+  assert.doesNotMatch(component, /aria-label="Ultimate Clubs sections"/);
+  assert.doesNotMatch(component, /aria-label="My Club sections"/);
+
+  assert.match(styles, /\.clubs-swipe-hint\s*\{/);
+  assert.match(styles, /scroll-snap-type:\s*x mandatory/);
+  assert.match(styles, /@media\s*\(max-width:\s*760px\)/);
 });
