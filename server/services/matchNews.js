@@ -21,7 +21,15 @@ function scorerSummary(match) {
  */
 export function normalizeGoalMilestoneHeadline(headline, match) {
   const topScorer = scorerSummary(match);
-  if (!topScorer || topScorer.goals < 4 || !/hat[ -]?trick/i.test(String(headline || ""))) {
+  const normalizedHeadline = String(headline || "").toLocaleLowerCase();
+  const scorerName = String(topScorer?.name || "").toLocaleLowerCase();
+  if (
+    !topScorer ||
+    topScorer.goals < 4 ||
+    !scorerName ||
+    !normalizedHeadline.includes(scorerName) ||
+    !/hat[ -]?trick/i.test(String(headline || ""))
+  ) {
     return headline;
   }
   return `${topScorer.name} dominates with a ${topScorer.goals}-goal haul`;
