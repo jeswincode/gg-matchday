@@ -35,6 +35,22 @@ test("guest can open Matchday and reach the live leaderboard", async ({ page }) 
   await expect(page.getByText("Performance. Contribution. Results.")).toBeVisible();
 });
 
+test("mobile welcome screen keeps the main title visible and provides a full-size entry button", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const poster = page.getByRole("img", { name: /GG Matchday cinematic football poster/i });
+  await expect(poster).toBeVisible();
+  const enter = page.locator(".gg-welcome-mobile-button");
+  await expect(enter).toBeVisible();
+  const posterBounds = await page.locator(".gg-welcome-poster-frame").boundingBox();
+  const enterBounds = await enter.boundingBox();
+  expect(posterBounds).not.toBeNull();
+  expect(enterBounds).not.toBeNull();
+  expect(enterBounds.width).toBeGreaterThan(300);
+  expect(enterBounds.height).toBeGreaterThanOrEqual(52);
+  expect(enterBounds.y).toBeGreaterThan(posterBounds.y + posterBounds.height - 1);
+});
+
 test("mobile viewport keeps primary navigation usable across key tabs", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);

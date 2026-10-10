@@ -12,7 +12,7 @@ test("Welcome screen displays the supplied poster with a real Enter Matchday but
   assert.match(component, /fetchPriority="high"/);
   assert.match(component, /loading="eager"/);
   assert.match(styles, /\.gg-welcome-poster-frame\.is-loading \.gg-welcome-image-button/);
-  assert.match(component, /className="gg-welcome-screen gg-welcome-image-screen"/);
+  assert.match(component, /gg-welcome-screen gg-welcome-image-screen/);
   assert.match(component, /className=\{\x60gg-welcome-image-button/);
   assert.match(component, /onClick=\{onEnter\}/);
   assert.match(component, /aria-label="Enter Matchday"/);
@@ -27,10 +27,19 @@ test("Welcome screen displays the supplied poster with a real Enter Matchday but
 });
 
 test("Welcome poster stays clean in both themes and respects reduced motion", () => {
+  const component = fs.readFileSync("src/components/StartupExperience.jsx", "utf8");
   const styles = fs.readFileSync("src/welcome-reference.css", "utf8");
 
   assert.match(styles, /html\[data-theme="golden"\] \.gg-welcome-screen\.gg-welcome-image-screen/);
   assert.match(styles, /\.gg-welcome-screen\.gg-welcome-image-screen::before/);
   assert.match(styles, /@media \(max-aspect-ratio: 3 \/ 4\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.ok(component.includes('className="gg-welcome-mobile-button"'));
+  assert.ok(component.includes("SAME PLAYERS. NEW STORIES."));
+  assert.ok(component.includes("posterLoaded || posterFailed ? \" is-ready\" : \"\""));
+  assert.ok(styles.includes("aspect-ratio: 1648 / 719"));
+  assert.ok(styles.includes("width: min(195vw, 840px)"));
+  assert.ok(styles.includes("top: calc(min(85.1vw, 366.5px) + 12px)"));
+  assert.ok(styles.includes(".gg-welcome-image-screen.is-ready .gg-welcome-mobile-button"));
+  assert.ok(styles.includes(".gg-welcome-image-button {\n    display: none;"));
 });

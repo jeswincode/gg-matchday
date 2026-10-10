@@ -80,7 +80,7 @@ export function WelcomeScreen({ onEnter }) {
   const [posterFailed, setPosterFailed] = useState(false);
 
   return (
-    <main className="gg-welcome-screen gg-welcome-image-screen">
+    <main className={`gg-welcome-screen gg-welcome-image-screen${posterLoaded || posterFailed ? " is-ready" : ""}`}>
       <div className={`gg-welcome-poster-frame${posterLoaded ? " is-loaded" : ""}${!posterLoaded && !posterFailed ? " is-loading" : ""}${posterFailed ? " has-error" : ""}`}>
         {!posterFailed && (
           <img
@@ -122,6 +122,17 @@ export function WelcomeScreen({ onEnter }) {
           )}
         </button>
       </div>
+
+      <button
+        type="button"
+        className="gg-welcome-mobile-button"
+        onClick={onEnter}
+        aria-label="Enter Matchday"
+        title="Enter Matchday"
+      >
+        ENTER MATCHDAY <span aria-hidden="true">→</span>
+      </button>
+      <p className="gg-welcome-mobile-footer" aria-hidden="true">SAME PLAYERS. NEW STORIES.</p>
     </main>
   );
 }
