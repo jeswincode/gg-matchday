@@ -726,6 +726,20 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     const touch = event.changedTouches?.[0];
     swipeStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
   };
+  const handleClubsTouchMove = event => {
+    const start = swipeStartRef.current;
+    const touch = event.touches?.[0];
+    if (!start || !touch) return;
+
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+
+    // Once a gesture is clearly vertical, stop tracking it as a tab swipe.
+    // We never prevent the browser's default vertical scrolling behavior.
+    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.1) {
+      swipeStartRef.current = null;
+    }
+  };
   const handleClubsTouchEnd = event => {
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
@@ -1045,7 +1059,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [activePrimaryTabKey]);
 
   return (
-    <main className="clubs-app" onTouchStart={handleClubsTouchStart} onTouchEnd={handleClubsTouchEnd} onTouchCancel={() => { swipeStartRef.current = null; }}>
+    <main className="clubs-app" onTouchStart={handleClubsTouchStart} onTouchMove={handleClubsTouchMove} onTouchEnd={handleClubsTouchEnd} onTouchCancel={() => { swipeStartRef.current = null; }}>
       <header className="clubs-topbar">
         <div>
           <p className="clubs-eyebrow">GG MATCHDAY / ULTIMATE CLUBS</p>
@@ -1522,7 +1536,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       </>
       ) : activeSection === "players" ? (
         <>
-        <section className="clubs-section">
+        <section className="clubs-section clubs-players-section">
           <div className="clubs-section-heading">
             <div><p className="clubs-eyebrow">PLAYERS</p><h2>{playersSubsection === "history" ? "Player History" : "Player discovery"}</h2></div>
             <div className="clubs-subnav" role="tablist" aria-label="Players sections">
