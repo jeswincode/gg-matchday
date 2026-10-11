@@ -120,4 +120,27 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
   await nav.getByRole("button", { name: "Matches" }).click();
   await expect(page.getByRole("heading", { name: "Schedule & fixtures" })).toBeVisible();
   await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
+
+  await nav.getByRole("button", { name: "Players" }).click();
+  const playersSection = page.locator(".clubs-players-section");
+  await expect(playersSection).toBeVisible();
+  const subnav = playersSection.getByRole("tablist", { name: "Players sections" });
+  await expect(subnav.getByRole("tab", { name: "Discovery" })).toBeVisible();
+  await expect(subnav.getByRole("tab", { name: "Player History" })).toBeVisible();
+
+  const viewportWidth = page.viewportSize().width;
+  const subnavBounds = await subnav.boundingBox();
+  const discoveryBounds = await subnav.getByRole("tab", { name: "Discovery" }).boundingBox();
+  const historyBounds = await subnav.getByRole("tab", { name: "Player History" }).boundingBox();
+  expect(subnavBounds).not.toBeNull();
+  expect(discoveryBounds).not.toBeNull();
+  expect(historyBounds).not.toBeNull();
+  expect(subnavBounds.x).toBeGreaterThanOrEqual(0);
+  expect(subnavBounds.x + subnavBounds.width).toBeLessThanOrEqual(viewportWidth + 1);
+  expect(discoveryBounds.x).toBeGreaterThanOrEqual(subnavBounds.x);
+  expect(historyBounds.x + historyBounds.width).toBeLessThanOrEqual(subnavBounds.x + subnavBounds.width + 1);
+
+  await page.mouse.wheel(0, 650);
+  await expect.poll(() => page.evaluate(() => document.scrollingElement.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
 });
