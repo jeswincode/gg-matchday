@@ -96,7 +96,19 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
   await expect(clubsApp).toBeVisible();
   await expect(page.getByRole("heading", { name: "Club Hub" })).toBeVisible();
 
+  // Verify natural vertical scrolling while the longer Hub overview is active.
   const nav = page.getByRole("navigation", { name: "Clubs navigation" });
+  await expect(page.locator(".clubs-hub-pipeline")).toBeVisible();
+  const pageHeights = await page.evaluate(() => ({
+    content: document.documentElement.scrollHeight,
+    viewport: window.innerHeight,
+  }));
+  expect(pageHeights.content).toBeGreaterThan(pageHeights.viewport + 50);
+  await page.mouse.move(180, 650);
+  await page.mouse.wheel(0, 650);
+  await expect.poll(() => page.evaluate(() => window.scrollY || document.scrollingElement.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+  await page.evaluate(() => window.scrollTo(0, 0));
   for (const label of ["Club Hub", "My Club", "Market", "Matches", "Players", "Reviews"]) {
     await expect(nav.getByRole("button", { name: new RegExp(label) })).toBeVisible();
   }
@@ -121,15 +133,7 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
   await expect(page.getByRole("heading", { name: "Schedule & fixtures" })).toBeVisible();
   await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
 
-  // Check vertical scrolling on the content-rich Hub page before switching to a
-  // possibly short empty Players state in the test fixture.
   await nav.getByRole("button", { name: "Club Hub" }).click();
-  await expect(page.locator(".clubs-hub-pipeline")).toBeVisible();
-  await page.mouse.move(180, 650);
-  await page.mouse.wheel(0, 650);
-  await expect.poll(() => page.evaluate(() => document.scrollingElement.scrollTop)).toBeGreaterThan(0);
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
-
   await nav.getByRole("button", { name: "Players" }).click();
   const playersSection = page.locator(".clubs-players-section");
   await expect(playersSection).toBeVisible();
