@@ -96,7 +96,19 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
   await expect(clubsApp).toBeVisible();
   await expect(page.getByRole("heading", { name: "Club Hub" })).toBeVisible();
 
+  // Verify natural vertical scrolling while the longer Hub overview is active.
   const nav = page.getByRole("navigation", { name: "Clubs navigation" });
+  await expect(page.locator(".clubs-hub-discovery-grid")).toBeVisible();
+  const pageHeights = await page.evaluate(() => ({
+    content: document.documentElement.scrollHeight,
+    viewport: window.innerHeight,
+  }));
+  expect(pageHeights.content).toBeGreaterThan(pageHeights.viewport + 50);
+  await page.mouse.move(180, 650);
+  await page.mouse.wheel(0, 650);
+  await expect.poll(() => page.evaluate(() => window.scrollY || document.scrollingElement.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+  await page.evaluate(() => window.scrollTo(0, 0));
   for (const label of ["Club Hub", "My Club", "Market", "Matches", "Players", "Reviews"]) {
     await expect(nav.getByRole("button", { name: new RegExp(label) })).toBeVisible();
   }
@@ -120,4 +132,24 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
   await nav.getByRole("button", { name: "Matches" }).click();
   await expect(page.getByRole("heading", { name: "Schedule & fixtures" })).toBeVisible();
   await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
+
+  await nav.getByRole("button", { name: "Club Hub" }).click();
+  await nav.getByRole("button", { name: "Players" }).click();
+  const playersSection = page.locator(".clubs-players-section");
+  await expect(playersSection).toBeVisible();
+  const subnav = playersSection.getByRole("tablist", { name: "Players sections" });
+  await expect(subnav.getByRole("tab", { name: "Discovery" })).toBeVisible();
+  await expect(subnav.getByRole("tab", { name: "Player History" })).toBeVisible();
+
+  const viewportWidth = page.viewportSize().width;
+  const subnavBounds = await subnav.boundingBox();
+  const discoveryBounds = await subnav.getByRole("tab", { name: "Discovery" }).boundingBox();
+  const historyBounds = await subnav.getByRole("tab", { name: "Player History" }).boundingBox();
+  expect(subnavBounds).not.toBeNull();
+  expect(discoveryBounds).not.toBeNull();
+  expect(historyBounds).not.toBeNull();
+  expect(subnavBounds.x).toBeGreaterThanOrEqual(0);
+  expect(subnavBounds.x + subnavBounds.width).toBeLessThanOrEqual(viewportWidth + 1);
+  expect(discoveryBounds.x).toBeGreaterThanOrEqual(subnavBounds.x);
+  expect(historyBounds.x + historyBounds.width).toBeLessThanOrEqual(subnavBounds.x + subnavBounds.width + 1);
 });

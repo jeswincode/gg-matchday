@@ -237,3 +237,23 @@ test("Dark Clubs theme shares Matchday's navy and blue palette without changing 
   assert.doesNotMatch(darkTheme, /html\[data-theme="golden"\]/);
   assert.match(styles, /html\[data-theme="golden"\]\[data-product-mode="clubs"\] \.clubs-app/);
 });
+
+
+test("Clubs mobile scrolling remains vertical and Players subsection tabs fit the viewport", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+
+  assert.match(component, /onTouchMove=\{handleClubsTouchMove\}/);
+  assert.match(component, /const handleClubsTouchMove = event =>/);
+  assert.match(component, /We never prevent the browser's default vertical scrolling behavior\./);
+  assert.match(component, /clubs-players-section/);
+  assert.match(styles, /overflow-x:\s*clip;\s*overflow-y:\s*visible;/);
+  assert.match(styles, /html\[data-product-mode="clubs"\] body/);
+  assert.match(styles, /html\[data-product-mode="clubs"\] #root/);
+  assert.match(styles, /overflow-x:\s*clip;\s*overflow-y:\s*visible;/);
+  assert.match(styles, /touch-action:\s*pan-y pinch-zoom/);
+  assert.match(styles, /\.clubs-players-section > \.clubs-section-heading/);
+  assert.match(styles, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(styles, /\.clubs-players-section \.clubs-subnav button/);
+  assert.match(styles, /overflow-wrap:\s*anywhere/);
+});

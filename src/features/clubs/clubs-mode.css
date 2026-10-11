@@ -2624,3 +2624,84 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span
   color: #a8cdfb;
   box-shadow: 0 0 0 3px rgba(83, 143, 223, .17);
 }
+
+
+/* ---------- Mobile scrolling + player subsection layout ---------- */
+@media (max-width: 760px) {
+  /* Clip sideways overspill without turning the Clubs page into an
+     overflow-hidden scroll container. Native vertical page scrolling stays enabled. */
+  .clubs-app {
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+}
+
+@media (max-width: 540px) {
+  .clubs-players-section > .clubs-section-heading {
+    width: 100%;
+    min-width: 0;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .clubs-players-section > .clubs-section-heading > div:first-child {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .clubs-players-section .clubs-subnav {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 5px;
+    overflow: visible;
+  }
+
+  .clubs-players-section .clubs-subnav button {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 7px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+    line-height: 1.25;
+    font-size: clamp(11px, 3vw, 13px);
+  }
+}
+
+@media (max-width: 760px) {
+  .clubs-app {
+    touch-action: pan-y pinch-zoom;
+  }
+}
+
+
+/* The shared mobile layer sets overflow-x:hidden on html/body/#root. On some
+   mobile browsers that changes the other axis into an auto scroll container.
+   In Clubs mode, clip horizontal spill without creating a nested vertical
+   scrollport; let the document grow and scroll naturally instead. */
+@media (max-width: 760px) {
+  html[data-product-mode="clubs"],
+  html[data-product-mode="clubs"] body,
+  html[data-product-mode="clubs"] #root {
+    height: auto;
+    min-height: 100%;
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+
+  html[data-product-mode="clubs"] .clubs-app {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: clip;
+    overflow-y: visible;
+    touch-action: pan-y pinch-zoom;
+  }
+}
