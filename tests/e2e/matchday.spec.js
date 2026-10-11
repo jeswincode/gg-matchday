@@ -35,20 +35,26 @@ test("guest can open Matchday and reach the live leaderboard", async ({ page }) 
   await expect(page.getByText("Performance. Contribution. Results.")).toBeVisible();
 });
 
-test("mobile welcome screen keeps the main title visible and provides a full-size entry button", async ({ page }) => {
+test("mobile welcome screen loads the dedicated 9:16 poster with a clickable embedded CTA", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const poster = page.getByRole("img", { name: /GG Matchday cinematic football poster/i });
   await expect(poster).toBeVisible();
-  const enter = page.locator(".gg-welcome-mobile-button");
-  await expect(enter).toBeVisible();
-  const posterBounds = await page.locator(".gg-welcome-poster-frame").boundingBox();
+  await expect.poll(async () => {
+    const currentSrc = await poster.evaluate(element => element.currentSrc);
+    return new URL(currentSrc).pathname;
+  }).toBe("/enter-matchday-mobile.png");
+  const frame = page.locator(".gg-welcome-poster-frame");
+  const frameBounds = await frame.boundingBox();
+  const enter = page.getByRole("button", { name: "Enter Matchday" });
   const enterBounds = await enter.boundingBox();
-  expect(posterBounds).not.toBeNull();
+  expect(frameBounds).not.toBeNull();
   expect(enterBounds).not.toBeNull();
-  expect(enterBounds.width).toBeGreaterThan(300);
-  expect(enterBounds.height).toBeGreaterThanOrEqual(52);
-  expect(enterBounds.y).toBeGreaterThan(posterBounds.y + posterBounds.height - 1);
+  expect(Math.abs(frameBounds.width / frameBounds.height - 9 / 16)).toBeLessThan(0.015);
+  expect(enterBounds.width).toBeGreaterThan(200);
+  expect(enterBounds.height).toBeGreaterThan(35);
+  expect(enterBounds.y).toBeGreaterThan(frameBounds.y + frameBounds.height * 0.76);
+  await enter.click();
 });
 
 test("mobile viewport keeps primary navigation usable across key tabs", async ({ page }) => {
