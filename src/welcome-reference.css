@@ -146,9 +146,14 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
   border: 0;
 }
 
-/* Mobile-only re-composition: keep the full central title and player lineup
-   visible, crop the artwork before its embedded CTA, then provide a larger
-   native CTA underneath it. Desktop retains the exact poster composition. */
+/* Portrait devices load the purpose-made 9:16 poster. The image includes
+   its own CTA artwork; an accessible transparent button sits over that area. */
+
+.gg-welcome-poster-picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 
 .gg-welcome-mobile-button,
 .gg-welcome-mobile-footer {
@@ -157,114 +162,77 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
 
 @media (max-aspect-ratio: 3 / 4) {
   .gg-welcome-screen.gg-welcome-image-screen {
-    background:
-      radial-gradient(ellipse at 50% 42%, rgba(189, 133, 39, .17), transparent 48%),
-      radial-gradient(ellipse at 50% 75%, rgba(189, 133, 39, .08), transparent 43%),
-      linear-gradient(180deg, #080603 0%, #030303 68%, #010101 100%);
+    background: #030303;
   }
 
   .gg-welcome-poster-frame {
-    top: 0;
-    transform: translateX(-50%);
-    width: min(195vw, 840px);
-    height: auto;
-    aspect-ratio: 1648 / 719;
+    top: 50%;
+    left: 50%;
+    width: min(100vw, 56.25dvh);
+    aspect-ratio: 9 / 16;
+    transform: translate(-50%, -50%);
     overflow: hidden;
   }
 
-  .gg-welcome-poster {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: auto;
-    max-width: none;
-    object-fit: unset;
-    object-position: top center;
-  }
-
-  /* The poster's baked-in CTA is cropped out below. */
-  .gg-welcome-image-button {
-    display: none;
-  }
-
-  .gg-welcome-mobile-button {
-    position: absolute;
-    z-index: 3;
-    top: calc(min(85.1vw, 366.5px) + 12px);
-    left: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: min(86vw, 380px);
-    height: clamp(52px, 7dvh, 64px);
-    padding: 0 20px;
-    transform: translateX(-50%);
-    border: 1px solid rgba(255, 235, 167, .92);
-    border-radius: 999px;
-    background: linear-gradient(112deg, #ffe38a 0%, #e9bd58 53%, #c28b2e 100%);
-    color: #171003;
-    box-shadow:
-      0 10px 32px rgba(0, 0, 0, .42),
-      0 0 28px rgba(227, 188, 103, .14),
-      inset 0 1px 0 rgba(255, 255, 255, .56);
-    font-size: clamp(14px, 3.5vw, 16px);
-    font-weight: 900;
-    letter-spacing: .045em;
-    white-space: nowrap;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 160ms ease, box-shadow 160ms ease, transform 160ms ease;
-  }
-
-  .gg-welcome-image-screen.is-ready .gg-welcome-mobile-button {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-  }
-
-  .gg-welcome-mobile-button:active {
-    transform: translateX(-50%) scale(.985);
-  }
-
-  .gg-welcome-mobile-button:focus-visible {
-    outline: 3px solid #ffe28a;
-    outline-offset: 4px;
-  }
-
-  .gg-welcome-mobile-footer {
-    position: absolute;
-    top: calc(min(76.35vw, 305.5px) + clamp(52px, 7dvh, 64px) + 34px);
-    left: 0;
-    right: 0;
+  .gg-welcome-poster-picture {
     display: block;
-    margin: 0;
-    padding: 0 16px;
-    color: rgba(242, 224, 182, .72);
-    font-size: clamp(9px, 2.4vw, 11px);
-    font-weight: 700;
-    letter-spacing: .32em;
-    line-height: 1.6;
-    text-align: center;
-    text-wrap: balance;
+    width: 100%;
+    height: 100%;
+  }
+
+  .gg-welcome-poster {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  /* Hit target aligns with the button printed in enter-matchday-mobile.png. */
+  .gg-welcome-image-button {
+    display: flex;
+    left: 16%;
+    top: 78.9%;
+    width: 68%;
+    height: 6.3%;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: transparent;
+    box-shadow: none;
+    font-size: 0;
+    letter-spacing: 0;
+  }
+
+  .gg-welcome-image-button.is-image-overlay {
+    background: transparent;
+  }
+
+  .gg-welcome-image-button:focus-visible {
+    outline: 3px solid #ffe28a;
+    outline-offset: 2px;
+    background: rgba(255, 225, 142, .06);
   }
 
   .gg-welcome-poster-frame.has-error {
-    top: 12dvh;
+    top: 50%;
+    left: 50%;
     width: min(90vw, 620px);
+    height: auto;
     min-height: 180px;
     aspect-ratio: auto;
-    height: auto;
+    transform: translate(-50%, -50%);
     overflow: visible;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gg-welcome-mobile-button {
+  .gg-welcome-poster {
+    transition: none;
+  }
+
+  .gg-welcome-image-button {
     transition: none;
   }
 }
