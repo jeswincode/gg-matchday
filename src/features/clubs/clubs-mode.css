@@ -2675,3 +2675,9 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span
     font-size: clamp(11px, 3vw, 13px);
   }
 }
+
+@media (max-width: 760px) {
+  .clubs-app {
+    touch-action: pan-y pinch-zoom;
+  }
+}
