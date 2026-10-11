@@ -83,27 +83,33 @@ export function WelcomeScreen({ onEnter }) {
     <main className={`gg-welcome-screen gg-welcome-image-screen${posterLoaded || posterFailed ? " is-ready" : ""}`}>
       <div className={`gg-welcome-poster-frame${posterLoaded ? " is-loaded" : ""}${!posterLoaded && !posterFailed ? " is-loading" : ""}${posterFailed ? " has-error" : ""}`}>
         {!posterFailed && (
-          <img
-            className="gg-welcome-poster"
-            src="/enter-matchday.png"
-            alt="GG Matchday cinematic football poster with players in a floodlit stadium."
-            draggable={false}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            onLoad={() => setPosterLoaded(true)}
-            onError={() => {
-              setPosterLoaded(false);
-              setPosterFailed(true);
-            }}
-          />
+          <picture className="gg-welcome-poster-picture">
+            <source
+              media="(max-aspect-ratio: 3 / 4)"
+              srcSet="/enter-matchday-mobile.png"
+            />
+            <img
+              className="gg-welcome-poster"
+              src="/enter-matchday.png"
+              alt="GG Matchday cinematic football poster with players in a floodlit stadium."
+              draggable={false}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              onLoad={() => setPosterLoaded(true)}
+              onError={() => {
+                setPosterLoaded(false);
+                setPosterFailed(true);
+              }}
+            />
+          </picture>
         )}
 
         {posterFailed && (
           <div className="gg-welcome-poster-fallback" role="status">
             <p className="gg-welcome-poster-brand">GG MATCHDAY</p>
             <p className="gg-welcome-poster-help">
-              Add <code>public/enter-matchday.png</code> to display the welcome artwork.
+              Add <code>public/enter-matchday.png</code> and <code>public/enter-matchday-mobile.png</code> to display the desktop and mobile welcome artwork.
             </p>
           </div>
         )}
@@ -123,16 +129,6 @@ export function WelcomeScreen({ onEnter }) {
         </button>
       </div>
 
-      <button
-        type="button"
-        className="gg-welcome-mobile-button"
-        onClick={onEnter}
-        aria-label="Enter Matchday"
-        title="Enter Matchday"
-      >
-        ENTER MATCHDAY <span aria-hidden="true">→</span>
-      </button>
-      <p className="gg-welcome-mobile-footer" aria-hidden="true">SAME PLAYERS. NEW STORIES.</p>
     </main>
   );
 }
