@@ -515,6 +515,29 @@ test("GET Player Wallet is read-only when the wallet has not been created yet", 
   assert.equal(await PlayerWallet.exists({ playerId: player._id }), null);
 });
 
+test("GET Club wallet uses the route called by the My Club dashboard and restricts access to members", async () => {
+  const club = await Club.create({
+    name: "Club Wallet Route Regression FC",
+    description: "Regression test for the My Club wallet endpoint path.",
+    memberIds: players.slice(0, 4).map(player => player._id),
+    captainIds: players.slice(0, 2).map(player => player._id),
+    status: "approved",
+    balance: 300,
+    committedBalance: 75,
+  });
+
+  const response = await request(`/clubs/${club._id}/wallet`, { playerId: players[0]._id });
+  assert.equal(response.status, 200, JSON.stringify(response.data));
+  assert.equal(String(response.data.club._id), String(club._id));
+  assert.equal(Number(response.data.club.balance), 300);
+  assert.equal(Number(response.data.club.committedBalance), 75);
+  assert.equal(Number(response.data.club.availableBalance), 225);
+  assert.ok(Array.isArray(response.data.transactions));
+
+  const nonMemberResponse = await request(`/clubs/${club._id}/wallet`, { playerId: players[8]._id });
+  assert.equal(nonMemberResponse.status, 403, JSON.stringify(nonMemberResponse.data));
+});
+
 test("GET Club Matches is read-only and does not expire stale requests", async () => {
   const oldDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const matchId = new mongoose.Types.ObjectId();
