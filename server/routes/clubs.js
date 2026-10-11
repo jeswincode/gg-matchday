@@ -822,7 +822,7 @@ router.get("/wallet/me", requireAuth, async (req, res) => {
   return res.json({ wallet, transactions });
 });
 
-router.get("/clubs/:clubId/wallet", requireAuth, async (req, res) => {
+router.get("/:clubId/wallet", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
