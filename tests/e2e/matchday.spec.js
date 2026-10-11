@@ -98,7 +98,7 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
 
   // Verify natural vertical scrolling while the longer Hub overview is active.
   const nav = page.getByRole("navigation", { name: "Clubs navigation" });
-  await expect(page.locator(".clubs-hub-pipeline")).toBeVisible();
+  await expect(page.locator(".clubs-hub-discovery-grid")).toBeVisible();
   const pageHeights = await page.evaluate(() => ({
     content: document.documentElement.scrollHeight,
     viewport: window.innerHeight,
