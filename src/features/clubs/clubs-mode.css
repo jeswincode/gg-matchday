@@ -2681,3 +2681,27 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span
     touch-action: pan-y pinch-zoom;
   }
 }
+
+
+/* The shared mobile layer sets overflow-x:hidden on html/body/#root. On some
+   mobile browsers that changes the other axis into an auto scroll container.
+   In Clubs mode, clip horizontal spill without creating a nested vertical
+   scrollport; let the document grow and scroll naturally instead. */
+@media (max-width: 760px) {
+  html[data-product-mode="clubs"],
+  html[data-product-mode="clubs"] body,
+  html[data-product-mode="clubs"] #root {
+    height: auto;
+    min-height: 100%;
+    overflow-x: clip;
+    overflow-y: visible;
+  }
+
+  html[data-product-mode="clubs"] .clubs-app {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: clip;
+    overflow-y: visible;
+    touch-action: pan-y pinch-zoom;
+  }
+}
