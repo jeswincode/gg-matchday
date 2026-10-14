@@ -107,8 +107,22 @@ app.use((error, req, res, next) => {
     return res.status(400).json({ message: "Invalid request data.", requestId: req.requestId });
   }
 
-  return res.status(error.status || 500).json({
-    message: error.status === 413 ? "Request is too large." : "The request could not be completed.",
+  const statusCode = Number.isInteger(error?.status) && error.status >= 400 && error.status < 600
+    ? error.status
+    : 500;
+  if (statusCode >= 500) {
+    console.error(JSON.stringify({
+      event: "api_error_handler",
+      requestId: req.requestId,
+      method: req.method,
+      path: req.path,
+      statusCode,
+      errorName: error?.name || "Error",
+    }));
+  }
+
+  return res.status(statusCode).json({
+    message: statusCode === 413 ? "Request is too large." : "The request could not be completed.",
     requestId: req.requestId,
   });
 });
