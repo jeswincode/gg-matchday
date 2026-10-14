@@ -311,16 +311,18 @@ if ! mongorestore "${FINAL_ARGS[@]}" >"$RESTORE_LOG" 2>&1; then
   exit 1
 fi
 
-if ! grep -Fq "reading metadata for ${SOURCE_DATABASE}." "$RESTORE_LOG"; then
-  # Print a narrow, sanitized summary to help diagnose MongoDB Database Tools
-  # differences without exposing the URI or raw tool diagnostics.
-  SAFE_RESTORE_SUMMARY="$(grep -E 'preparing collections to restore|reading metadata for|restoring [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|finished restoring|document\(s\) restored successfully|document\(s\) failed to restore' "$RESTORE_LOG" | head -n 12 || true)"
+if ! grep -Fq "${SOURCE_DATABASE}." "$RESTORE_LOG" &&
+   ! grep -Fq "${TARGET_DATABASE}." "$RESTORE_LOG"; then
+  # MongoDB Database Tools reports the remapped destination namespace when
+  # nsFrom/nsTo are used. The namespace is checked only within the captured
+  # restore output; raw tool output and connection details are never printed.
+  SAFE_RESTORE_SUMMARY="$(grep -E 'preparing collections to restore|reading metadata for|restoring [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+|finished restoring|document\\(s\\) restored successfully|document\\(s\\) failed to restore' "$RESTORE_LOG" | head -n 12 || true)"
   if [[ -n "$SAFE_RESTORE_SUMMARY" ]]; then
     printf 'Sanitized restore summary:\\n%s\\n' "$SAFE_RESTORE_SUMMARY" >&2
   else
     echo "No recognized collection metadata or restore summary was emitted during the import." >&2
   fi
-  echo "Restore did not report collection metadata for the expected source namespace. No success is reported; verify the source namespace and target before retrying." >&2
+  echo "Restore did not report the expected source or mapped destination namespace. No success is reported; verify the source namespace and target before retrying." >&2
   exit 1
 fi
 
