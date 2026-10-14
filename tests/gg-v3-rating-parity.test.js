@@ -55,7 +55,12 @@ test("client and server rating calculators agree for tabulated result contexts a
           for (const performanceCodes of codeSets) {
             const input = { ...countCase, team, teamAScore, teamBScore, ...stats, performanceCodes };
             assertParity(input, JSON.stringify(input));
-            assert.equal(calculateServerRatings(input).resultContext, countCase.context);
+            const ownTeamCount = team === "A" ? countCase.teamACount : countCase.teamBCount;
+            const opponentTeamCount = team === "A" ? countCase.teamBCount : countCase.teamACount;
+            const expectedContext = ownTeamCount === opponentTeamCount
+              ? "equal"
+              : ownTeamCount > opponentTeamCount ? "favoured" : "underdog";
+            assert.equal(calculateServerRatings(input).resultContext, expectedContext);
           }
         }
       }
