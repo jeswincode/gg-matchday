@@ -81,16 +81,7 @@ jobs:
             -out /tmp/gg-matchday-smoke.archive.gz.enc \
             -pass env:BACKUP_ENCRYPTION_KEY
 
-          # Temporary diagnostic: capture the real Database Tools dry-run output for this fixture.
-          mongorestore --dryRun --verbose \
-            --uri="$MONGODB_URI" \
-            --archive=/tmp/gg-matchday-smoke.archive.gz --gzip \
-            --nsInclude="$MONGODB_DATABASE.*" \
-            --nsFrom="$MONGODB_DATABASE.*" \
-            --nsTo="gg_matchday_restore_smoke.*" \
-            --stopOnError 2>&1 | tee /tmp/restore-dryrun-diagnostic.log
-
-          # Preflight must validate the source namespace but import no documents.
+          # The guarded preflight must validate the actual source-to-destination mapping without importing documents.
           bash scripts/restore-mongodb.sh /tmp/gg-matchday-smoke.archive.gz.enc \
             --target-database gg_matchday_restore_smoke \
             --target-environment non-production
