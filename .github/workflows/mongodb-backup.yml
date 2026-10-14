@@ -104,6 +104,26 @@ jobs:
             --nsTo="gg_matchday_restore_clubs.*" \
             --stopOnError
 
+      - name: Verify restored core and Clubs data exist in the isolated databases
+        run: |
+          set -euo pipefail
+          CONTAINER_ID="$(docker ps --filter 'ancestor=mongo:8.2' --format '{{.ID}}' | head -n 1)"
+          test -n "$CONTAINER_ID"
+          docker exec "$CONTAINER_ID" mongosh --quiet --eval '
+            const verifyDatabase = (name) => {
+              const database = db.getSiblingDB(name);
+              const collections = database.getCollectionNames().filter(value => !value.startsWith("system."));
+              const documentCount = collections.reduce((total, collection) => total + database.getCollection(collection).estimatedDocumentCount(), 0);
+              if (collections.length === 0 || documentCount === 0) {
+                print("Restore verification failed for " + name + ": collections=" + collections.length + ", documents=" + documentCount);
+                quit(1);
+              }
+              print("Verified isolated restore " + name + ": " + collections.length + " collections, " + documentCount + " documents.");
+            };
+            verifyDatabase("gg_matchday_restore_core");
+            verifyDatabase("gg_matchday_restore_clubs");
+          '
+
       - name: Upload encrypted backups only after both restore drills pass
         uses: actions/upload-artifact@v4
         with:
