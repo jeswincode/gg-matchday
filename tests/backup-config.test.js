@@ -31,6 +31,6 @@ test("database resolver rejects malformed URIs without leaking their text", () =
   const result = spawnSync(process.execPath, [resolver], { input: "not-a-uri-with-private-data", encoding: "utf8" });
   assert.equal(result.status, 2);
   assert.equal(result.stdout, "");
-  assert.match(result.stderr, /Could not parse the MongoDB URI/);
+  assert.match(result.stderr, /Could not derive a database name from the MongoDB URI path/);
   assert.doesNotMatch(result.stderr, /private-data/);
 });
