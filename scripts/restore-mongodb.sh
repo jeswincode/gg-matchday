@@ -9,23 +9,29 @@ Usage:
     bash scripts/restore-mongodb.sh <backup.archive.gz.enc> [options]
 
 Options:
-  --target-database <name>  Destination database (default: gg_matchday_restore_test)
-  --execute                 Perform the restore; without this flag, only preflight is run
-  --drop                    Drop target collections before restoring (requires --confirm-target)
-  --confirm-target <name>   Must exactly match the destination database when using --drop
-  --allow-production        Explicitly permit a production-like destination
-  --confirm-production <name>
-                            Must exactly match the destination for a production-like restore
-  -h, --help                Show this help
+  --target-database <name>       Destination database (default: gg_matchday_restore_test)
+  --target-environment <env>     Explicitly declare non-production or production
+  --execute                      Perform the restore; default is validation only
+  --drop                         Drop destination collections before restore (requires --confirm-target)
+  --confirm-target <name>        Must exactly match destination database when using --drop
+  --allow-production             Explicitly permit a production-target restore
+  --confirm-production <name>    Must exactly match destination database for production restore
+  -h, --help                     Show this help
 
-MONGODB_DATABASE identifies the database namespace stored in the archive (the name
-used by mongodump), not the destination. TARGET_DATABASE or --target-database selects
-the destination namespace. The default mode decrypts and validates the archive and
-runs mongorestore preflight only; it does not import data.
+MONGODB_DATABASE (or SOURCE_DATABASE) identifies the database namespace stored in the
+archive; it is not the destination. TARGET_DATABASE or --target-database selects the
+destination namespace. TARGET_ENVIRONMENT can provide the explicit target classification.
 
-A real restore requires --execute and an explicit destination. A production-like
-destination also requires --allow-production and --confirm-production. Collection
-drops require --drop and --confirm-target.
+Default mode decrypts and validates the archive and runs mongorestore preflight only.
+It does not import data. A real restore requires --execute, an explicit destination,
+and an explicit target environment. A production-target restore additionally requires
+--allow-production and --confirm-production with the exact destination name.
+Collection drops require --drop and --confirm-target.
+
+MONGODB_URI is never printed. Its database path is not treated as a substitute for
+the explicit restore destination. Review the sanitized connection host and target
+summary before executing. Use a backup verified by the automated isolated restore
+workflow wherever possible.
 USAGE
 }
 
@@ -41,11 +47,17 @@ if [[ -z "$BACKUP_FILE" ]]; then
 fi
 shift
 
-TARGET_DATABASE_ENV="${TARGET_DATABASE:-}"
-TARGET_DATABASE="${TARGET_DATABASE_ENV:-gg_matchday_restore_test}"
+TARGET_DATABASE="${TARGET_DATABASE:-gg_matchday_restore_test}"
 TARGET_DATABASE_EXPLICIT=false
-if [[ -n "$TARGET_DATABASE_ENV" ]]; then
+if [[ -n "${TARGET_DATABASE:-}" && "${TARGET_DATABASE:-}" != "gg_matchday_restore_test" ]]; then
   TARGET_DATABASE_EXPLICIT=true
+fi
+# A non-default value supplied in the environment counts as explicit; the default
+# scratch name must be repeated with --target-database for an actual restore.
+TARGET_ENVIRONMENT="${TARGET_ENVIRONMENT:-}"
+TARGET_ENVIRONMENT_EXPLICIT=false
+if [[ -n "$TARGET_ENVIRONMENT" ]]; then
+  TARGET_ENVIRONMENT_EXPLICIT=true
 fi
 
 EXECUTE=false
@@ -63,6 +75,15 @@ while (($#)); do
       fi
       TARGET_DATABASE="$2"
       TARGET_DATABASE_EXPLICIT=true
+      shift 2
+      ;;
+    --target-environment)
+      if (($# < 2)) || [[ -z "$2" ]]; then
+        echo "Missing value for --target-environment." >&2
+        exit 2
+      fi
+      TARGET_ENVIRONMENT="$2"
+      TARGET_ENVIRONMENT_EXPLICIT=true
       shift 2
       ;;
     --execute)
@@ -125,6 +146,16 @@ if ! valid_database_name "$TARGET_DATABASE"; then
   echo "The destination database name is invalid; use 1-63 ASCII letters, digits, underscores, or hyphens." >&2
   exit 2
 fi
+if ! $TARGET_ENVIRONMENT_EXPLICIT || [[ "$TARGET_ENVIRONMENT" != "non-production" && "$TARGET_ENVIRONMENT" != "production" ]]; then
+  if $EXECUTE; then
+    echo "Execution requires --target-environment non-production|production (or TARGET_ENVIRONMENT)." >&2
+    exit 2
+  fi
+  if [[ -n "$TARGET_ENVIRONMENT" ]]; then
+    echo "TARGET_ENVIRONMENT must be exactly non-production or production." >&2
+    exit 2
+  fi
+fi
 
 # Parse only non-secret connection metadata. Do not echo the URI, username, password,
 # query string, or raw URL parser errors.
@@ -147,6 +178,16 @@ NODE
 fi
 IFS=$'\t' read -r URI_HOST URI_DATABASE <<< "$URI_INFO"
 
+TARGET_LOWER="${TARGET_DATABASE,,}"
+PRODUCTION_NAME_LIKE=false
+if [[ "$TARGET_LOWER" =~ ^(prod|production|live|gg_matchday_prod|gg_matchday_production|gg_matchday_live)$ ]]; then
+  PRODUCTION_NAME_LIKE=true
+fi
+if $PRODUCTION_NAME_LIKE && [[ "$TARGET_ENVIRONMENT" != "production" ]]; then
+  echo "Destination name is production-like; declare --target-environment production and confirm explicitly." >&2
+  exit 2
+fi
+
 if $DROP && ! $EXECUTE; then
   echo "--drop cannot be used without --execute." >&2
   exit 2
@@ -163,30 +204,20 @@ if ! $EXECUTE && { $ALLOW_PRODUCTION || [[ -n "$CONFIRM_PRODUCTION" ]]; }; then
   echo "Production confirmation options require --execute." >&2
   exit 2
 fi
-
-TARGET_LOWER="${TARGET_DATABASE,,}"
-PRODUCTION_LIKE=false
-if [[ "$TARGET_DATABASE" == "$SOURCE_DATABASE" ]] ||
-   { [[ -n "$URI_DATABASE" ]] && [[ "$TARGET_DATABASE" == "$URI_DATABASE" ]]; } ||
-   [[ "$TARGET_LOWER" =~ ^(prod|production|live|gg_matchday_prod|gg_matchday_production|gg_matchday_live)$ ]]; then
-  PRODUCTION_LIKE=true
-fi
-
 if $EXECUTE && ! $TARGET_DATABASE_EXPLICIT; then
   echo "Refusing to execute with an implicit destination. Pass --target-database explicitly." >&2
   exit 2
 fi
-if $EXECUTE && $PRODUCTION_LIKE; then
+if $EXECUTE && [[ "$TARGET_ENVIRONMENT" == "production" ]]; then
   if ! $ALLOW_PRODUCTION || [[ "$CONFIRM_PRODUCTION" != "$TARGET_DATABASE" ]]; then
-    echo "Refusing a production-like restore. Use --allow-production and --confirm-production with the exact destination name." >&2
+    echo "Refusing production restore. Use --allow-production and --confirm-production with the exact destination name." >&2
     exit 2
   fi
+elif $EXECUTE && $ALLOW_PRODUCTION; then
+  echo "--allow-production requires --target-environment production." >&2
+  exit 2
 elif [[ -n "$CONFIRM_PRODUCTION" ]] && [[ "$CONFIRM_PRODUCTION" != "$TARGET_DATABASE" ]]; then
   echo "--confirm-production must exactly match the destination database." >&2
-  exit 2
-fi
-if ! $EXECUTE && $DROP; then
-  echo "Refusing a non-executing restore with destructive options." >&2
   exit 2
 fi
 
@@ -202,7 +233,7 @@ fi
 echo "Restore preflight target summary:"
 echo "  Connection host: $URI_HOST"
 if [[ -n "$URI_DATABASE" ]]; then
-  echo "  URI database path (not used as the namespace destination): $URI_DATABASE"
+  echo "  URI database path (not used as destination): $URI_DATABASE"
 else
   echo "  URI database path: none"
 fi
@@ -218,10 +249,12 @@ if $DROP; then
 else
   echo "  Destructive collection drops: disabled"
 fi
-if $PRODUCTION_LIKE; then
-  echo "  Target classification: production-like; explicit production confirmation required for writes"
+if [[ "$TARGET_ENVIRONMENT" == "production" ]]; then
+  echo "  Target environment: production (explicitly declared)"
+elif [[ "$TARGET_ENVIRONMENT" == "non-production" ]]; then
+  echo "  Target environment: non-production (explicitly declared)"
 else
-  echo "  Target classification: non-production-like by configured safeguards"
+  echo "  Target environment: not declared (preflight-only)"
 fi
 
 TEMP_ARCHIVE="$(mktemp --suffix=.archive.gz)"
@@ -264,7 +297,7 @@ if ! mongorestore --dryRun "${RESTORE_ARGS[@]}" >"$PREFLIGHT_LOG" 2>&1; then
   exit 1
 fi
 if ! grep -Fq "reading metadata for ${SOURCE_DATABASE}." "$PREFLIGHT_LOG"; then
-  echo "Archive preflight did not find collection metadata in the expected source namespace; refusing to restore." >&2
+  echo "Archive preflight did not find collection metadata in the expected source namespace; refusing to continue." >&2
   exit 1
 fi
 
@@ -278,8 +311,6 @@ FINAL_ARGS=( "${RESTORE_ARGS[@]}" )
 if $DROP; then
   FINAL_ARGS+=(--drop)
 fi
-# Only the sanitized preflight summary is printed. Raw database-tool output can
-# contain sensitive connection details and is therefore captured, never echoed.
 if ! mongorestore "${FINAL_ARGS[@]}" >"$RESTORE_LOG" 2>&1; then
   echo "mongorestore failed. No raw tool output or credentials were printed; inspect access-controlled host logs if needed." >&2
   exit 1
