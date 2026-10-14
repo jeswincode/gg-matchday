@@ -42,7 +42,7 @@ export async function requireAuth(
           accessRequest: "none",
           playerProfile,
         } },
-        { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true },
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, runValidators: true },
       );
       req.firebaseUser = { uid, testOnly: true };
       req.user = user;
