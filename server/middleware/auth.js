@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import { timingSafeEqual } from "node:crypto";
 import User from "../models/User.js";
+import {
+  hasAdminRoleAuthority,
+  isVerifiedConfiguredAdminEmail,
+} from "../services/adminIdentityPolicy.js";
 
 import getFirebaseAdmin from "../config/firebaseAdmin.js";
 
@@ -98,6 +102,13 @@ export async function requireAuth(
       decoded.picture ||
       "";
 
+    const configuredAdminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase().trim();
+    const isConfiguredAdmin = isVerifiedConfiguredAdminEmail(
+      email,
+      decoded.email_verified,
+      configuredAdminEmail,
+    );
+
     let user =
       await User.findOne({
         firebaseUid,
@@ -108,19 +119,7 @@ export async function requireAuth(
     // ------------------------------------------------
 
     if (!user) {
-      const configuredAdminEmail =
-        (
-          process.env.ADMIN_EMAIL ||
-          ""
-        ).toLowerCase()
-          .trim();
-
-      const role =
-        email &&
-        email ===
-          configuredAdminEmail
-          ? "admin"
-          : "viewer";
+      const role = isConfiguredAdmin ? "admin" : "viewer";
 
       try {
         user = await User.create({
@@ -147,18 +146,33 @@ export async function requireAuth(
         if (email && email !== user.email) { user.email = email; changed = true; }
         if (name && name !== user.name) { user.name = name; changed = true; }
         if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
-        if (email && email === configuredAdminEmail && user.role !== "admin") { user.role = "admin"; changed = true; }
-        if (email && email === configuredAdminEmail && user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+        if (isConfiguredAdmin) {
+          if (user.role !== "admin") { user.role = "admin"; changed = true; }
+          if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+        } else if (user.role === "admin") {
+          // Remove stale auto-granted privilege when the current Firebase
+          // identity no longer proves ownership of the configured admin email.
+          user.role = "viewer";
+          user.accessRequest = "none";
+          changed = true;
+        }
         if (changed) await user.save();
       }
     } else {
-      const configuredAdminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase().trim();
       let changed = false;
       if (email && email !== user.email) { user.email = email; changed = true; }
       if (name && name !== user.name) { user.name = name; changed = true; }
       if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
-      if (email && email === configuredAdminEmail && user.role !== "admin") { user.role = "admin"; changed = true; }
-      if (email && email === configuredAdminEmail && user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+      if (isConfiguredAdmin) {
+        if (user.role !== "admin") { user.role = "admin"; changed = true; }
+        if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+      } else if (user.role === "admin") {
+        // Remove stale auto-granted privilege when the current Firebase
+        // identity no longer proves ownership of the configured admin email.
+        user.role = "viewer";
+        user.accessRequest = "none";
+        changed = true;
+      }
       if (changed) await user.save();
     }
 
@@ -205,18 +219,15 @@ export async function requireEditor(
       });
     }
 
-    if (
-      req.user.role !==
-        "editor" &&
-      req.user.role !==
-        "admin"
-    ) {
-      return res.status(
-        403
-      ).json({
-        message:
-          "Editor access required.",
-      });
+    const editorRoleAllowed = req.user.role === "editor";
+    const adminRoleAllowed = hasAdminRoleAuthority({
+      role: req.user.role,
+      emailVerified: req.firebaseUser?.email_verified,
+      testOnly: req.firebaseUser?.testOnly === true,
+      environment: process.env.NODE_ENV,
+    });
+    if (!editorRoleAllowed && !adminRoleAllowed) {
+      return res.status(403).json({ message: "Editor access required." });
     }
 
     next();
@@ -256,16 +267,13 @@ export async function requireAdmin(
       });
     }
 
-    if (
-      req.user.role !==
-      "admin"
-    ) {
-      return res.status(
-        403
-      ).json({
-        message:
-          "Admin access required.",
-      });
+    if (!hasAdminRoleAuthority({
+      role: req.user.role,
+      emailVerified: req.firebaseUser?.email_verified,
+      testOnly: req.firebaseUser?.testOnly === true,
+      environment: process.env.NODE_ENV,
+    })) {
+      return res.status(403).json({ message: "Admin access required." });
     }
 
     next();
