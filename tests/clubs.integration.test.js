@@ -96,6 +96,48 @@ test("test authentication is secret-gated and unavailable in production mode", a
   assert.equal(String(accepted.data.user.playerProfile), String(players[0]._id));
 });
 
+test("optional wallet ledger keys are omitted so sparse unique indexes allow multiple entries", async () => {
+  const clubEntries = await ClubWalletTransaction.create([
+    {
+      clubId: new mongoose.Types.ObjectId(),
+      type: "adjustment",
+      amount: 1,
+      balanceAfter: 1,
+      description: "Test credit without retry key A",
+    },
+    {
+      clubId: new mongoose.Types.ObjectId(),
+      type: "adjustment",
+      amount: 2,
+      balanceAfter: 2,
+      description: "Test credit without retry key B",
+    },
+  ]);
+  assert.equal(clubEntries.length, 2);
+  assert.ok(clubEntries.every(entry => entry.idempotencyKey === undefined));
+  assert.ok(clubEntries.every(entry => !Object.hasOwn(entry.toObject(), "idempotencyKey")));
+
+  const playerEntries = await PlayerWalletTransaction.create([
+    {
+      playerId: players[0]._id,
+      type: "adjustment",
+      amount: 1,
+      balanceAfter: 1,
+      description: "Test player credit without retry key A",
+    },
+    {
+      playerId: players[1]._id,
+      type: "adjustment",
+      amount: 2,
+      balanceAfter: 2,
+      description: "Test player credit without retry key B",
+    },
+  ]);
+  assert.equal(playerEntries.length, 2);
+  assert.ok(playerEntries.every(entry => entry.idempotencyKey === undefined));
+  assert.ok(playerEntries.every(entry => !Object.hasOwn(entry.toObject(), "idempotencyKey")));
+});
+
 test("Club HTTP auction flow reserves, releases, and consumes wallet commitments transactionally", async () => {
   const club = await Club.create({
     name: "Integration Budget FC",
@@ -292,6 +334,11 @@ test("HTTP formation flow covers member approval, captain voting, and admin appr
   assert.equal(formedClub.captainIds.length, 1);
   assert.ok(formedClub.captainIds.every(id => formedClub.memberIds.some(memberId => String(memberId) === String(id))));
   assert.equal(await ClubContract.countDocuments({ clubId: formedClub._id, status: "active" }), 4);
+  const startingBalance = await ClubWalletTransaction.findOne({
+    clubId: formedClub._id,
+    type: "starting_balance",
+  }).lean();
+  assert.equal(startingBalance.idempotencyKey, `club-starting-balance:${formedClub._id}`);
 });
 
 

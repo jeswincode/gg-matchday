@@ -2374,7 +2374,14 @@ router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async 
         await ClubContract.create([{ clubId: club._id, playerId, startAt: now, endAt, signingAmount: 0, source: "formation", renewalNumber: 0 }], { session });
         await PlayerWallet.updateOne({ playerId }, { $setOnInsert: { playerId, balance: 0 } }, { upsert: true, session });
       }
-      await ClubWalletTransaction.create([{ clubId: club._id, type: "starting_balance", amount: CLUB_STARTING_BALANCE, balanceAfter: CLUB_STARTING_BALANCE, description: "Club starting balance." }], { session });
+      await ClubWalletTransaction.create([{
+        clubId: club._id,
+        type: "starting_balance",
+        amount: CLUB_STARTING_BALANCE,
+        balanceAfter: CLUB_STARTING_BALANCE,
+        description: "Club starting balance.",
+        idempotencyKey: `club-starting-balance:${club._id}`,
+      }], { session });
       await ClubHistory.create([{ clubId: club._id, eventType: "formed", description: "Club approved and officially formed.", metadata: { formationApplicationId: application._id } }, { clubId: club._id, eventType: "adminApproved", description: "Club application approved by admin." }], { session, ordered: true });
       application.status = "approved";
       application.approvedClubId = club._id;

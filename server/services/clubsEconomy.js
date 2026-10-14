@@ -53,7 +53,7 @@ async function createClubLedgerEntry({ clubId, type, amount, balanceAfter, descr
     mainMatchId,
     clubMatchId,
     auctionOfferId,
-    idempotencyKey,
+    ...(typeof idempotencyKey === "string" && idempotencyKey.trim() ? { idempotencyKey: idempotencyKey.trim() } : {}),
   }], { session }).then(rows => rows[0]);
 }
 
@@ -68,7 +68,7 @@ async function createPlayerLedgerEntry({ playerId, type, amount, balanceAfter, d
     mainMatchId,
     clubMatchId,
     auctionOfferId,
-    idempotencyKey,
+    ...(typeof idempotencyKey === "string" && idempotencyKey.trim() ? { idempotencyKey: idempotencyKey.trim() } : {}),
   }], { session }).then(rows => rows[0]);
 }
 
