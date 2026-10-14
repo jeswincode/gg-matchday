@@ -81,7 +81,7 @@ jobs:
             -out /tmp/gg-matchday-smoke.archive.gz.enc \
             -pass env:BACKUP_ENCRYPTION_KEY
 
-          # Preflight must validate the source namespace but import no documents.
+          # The guarded preflight must validate the actual source-to-destination mapping without importing documents.
           bash scripts/restore-mongodb.sh /tmp/gg-matchday-smoke.archive.gz.enc \
             --target-database gg_matchday_restore_smoke \
             --target-environment non-production
