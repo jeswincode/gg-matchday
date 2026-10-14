@@ -6,7 +6,20 @@ import { resolvePlayerAttributesReadOnly } from "./playerAttributes.js";
 import { effectiveMatchRating } from "./ratings/index.js";
 import { CLUB_PREDICTION_WEIGHTS } from "../config/clubsRules.js";
 
+export const CLUB_PREDICTION_CACHE_TTL_MS = 5 * 60 * 1000;
+
 const clamp = value => Math.max(0, Math.min(1, Number(value) || 0));
+
+export function isClubPredictionFresh(prediction, now = Date.now()) {
+  if (!prediction) return false;
+  const generatedAt = new Date(prediction.generatedAt).getTime();
+  if (!Number.isFinite(generatedAt) || generatedAt > now) return false;
+  if (!Number.isFinite(Number(prediction.clubAPercent)) || !Number.isFinite(Number(prediction.clubBPercent))) return false;
+  if (Number(prediction.clubAPercent) < 0 || Number(prediction.clubAPercent) > 100) return false;
+  if (Number(prediction.clubBPercent) < 0 || Number(prediction.clubBPercent) > 100) return false;
+  if (Number(prediction.clubAPercent) + Number(prediction.clubBPercent) !== 100) return false;
+  return now - generatedAt < CLUB_PREDICTION_CACHE_TTL_MS;
+}
 const average = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 
 async function clubSnapshot(clubId, completedMatches) {
@@ -109,6 +122,13 @@ export async function generateClubMatchPrediction(clubMatchId) {
   if (!clubMatch) throw new Error("Club match not found.");
   if (!["accepted", "completed"].includes(clubMatch.status)) {
     throw new Error("Predictions are available only for accepted Club Matches.");
+  }
+
+  // The Clubs page can refresh market data on every section entry. Reuse a recently
+  // computed prediction instead of re-reading every related main match and writing
+  // the same percentages to MongoDB on each page view.
+  if (isClubPredictionFresh(clubMatch.prediction, Date.now())) {
+    return clubMatch.prediction;
   }
 
   const completedMatches = await ClubMatch.find({
