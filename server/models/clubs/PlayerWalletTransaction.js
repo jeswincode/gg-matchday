@@ -21,7 +21,7 @@ const playerWalletTransactionSchema = new mongoose.Schema(
     amount: { type: Number, required: true },
     balanceAfter: { type: Number, min: 0, required: true },
     description: { type: String, trim: true, maxlength: 240, default: "" },
-    idempotencyKey: { type: String, trim: true, maxlength: 180, default: null },
+    idempotencyKey: { type: String, trim: true, maxlength: 180, default: undefined },
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
     mainMatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
     clubMatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
