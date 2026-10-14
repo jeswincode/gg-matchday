@@ -102,7 +102,7 @@ test("My Club keeps stats and history available when wallet loading fails, then 
     await route.continue();
   });
 
-  await page.goto("/?e2eRole=viewer&e2ePlayerId=65a000000000000000000001");
+  await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
