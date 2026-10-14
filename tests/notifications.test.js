@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import {MongoMemoryReplSet} from 'mongodb-memory-server';
 process.env.ADMIN_EMAIL='admin@example.invalid';process.env.CHAT_ENABLED='true';
-mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other'].includes(token))throw new Error('Invalid test token');return {uid:`notification-${token}`,email:`${token}@example.invalid`,name:`Test ${token}`};}})});
+mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other'].includes(token))throw new Error('Invalid test token');return {uid:`notification-${token}`,email:`${token}@example.invalid`,email_verified:true,name:`Test ${token}`};}})});
 const {default:app}=await import('../server/app.js');const {default:User}=await import('../server/models/User.js');const {default:Notification}=await import('../server/models/Notification.js');
 let database,server,origin;
 async function request(path,{token,method='GET',body}={}){const response=await fetch(origin+'/api'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,data:await response.json()};}
