@@ -61,7 +61,7 @@ test("URI parser accepts a multi-host replica-set URI and emits only sanitized r
     encoding: "utf8",
   });
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout, "rs1.example.net:27017,rs2.example.net:27017\\tsource_core\\n");
+  assert.equal(result.stdout, "rs1.example.net:27017,rs2.example.net:27017\tsource_core\n");
   assertRedacted(result.stdout + result.stderr);
 });
 
