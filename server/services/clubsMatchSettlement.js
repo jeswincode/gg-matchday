@@ -59,7 +59,6 @@ export async function settleClubMatchRewards({ clubMatchId, session }) {
     startAt: { $lte: mainMatch.date },
     endAt: { $gt: mainMatch.date },
     clubId: { $in: [clubMatch.clubAId, clubMatch.clubBId] },
-    status: "active",
   }).session(session).lean();
 
   for (const contract of contracts) {
