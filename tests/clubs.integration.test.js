@@ -29,6 +29,7 @@ const { default: Match } = await import("../server/models/Match.js");
 const { default: PlayerStats } = await import("../server/models/PlayerStats.js");
 const { default: SeasonStats } = await import("../server/models/SeasonStats.js");
 const { clubDateKey, nextRenewalBoundary, CLUB_REWARDS } = await import("../server/config/clubsRules.js");
+const { isClubPredictionFresh, CLUB_PREDICTION_CACHE_TTL_MS } = await import("../server/services/clubsPrediction.js");
 const { settleClubMatchRewards } = await import("../server/services/clubsMatchSettlement.js");
 
 let database;
@@ -447,6 +448,18 @@ test("legacy applications cannot bypass details approval and are migrated back t
   assert.equal(ownApplications.status, 200, JSON.stringify(ownApplications.data));
   const migrated = ownApplications.data.find(row => String(row._id) === String(application._id));
   assert.equal(migrated.status, "pendingCaptainDetailsApproval");
+});
+
+test("Club prediction cache freshness enforces a bounded TTL and valid percentages", () => {
+  const now = Date.parse("2026-10-14T08:00:00.000Z");
+  const fresh = { clubAPercent: 65, clubBPercent: 35, generatedAt: new Date(now - 1000) };
+  assert.equal(isClubPredictionFresh(fresh, now), true);
+  assert.equal(isClubPredictionFresh({ ...fresh, generatedAt: new Date(now - CLUB_PREDICTION_CACHE_TTL_MS) }, now), false);
+  assert.equal(isClubPredictionFresh({ ...fresh, clubBPercent: 34 }, now), false);
+  assert.equal(isClubPredictionFresh({ ...fresh, clubAPercent: 101, clubBPercent: -1 }, now), false);
+  assert.equal(isClubPredictionFresh({ ...fresh, generatedAt: new Date(now + 1) }, now), false);
+  assert.equal(isClubPredictionFresh({ ...fresh, generatedAt: null }, now), false);
+  assert.equal(isClubPredictionFresh(null, now), false);
 });
 
 test("Club fixture sync and settlement work through the HTTP routes", async () => {
