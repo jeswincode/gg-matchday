@@ -41,9 +41,9 @@ done
 if [[ "${MOCK_NO_SOURCE_METADATA:-}" == "1" ]]; then
   echo "no matching metadata found"
 elif [[ "${MOCK_UNRELATED_METADATA:-}" == "1" ]]; then
-  echo "found collection metadata from `unrelated_db.players` to restore to `unrelated_target.players`"
+  printf 'found collection metadata from \\x60unrelated_db.players\\x60 to restore to \\x60unrelated_target.players\\x60\\n'
 else
-  printf 'found collection metadata from \\`%s.players\\` to restore to \\`%s.players\\`\\n' "$source" "$destination"
+  printf 'found collection metadata from \\x60%s.players\\x60 to restore to \\x60%s.players\\x60\\n' "$source" "$destination"
 fi
 `);
   for (const tool of ["openssl", "gzip", "mongorestore"]) assert.equal(spawnSync("chmod", ["700", join(bin, tool)]).status, 0);
