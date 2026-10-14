@@ -19,7 +19,7 @@ CLUBS_MONGODB_URI="${CLUBS_MONGODB_URI:-}"
 
 CLUBS_DB_NAME="${CLUBS_DB_NAME:-}"
 if [ -z "$CLUBS_DB_NAME" ]; then
-  CLUBS_DB_NAME="$(resolve_database_name "$CLUBS_MONGODB_URI" "test")"
+  CLUBS_DB_NAME="$(resolve_database_name "$CLUBS_MONGODB_URI" "gg_matchday_clubs")"
 fi
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"

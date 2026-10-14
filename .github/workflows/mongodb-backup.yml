@@ -105,7 +105,7 @@ jobs:
           : "${CLUBS_MONGODB_URI:?Set the CLUBS_MONGODB_URI repository secret or variable to the actual Clubs database URI}"
           CLUBS_DATABASE="${CLUBS_DB_NAME:-}"
           if [ -z "$CLUBS_DATABASE" ]; then
-            CLUBS_DATABASE="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs test)"
+            CLUBS_DATABASE="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs gg_matchday_clubs)"
           fi
           : "${CLUBS_DATABASE:?Set CLUBS_DB_NAME or include the database path in CLUBS_MONGODB_URI}"
           CLUBS_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-clubs-*.archive.gz.enc' -print -quit)"
