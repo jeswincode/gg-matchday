@@ -37,7 +37,7 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\\"ping\\").ok' || exit 1"
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' || exit 1"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 12
@@ -47,8 +47,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL \\
-            "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.19.0.tgz" \\
+          curl -fsSL \
+            "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.19.0.tgz" \
             -o /tmp/mongodb-tools.tgz
           tar -xzf /tmp/mongodb-tools.tgz -C /tmp
           TOOLS_DIR="/tmp/mongodb-database-tools-ubuntu2404-x86_64-100.19.0/bin"
@@ -64,22 +64,22 @@ jobs:
           CONTAINER_ID="$(docker ps --filter 'ancestor=mongo:8.2' --format '{{.ID}}' | head -n 1)"
           test -n "$CONTAINER_ID"
           docker exec "$CONTAINER_ID" mongosh --quiet --eval 'db.getSiblingDB("gg_matchday_backup_smoke").players.insertOne({ marker: "restore-smoke", id: 1 });'
-          mongodump \\
-            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \\
-            --db=gg_matchday_backup_smoke \\
-            --archive=/tmp/gg-matchday-smoke.archive.gz \\
+          mongodump \
+            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \
+            --db=gg_matchday_backup_smoke \
+            --archive=/tmp/gg-matchday-smoke.archive.gz \
             --gzip --quiet
-          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \\
-            -in /tmp/gg-matchday-smoke.archive.gz -out /tmp/gg-matchday-smoke.archive.gz.enc \\
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
+            -in /tmp/gg-matchday-smoke.archive.gz -out /tmp/gg-matchday-smoke.archive.gz.enc \
             -pass env:BACKUP_ENCRYPTION_KEY
-          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \\
-            -in /tmp/gg-matchday-smoke.archive.gz.enc -out /tmp/gg-matchday-smoke.restore.gz \\
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in /tmp/gg-matchday-smoke.archive.gz.enc -out /tmp/gg-matchday-smoke.restore.gz \
             -pass env:BACKUP_ENCRYPTION_KEY
           gzip -t /tmp/gg-matchday-smoke.restore.gz
-          mongorestore \\
-            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \\
-            --archive=/tmp/gg-matchday-smoke.restore.gz --gzip \\
-            --nsFrom="gg_matchday_backup_smoke.*" \\
+          mongorestore \
+            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \
+            --archive=/tmp/gg-matchday-smoke.restore.gz --gzip \
+            --nsFrom="gg_matchday_backup_smoke.*" \
             --nsTo="gg_matchday_restore_smoke.*" --stopOnError
           docker exec "$CONTAINER_ID" mongosh --quiet --eval '
             const restored = db.getSiblingDB("gg_matchday_restore_smoke");
