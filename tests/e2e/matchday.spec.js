@@ -113,9 +113,9 @@ test("My Club keeps stats and history available when wallet loading fails, then 
   await expect(page.getByRole("heading", { name: "Your individual budget" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /E2E My Club Regression FC/ })).toBeVisible();
   const alert = page.getByRole("alert");
-  await expect(alert).toContainText("couldn’t load club wallet");
+  await expect(alert).toContainText(/Couldn’t load club wallet/i);
   await expect(alert).toContainText("e2e-wallet-first-failure");
-  await expect(page.getByText("CLUB HISTORY", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Club timeline" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Retry Club data" })).toBeVisible();
 
   await page.getByRole("button", { name: "Retry Club data" }).click();
