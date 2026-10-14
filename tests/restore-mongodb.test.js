@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const script = resolve("scripts/restore-mongodb.sh");
-const URI = "mongodb+srv://restore-user:never-print-this-password@cluster.example.net/production_core?retryWrites=true";
+const URI = "mongodb+srv://restore-user:never-print-this-password@cluster.example.net/source_core?retryWrites=true";
 
 function harness(overrides = {}) {
   const dir = mkdtempSync(join(tmpdir(), "gg-restore-tests-"));
@@ -50,6 +50,35 @@ else echo "reading metadata for \${MOCK_SOURCE_DATABASE:-source_core}.players fr
   };
 }
 const assertRedacted = value => assert.doesNotMatch(value, /restore-user|never-print-this-password|test-only-key/);
+
+test("URI parser accepts a multi-host replica-set URI and emits only sanitized routing metadata", () => {
+  const result = spawnSync(process.execPath, ["scripts/parse-mongodb-uri.mjs"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      MONGODB_URI: "mongodb://restore-user:never-print-this-password@rs1.example.net:27017,rs2.example.net:27017/source_core?replicaSet=rs0&authSource=admin",
+    },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, "rs1.example.net:27017,rs2.example.net:27017\\tsource_core\\n");
+  assertRedacted(result.stdout + result.stderr);
+});
+
+test("URI parser rejects malformed database paths without leaking credentials", () => {
+  const result = spawnSync(process.execPath, ["scripts/parse-mongodb-uri.mjs"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      MONGODB_URI: "mongodb+srv://restore-user:never-print-this-password@cluster.example.net/%zz",
+    },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /Invalid MongoDB connection URI/);
+  assertRedacted(result.stdout + result.stderr);
+});
 
 test("default is preflight-only and remaps a source namespace to an explicit destination", () => {
   const h = harness();
@@ -109,6 +138,19 @@ test("production-like target is blocked without production declaration and exact
       const r = h.run(args); assert.equal(r.status, 2); assert.match(r.stderr, expected); assertRedacted(r.stdout + r.stderr);
     }
     assert.deepEqual(h.calls(), []);
+  } finally { h.cleanup(); }
+});
+
+test("production-looking URI database path cannot be disguised with a scratch destination", () => {
+  const h = harness();
+  try {
+    const result = h.run([
+      "--execute", "--target-database", "scratch_restore", "--target-environment", "non-production",
+    ], { MONGODB_URI: "mongodb+srv://restore-user:never-print-this-password@cluster.example.net/production_core?retryWrites=true" });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /URI database path is production-like/);
+    assert.deepEqual(h.calls(), []);
+    assertRedacted(result.stdout + result.stderr);
   } finally { h.cleanup(); }
 });
 
