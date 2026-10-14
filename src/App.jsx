@@ -1,16 +1,16 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
-import LeaderboardView from './components/Leaderboard';
-import Clasico from './components/Clasico';
 import {api, invalidate} from './lib/api';
-import MatchHistoryCard from './components/ui/MatchHistoryCard';
-import PlayersDirectory from './features/players/PlayersDirectory';
-import PlayerProfile from './features/players/PlayerProfile';
-import HomePage from './features/home/HomePage';
-import Calendar from './features/calendar/Calendar';
-import AdminPage from './features/admin/AdminPage';
-import MatchRecordForm from './features/matches/MatchRecordForm';
-import ClubsMode from './features/clubs/ClubsMode';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
+const LeaderboardView = lazy(() => import('./components/Leaderboard'));
+const Clasico = lazy(() => import('./components/Clasico'));
+const MatchHistoryCard = lazy(() => import('./components/ui/MatchHistoryCard'));
+const PlayersDirectory = lazy(() => import('./features/players/PlayersDirectory'));
+const PlayerProfile = lazy(() => import('./features/players/PlayerProfile'));
+const HomePage = lazy(() => import('./features/home/HomePage'));
+const Calendar = lazy(() => import('./features/calendar/Calendar'));
+const AdminPage = lazy(() => import('./features/admin/AdminPage'));
+const MatchRecordForm = lazy(() => import('./features/matches/MatchRecordForm'));
+const ClubsMode = lazy(() => import('./features/clubs/ClubsMode'));
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
@@ -2379,7 +2379,9 @@ function App() {
 
     return (
       <>
-        <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
+        <Suspense fallback={<div className="loading-panel">Opening Clubs…</div>}>
+          <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
+        </Suspense>
         {modeTransitionLayer}
       </>
     );
@@ -2398,6 +2400,7 @@ function App() {
   }
 
   return (
+    <Suspense fallback={<div className="loading-panel">Opening Matchday…</div>}>
     <main className="app" onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
 
       <div
@@ -2803,6 +2806,7 @@ function App() {
       </Suspense>
       {modeTransitionLayer}
     </main>
+    </Suspense>
   );
 }
 
