@@ -291,12 +291,12 @@ if ! mongorestore --dryRun "${RESTORE_ARGS[@]}" >"$PREFLIGHT_LOG" 2>&1; then
   echo "mongorestore archive preflight failed; no destination data was changed. Sensitive tool output was suppressed." >&2
   exit 1
 fi
-if ! grep -Fq "reading metadata for ${SOURCE_DATABASE}." "$PREFLIGHT_LOG"; then
-  echo "Archive preflight did not find collection metadata in the expected source namespace; refusing to continue." >&2
-  exit 1
-fi
+# MongoDB Database Tools currently reports only a summary from --dryRun, even
+# with verbose output; do not infer a source namespace match from that summary.
+# Namespace matching is constrained by --nsInclude/--nsFrom and confirmed against
+# the real restore output after the operator explicitly opts into --execute.
 
-echo "Archive decryption, gzip integrity, and source-namespace preflight passed."
+echo "Archive decryption, gzip integrity, and mongorestore dry-run passed. Source namespace confirmation is required during explicit execution."
 if ! $EXECUTE; then
   echo "Preflight completed. No database writes were performed."
   exit 0
@@ -308,6 +308,21 @@ if $DROP; then
 fi
 if ! mongorestore "${FINAL_ARGS[@]}" >"$RESTORE_LOG" 2>&1; then
   echo "mongorestore failed. No raw tool output or credentials were printed; inspect access-controlled host logs if needed." >&2
+  exit 1
+fi
+
+if ! grep -Fq "${SOURCE_DATABASE}." "$RESTORE_LOG" &&
+   ! grep -Fq "${TARGET_DATABASE}." "$RESTORE_LOG"; then
+  # MongoDB Database Tools reports the remapped destination namespace when
+  # nsFrom/nsTo are used. The namespace is checked only within the captured
+  # restore output; raw tool output and connection details are never printed.
+  SAFE_RESTORE_SUMMARY="$(grep -E 'preparing collections to restore|reading metadata for|restoring [A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+|finished restoring|document\\(s\\) restored successfully|document\\(s\\) failed to restore' "$RESTORE_LOG" | head -n 12 || true)"
+  if [[ -n "$SAFE_RESTORE_SUMMARY" ]]; then
+    printf 'Sanitized restore summary:\\n%s\\n' "$SAFE_RESTORE_SUMMARY" >&2
+  else
+    echo "No recognized collection metadata or restore summary was emitted during the import." >&2
+  fi
+  echo "Restore did not report the expected source or mapped destination namespace. No success is reported; verify the source namespace and target before retrying." >&2
   exit 1
 fi
 

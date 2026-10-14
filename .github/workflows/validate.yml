@@ -58,39 +58,57 @@ jobs:
           export PATH="$TOOLS_DIR:$PATH"
           mongodump --version
           mongorestore --version
-      - name: Create a fixture and run dump-encrypt-decrypt-restore verification
+      - name: Exercise the guarded manual restore script against isolated MongoDB
         env:
           BACKUP_ENCRYPTION_KEY: ci-only-restore-smoke-key
+          MONGODB_URI: mongodb://127.0.0.1:27017/?directConnection=true
+          MONGODB_DATABASE: gg_matchday_backup_smoke
+        shell: bash
         run: |
           set -euo pipefail
           CONTAINER_ID="$(docker ps --filter 'ancestor=mongo:8.0.34' --format '{{.ID}}' | head -n 1)"
           test -n "$CONTAINER_ID"
-          docker exec "$CONTAINER_ID" mongosh --quiet --eval 'db.getSiblingDB("gg_matchday_backup_smoke").players.insertOne({ marker: "restore-smoke", id: 1 });'
+          docker exec "$CONTAINER_ID" mongosh --quiet --eval '
+            db.getSiblingDB("gg_matchday_backup_smoke").players.insertOne({ marker: "restore-smoke", id: 1 });
+          '
           mongodump \
-            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \
-            --db=gg_matchday_backup_smoke \
+            --uri="$MONGODB_URI" \
+            --db="$MONGODB_DATABASE" \
             --archive=/tmp/gg-matchday-smoke.archive.gz \
             --gzip --quiet
           openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
-            -in /tmp/gg-matchday-smoke.archive.gz -out /tmp/gg-matchday-smoke.archive.gz.enc \
+            -in /tmp/gg-matchday-smoke.archive.gz \
+            -out /tmp/gg-matchday-smoke.archive.gz.enc \
             -pass env:BACKUP_ENCRYPTION_KEY
-          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-            -in /tmp/gg-matchday-smoke.archive.gz.enc -out /tmp/gg-matchday-smoke.restore.gz \
-            -pass env:BACKUP_ENCRYPTION_KEY
-          gzip -t /tmp/gg-matchday-smoke.restore.gz
-          mongorestore \
-            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \
-            --archive=/tmp/gg-matchday-smoke.restore.gz --gzip \
-            --nsFrom="gg_matchday_backup_smoke.*" \
-            --nsTo="gg_matchday_restore_smoke.*" --stopOnError
+
+          # Preflight must validate the source namespace but import no documents.
+          bash scripts/restore-mongodb.sh /tmp/gg-matchday-smoke.archive.gz.enc \
+            --target-database gg_matchday_restore_smoke \
+            --target-environment non-production
           docker exec "$CONTAINER_ID" mongosh --quiet --eval '
-            const restored = db.getSiblingDB("gg_matchday_restore_smoke");
-            const restoredCount = restored.getCollection("players").countDocuments({ marker: "restore-smoke" });
-            if (restoredCount !== 1) {
-              print("Restore smoke check failed: expected 1 restored fixture document, got " + restoredCount);
+            const target = db.getSiblingDB("gg_matchday_restore_smoke");
+            const count = target.getCollection("players").countDocuments({ marker: "restore-smoke" });
+            if (count !== 0) {
+              print("Restore preflight unexpectedly imported data; count=" + count);
               quit(1);
             }
-            print("Isolated encrypted backup restore verified.");
+            print("Preflight verified: no documents were imported.");
+          '
+
+          # Actual import is opt-in and binds the destructive flag to the exact
+          # non-production destination. It remains confined to the CI service.
+          bash scripts/restore-mongodb.sh /tmp/gg-matchday-smoke.archive.gz.enc \
+            --target-database gg_matchday_restore_smoke \
+            --target-environment non-production \
+            --execute --drop --confirm-target gg_matchday_restore_smoke
+          docker exec "$CONTAINER_ID" mongosh --quiet --eval '
+            const target = db.getSiblingDB("gg_matchday_restore_smoke");
+            const count = target.getCollection("players").countDocuments({ marker: "restore-smoke" });
+            if (count !== 1) {
+              print("Restore smoke check failed: expected 1 restored fixture document, got " + count);
+              quit(1);
+            }
+            print("Guarded manual restore script verified in isolation.");
           '
 
   e2e:
