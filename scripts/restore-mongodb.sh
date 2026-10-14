@@ -279,8 +279,6 @@ fi
 
 RESTORE_ARGS=(
   --verbose
-  --verbose
-  --verbose
   --uri="$MONGODB_URI"
   --archive="$TEMP_ARCHIVE"
   --gzip
@@ -293,21 +291,12 @@ if ! mongorestore --dryRun "${RESTORE_ARGS[@]}" >"$PREFLIGHT_LOG" 2>&1; then
   echo "mongorestore archive preflight failed; no destination data was changed. Sensitive tool output was suppressed." >&2
   exit 1
 fi
-if ! grep -Fq "reading metadata for ${SOURCE_DATABASE}." "$PREFLIGHT_LOG"; then
-  # mongorestore versions can differ in which metadata/progress lines they emit
-  # under --dryRun. Print only filtered namespace/summary diagnostics (never the
-  # raw tool log, which could include connection details).
-  SAFE_SUMMARY="$(grep -E 'preparing collections to restore|reading metadata for|restoring [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|document\(s\) restored successfully|document\(s\) failed to restore|dry run|Dry run|no collections to restore' "$PREFLIGHT_LOG" | head -n 12 || true)"
-  if [[ -n "$SAFE_SUMMARY" ]]; then
-    printf 'Sanitized archive preflight summary:\\n%s\\n' "$SAFE_SUMMARY" >&2
-  else
-    echo "No recognized collection metadata or restore summary was emitted during archive preflight." >&2
-  fi
-  echo "Archive preflight did not find collection metadata in the expected source namespace; refusing to continue." >&2
-  exit 1
-fi
+# MongoDB Database Tools currently reports only a summary from --dryRun, even
+# with verbose output; do not infer a source namespace match from that summary.
+# Namespace matching is constrained by --nsInclude/--nsFrom and confirmed against
+# the real restore output after the operator explicitly opts into --execute.
 
-echo "Archive decryption, gzip integrity, and source-namespace preflight passed."
+echo "Archive decryption, gzip integrity, and mongorestore dry-run passed. Source namespace confirmation is required during explicit execution."
 if ! $EXECUTE; then
   echo "Preflight completed. No database writes were performed."
   exit 0
@@ -319,6 +308,14 @@ if $DROP; then
 fi
 if ! mongorestore "${FINAL_ARGS[@]}" >"$RESTORE_LOG" 2>&1; then
   echo "mongorestore failed. No raw tool output or credentials were printed; inspect access-controlled host logs if needed." >&2
+  exit 1
+fi
+
+if ! grep -Fq "reading metadata for ${SOURCE_DATABASE}." "$RESTORE_LOG"; then
+  # This check runs only after an explicitly requested import. The namespace
+  # include/remap options prevent unrelated archive namespaces from being loaded;
+  # without a matching source collection mongorestore performs no target import.
+  echo "Restore did not report collection metadata for the expected source namespace. No success is reported; verify the source namespace and target before retrying." >&2
   exit 1
 fi
 
