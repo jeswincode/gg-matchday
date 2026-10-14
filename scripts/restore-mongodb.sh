@@ -279,6 +279,8 @@ fi
 
 RESTORE_ARGS=(
   --verbose
+  --verbose
+  --verbose
   --uri="$MONGODB_URI"
   --archive="$TEMP_ARCHIVE"
   --gzip
