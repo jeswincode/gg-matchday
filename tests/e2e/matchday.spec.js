@@ -89,7 +89,7 @@ test("editor can authenticate and record a match through the real browser and AP
 test("My Club keeps stats and history available when wallet loading fails, then recovers on retry", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   let walletFailures = 0;
-  await page.route(/\\/api\\/clubs\\/[a-f0-9]{24}\\/wallet$/, async route => {
+  await page.route(url => new RegExp("^/api/clubs/[a-f0-9]{24}/wallet$").test(new URL(url).pathname), async route => {
     walletFailures += 1;
     if (walletFailures === 1) {
       await route.fulfill({
