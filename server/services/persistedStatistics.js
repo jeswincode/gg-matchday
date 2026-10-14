@@ -48,7 +48,7 @@ async function rebuildPlayer(player, history) {
   await PlayerStats.findOneAndUpdate(
     { playerId: player._id },
     { $set: { stats, matchCount: matches.length, sourceLatestMatchAt: latestSourceTime(matches) } },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
   const byYear = new Map();
@@ -67,7 +67,7 @@ async function rebuildPlayer(player, history) {
     await SeasonStats.findOneAndUpdate(
       { playerId: player._id, year },
       { $set: { stats: seasonStats, matchCount: seasonMatches.length, sourceLatestMatchAt: latestSourceTime(seasonMatches) } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     );
   }
 }
