@@ -53,7 +53,7 @@ export async function enqueueClubSyncJob(mainMatchId, lastError = "") {
       },
       $setOnInsert: { mainMatchId, attempts: 0 },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 }
 
@@ -78,7 +78,7 @@ async function claimClubSyncJob(job) {
       $set: { status: "processing", lockedUntil: new Date(now.getTime() + CLUB_SYNC_LOCK_MS) },
       $inc: { attempts: 1 },
     },
-    { new: true },
+    { returnDocument: "after" },
   );
 }
 
