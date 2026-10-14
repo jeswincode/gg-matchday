@@ -164,7 +164,7 @@ if ! URI_INFO="$(node scripts/parse-mongodb-uri.mjs 2>/dev/null)"; then
   echo "MONGODB_URI is malformed or must use mongodb:// or mongodb+srv://; credentials were not displayed." >&2
   exit 2
 fi
-IFS=$'\\t' read -r URI_HOST URI_DATABASE <<< "$URI_INFO"
+IFS=$'\t' read -r URI_HOST URI_DATABASE <<< "$URI_INFO"
 
 is_production_like_name() {
   local value="${1,,}"
