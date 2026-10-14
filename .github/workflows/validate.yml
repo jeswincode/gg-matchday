@@ -26,7 +26,7 @@ jobs:
       - run: node --check server/routes/profileSecurity.js
       - run: node --check server/routes/profileRequests.js
       - run: node --check scripts/resolve-mongodb-db-name.mjs
-      - run: bash -n scripts/backup-mongodb.sh scripts/backup-mongodb-atlas.sh
+      - run: bash -n scripts/backup-mongodb.sh scripts/backup-mongodb-atlas.sh scripts/restore-mongodb.sh
 
   backup-restore-smoke:
     name: Smoke-test encrypted MongoDB restore in isolation
