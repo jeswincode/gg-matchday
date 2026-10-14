@@ -77,7 +77,7 @@ export async function creditClubWallet({ clubId, amount, type = "adjustment", de
   const updated = await Club.findOneAndUpdate(
     { _id: clubId },
     { $inc: { balance: value } },
-    { new: true, session },
+    { returnDocument: "after", session },
   );
   if (!updated) throw new Error("Club wallet target not found.");
   await createClubLedgerEntry({
@@ -101,7 +101,7 @@ export async function reserveClubWallet({ clubId, amount, session }) {
       $expr: { $gte: [{ $subtract: ["$balance", { $ifNull: ["$committedBalance", 0] }] }, value] },
     },
     { $inc: { committedBalance: value } },
-    { new: true, session },
+    { returnDocument: "after", session },
   );
   if (!updated) throw new Error("Club has insufficient available balance for this offer.");
   return updated;
@@ -112,7 +112,7 @@ export async function releaseClubCommitment({ clubId, amount, session }) {
   const updated = await Club.findOneAndUpdate(
     { _id: clubId, $expr: { $gte: [{ $ifNull: ["$committedBalance", 0] }, value] } },
     [{ $set: { committedBalance: { $subtract: [{ $ifNull: ["$committedBalance", 0] }, value] } } }],
-    { new: true, session },
+    { returnDocument: "after", session },
   );
   if (!updated) throw new Error("Club offer reservation could not be released safely.");
   return updated;
@@ -129,7 +129,7 @@ export async function debitClubWallet({ clubId, amount, type = "expense", descri
   } else {
     filter.$expr = { $gte: [{ $subtract: ["$balance", { $ifNull: ["$committedBalance", 0] }] }, value] };
   }
-  const updated = await Club.findOneAndUpdate(filter, update, { new: true, session });
+  const updated = await Club.findOneAndUpdate(filter, update, { returnDocument: "after", session });
   if (!updated) throw new Error("Club wallet has insufficient available balance or the club no longer exists.");
   await createClubLedgerEntry({
     clubId,
@@ -149,7 +149,7 @@ export async function creditPlayerWallet({ playerId, amount, type = "adjustment"
   const wallet = await PlayerWallet.findOneAndUpdate(
     { playerId },
     { $inc: { balance: value }, $setOnInsert: { playerId } },
-    { upsert: true, new: true, session },
+    { upsert: true, returnDocument: "after", session },
   );
   await createPlayerLedgerEntry({
     playerId,
@@ -193,7 +193,7 @@ export async function debitPlayerWallet({ playerId, amount, type = "betting_stak
   const wallet = await PlayerWallet.findOneAndUpdate(
     { playerId, balance: { $gte: value } },
     { $inc: { balance: -value } },
-    { new: true, session },
+    { returnDocument: "after", session },
   );
   if (!wallet) throw new Error("Player wallet has insufficient balance.");
   await createPlayerLedgerEntry({

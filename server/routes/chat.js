@@ -140,7 +140,7 @@ router.post('/', async (req, res) => {
         chatMessagesUsed: { $lt: monthlyLimit },
       },
       { $inc: { chatMessagesUsed: 1 } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!claimed) {
