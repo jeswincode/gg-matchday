@@ -56,9 +56,9 @@ jobs:
       - name: Create and verify encrypted core and Clubs backups
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
-          CLUBS_MONGODB_URI: ${{ secrets.CLUBS_MONGODB_URI }}
-          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE || vars.MONGODB_DATABASE }}
+          CLUBS_MONGODB_URI: ${{ secrets.CLUBS_MONGODB_URI || vars.CLUBS_MONGODB_URI }}
+          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME || vars.CLUBS_DB_NAME }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
           ATLAS_CLIENT_ID: ${{ secrets.ATLAS_CLIENT_ID }}
           ATLAS_CLIENT_SECRET: ${{ secrets.ATLAS_CLIENT_SECRET }}
@@ -71,7 +71,7 @@ jobs:
       - name: Restore the core backup into an isolated temporary database
         env:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
-          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE || vars.MONGODB_DATABASE }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/gg-restore
@@ -92,7 +92,7 @@ jobs:
       - name: Restore the Clubs backup into a separate isolated temporary database
         env:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
-          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME }}
+          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME || vars.CLUBS_DB_NAME }}
         run: |
           set -euo pipefail
           CLUBS_DATABASE="${CLUBS_DB_NAME:-gg_matchday_clubs}"
