@@ -1,6 +1,12 @@
 name: MongoDB Backup and Restore Drill
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/mongodb-backup.yml"
+      - "scripts/backup-mongodb.sh"
+      - "scripts/backup-mongodb-atlas.sh"
   schedule:
     - cron: "30 2 * * *"
   workflow_dispatch:
