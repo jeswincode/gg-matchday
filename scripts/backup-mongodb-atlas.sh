@@ -2,6 +2,7 @@
 set -euo pipefail
 
 : "${MONGODB_URI:?MONGODB_URI is required}"
+: "${CLUBS_MONGODB_URI:?CLUBS_MONGODB_URI is required. Set the actual Clubs URI before enabling backups.}"
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}"
 : "${ATLAS_CLIENT_ID:?ATLAS_CLIENT_ID is required}"
 : "${ATLAS_CLIENT_SECRET:?ATLAS_CLIENT_SECRET is required}"

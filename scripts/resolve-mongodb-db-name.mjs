@@ -12,11 +12,9 @@ try {
     throw new Error("Unsupported protocol");
   }
   const databaseName = decodeURIComponent(uri.pathname.replace(/^\/+/, "").split("/")[0] || "");
-  if (!databaseName) {
-    throw new Error("No database path");
-  }
-  // Only print the database name; never print or log the supplied URI.
-  process.stdout.write(databaseName + "\n");
+  // The app uses Mongo/Mongoose's "test" default when no URI database path
+  // and no explicit dbName option are provided. Keep backup resolution aligned.
+  process.stdout.write((databaseName || process.argv[2] || "test") + "\n");
 } catch {
   console.error("Could not derive a database name from the MongoDB URI path.");
   process.exit(2);
