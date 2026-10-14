@@ -292,6 +292,15 @@ if ! mongorestore --dryRun "${RESTORE_ARGS[@]}" >"$PREFLIGHT_LOG" 2>&1; then
   exit 1
 fi
 if ! grep -Fq "reading metadata for ${SOURCE_DATABASE}." "$PREFLIGHT_LOG"; then
+  # mongorestore versions can differ in which metadata/progress lines they emit
+  # under --dryRun. Print only filtered namespace/summary diagnostics (never the
+  # raw tool log, which could include connection details).
+  SAFE_SUMMARY="$(grep -E 'preparing collections to restore|reading metadata for|restoring [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|document\(s\) restored successfully|document\(s\) failed to restore|dry run|Dry run|no collections to restore' "$PREFLIGHT_LOG" | head -n 12 || true)"
+  if [[ -n "$SAFE_SUMMARY" ]]; then
+    printf 'Sanitized archive preflight summary:\\n%s\\n' "$SAFE_SUMMARY" >&2
+  else
+    echo "No recognized collection metadata or restore summary was emitted during archive preflight." >&2
+  fi
   echo "Archive preflight did not find collection metadata in the expected source namespace; refusing to continue." >&2
   exit 1
 fi
