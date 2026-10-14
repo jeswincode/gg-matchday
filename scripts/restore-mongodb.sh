@@ -157,34 +157,29 @@ if ! $TARGET_ENVIRONMENT_EXPLICIT || [[ "$TARGET_ENVIRONMENT" != "non-production
   fi
 fi
 
-# Parse only non-secret connection metadata. Do not echo the URI, username, password,
-# query string, or raw URL parser errors.
-if ! URI_INFO="$(node --input-type=module 2>/dev/null <<'NODE'
-try {
-  const value = process.env.MONGODB_URI;
-  const uri = new URL(value);
-  if (!["mongodb:", "mongodb+srv:"].includes(uri.protocol) || !uri.hostname) {
-    throw new Error("invalid");
-  }
-  const path = decodeURIComponent(uri.pathname.replace(/^\/+/, "").split("/")[0] || "");
-  process.stdout.write(uri.hostname + "\t" + path + "\n");
-} catch {
-  process.exit(2);
-}
-NODE
-)"; then
+# Parse only non-secret connection metadata. The helper accepts standard single-host,
+# SRV, and multi-host replica-set URIs, but emits only sanitized hosts and URI database
+# path; it never prints credentials, query options, or raw URL-parser errors.
+if ! URI_INFO="$(node scripts/parse-mongodb-uri.mjs 2>/dev/null)"; then
   echo "MONGODB_URI is malformed or must use mongodb:// or mongodb+srv://; credentials were not displayed." >&2
   exit 2
 fi
-IFS=$'\t' read -r URI_HOST URI_DATABASE <<< "$URI_INFO"
+IFS=$'\\t' read -r URI_HOST URI_DATABASE <<< "$URI_INFO"
 
-TARGET_LOWER="${TARGET_DATABASE,,}"
+is_production_like_name() {
+  local value="${1,,}"
+  [[ "$value" =~ ^(prod|production|live)([-_].*)?$|^gg_matchday_(prod|production|live)([-_].*)?$ ]]
+}
 PRODUCTION_NAME_LIKE=false
-if [[ "$TARGET_LOWER" =~ ^(prod|production|live|gg_matchday_prod|gg_matchday_production|gg_matchday_live)$ ]]; then
+URI_DATABASE_NAME_LIKE=false
+if is_production_like_name "$TARGET_DATABASE"; then
   PRODUCTION_NAME_LIKE=true
 fi
-if $PRODUCTION_NAME_LIKE && [[ "$TARGET_ENVIRONMENT" != "production" ]]; then
-  echo "Destination name is production-like; declare --target-environment production and confirm explicitly." >&2
+if [[ -n "$URI_DATABASE" ]] && is_production_like_name "$URI_DATABASE"; then
+  URI_DATABASE_NAME_LIKE=true
+fi
+if $EXECUTE && { $PRODUCTION_NAME_LIKE || $URI_DATABASE_NAME_LIKE; } && [[ "$TARGET_ENVIRONMENT" != "production" ]]; then
+  echo "Destination or URI database path is production-like; declare --target-environment production and confirm explicitly." >&2
   exit 2
 fi
 
