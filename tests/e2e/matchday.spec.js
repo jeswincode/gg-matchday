@@ -86,6 +86,44 @@ test("editor can authenticate and record a match through the real browser and AP
   await expect(page.getByText("E2E Browser Regression Match")).toBeVisible();
 });
 
+test("My Club keeps stats and history available when wallet loading fails, then recovers on retry", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  let walletFailures = 0;
+  await page.route(/\\/api\\/clubs\\/[a-f0-9]{24}\\/wallet$/, async route => {
+    walletFailures += 1;
+    if (walletFailures === 1) {
+      await route.fulfill({
+        status: 503,
+        headers: { "content-type": "application/json", "x-request-id": "e2e-wallet-first-failure" },
+        body: JSON.stringify({ message: "The request could not be completed.", requestId: "e2e-wallet-first-failure" }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/?e2eRole=viewer&e2ePlayerId=65a000000000000000000001");
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.locator(".clubs-app")).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Clubs navigation" });
+  await nav.getByRole("button", { name: "My Club" }).click();
+
+  await expect(page.getByRole("heading", { name: "Your individual budget" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /E2E My Club Regression FC/ })).toBeVisible();
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText("couldn’t load club wallet");
+  await expect(alert).toContainText("e2e-wallet-first-failure");
+  await expect(page.getByText("CLUB HISTORY", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry Club data" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Retry Club data" }).click();
+  await expect.poll(() => walletFailures).toBeGreaterThanOrEqual(2);
+  await expect(alert).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Your individual budget" })).toBeVisible();
+});
+
 test("Clubs Hub exposes task-based primary tabs and supports mobile swipe navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);
