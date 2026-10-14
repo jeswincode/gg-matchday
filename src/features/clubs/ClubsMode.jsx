@@ -809,7 +809,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           const labels = failures.map(item => item.label);
           const requestId = failures.map(item => item.error?.requestId).find(Boolean);
           const detail = failures[0].error?.message;
-          const reference = requestId ? ` Reference ID: ${requestId}.` : "";
+          const reference = requestId && !String(detail || "").includes(requestId) ? ` Reference ID: ${requestId}.` : "";
           setError(`Couldn’t load ${labels.join(", ").toLowerCase()}. ${detail || "Retry to try again."}${reference}`);
         } else {
           setMyClubLoadFailed(false);
