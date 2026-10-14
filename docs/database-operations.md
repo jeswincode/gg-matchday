@@ -28,45 +28,72 @@ Thresholds:
 
 The repository contains:
 - `scripts/backup-mongodb.sh`
+- `scripts/backup-mongodb-atlas.sh`
 - `scripts/restore-mongodb.sh`
+- `scripts/resolve-mongodb-db-name.mjs`
 - `.github/workflows/mongodb-backup.yml`
 
-The workflow runs daily at **02:30 UTC** and can also be started manually. The backup script targets the GG Matchday application database only (`test` by default), so unrelated Atlas databases are not included. The script no longer suppresses `mongodump` errors, so Atlas connection/permission failures remain visible in the workflow logs without printing the connection string.
+The workflow runs daily at **02:30 UTC** and can also be started manually. It backs up both the configured core Matchday database and the separate Clubs database. The core database resolves from `MONGODB_DATABASE`, or from the database path in `MONGODB_URI`, with `test` as the application-consistent fallback. Clubs resolves from `CLUBS_DB_NAME`, or its URI database path, with `gg_matchday_clubs` as the application-consistent fallback. A separate Clubs URI is required unless both connections intentionally share a cluster.
 
-It:
+The current workflow:
 1. installs MongoDB Database Tools 100.19.0;
-2. runs `mongodump`;
-3. gzip-compresses the archive;
-4. encrypts it with AES-256-CBC using PBKDF2;
-5. uploads only the encrypted file as a GitHub Actions artifact.
+2. temporarily authorizes the GitHub runner IP in Atlas and removes the temporary entry on exit (with an expiry safety net);
+3. creates a compressed `mongodump` archive for each configured database;
+4. encrypts each archive using AES-256-CBC with PBKDF2 (200,000 iterations);
+5. decrypts and validates gzip integrity;
+6. restores core and Clubs archives into separate temporary databases using explicit namespace remapping;
+7. verifies restored collections/documents and uploads encrypted artifacts only after both isolated restores succeed.
 
-GitHub Actions artifacts can have a custom retention period; this workflow uses 30 days. GitHub documents that artifacts are retained until their configured expiration and can be downloaded from the workflow run.
+The isolated restore workflow pins MongoDB to `mongo:8.0.34`. GitHub Actions artifacts are retained for 30 days.
 
-## Required GitHub repository secrets
+**Encryption limitation:** the existing AES-CBC + gzip integrity format does not provide cryptographic authentication. Gzip validation detects many corruptions but is not a substitute for an authentication tag or separately verified HMAC. Do not silently change the format without a tested backward-compatible path for existing retained archives.
 
-Add these under **Settings → Secrets and variables → Actions**:
+## Required GitHub repository secrets and variables
 
-- `MONGODB_URI`: the Atlas connection string for the database.
-- `BACKUP_ENCRYPTION_KEY`: a long random secret used to encrypt/decrypt the backup.
-- `MONGODB_DATABASE` (optional): the application database name. For GG Matchday this defaults to `test`; set the secret only if the application database name changes.
+Configure these required names under **Settings → Secrets and variables → Actions**. Do not put actual values in this document, the repository, or `.env.example`.
 
-**Keep the encryption key separately from the backup artifacts.** Losing the key means the encrypted backups cannot be restored.
+- `MONGODB_URI`: core Atlas URI.
+- `MONGODB_DATABASE` (optional): explicit core database name when URI path/default inference is not the intended name.
+- `CLUBS_MONGODB_URI`: actual Clubs database URI; use the core URI only when the two application connections intentionally share a cluster.
+- `CLUBS_DB_NAME` (optional): explicit Clubs database name.
+- `BACKUP_ENCRYPTION_KEY`: strong secret used to encrypt/decrypt backups.
+- `ATLAS_CLIENT_ID`, `ATLAS_CLIENT_SECRET`, `ATLAS_PROJECT_ID`: dedicated Atlas service-account credentials/project ID for temporary network allowlist updates.
 
-Do not put either secret in the repository or `.env.example`.
+Keep the encryption key separately from encrypted artifacts. Losing it prevents decryption. The scheduled job requires appropriate Atlas Network Access Manager permissions on the intended project.
 
-## Restore
+## Manual restore — preflight first, explicit destination, no implicit production write
 
-Download an encrypted backup artifact from a successful backup workflow run.
+`scripts/restore-mongodb.sh` restores **one database archive at a time**. `MONGODB_DATABASE` (or `SOURCE_DATABASE`) identifies the database namespace stored in the archive; `--target-database` identifies the destination namespace. Source and destination names may differ. The URI path is not treated as the restore destination.
 
-Then run:
+The script rejects missing/invalid archive paths, malformed URI schemes, missing key/source settings and invalid database names. It decrypts into a permission-restricted temporary file, validates gzip integrity and runs `mongorestore --dryRun --verbose`. It requires preflight output to contain metadata from the expected source namespace, and explicitly maps `--nsFrom='<source>.*'` to `--nsTo='<target>.*'` while including only the expected source namespace. Raw OpenSSL/mongorestore diagnostics are suppressed to avoid printing credentials.
+
+Preflight is the default and imports no data. Any write requires `--execute`, an explicit destination and an explicit target environment (`non-production` or `production`). Production-target writes additionally require `--allow-production` and `--confirm-production <exact-target-name>`. Collections are not dropped by default. A destructive `--drop` requires `--confirm-target <exact-target-name>`.
+
+Start with an encrypted artifact from a successful backup workflow run and inspect the preflight output:
 
 ```bash
-MONGODB_URI='your-target-uri' \
-BACKUP_ENCRYPTION_KEY='your-key' \
-bash scripts/restore-mongodb.sh backups/gg-matchday-YYYY-MM-DDTHH-MM-SSZ.archive.gz.enc
+export MONGODB_URI='mongodb+srv://<credential-redacted-host>/<auth-database>?retryWrites=true&w=majority'
+export MONGODB_DATABASE='test' # source namespace inside this core backup
+export BACKUP_ENCRYPTION_KEY='<load from an approved secret manager>'
+
+# Step 1: decrypt, validate, and inspect the mapping only.
+bash scripts/restore-mongodb.sh ./backups/gg-matchday-core-<timestamp>.archive.gz.enc \\
+  --target-database gg_matchday_restore_test \\
+  --target-environment non-production
+
+# Step 2: only after reviewing the host/namespace summary and confirming that
+# the URI points at the intended non-production cluster, perform a deliberate restore.
+bash scripts/restore-mongodb.sh ./backups/gg-matchday-core-<timestamp>.archive.gz.enc \\
+  --target-database gg_matchday_restore_test \\
+  --target-environment non-production \\
+  --execute --drop --confirm-target gg_matchday_restore_test
 ```
 
-The restore command uses `--drop`, so use it against a dedicated restore/test database first. Do not restore over production until the backup has been verified.
+For a Clubs archive, set `MONGODB_DATABASE` (or `SOURCE_DATABASE`) to the archived Clubs database name, usually `gg_matchday_clubs`, and use the matching verified encrypted Clubs artifact.
+
+**Production disaster recovery:** verify the artifact, the intended cluster, archived source namespace and target database independently. For an intentional production restore, add `--target-environment production --allow-production --confirm-production <exact-target-db>`; if replacing target collections, also add `--drop --confirm-target <exact-target-db>`. These flags record deliberate operator acknowledgement; they do not identify or certify the safety of the remote cluster. Review the sanitized connection host and namespace mapping before executing. Prefer recovery to a separate cluster first, then use a separately reviewed cutover procedure.
+
+`--drop` is destructive to collections mapped to the destination namespace. A restore without `--drop` may merge with existing data and is not necessarily a clean replacement. Never test this procedure against production. The automated workflow's temporary local restores remain the standard restore smoke test.
 
 ## Recommended operational policy
 
