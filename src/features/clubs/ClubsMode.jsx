@@ -108,6 +108,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [respondingId, setRespondingId] = useState(null);
   const [nameSavingId, setNameSavingId] = useState(null);
   const [error, setError] = useState("");
+  const [myClubLoadFailed, setMyClubLoadFailed] = useState(false);
+  const [myClubLoadKey, setMyClubLoadKey] = useState(0);
   const [selectedPlayers, setSelectedPlayers] = useState(["", "", "", ""]);
   const [formation, setFormation] = useState("1-2-1");
   const [clubNameDrafts, setClubNameDrafts] = useState({});
@@ -764,33 +766,66 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
     const memberIds = currentClubMemberKey.split(",").filter(Boolean);
 
-    Promise.all([
+    const requests = [
       api("/clubs/" + currentClub._id + "/stats"),
       api("/clubs/" + currentClub._id + "/history"),
       api("/clubs/" + currentClub._id + "/wallet"),
       ...memberIds.map(playerId =>
         api("/players/" + playerId + "/attributes").catch(() => null),
       ),
-    ])
-      .then(([statsData, historyData, clubWalletData, ...attributeRows]) => {
+    ];
+
+    Promise.allSettled(requests)
+      .then(results => {
         if (!active) return;
-        setClubWallet(clubWalletData || null);
-        setClubStats(Array.isArray(statsData?.stats) ? statsData.stats : []);
-        setClubHistory(Array.isArray(historyData) ? historyData : []);
+        const valueAt = index => results[index]?.status === "fulfilled" ? results[index].value : null;
+        const [statsResult, historyResult, walletResult] = results;
+        const failures = [];
+        if (statsResult?.status === "fulfilled") {
+          setClubStats(Array.isArray(statsResult.value?.stats) ? statsResult.value.stats : []);
+        } else {
+          failures.push({ label: "Club statistics", error: statsResult?.reason });
+        }
+        if (historyResult?.status === "fulfilled") {
+          setClubHistory(Array.isArray(historyResult.value) ? historyResult.value : []);
+        } else {
+          failures.push({ label: "Club history", error: historyResult?.reason });
+        }
+        if (walletResult?.status === "fulfilled") {
+          setClubWallet(walletResult.value || null);
+        } else {
+          failures.push({ label: "Club wallet", error: walletResult?.reason });
+        }
+
         const nextAttributes = {};
         memberIds.forEach((playerId, index) => {
-          if (attributeRows[index]) nextAttributes[playerId] = attributeRows[index];
+          const attribute = valueAt(index + 3);
+          if (attribute) nextAttributes[playerId] = attribute;
         });
         setPlayerAttributes(nextAttributes);
+
+        setMyClubLoadFailed(failures.length > 0);
+        if (failures.length) {
+          const labels = failures.map(item => item.label);
+          const requestId = failures.map(item => item.error?.requestId).find(Boolean);
+          const detail = failures[0].error?.message;
+          const reference = requestId ? ` Reference ID: ${requestId}.` : "";
+          setError(`Couldn’t load ${labels.join(", ").toLowerCase()}. ${detail || "Retry to try again."}${reference}`);
+        } else {
+          setMyClubLoadFailed(false);
+          setError("");
+        }
       })
       .catch(requestError => {
-        if (active) setError(requestError.message || "Club details could not be loaded.");
+        if (!active) return;
+        setMyClubLoadFailed(true);
+        setError(requestError.message || "Club details could not be loaded.");
       });
 
     return () => {
       active = false;
     };
-  }, [activeSection, currentClub?._id, currentClubMemberKey]);
+  }, [activeSection, currentClub?._id, currentClubMemberKey, myClubLoadKey]);
 
 
   const availablePlayers = useMemo(
@@ -1099,7 +1134,24 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </>
       )}
 
-      {error && <div className="clubs-error" role="alert">{error}</div>}
+      {error && (
+        <div className="clubs-error" role="alert">
+          <span>{error}</span>
+          {activeSection === "myClub" && myClubLoadFailed && (
+            <button
+              type="button"
+              className="clubs-error-retry"
+              onClick={() => {
+                setError("");
+                setMyClubLoadFailed(false);
+                setMyClubLoadKey(key => key + 1);
+              }}
+            >
+              Retry Club data
+            </button>
+          )}
+        </div>
+      )}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
       {activeSection === "overview" && ultimateSubsection === "overview" ? (
