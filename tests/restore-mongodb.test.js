@@ -16,22 +16,22 @@ function harness(overrides = {}) {
   writeFileSync(backup, "encrypted-fixture");
   writeFileSync(join(bin, "openssl"), `#!/usr/bin/env bash
 set -eu
-if [[ "${MOCK_OPENSSL_FAIL:-}" == "1" ]]; then echo "uri=${MONGODB_URI:-secret}" >&2; exit 9; fi
+if [[ "\${MOCK_OPENSSL_FAIL:-}" == "1" ]]; then echo "uri=\${MONGODB_URI:-secret}" >&2; exit 9; fi
 in=""; out=""
 while (($#)); do case "$1" in -in) in="$2"; shift 2;; -out) out="$2"; shift 2;; *) shift;; esac; done
 [[ -n "$in" && -n "$out" ]]; cp -- "$in" "$out"
 `);
   writeFileSync(join(bin, "gzip"), `#!/usr/bin/env bash
 set -eu
-if [[ "${MOCK_GZIP_FAIL:-}" == "1" ]]; then echo "uri=${MONGODB_URI:-secret}" >&2; exit 8; fi
-[[ "${1:-}" == "-t" && -s "${2:-}" ]]
+if [[ "\${MOCK_GZIP_FAIL:-}" == "1" ]]; then echo "uri=\${MONGODB_URI:-secret}" >&2; exit 8; fi
+[[ "\${1:-}" == "-t" && -s "\${2:-}" ]]
 `);
   writeFileSync(join(bin, "mongorestore"), `#!/usr/bin/env bash
 set -eu
-printf '%s\\n' "$@" >> "${MOCK_MONGORESTORE_LOG}"
-if [[ "${MOCK_RESTORE_FAIL:-}" == "1" ]]; then echo "uri=${MONGODB_URI:-secret}" >&2; exit 7; fi
-if [[ "${MOCK_NO_SOURCE_METADATA:-}" == "1" ]]; then echo "no matching metadata found"
-else echo "reading metadata for ${MOCK_SOURCE_DATABASE:-source_core}.players from archive"; fi
+printf '%s\\n' "$@" >> "\${MOCK_MONGORESTORE_LOG}"
+if [[ "\${MOCK_RESTORE_FAIL:-}" == "1" ]]; then echo "uri=\${MONGODB_URI:-secret}" >&2; exit 7; fi
+if [[ "\${MOCK_NO_SOURCE_METADATA:-}" == "1" ]]; then echo "no matching metadata found"
+else echo "reading metadata for \${MOCK_SOURCE_DATABASE:-source_core}.players from archive"; fi
 `);
   for (const tool of ["openssl", "gzip", "mongorestore"]) assert.equal(spawnSync("chmod", ["700", join(bin, tool)]).status, 0);
   const env = {
