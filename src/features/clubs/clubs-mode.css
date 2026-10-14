@@ -2705,3 +2705,33 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span
     touch-action: pan-y pinch-zoom;
   }
 }
+
+
+.clubs-error-retry {
+  flex: 0 0 auto;
+  margin-left: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--clubs-border);
+  border-radius: 10px;
+  background: var(--clubs-surface-2);
+  color: var(--clubs-text);
+  font: inherit;
+  font-size: 0.92em;
+  font-weight: 700;
+  cursor: pointer;
+}
+.clubs-error-retry:focus-visible {
+  outline: 2px solid var(--clubs-accent);
+  outline-offset: 3px;
+}
+@media (max-width: 540px) {
+  .clubs-error {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .clubs-error-retry {
+    margin-left: 0;
+    min-height: 42px;
+  }
+}
