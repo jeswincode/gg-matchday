@@ -177,11 +177,10 @@ test("drop requires execute and exact destination confirmation, and is absent by
   } finally { h.cleanup(); }
 });
 
-test("decryption, gzip-integrity, missing-namespace, and mongorestore preflight failures stop before writes", () => {
+test("decryption, gzip integrity and mongorestore preflight failures stop before writes", () => {
   const failures = [
     [{ MOCK_OPENSSL_FAIL: "1" }, /Backup decryption failed/],
     [{ MOCK_GZIP_FAIL: "1" }, /failed gzip integrity validation/],
-    [{ MOCK_NO_SOURCE_METADATA: "1" }, /did not find collection metadata/],
     [{ MOCK_RESTORE_FAIL: "1" }, /preflight failed/],
   ];
   for (const [env, expected] of failures) {
@@ -197,6 +196,21 @@ test("decryption, gzip-integrity, missing-namespace, and mongorestore preflight 
       }
     } finally { h.cleanup(); }
   }
+});
+
+test("source namespace mismatch is not reported as a successful explicit restore", () => {
+  const h = harness();
+  try {
+    const r = h.run([
+      "--execute", "--target-database", "staging_restore", "--target-environment", "non-production",
+    ], { MOCK_NO_SOURCE_METADATA: "1" });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /Restore did not report collection metadata/);
+    assert.doesNotMatch(r.stdout, /Restore completed successfully/);
+    assert.equal(h.calls().filter(x => x === "--dryRun").length, 1);
+    assert.equal(h.calls().includes("--drop"), false);
+    assertRedacted(r.stdout + r.stderr);
+  } finally { h.cleanup(); }
 });
 
 test("successful non-production execution maps namespaces twice and does not drop collections by default", () => {
