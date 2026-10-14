@@ -34,7 +34,7 @@ jobs:
     timeout-minutes: 10
     services:
       mongodb-restore:
-        image: mongo:8.2
+        image: mongo:8.0.34
         ports:
           - 27017:27017
         options: >-
@@ -62,7 +62,7 @@ jobs:
           BACKUP_ENCRYPTION_KEY: ci-only-restore-smoke-key
         run: |
           set -euo pipefail
-          CONTAINER_ID="$(docker ps --filter 'ancestor=mongo:8.2' --format '{{.ID}}' | head -n 1)"
+          CONTAINER_ID="$(docker ps --filter 'ancestor=mongo:8.0.34' --format '{{.ID}}' | head -n 1)"
           test -n "$CONTAINER_ID"
           docker exec "$CONTAINER_ID" mongosh --quiet --eval 'db.getSiblingDB("gg_matchday_backup_smoke").players.insertOne({ marker: "restore-smoke", id: 1 });'
           mongodump \
