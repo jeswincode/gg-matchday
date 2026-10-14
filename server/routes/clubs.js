@@ -1028,7 +1028,7 @@ router.post("/auction/offers/:offerId/choose", requireAuth, async (req, res) => 
       const chosen = await AuctionOffer.findOneAndUpdate(
         { _id: offer._id, status: "active", expiresAt: { $gt: now } },
         { $set: { status: "chosenByPlayer", playerChosenAt: now } },
-        { new: true, session },
+        { returnDocument: "after", session },
       );
       if (!chosen) throw new Error("This offer changed before it could be selected.");
       const otherOffers = await AuctionOffer.find({ playerId, _id: { $ne: offer._id }, status: "active" }).session(session);
@@ -1036,7 +1036,7 @@ router.post("/auction/offers/:offerId/choose", requireAuth, async (req, res) => 
         const rejected = await AuctionOffer.findOneAndUpdate(
           { _id: otherOffer._id, status: "active" },
           { $set: { status: "rejectedByPlayer" } },
-          { new: true, session },
+          { returnDocument: "after", session },
         );
         if (rejected) {
           const otherClub = await Club.findById(rejected.clubId).session(session).lean();
@@ -1094,7 +1094,7 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
       const updatedClub = await Club.findOneAndUpdate(
         { _id: club._id, status: "approved", memberIds: { $not: { $size: CLUB_MAX_MEMBERS }, $ne: offer.playerId } },
         { $addToSet: { memberIds: offer.playerId } },
-        { new: true, session },
+        { returnDocument: "after", session },
       );
       if (!updatedClub) throw new Error("The club changed before this signing could be completed.");
       const debitedClub = await debitClubWallet({
@@ -1202,7 +1202,7 @@ router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) =
       const updatedClub = await Club.findOneAndUpdate(
         { _id: club._id, status: "approved", memberIds: { $not: { $elemMatch: { $eq: request.playerId } } } },
         { $push: { memberIds: request.playerId } },
-        { new: true, session },
+        { returnDocument: "after", session },
       );
       if (!updatedClub) throw new Error("The club changed before the player could join.");
       await ClubContract.create([{
