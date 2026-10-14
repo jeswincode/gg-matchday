@@ -312,9 +312,14 @@ if ! mongorestore "${FINAL_ARGS[@]}" >"$RESTORE_LOG" 2>&1; then
 fi
 
 if ! grep -Fq "reading metadata for ${SOURCE_DATABASE}." "$RESTORE_LOG"; then
-  # This check runs only after an explicitly requested import. The namespace
-  # include/remap options prevent unrelated archive namespaces from being loaded;
-  # without a matching source collection mongorestore performs no target import.
+  # Print a narrow, sanitized summary to help diagnose MongoDB Database Tools
+  # differences without exposing the URI or raw tool diagnostics.
+  SAFE_RESTORE_SUMMARY="$(grep -E 'preparing collections to restore|reading metadata for|restoring [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|finished restoring|document\(s\) restored successfully|document\(s\) failed to restore' "$RESTORE_LOG" | head -n 12 || true)"
+  if [[ -n "$SAFE_RESTORE_SUMMARY" ]]; then
+    printf 'Sanitized restore summary:\\n%s\\n' "$SAFE_RESTORE_SUMMARY" >&2
+  else
+    echo "No recognized collection metadata or restore summary was emitted during the import." >&2
+  fi
   echo "Restore did not report collection metadata for the expected source namespace. No success is reported; verify the source namespace and target before retrying." >&2
   exit 1
 fi
