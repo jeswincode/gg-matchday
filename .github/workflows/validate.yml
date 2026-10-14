@@ -21,10 +21,11 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run check:bundle
       - run: node --check server/server.js
       - run: node --check server/routes/profileSecurity.js
       - run: node --check server/routes/profileRequests.js
-      - run: node --check scripts/verify-mongodb-restore.mjs
+      - run: bash -n scripts/backup-mongodb.sh scripts/backup-mongodb-atlas.sh
 
   e2e:
     runs-on: ubuntu-latest
