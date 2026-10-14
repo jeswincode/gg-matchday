@@ -30,6 +30,7 @@ const { default: PlayerStats } = await import("../server/models/PlayerStats.js")
 const { default: SeasonStats } = await import("../server/models/SeasonStats.js");
 const { clubDateKey, nextRenewalBoundary, CLUB_REWARDS } = await import("../server/config/clubsRules.js");
 const { isClubPredictionFresh, CLUB_PREDICTION_CACHE_TTL_MS } = await import("../server/services/clubsPrediction.js");
+const { runClubsMaintenance } = await import("../server/services/clubsMaintenance.js");
 const { settleClubMatchRewards } = await import("../server/services/clubsMatchSettlement.js");
 
 let database;
@@ -203,6 +204,91 @@ test("Club HTTP auction flow reserves, releases, and consumes wallet commitments
   assert.ok(wallet.memberIds.some(playerId => String(playerId) === String(players[4]._id)));
   assert.ok(await ClubContract.exists({ clubId: club._id, playerId: players[4]._id, status: "active" }));
   assert.equal((await PlayerWallet.findOne({ playerId: players[4]._id }).lean()).balance, 200);
+});
+
+test("maintenance reconciliation cannot overwrite a wallet reservation committed after its snapshot", async () => {
+  const raceMembers = await Player.create(Array.from({ length: 5 }, (_, index) => ({
+    name: `Maintenance Race Member ${index + 1}`,
+    position: "CM",
+  })));
+  const targetPlayer = await Player.create({ name: "Maintenance Race Target", position: "ST" });
+  const club = await Club.create({
+    name: "Reservation Reconciliation Race FC",
+    description: "Deterministic maintenance concurrency regression",
+    memberIds: raceMembers.slice(0, 4).map(player => player._id),
+    captainIds: [raceMembers[0]._id],
+    status: "approved",
+    balance: 300,
+    committedBalance: 100,
+  });
+  await AuctionOffer.create({
+    playerId: targetPlayer._id,
+    clubId: club._id,
+    amount: 100,
+    status: "chosenByPlayer",
+    expiresAt: new Date(Date.now() - 60_000),
+  });
+
+  const originalAggregate = AuctionOffer.aggregate;
+  let intercepted = false;
+  let signalAggregateReady;
+  let releaseAggregate;
+  const aggregateReady = new Promise(resolve => { signalAggregateReady = resolve; });
+  const aggregateGate = new Promise(resolve => { releaseAggregate = resolve; });
+
+  AuctionOffer.aggregate = function (pipeline, ...args) {
+    const aggregate = originalAggregate.call(this, pipeline, ...args);
+    const targetMatch = String(pipeline?.[0]?.$match?.clubId || "") === String(club._id);
+    if (targetMatch && !intercepted) {
+      intercepted = true;
+      const originalExec = aggregate.exec.bind(aggregate);
+      aggregate.exec = async (...execArgs) => {
+        const rows = await originalExec(...execArgs);
+        signalAggregateReady();
+        await aggregateGate;
+        return rows;
+      };
+    }
+    return aggregate;
+  };
+
+  const maintenancePromise = runClubsMaintenance();
+  let offerResponse;
+  let timeoutHandle;
+  try {
+    await Promise.race([
+      aggregateReady,
+      new Promise((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error("Maintenance did not reach the reservation snapshot.")), 15_000);
+      }),
+    ]);
+    clearTimeout(timeoutHandle);
+
+    offerResponse = await request("/clubs/auction/offers", {
+      method: "POST",
+      playerId: raceMembers[0]._id,
+      body: { clubId: String(club._id), playerId: String(targetPlayer._id), amount: 50 },
+    });
+    assert.equal(offerResponse.status, 201, JSON.stringify(offerResponse.data));
+  } finally {
+    clearTimeout(timeoutHandle);
+    releaseAggregate();
+    AuctionOffer.aggregate = originalAggregate;
+  }
+
+  await maintenancePromise;
+  const activeOffers = await AuctionOffer.find({
+    clubId: club._id,
+    $or: [
+      { status: "active", expiresAt: { $gt: new Date() } },
+      { status: "chosenByPlayer" },
+    ],
+  }).lean();
+  const expectedReserved = Math.round(activeOffers.reduce((sum, offer) => sum + Number(offer.amount || 0), 0) * 100) / 100;
+  const reconciled = await Club.findById(club._id).lean();
+  assert.equal(expectedReserved, 50);
+  assert.equal(Number(reconciled.committedBalance), expectedReserved);
+  assert.equal(Number(reconciled.balance), 300);
 });
 
 test("HTTP signing approval rejects an expired chosen offer before maintenance runs", async () => {
