@@ -45,7 +45,7 @@ else echo "reading metadata for \${MOCK_SOURCE_DATABASE:-source_core}.players fr
     run(args = [], extra = {}) {
       return spawnSync("bash", [script, backup, ...args], { cwd: process.cwd(), env: { ...env, ...extra }, encoding: "utf8", timeout: 10000 });
     },
-    calls() { try { return readFileSync(env.MOCK_MONGORESTORE_LOG, "utf8").split("\\n").filter(Boolean); } catch { return []; } },
+    calls() { try { return readFileSync(env.MOCK_MONGORESTORE_LOG, "utf8").split("\n").filter(Boolean); } catch { return []; } },
     cleanup() { rmSync(dir, { recursive: true, force: true }); },
   };
 }
