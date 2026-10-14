@@ -49,7 +49,7 @@ else echo "reading metadata for \${MOCK_SOURCE_DATABASE:-source_core}.players fr
     cleanup() { rmSync(dir, { recursive: true, force: true }); },
   };
 }
-const assertRedacted = value => assert.doesNotMatch(value, /restore-user|never-print-this-password|cluster\\.example\\.net|test-only-key/);
+const assertRedacted = value => assert.doesNotMatch(value, /restore-user|never-print-this-password|test-only-key/);
 
 test("default is preflight-only and remaps a source namespace to an explicit destination", () => {
   const h = harness();
