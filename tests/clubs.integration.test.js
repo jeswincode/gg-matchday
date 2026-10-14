@@ -28,7 +28,8 @@ const { rebuildClubPlayerStats } = await import("../server/services/clubsMatchSy
 const { default: Match } = await import("../server/models/Match.js");
 const { default: PlayerStats } = await import("../server/models/PlayerStats.js");
 const { default: SeasonStats } = await import("../server/models/SeasonStats.js");
-const { clubDateKey, nextRenewalBoundary } = await import("../server/config/clubsRules.js");
+const { clubDateKey, nextRenewalBoundary, CLUB_REWARDS } = await import("../server/config/clubsRules.js");
+const { settleClubMatchRewards } = await import("../server/services/clubsMatchSettlement.js");
 
 let database;
 let server;
@@ -516,6 +517,94 @@ test("Club fixture sync and settlement work through the HTTP routes", async () =
   const repeat = await request(`/clubs/matches/${booking.data._id}/settle`, { method: "POST", role: "admin", body: {} });
   assert.equal(repeat.status, 200, JSON.stringify(repeat.data));
   assert.equal((await Club.findById(auctionClub._id).lean()).balance, balanceAfter);
+});
+
+test("historical match rewards include an expired contract that covered the match date", async () => {
+  assert.ok(auctionClub, "auction Club should have been created in the prior integration test");
+  assert.ok(formedClub, "formed Club should have been approved in the formation integration test");
+
+  const mainMatchDate = new Date("2026-09-10T12:00:00.000Z");
+  const candidateClubs = [auctionClub._id, formedClub._id];
+  let historicalPlayer = null;
+  for (const candidate of players) {
+    const hasActiveContract = await ClubContract.exists({ playerId: candidate._id, status: "active" });
+    const hasContractCoveringMatch = await ClubContract.exists({
+      playerId: candidate._id,
+      clubId: { $in: candidateClubs },
+      startAt: { $lte: mainMatchDate },
+      endAt: { $gt: mainMatchDate },
+    });
+    if (!hasActiveContract && !hasContractCoveringMatch) {
+      historicalPlayer = candidate;
+      break;
+    }
+  }
+  assert.ok(historicalPlayer, "a test player without an active contract should be available");
+
+  const otherPlayer = players.find(p => String(p._id) !== String(historicalPlayer._id));
+  assert.ok(otherPlayer, "a second participant should be available");
+
+  const beforeWallet = await PlayerWallet.findOne({ playerId: historicalPlayer._id }).lean();
+  const beforeBalance = Number(beforeWallet?.balance || 0);
+
+  await ClubContract.create({
+    clubId: auctionClub._id,
+    playerId: historicalPlayer._id,
+    startAt: new Date("2026-08-01T00:00:00.000Z"),
+    endAt: new Date("2026-10-01T00:00:00.000Z"),
+    status: "expired",
+    signingAmount: 0,
+    source: "formation",
+    renewalNumber: 0,
+  });
+
+  const mainMatch = await Match.create({
+    date: mainMatchDate,
+    name: "Historical Contract Settlement Regression",
+    teamA: { label: auctionClub.name, score: 1 },
+    teamB: { label: formedClub.name, score: 0 },
+    participants: [
+      { player: historicalPlayer._id, team: "A", rating: 8, defensivePerformance: 8, ownGoals: 0, performanceCodes: [] },
+      { player: otherPlayer._id, team: "B", rating: 7, defensivePerformance: 7, ownGoals: 0, performanceCodes: [] },
+    ],
+    events: [{ player: historicalPlayer._id, type: "goal" }],
+  });
+
+  const clubMatch = await ClubMatch.create({
+    clubAId: auctionClub._id,
+    clubBId: formedClub._id,
+    scheduledAt: new Date("2026-09-10T00:00:00.000Z"),
+    fixtureDate: "2026-09-10",
+    source: "unbooked",
+    status: "completed",
+    mainMatchId: mainMatch._id,
+    winnerClubId: auctionClub._id,
+    clubAScore: 1,
+    clubBScore: 0,
+    settlementStatus: "pending",
+  });
+
+  const session = await Club.db.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await settleClubMatchRewards({ clubMatchId: clubMatch._id, session });
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  const afterWallet = await PlayerWallet.findOne({ playerId: historicalPlayer._id }).lean();
+  const expectedReward = CLUB_REWARDS.playerAppearance + CLUB_REWARDS.cleanSheet;
+  assert.equal(Number(afterWallet?.balance || 0) - beforeBalance, expectedReward);
+
+  const ledgerEntries = await PlayerWalletTransaction.find({
+    playerId: historicalPlayer._id,
+    clubMatchId: clubMatch._id,
+  }).lean();
+  assert.deepEqual(
+    ledgerEntries.map(entry => entry.amount).sort((a, b) => a - b),
+    [CLUB_REWARDS.playerAppearance, CLUB_REWARDS.cleanSheet].sort((a, b) => a - b),
+  );
 });
 
 test("Club player-history ratings use effectiveMatchRating for legacy own-goal records", async () => {
