@@ -296,8 +296,8 @@ fi
 # an empty or unrelated archive must fail before any database writes.
 has_expected_namespace_mapping() {
   local log_file="$1"
-  grep -F "found collection metadata from `${SOURCE_DATABASE}." "$log_file" |
-    grep -Fq " to restore to `${TARGET_DATABASE}."
+  grep -F "found collection metadata from \\`${SOURCE_DATABASE}." "$log_file" |
+    grep -Fq " to restore to \\`${TARGET_DATABASE}."
 }
 if ! has_expected_namespace_mapping "$PREFLIGHT_LOG"; then
   echo "mongorestore dry-run did not report collection metadata mapped from the expected source namespace to the expected destination namespace; refusing to continue." >&2
