@@ -147,10 +147,12 @@ test("decryption, gzip-integrity, missing-namespace, and mongorestore preflight 
     try {
       const r = h.run(["--execute", "--target-database", "staging_restore", "--target-environment", "non-production"], env);
       assert.equal(r.status, 1); assert.match(r.stderr, expected); assertRedacted(r.stdout + r.stderr);
-      assert.equal(h.calls().includes("--dryRun"), expected.source === undefined ? (env.MOCK_OPENSSL_FAIL || env.MOCK_GZIP_FAIL ? false : true) : true);
       assert.equal(h.calls().includes("--drop"), false);
-      if (env.MOCK_OPENSSL_FAIL || env.MOCK_GZIP_FAIL) assert.deepEqual(h.calls(), []);
-      else assert.equal(h.calls().filter(x => x === "--dryRun").length, 1);
+      if (env.MOCK_OPENSSL_FAIL || env.MOCK_GZIP_FAIL) {
+        assert.deepEqual(h.calls(), []);
+      } else {
+        assert.equal(h.calls().filter(x => x === "--dryRun").length, 1);
+      }
     } finally { h.cleanup(); }
   }
 });
