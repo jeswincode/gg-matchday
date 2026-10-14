@@ -1,6 +1,12 @@
-name: MongoDB Backup
+name: MongoDB Backup and Restore Drill
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/mongodb-backup.yml"
+      - "scripts/backup-mongodb.sh"
+      - "scripts/backup-mongodb-atlas.sh"
   schedule:
     - cron: "30 2 * * *"
   workflow_dispatch:
@@ -13,10 +19,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  backup:
-    name: Create encrypted MongoDB backup
+  backup-and-restore:
+    name: Create encrypted backups and verify isolated restores
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
+    services:
+      mongodb-restore:
+        image: mongo:8.2
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
 
     steps:
       - name: Install MongoDB Database Tools
@@ -31,27 +47,93 @@ jobs:
           echo "$TOOLS_DIR" >> "$GITHUB_PATH"
           export PATH="$TOOLS_DIR:$PATH"
           mongodump --version
+          mongorestore --version
           jq --version
 
       - name: Checkout backup scripts
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
-      - name: Create encrypted backup with temporary Atlas access
+      - name: Create and verify encrypted core and Clubs backups
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
           MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+          CLUBS_MONGODB_URI: ${{ secrets.CLUBS_MONGODB_URI }}
+          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
           ATLAS_CLIENT_ID: ${{ secrets.ATLAS_CLIENT_ID }}
           ATLAS_CLIENT_SECRET: ${{ secrets.ATLAS_CLIENT_SECRET }}
           ATLAS_PROJECT_ID: ${{ secrets.ATLAS_PROJECT_ID }}
         run: |
+          set -euo pipefail
           chmod +x scripts/backup-mongodb-atlas.sh scripts/backup-mongodb.sh
           bash scripts/backup-mongodb-atlas.sh
 
-      - name: Upload encrypted backup artifact
-        uses: actions/upload-artifact@v4
+      - name: Restore the core backup into an isolated temporary database
+        env:
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gg-restore
+          CORE_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-core-*.archive.gz.enc' -print -quit)"
+          test -n "$CORE_BACKUP"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in "$CORE_BACKUP" -out /tmp/gg-restore/core.archive.gz \
+            -pass env:BACKUP_ENCRYPTION_KEY
+          gzip -t /tmp/gg-restore/core.archive.gz
+          mongorestore \
+            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \
+            --archive=/tmp/gg-restore/core.archive.gz \
+            --gzip \
+            --nsFrom="${MONGODB_DATABASE}.*" \
+            --nsTo="gg_matchday_restore_core.*" \
+            --stopOnError
+
+      - name: Restore the Clubs backup into a separate isolated temporary database
+        env:
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME }}
+        run: |
+          set -euo pipefail
+          CLUBS_DATABASE="${CLUBS_DB_NAME:-gg_matchday_clubs}"
+          CLUBS_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-clubs-*.archive.gz.enc' -print -quit)"
+          test -n "$CLUBS_BACKUP"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in "$CLUBS_BACKUP" -out /tmp/gg-restore/clubs.archive.gz \
+            -pass env:BACKUP_ENCRYPTION_KEY
+          gzip -t /tmp/gg-restore/clubs.archive.gz
+          mongorestore \
+            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \
+            --archive=/tmp/gg-restore/clubs.archive.gz \
+            --gzip \
+            --nsFrom="${CLUBS_DATABASE}.*" \
+            --nsTo="gg_matchday_restore_clubs.*" \
+            --stopOnError
+
+      - name: Verify restored core and Clubs data exist in the isolated databases
+        run: |
+          set -euo pipefail
+          CONTAINER_ID="$(docker ps --filter 'ancestor=mongo:8.2' --format '{{.ID}}' | head -n 1)"
+          test -n "$CONTAINER_ID"
+          docker exec "$CONTAINER_ID" mongosh --quiet --eval '
+            const verifyDatabase = (name) => {
+              const database = db.getSiblingDB(name);
+              const collections = database.getCollectionNames().filter(value => !value.startsWith("system."));
+              const documentCount = collections.reduce((total, collection) => total + database.getCollection(collection).estimatedDocumentCount(), 0);
+              if (collections.length === 0 || documentCount === 0) {
+                print("Restore verification failed for " + name + ": collections=" + collections.length + ", documents=" + documentCount);
+                quit(1);
+              }
+              print("Verified isolated restore " + name + ": " + collections.length + " collections, " + documentCount + " documents.");
+            };
+            verifyDatabase("gg_matchday_restore_core");
+            verifyDatabase("gg_matchday_restore_clubs");
+          '
+
+      - name: Upload encrypted backups only after both restore drills pass
+        uses: actions/upload-artifact@v7
         with:
           name: gg-matchday-mongodb-backup-${{ github.run_id }}
-          path: backups/*.enc
+          path: backups/*.archive.gz.enc
           if-no-files-found: error
           retention-days: 30

@@ -5,13 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "server": "nodemon server/server.js",
+    "server": "node --watch server/server.js",
     "start": "node server/server.js",
     "build": "vite build",
     "lint": "eslint .",
     "test": "node --experimental-test-module-mocks --test tests/*.test.js",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:bundle": "node scripts/check-bundle-budget.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
@@ -35,11 +36,13 @@
     "eslint-plugin-react-refresh": "^0.5.4",
     "globals": "^17.11.0",
     "mongodb-memory-server": "^11.2.0",
-    "nodemon": "^3.1.14",
     "vite": "^8.2.2",
     "@playwright/test": "^1.63.0"
   },
   "engines": {
     "node": "22.x"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.5"
   }
 }

@@ -32,6 +32,15 @@ const players = [
   { _id: new mongoose.Types.ObjectId("65a000000000000000000004"), name: "E2E Player Four", position: "GK", pace: 55, physical: 78 },
 ];
 await Player.insertMany(players);
+await Club.create({
+  name: "E2E My Club Regression FC",
+  description: "Isolated browser regression fixture.",
+  memberIds: players.map(player => player._id),
+  captainIds: [players[0]._id],
+  status: "approved",
+  balance: 300,
+  committedBalance: 50,
+});
 
 const server = app.listen(5000, "127.0.0.1", () => {
   console.log("GG Matchday isolated Playwright API ready on port 5000");

@@ -257,3 +257,17 @@ test("Clubs mobile scrolling remains vertical and Players subsection tabs fit th
   assert.match(styles, /\.clubs-players-section \.clubs-subnav button/);
   assert.match(styles, /overflow-wrap:\s*anywhere/);
 });
+
+
+test("My Club detail loading keeps independent resources usable and offers retry", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  assert.match(component, /Promise\.allSettled\(requests\)/);
+  assert.match(component, /label: "Club statistics"/);
+  assert.match(component, /label: "Club history"/);
+  assert.match(component, /label: "Club wallet"/);
+  assert.match(component, /setMyClubLoadKey\(key => key \+ 1\)/);
+  assert.match(component, /className="clubs-error-retry"/);
+  assert.match(component, /Reference ID:/);
+  assert.match(styles, /\.clubs-error-retry/);
+});

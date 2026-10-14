@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import editorialRoutes from "./routes/editorial.js";
 import "dotenv/config";
 import matchDetailRoutes from "./routes/matchDetail.js";
@@ -27,6 +28,27 @@ import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
 dotenv.config();
 
 const app = express();
+
+app.use((req, res, next) => {
+  const requestId = randomUUID();
+  const startedAt = Date.now();
+  req.requestId = requestId;
+  res.setHeader("X-Request-ID", requestId);
+  res.on("finish", () => {
+    if (res.statusCode < 500) return;
+    // Keep production logs useful without recording query strings, auth headers,
+    // request bodies, or raw database/provider error messages.
+    console.error(JSON.stringify({
+      event: "api_request_failure",
+      requestId,
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      durationMs: Math.max(0, Date.now() - startedAt),
+    }));
+  });
+  next();
+});
 
 app.use(cors(createCorsOptions()));
 app.use(express.json({limit:"64kb"}));
@@ -78,15 +100,30 @@ app.use((error, req, res, next) => {
   if (res.headersSent) return next(error);
 
   if (error?.name === "CastError") {
-    return res.status(400).json({ message: "Invalid resource id." });
+    return res.status(400).json({ message: "Invalid resource id.", requestId: req.requestId });
   }
 
   if (error?.name === "ValidationError") {
-    return res.status(400).json({ message: "Invalid request data." });
+    return res.status(400).json({ message: "Invalid request data.", requestId: req.requestId });
   }
 
-  return res.status(error.status || 500).json({
-    message: error.status === 413 ? "Request is too large." : "The request could not be completed.",
+  const statusCode = Number.isInteger(error?.status) && error.status >= 400 && error.status < 600
+    ? error.status
+    : 500;
+  if (statusCode >= 500) {
+    console.error(JSON.stringify({
+      event: "api_error_handler",
+      requestId: req.requestId,
+      method: req.method,
+      path: req.path,
+      statusCode,
+      errorName: error?.name || "Error",
+    }));
+  }
+
+  return res.status(statusCode).json({
+    message: statusCode === 413 ? "Request is too large." : "The request could not be completed.",
+    requestId: req.requestId,
   });
 });
 

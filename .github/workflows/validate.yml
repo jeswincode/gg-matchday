@@ -10,25 +10,93 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Audit dependency advisories
+        run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm test
       - run: npm run build
+      - run: npm run check:bundle
       - run: node --check server/server.js
       - run: node --check server/routes/profileSecurity.js
       - run: node --check server/routes/profileRequests.js
+      - run: bash -n scripts/backup-mongodb.sh scripts/backup-mongodb-atlas.sh
+
+  backup-restore-smoke:
+    name: Smoke-test encrypted MongoDB restore in isolation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      mongodb-restore:
+        image: mongo:8.2
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install MongoDB Database Tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.19.0.tgz" \
+            -o /tmp/mongodb-tools.tgz
+          tar -xzf /tmp/mongodb-tools.tgz -C /tmp
+          TOOLS_DIR="/tmp/mongodb-database-tools-ubuntu2404-x86_64-100.19.0/bin"
+          echo "$TOOLS_DIR" >> "$GITHUB_PATH"
+          export PATH="$TOOLS_DIR:$PATH"
+          mongodump --version
+          mongorestore --version
+      - name: Create a fixture and run dump-encrypt-decrypt-restore verification
+        env:
+          BACKUP_ENCRYPTION_KEY: ci-only-restore-smoke-key
+        run: |
+          set -euo pipefail
+          CONTAINER_ID="$(docker ps --filter 'ancestor=mongo:8.2' --format '{{.ID}}' | head -n 1)"
+          test -n "$CONTAINER_ID"
+          docker exec "$CONTAINER_ID" mongosh --quiet --eval 'db.getSiblingDB("gg_matchday_backup_smoke").players.insertOne({ marker: "restore-smoke", id: 1 });'
+          mongodump \
+            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \
+            --db=gg_matchday_backup_smoke \
+            --archive=/tmp/gg-matchday-smoke.archive.gz \
+            --gzip --quiet
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
+            -in /tmp/gg-matchday-smoke.archive.gz -out /tmp/gg-matchday-smoke.archive.gz.enc \
+            -pass env:BACKUP_ENCRYPTION_KEY
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in /tmp/gg-matchday-smoke.archive.gz.enc -out /tmp/gg-matchday-smoke.restore.gz \
+            -pass env:BACKUP_ENCRYPTION_KEY
+          gzip -t /tmp/gg-matchday-smoke.restore.gz
+          mongorestore \
+            --uri="mongodb://127.0.0.1:27017/?directConnection=true" \
+            --archive=/tmp/gg-matchday-smoke.restore.gz --gzip \
+            --nsFrom="gg_matchday_backup_smoke.*" \
+            --nsTo="gg_matchday_restore_smoke.*" --stopOnError
+          docker exec "$CONTAINER_ID" mongosh --quiet --eval '
+            const restored = db.getSiblingDB("gg_matchday_restore_smoke");
+            const restoredCount = restored.getCollection("players").countDocuments({ marker: "restore-smoke" });
+            if (restoredCount !== 1) {
+              print("Restore smoke check failed: expected 1 restored fixture document, got " + restoredCount);
+              quit(1);
+            }
+            print("Isolated encrypted backup restore verified.");
+          '
 
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
