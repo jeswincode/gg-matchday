@@ -133,7 +133,7 @@ export async function attachMainMatchToClubMatch(mainMatch) {
     const updated = await ClubMatch.findOneAndUpdate(
       { _id: clubMatch._id, mainMatchId: mainMatch._id, status: "completed" },
       { $set: scoreFor(clubMatch, sideMatch) },
-      { new: true },
+      { returnDocument: "after" },
     );
     if (updated) {
       linked.push(updated);
@@ -163,7 +163,7 @@ export async function attachMainMatchToClubMatch(mainMatch) {
           ...scoreFor(clubMatch, inference),
         },
       },
-      { new: true },
+      { returnDocument: "after" },
     );
     if (updated) {
       linked.push(updated);
