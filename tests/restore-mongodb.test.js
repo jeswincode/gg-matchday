@@ -28,19 +28,19 @@ if [[ "\${MOCK_GZIP_FAIL:-}" == "1" ]]; then echo "uri=\${MONGODB_URI:-secret}" 
 `);
   writeFileSync(join(bin, "mongorestore"), `#!/usr/bin/env bash
 set -eu
-printf '%s\\n' "$@" >> "${MOCK_MONGORESTORE_LOG}"
-if [[ "${MOCK_RESTORE_FAIL:-}" == "1" ]]; then echo "uri=${MONGODB_URI:-secret}" >&2; exit 7; fi
+printf '%s\\n' "$@" >> "\${MOCK_MONGORESTORE_LOG}"
+if [[ "\${MOCK_RESTORE_FAIL:-}" == "1" ]]; then echo "uri=\${MONGODB_URI:-secret}" >&2; exit 7; fi
 source="source_core"
 destination="staging_restore"
 for argument in "$@"; do
   case "$argument" in
-    --nsFrom=*) source="${argument#--nsFrom=}"; source="${source%%.*}" ;;
-    --nsTo=*) destination="${argument#--nsTo=}"; destination="${destination%%.*}" ;;
+    --nsFrom=*) source="\${argument#--nsFrom=}"; source="\${source%%.*}" ;;
+    --nsTo=*) destination="\${argument#--nsTo=}"; destination="\${destination%%.*}" ;;
   esac
 done
-if [[ "${MOCK_NO_SOURCE_METADATA:-}" == "1" ]]; then
+if [[ "\${MOCK_NO_SOURCE_METADATA:-}" == "1" ]]; then
   echo "no matching metadata found"
-elif [[ "${MOCK_UNRELATED_METADATA:-}" == "1" ]]; then
+elif [[ "\${MOCK_UNRELATED_METADATA:-}" == "1" ]]; then
   printf 'found collection metadata from \\x60unrelated_db.players\\x60 to restore to \\x60unrelated_target.players\\x60\\n'
 else
   printf 'found collection metadata from \\x60%s.players\\x60 to restore to \\x60%s.players\\x60\\n' "$source" "$destination"
