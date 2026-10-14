@@ -63,11 +63,11 @@ Keep the encryption key separately from encrypted artifacts. Losing it prevents 
 
 ## Manual restore — preflight first, explicit destination, no implicit production write
 
-`scripts/restore-mongodb.sh` restores **one database archive at a time**. `MONGODB_DATABASE` (or `SOURCE_DATABASE`) identifies the database namespace stored in the archive; `--target-database` identifies the destination namespace. Source and destination names may differ. The URI path is not treated as the restore destination.
+`scripts/restore-mongodb.sh` restores **one database archive at a time**. `MONGODB_DATABASE` (or `SOURCE_DATABASE`) identifies the database namespace stored in the archive; `--target-database` identifies the destination namespace. Source and destination names may differ. The URI path is not treated as the restore destination. The parser supports standard single-host, SRV, and comma-separated multi-host replica-set URIs, and only prints the sanitized host list and database path—not credentials or query options.
 
 The script rejects missing/invalid archive paths, malformed URI schemes, missing key/source settings and invalid database names. It decrypts into a permission-restricted temporary file, validates gzip integrity and runs `mongorestore --dryRun --verbose`. It requires preflight output to contain metadata from the expected source namespace, and explicitly maps `--nsFrom='<source>.*'` to `--nsTo='<target>.*'` while including only the expected source namespace. Raw OpenSSL/mongorestore diagnostics are suppressed to avoid printing credentials.
 
-Preflight is the default and imports no data. Any write requires `--execute`, an explicit destination and an explicit target environment (`non-production` or `production`). Production-target writes additionally require `--allow-production` and `--confirm-production <exact-target-name>`. Collections are not dropped by default. A destructive `--drop` requires `--confirm-target <exact-target-name>`.
+Preflight is the default and imports no data. Any write requires `--execute`, an explicit destination and an explicit target environment (`non-production` or `production`). If either the destination name or the database path in the URI looks production-like, declaring it `non-production` is refused. This is a conservative heuristic, not definitive cluster identification; review the sanitized hostname as well. Production-target writes additionally require `--allow-production` and `--confirm-production <exact-target-name>`. Collections are not dropped by default. A destructive `--drop` requires `--confirm-target <exact-target-name>`.
 
 Start with an encrypted artifact from a successful backup workflow run and inspect the preflight output:
 
