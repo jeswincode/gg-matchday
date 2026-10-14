@@ -31,6 +31,12 @@ set -eu
 printf '%s\\n' "$@" >> "\${MOCK_MONGORESTORE_LOG}"
 if [[ "\${MOCK_RESTORE_FAIL:-}" == "1" ]]; then echo "uri=\${MONGODB_URI:-secret}" >&2; exit 7; fi
 if [[ "\${MOCK_NO_SOURCE_METADATA:-}" == "1" ]]; then echo "no matching metadata found"
+elif [[ "\${MOCK_DESTINATION_METADATA:-}" == "1" ]]; then
+  destination="staging_restore"
+  for argument in "$@"; do
+    case "$argument" in --nsTo=*) destination="\${argument#--nsTo=}"; destination="\${destination%%.*}" ;; esac
+  done
+  echo "reading metadata for \${destination}.players from archive"
 else echo "reading metadata for \${MOCK_SOURCE_DATABASE:-source_core}.players from archive"; fi
 `);
   for (const tool of ["openssl", "gzip", "mongorestore"]) assert.equal(spawnSync("chmod", ["700", join(bin, tool)]).status, 0);
@@ -196,6 +202,18 @@ test("decryption, gzip integrity and mongorestore preflight failures stop before
       }
     } finally { h.cleanup(); }
   }
+});
+
+test("mapped destination metadata counts as a successful namespace-remapped restore", () => {
+  const h = harness();
+  try {
+    const r = h.run([
+      "--execute", "--target-database", "staging_restore", "--target-environment", "non-production",
+    ], { MOCK_DESTINATION_METADATA: "1" });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /Restore completed successfully into namespace staging_restore/);
+    assertRedacted(r.stdout + r.stderr);
+  } finally { h.cleanup(); }
 });
 
 test("source namespace mismatch is not reported as a successful explicit restore", () => {
