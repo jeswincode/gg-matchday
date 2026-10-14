@@ -223,7 +223,7 @@ test("source namespace mismatch is not reported as a successful explicit restore
       "--execute", "--target-database", "staging_restore", "--target-environment", "non-production",
     ], { MOCK_NO_SOURCE_METADATA: "1" });
     assert.equal(r.status, 1);
-    assert.match(r.stderr, /Restore did not report collection metadata/);
+    assert.match(r.stderr, /Restore did not report the expected source or mapped destination namespace/);
     assert.doesNotMatch(r.stdout, /Restore completed successfully/);
     assert.equal(h.calls().filter(x => x === "--dryRun").length, 1);
     assert.equal(h.calls().includes("--drop"), false);
