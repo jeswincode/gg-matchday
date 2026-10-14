@@ -2,14 +2,37 @@
 set -euo pipefail
 
 : "${MONGODB_URI:?MONGODB_URI is required}"
-: "${MONGODB_DATABASE:?MONGODB_DATABASE is required}"
+MONGODB_DATABASE="${MONGODB_DATABASE:-}"
+resolve_database_name() {
+  printf '%s' "$1" | node scripts/resolve-mongodb-db-name.mjs
+}
+
+if [ -z "$MONGODB_DATABASE" ]; then
+  if ! MONGODB_DATABASE="$(resolve_database_name "$MONGODB_URI")"; then
+    echo "MONGODB_DATABASE is unset and MONGODB_URI has no database path. Set MONGODB_DATABASE as a GitHub Actions secret or variable." >&2
+    exit 1
+  fi
+fi
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}"
 
 # Clubs can live in a separate Atlas cluster or a different database on the
 # same cluster. Defaulting only the URI allows a single-cluster deployment,
 # while CLUBS_DB_NAME explicitly identifies the data set that must be backed up.
-CLUBS_MONGODB_URI="${CLUBS_MONGODB_URI:-$MONGODB_URI}"
-CLUBS_DB_NAME="${CLUBS_DB_NAME:-gg_matchday_clubs}"
+RAW_CLUBS_MONGODB_URI="${CLUBS_MONGODB_URI:-}"
+CLUBS_MONGODB_URI="${RAW_CLUBS_MONGODB_URI:-$MONGODB_URI}"
+CLUBS_DB_NAME="${CLUBS_DB_NAME:-}"
+
+if [ -z "$CLUBS_DB_NAME" ]; then
+  if [ -n "$RAW_CLUBS_MONGODB_URI" ] && [ "$RAW_CLUBS_MONGODB_URI" != "$MONGODB_URI" ]; then
+    if ! CLUBS_DB_NAME="$(resolve_database_name "$RAW_CLUBS_MONGODB_URI")"; then
+      echo "CLUBS_DB_NAME is unset and CLUBS_MONGODB_URI has no database path. Set CLUBS_DB_NAME as a GitHub Actions secret or variable." >&2
+      exit 1
+    fi
+  else
+    # Default used by this application's Clubs database configuration.
+    CLUBS_DB_NAME="gg_matchday_clubs"
+  fi
+fi
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 TMP_DIR="$(mktemp -d)"

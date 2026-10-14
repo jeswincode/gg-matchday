@@ -56,9 +56,9 @@ jobs:
       - name: Create and verify encrypted core and Clubs backups
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
-          CLUBS_MONGODB_URI: ${{ secrets.CLUBS_MONGODB_URI }}
-          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE || vars.MONGODB_DATABASE }}
+          CLUBS_MONGODB_URI: ${{ secrets.CLUBS_MONGODB_URI || vars.CLUBS_MONGODB_URI }}
+          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME || vars.CLUBS_DB_NAME }}
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
           ATLAS_CLIENT_ID: ${{ secrets.ATLAS_CLIENT_ID }}
           ATLAS_CLIENT_SECRET: ${{ secrets.ATLAS_CLIENT_SECRET }}
@@ -71,9 +71,14 @@ jobs:
       - name: Restore the core backup into an isolated temporary database
         env:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
-          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_DATABASE: ${{ secrets.MONGODB_DATABASE || vars.MONGODB_DATABASE }}
         run: |
           set -euo pipefail
+          if [ -z "$MONGODB_DATABASE" ]; then
+            MONGODB_DATABASE="$(printf '%s' "$MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
+          fi
+          : "${MONGODB_DATABASE:?Set MONGODB_DATABASE or include the database path in MONGODB_URI}"
           mkdir -p /tmp/gg-restore
           CORE_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-core-*.archive.gz.enc' -print -quit)"
           test -n "$CORE_BACKUP"
@@ -92,10 +97,20 @@ jobs:
       - name: Restore the Clubs backup into a separate isolated temporary database
         env:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
-          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          CLUBS_MONGODB_URI: ${{ secrets.CLUBS_MONGODB_URI || vars.CLUBS_MONGODB_URI }}
+          CLUBS_DB_NAME: ${{ secrets.CLUBS_DB_NAME || vars.CLUBS_DB_NAME }}
         run: |
           set -euo pipefail
-          CLUBS_DATABASE="${CLUBS_DB_NAME:-gg_matchday_clubs}"
+          CLUBS_DATABASE="${CLUBS_DB_NAME:-}"
+          if [ -z "$CLUBS_DATABASE" ]; then
+            if [ -n "$CLUBS_MONGODB_URI" ] && [ "$CLUBS_MONGODB_URI" != "$MONGODB_URI" ]; then
+              CLUBS_DATABASE="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
+            else
+              CLUBS_DATABASE="gg_matchday_clubs"
+            fi
+          fi
+          : "${CLUBS_DATABASE:?Set CLUBS_DB_NAME or include the database path in CLUBS_MONGODB_URI}"
           CLUBS_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-clubs-*.archive.gz.enc' -print -quit)"
           test -n "$CLUBS_BACKUP"
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
