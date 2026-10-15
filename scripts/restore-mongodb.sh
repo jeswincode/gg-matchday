@@ -252,20 +252,20 @@ else
   echo "  Target environment: not declared (preflight-only)"
 fi
 
-TEMP_ARCHIVE="$(mktemp --suffix=.archive.gz)"
-OPENSSL_LOG="$(mktemp)"
-GZIP_LOG="$(mktemp)"
-PREFLIGHT_LOG="$(mktemp)"
-RESTORE_LOG="$(mktemp)"
+TEMP_DIR="$(mktemp -d)"
+TEMP_ARCHIVE="$TEMP_DIR/decrypted.archive.gz"
+DECRYPT_LOG="$TEMP_DIR/decrypt.log"
+GZIP_LOG="$TEMP_DIR/gzip.log"
+PREFLIGHT_LOG="$TEMP_DIR/preflight.log"
+RESTORE_LOG="$TEMP_DIR/restore.log"
 cleanup() {
-  rm -f -- "$TEMP_ARCHIVE" "$OPENSSL_LOG" "$GZIP_LOG" "$PREFLIGHT_LOG" "$RESTORE_LOG"
+  rm -rf -- "$TEMP_DIR"
 }
 trap cleanup EXIT
 
-if ! openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-  -in "$BACKUP_FILE" -out "$TEMP_ARCHIVE" -pass env:BACKUP_ENCRYPTION_KEY \
-  >/dev/null 2>"$OPENSSL_LOG"; then
-  echo "Backup decryption failed. Check the encryption key and archive; sensitive command output was suppressed." >&2
+if ! node scripts/backup-crypto.mjs decrypt "$BACKUP_FILE" "$TEMP_ARCHIVE" \
+  >/dev/null 2>"$DECRYPT_LOG"; then
+  echo "Backup authentication/decryption failed. Check the encryption key and archive; sensitive command output was suppressed." >&2
   exit 1
 fi
 if [[ ! -s "$TEMP_ARCHIVE" ]]; then
