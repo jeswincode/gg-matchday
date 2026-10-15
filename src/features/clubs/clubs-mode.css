@@ -2735,3 +2735,80 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span
     min-height: 42px;
   }
 }
+
+
+/* Interactive player cards and context-first Club workflow guidance. */
+.clubs-field-card {
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+.clubs-field-card:focus-visible,
+.clubs-roster-premium-row:focus-visible {
+  outline: 2px solid var(--clubs-accent);
+  outline-offset: 4px;
+}
+.clubs-roster-premium-row {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+.clubs-roster-premium-row:hover {
+  border-color: color-mix(in srgb, var(--clubs-accent) 45%, var(--clubs-edge));
+  background: color-mix(in srgb, var(--clubs-accent) 6%, var(--clubs-panel));
+  transform: translateY(-1px);
+}
+.clubs-hub-next-action.is-clear {
+  border-color: color-mix(in srgb, #43c997 35%, var(--clubs-border));
+}
+.clubs-hub-next-action.is-clear .clubs-hub-next-action-icon {
+  background: #43c997;
+  color: #081a17;
+}
+.clubs-hub-next-action-copy h3 { margin: 0 0 5px; }
+.clubs-hub-next-action-copy p:not(.clubs-eyebrow) { line-height: 1.55; }
+.clubs-formation-next-step {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--clubs-accent) 30%, var(--clubs-border));
+  border-radius: 13px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--clubs-accent) 7%, var(--clubs-panel)), var(--clubs-panel));
+}
+.clubs-formation-next-step>span {
+  color: var(--clubs-accent);
+  font-size: 8px;
+  font-weight: 950;
+  letter-spacing: .15em;
+}
+.clubs-formation-next-step>strong {
+  color: var(--clubs-text);
+  font-size: 12px;
+}
+.clubs-formation-next-step>p {
+  margin: 0;
+  color: var(--clubs-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+@media(max-width: 760px) {
+  .clubs-hub-next-action {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    padding: 14px;
+    gap: 11px;
+  }
+  .clubs-hub-next-action .clubs-secondary-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}

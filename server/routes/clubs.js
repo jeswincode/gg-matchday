@@ -43,6 +43,7 @@ import ClubSyncJob from "../models/ClubSyncJob.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
 import { generateClubMatchPrediction } from "../services/clubsPrediction.js";
+import { buildPlayerClubAnalytics } from "../services/playerClubAnalytics.js";
 import { placeClubMatchBet, settleClubMatchBets } from "../services/clubsBetting.js";
 import {
   activeCaptainApprovalComplete,
@@ -1896,6 +1897,26 @@ router.get("/player/history/me", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("Load player Club history error:", error);
     return res.status(500).json({ message: "Failed to load your Club history." });
+  }
+});
+
+router.get("/player/:playerId/analytics", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.playerId)) {
+    return res.status(400).json({ message: "Invalid player id." });
+  }
+
+  try {
+    const player = await Player.findById(req.params.playerId).select("_id").lean();
+    if (!player) return res.status(404).json({ message: "Player not found." });
+
+    const rows = await ClubPlayerStats.find({ playerId: req.params.playerId })
+      .populate("clubId", "name logoUrl status")
+      .lean();
+    return res.json(buildPlayerClubAnalytics(rows));
+  } catch (error) {
+    console.error("Load player Club analytics error:", error);
+    return res.status(500).json({ message: "Failed to load player Club analytics." });
   }
 });
 

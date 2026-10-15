@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
+import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
 import "./clubs-mode.css";
 
 const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
@@ -89,6 +90,59 @@ function statusLabel(status) {
   }[status] || status;
 }
 
+function formationNextStep(application, playerId) {
+  const status = application?.status;
+  const approvals = application?.memberApprovals || [];
+  const member = approvals.find(item => String(item.playerId) === String(playerId));
+  const pending = approvals.filter(item => item.status === "pending").length;
+  const voted = (application?.captainVotes || []).some(item => String(item.voterPlayerId) === String(playerId));
+  const votesLeft = Math.max(0, (application?.memberIds?.length || 0) - (application?.captainVotes?.length || 0));
+  const isCaptain = (application?.electedCaptainIds || []).some(id => String(id) === String(playerId));
+  const hasApproved = (application?.detailsApprovedBy || []).some(id => String(id) === String(playerId));
+  const outstandingCaptains = (application?.electedCaptainIds || []).filter(id =>
+    !(application?.detailsApprovedBy || []).some(approved => String(approved) === String(id)),
+  ).length;
+
+  if (status === "pendingMutualAgreement") {
+    if (member?.status === "pending" && String(application?.founderPlayerId) !== String(playerId)) {
+      return { title: "Your response is needed", description: "Accept or decline this invitation. The Club cannot move forward until every selected member responds." };
+    }
+    return { title: "Waiting for squad agreement", description: pending
+      ? pending + " member" + (pending === 1 ? "" : "s") + " still need to respond before the permanent name and captain vote."
+      : "Once all members have accepted, the formation can move to the permanent Club name." };
+  }
+  if (status === "pendingName") {
+    return { title: "Choose a permanent Club name", description: "All members have accepted. Agree on the name carefully; an approved Club name is permanent." };
+  }
+  if (status === "pendingCaptainVoteSetup") {
+    return { title: "Captain election comes next", description: "The two highest-OVR members become candidates. Every current member votes, and a tie creates co-captains." };
+  }
+  if (status === "captainVote") {
+    return voted
+      ? { title: "Your vote is recorded", description: votesLeft + " member" + (votesLeft === 1 ? "" : "s") + " still need to vote. The election completes after everyone votes." }
+      : { title: "Cast your captain vote", description: "Choose one of the two highest-OVR candidates. Every member has one vote; a tie creates co-captains." };
+  }
+  if (status === "pendingCaptainDetailsApproval") {
+    if (isCaptain && hasApproved) {
+      return { title: "Waiting for the other captain approval", description: outstandingCaptains + " elected captain" + (outstandingCaptains === 1 ? "" : "s") + " still need to approve the same non-empty Club details." };
+    }
+    if (isCaptain) {
+      return { title: "Approve the Club details", description: "Review the shared Club identity text and approve it. Any edit resets earlier approvals, so every elected captain must approve the same version." };
+    }
+    return { title: "Captain details approval is pending", description: "The elected captain or co-captains must approve the same Club details before the application reaches the administrator." };
+  }
+  if (status === "pendingAdminApproval") {
+    return { title: "Waiting for administrator review", description: "All elected captains have approved the Club details. The admin will approve or reject the formation with a reason." };
+  }
+  if (status === "rejected") {
+    return { title: "Review the formation decision", description: application?.rejectionReason || "Read the rejection reason, update the application and resubmit when ready." };
+  }
+  if (status === "approved") {
+    return { title: "Club formation is approved", description: "Your Club is active. Use My Club to manage the squad, fixtures, and the next contract renewal." };
+  }
+  return null;
+}
+
 export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = false }) {
   const [clubs, setClubs] = useState([]);
   const [players, setPlayers] = useState([]);
@@ -142,6 +196,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [clubWallet, setClubWallet] = useState(null);
   const [clubHistory, setClubHistory] = useState([]);
   const [playerAttributes, setPlayerAttributes] = useState({});
+  const [selectedAnalyticsPlayerId, setSelectedAnalyticsPlayerId] = useState(null);
   const [auctionState, setAuctionState] = useState(null);
   const [auctionLoading, setAuctionLoading] = useState(false);
   const [joinDecisionReason, setJoinDecisionReason] = useState({});
@@ -1154,6 +1209,26 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       )}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
+      {!adminOnlyView && authUser?.playerProfile &&
+        ((commandCenterLoading && !commandCenter) || commandCenter?.nextAction) && (
+          <section className={"clubs-hub-next-action" + (commandCenter?.nextAction?.type === "all-clear" ? " is-clear" : "")}
+            aria-live="polite" data-next-action={commandCenter?.nextAction?.type || "loading"}>
+            <div className="clubs-hub-next-action-icon" aria-hidden="true">
+              {commandCenterLoading && !commandCenter ? "…" : commandCenter?.nextAction?.type === "all-clear" ? "✓" : "!"}
+            </div>
+            <div className="clubs-hub-next-action-copy">
+              <p className="clubs-eyebrow">{commandCenter?.nextAction?.eyebrow || "YOUR NEXT ACTION"}</p>
+              <h3>{commandCenterLoading && !commandCenter ? "Checking your next step…" : commandCenter?.nextAction?.title}</h3>
+              <p>{commandCenterLoading && !commandCenter ? "Loading formation, captain decisions, transfers, renewals and fixtures." : commandCenter?.nextAction?.description}</p>
+            </div>
+            {commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear" && (
+              <button type="button" className="clubs-secondary-button" onClick={() => openCommandAction(commandCenter.nextAction)}>
+                {commandCenter.nextAction.actionLabel || "Open next step →"}
+              </button>
+            )}
+          </section>
+        )}
+
       {activeSection === "overview" && ultimateSubsection === "overview" ? (
         <>
       {authUser && (
@@ -1217,6 +1292,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   !detailsAreComplete &&
                   isElectedCaptain &&
                   !hasApprovedDetails;
+                const nextStep = formationNextStep(application, currentPlayerId);
 
                 return (
                   <article className="clubs-application" key={application._id}>
@@ -1235,6 +1311,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                         })}
                       </div>
                       <small className="clubs-formation-step-caption">STEP {Math.min(formationProgress(application.status), formationSteps.length)} / {formationSteps.length} · {statusLabel(application.status)}</small>
+                      {nextStep && (
+                        <div className="clubs-formation-next-step" data-stage={application.status}>
+                          <span>WHAT HAPPENS NEXT</span>
+                          <strong>{nextStep.title}</strong>
+                          <p>{nextStep.description}</p>
+                        </div>
+                      )}
                       {application.rejectionReason && (
                         <small className="clubs-rejection">{application.rejectionReason}</small>
                       )}
@@ -1342,23 +1425,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
       )}
-      {(commandCenterLoading && !commandCenter) || (commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear") ? (
-        <section className="clubs-hub-next-action" aria-live="polite">
-          <div className="clubs-hub-next-action-icon" aria-hidden="true">{commandCenterLoading && !commandCenter ? "…" : "!"}</div>
-          <div className="clubs-hub-next-action-copy">
-            <p className="clubs-eyebrow">{commandCenter?.nextAction?.eyebrow || "YOUR NEXT ACTION"}</p>
-            <h3>{commandCenterLoading && !commandCenter ? "Checking your next step…" : commandCenter.nextAction.title}</h3>
-            <p>{commandCenterLoading && !commandCenter ? "Loading formation, fixtures and Club decisions." : commandCenter.nextAction.description}</p>
-          </div>
-          {commandCenter?.nextAction && commandCenter.nextAction.type !== "all-clear" && (
-            <button type="button" className="clubs-secondary-button" onClick={() => openCommandAction(commandCenter.nextAction)}>
-              {commandCenter.nextAction.actionLabel || "Open next step →"}
-            </button>
-          )}
-        </section>
-      ) : null}
-
-
       <section className="clubs-hub-stat-grid" aria-label="Club overview">
         <article className="clubs-hub-stat"><span>OFFICIAL CLUBS</span><strong>{loading ? "—" : clubs.length}</strong><small>Browse available Clubs</small></article>
         <article className="clubs-hub-stat"><span>YOUR FORMATIONS</span><strong>{applications.filter(application => !["approved", "rejected"].includes(application.status)).length}</strong><small>Applications in progress</small></article>
@@ -2118,10 +2184,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           ["PHY", stats.physical],
                         ];
                         return (
-                          <article
+                          <button
+                            type="button"
                             className="clubs-field-card"
-                            role="group"
-                            aria-label={"Player card: " + (player?.name || "Club player") + ", OVR " + (attribute?.ovr ?? "not available")}
+                            onClick={() => setSelectedAnalyticsPlayerId(String(playerId))}
+                            aria-haspopup="dialog"
+                            aria-label={"Open player card and analytics for " + (player?.name || "Club player")}
                             key={String(playerId)}
                             style={{
                               "--slot-x": slot?.x + "%",
@@ -2160,7 +2228,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                                 <span key={label}><b>{value == null ? "—" : Math.round(value)}</b><small>{label}</small></span>
                               ))}
                             </span>
-                          </article>
+                          </button>
                         );
                       })}
                     </div>
@@ -2203,7 +2271,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       const average = stat?.ratedMatches ? (Number(stat.ratingTotal) / Number(stat.ratedMatches)).toFixed(2) : "—";
                       const captain = currentClub.captainIds?.some(id => String(id) === String(playerId));
                       return (
-                        <article className="clubs-roster-premium-row" key={String(playerId)} data-captain={captain ? "true" : "false"}>
+                        <button type="button" className="clubs-roster-premium-row" key={String(playerId)}
+                          data-captain={captain ? "true" : "false"} onClick={() => setSelectedAnalyticsPlayerId(String(playerId))}
+                          aria-haspopup="dialog" aria-label={"Open player card and analytics for " + (player?.name || "Club player")}>
                           <div className="clubs-roster-avatar">
                             {player?.profileImage ? <img src={player.profileImage} alt="" /> : playerInitials(player?.name)}
                           </div>
@@ -2219,7 +2289,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                             <strong>{average}</strong>
                             <span>AVG</span>
                           </div>
-                        </article>
+                        </button>
                       );
                     })}
                   </div>
@@ -2316,6 +2386,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         <span>Made by</span>
         <strong>Jeswin</strong>
       </footer>
+      {selectedAnalyticsPlayerId && (
+        <ClubPlayerAnalytics
+          playerId={selectedAnalyticsPlayerId}
+          isCaptain={Boolean(currentClub?.captainIds?.some(id => String(id) === String(selectedAnalyticsPlayerId)))}
+          onClose={() => setSelectedAnalyticsPlayerId(null)}
+        />
+      )}
     </main>
   );
 }
