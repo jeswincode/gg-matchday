@@ -13,7 +13,9 @@ const rounded = value => Number(Number(value).toFixed(2));
  * excluded from this shape.
  */
 export function buildPlayerClubAnalytics(rows = []) {
-  const clubs = (Array.isArray(rows) ? rows : [])
+  const sourceRows = Array.isArray(rows) ? rows : [];
+  const ratingPoints = sourceRows.reduce((total, row) => total + numberOrZero(row?.ratingTotal), 0);
+  const clubs = sourceRows
     .map(row => {
       const club = row?.clubId && typeof row.clubId === "object" ? row.clubId : null;
       const ratedMatches = numberOrZero(row?.ratedMatches);
@@ -42,9 +44,6 @@ export function buildPlayerClubAnalytics(rows = []) {
     for (const key of ["matches", "wins", "draws", "losses", "goals", "assists", "motm", "ratedMatches"]) {
       total[key] += club[key];
     }
-    if (club.averageRating !== null) {
-      total.ratingPoints += club.averageRating * club.ratedMatches;
-    }
     return total;
   }, {
     matches: 0,
@@ -55,14 +54,12 @@ export function buildPlayerClubAnalytics(rows = []) {
     assists: 0,
     motm: 0,
     ratedMatches: 0,
-    ratingPoints: 0,
   });
 
   career.winRate = career.matches ? rounded((career.wins / career.matches) * 100) : null;
   career.averageRating = career.ratedMatches
-    ? rounded(career.ratingPoints / career.ratedMatches)
+    ? rounded(ratingPoints / career.ratedMatches)
     : null;
-  delete career.ratingPoints;
 
   return {
     clubCount: new Set(clubs.map(club => club.clubId)).size,
