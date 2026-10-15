@@ -46,11 +46,6 @@ function RadarProfile({ attributes }) {
     key, short, label, value: attributes?.[key] == null ? null : Number(attributes[key]),
     angle: (-90 + index * 60) * Math.PI / 180,
   }));
-  const point = (entry, scale) => {
-    const value = entry.value == null || !Number.isFinite(entry.value) ? 0 : Math.max(0, Math.min(99, entry.value)) / 99;
-    return (cx + Math.cos(entry.angle) * radius * scale * (scale === 1 ? value : 1)) + "," +
-      (cy + Math.sin(entry.angle) * radius * scale * (scale === 1 ? value : 1));
-  };
   const ringPoints = scale => measured.map(entry =>
     (cx + Math.cos(entry.angle) * radius * scale) + "," +
     (cy + Math.sin(entry.angle) * radius * scale)
