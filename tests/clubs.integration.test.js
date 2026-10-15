@@ -863,3 +863,37 @@ test("player deletion preserves profiles referenced by Ultimate Clubs history", 
   assert.match(response.data.message, /Ultimate Clubs history/i);
   assert.ok(await Player.exists({ _id: historicalPlayer._id }));
 });
+
+
+test("maintenance cancels legacy chosen offers without expiry and releases their reservation", async () => {
+  const [targetPlayer] = await Player.create([{
+    name: "Legacy Reservation Reconciliation Target",
+    position: "ST",
+  }]);
+  const club = await Club.create({
+    name: "Legacy Reservation Reconciliation FC",
+    description: "Release unapprovable legacy offer reservation",
+    memberIds: players.slice(0, 4).map(player => player._id),
+    captainIds: [players[0]._id],
+    status: "approved",
+    balance: 300,
+    committedBalance: 75,
+  });
+  const offer = await AuctionOffer.create({
+    playerId: targetPlayer._id,
+    clubId: club._id,
+    amount: 75,
+    status: "chosenByPlayer",
+    expiresAt: null,
+    captainApprovalIds: [],
+  });
+
+  const result = await runClubsMaintenance();
+  const reconciledOffer = await AuctionOffer.findById(offer._id).lean();
+  const reconciledClub = await Club.findById(club._id).lean();
+
+  assert.equal(reconciledOffer.status, "cancelled");
+  assert.ok(result.expiredAuctionOffers >= 1);
+  assert.equal(Number(reconciledClub.balance), 300);
+  assert.equal(Number(reconciledClub.committedBalance), 0);
+});
