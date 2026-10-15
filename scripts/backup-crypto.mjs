@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, createWriteStream } from "node:fs";
 import { access, link, lstat, open, rename, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -61,7 +61,7 @@ async function encryptFile(inputPath, outputPath, passphrase) {
     await pipeline(
       createReadStream(inputPath),
       cipher,
-      (await import("node:fs")).createWriteStream(tempPath, { flags: "a", mode: 0o600 }),
+      createWriteStream(tempPath, { flags: "a", mode: 0o600 }),
     );
 
     const tag = cipher.getAuthTag();
@@ -109,7 +109,7 @@ async function decryptGcm(inputPath, outputPath, passphrase, header) {
     await pipeline(
       createReadStream(inputPath, { start: HEADER_BYTES }),
       decipher,
-      (await import("node:fs")).createWriteStream(tempPath, { flags: "wx", mode: 0o600 }),
+      createWriteStream(tempPath, { flags: "wx", mode: 0o600 }),
     );
     await publishNoReplace(tempPath, outputPath);
   } catch {
@@ -129,7 +129,7 @@ async function decryptLegacyCbc(inputPath, outputPath, passphrase, header) {
     await pipeline(
       createReadStream(inputPath, { start: 16 }),
       decipher,
-      (await import("node:fs")).createWriteStream(tempPath, { flags: "wx", mode: 0o600 }),
+      createWriteStream(tempPath, { flags: "wx", mode: 0o600 }),
     );
     await publishNoReplace(tempPath, outputPath);
     console.error("Warning: legacy AES-CBC backup has no authentication tag; verify gzip integrity and restored contents.");
