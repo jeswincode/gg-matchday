@@ -30,6 +30,13 @@ export async function runClubsMaintenance(now = new Date()) {
     { $set: { status: "cancelled", captainApprovalIds: [] } },
   );
 
+  // Legacy active offers without an expiry can never be selected by the player
+  // and would otherwise remain active indefinitely. Cancel them as well.
+  const legacyActiveOffers = await AuctionOffer.updateMany(
+    { status: "active", expiresAt: null },
+    { $set: { status: "cancelled", captainApprovalIds: [] } },
+  );
+
   const cursor = Club.find({}).select("_id").lean().cursor();
   let clubsReconciled = 0;
   for await (const clubRef of cursor) {
@@ -89,7 +96,7 @@ export async function runClubsMaintenance(now = new Date()) {
     }
   }
 
-  return { expiredClubMatches: expiredMatches.modifiedCount || 0, expiredAuctionOffers: (expiredOffers.modifiedCount || 0) + (legacyChosenOffers.modifiedCount || 0), clubsReconciled };
+  return { expiredClubMatches: expiredMatches.modifiedCount || 0, expiredAuctionOffers: (expiredOffers.modifiedCount || 0) + (legacyChosenOffers.modifiedCount || 0) + (legacyActiveOffers.modifiedCount || 0), clubsReconciled };
 }
 
 export function startClubsMaintenanceWorker(intervalMs = 60_000) {
