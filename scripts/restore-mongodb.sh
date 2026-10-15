@@ -272,6 +272,10 @@ if [[ ! -s "$TEMP_ARCHIVE" ]]; then
   echo "Decrypted archive is empty; refusing to continue." >&2
   exit 1
 fi
+
+if grep -Fq "legacy AES-CBC backup has no authentication tag" "$DECRYPT_LOG"; then
+  echo "Warning: this is a legacy AES-CBC backup without an authentication tag; verify source provenance and restored contents." >&2
+fi
 if ! gzip -t "$TEMP_ARCHIVE" >/dev/null 2>"$GZIP_LOG"; then
   echo "Decrypted archive failed gzip integrity validation; refusing to continue." >&2
   exit 1
