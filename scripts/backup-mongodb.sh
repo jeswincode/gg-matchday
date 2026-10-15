@@ -39,14 +39,12 @@ backup_database() {
   mongodump --uri="$uri" --db="$database" --archive="$archive" --gzip --quiet
   test -s "$archive"
 
-  echo "Encrypting ${label} backup..."
-  openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
-    -in "$archive" -out "$encrypted" -pass env:BACKUP_ENCRYPTION_KEY
+  echo "Encrypting ${label} backup with authenticated v2 format..."
+  node scripts/backup-crypto.mjs encrypt "$archive" "$encrypted"
   test -s "$encrypted"
 
-  # Verify encryption/decryption and gzip integrity before publishing the backup.
-  openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
-    -in "$encrypted" -out "$decrypted" -pass env:BACKUP_ENCRYPTION_KEY
+  # Verify the authentication tag and gzip integrity before publishing the backup.
+  node scripts/backup-crypto.mjs decrypt "$encrypted" "$decrypted"
   gzip -t "$decrypted"
   echo "Verified encrypted backup: $encrypted"
 }
