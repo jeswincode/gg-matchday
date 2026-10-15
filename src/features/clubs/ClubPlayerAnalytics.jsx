@@ -3,6 +3,8 @@ import Modal from "../../components/Modal";
 import useResource from "../../components/useResource";
 import "./club-player-analytics.css";
 
+const EMPTY_TIMELINE = [];
+
 const attributeLabels = [
   ["pace", "PAC", "Pace"],
   ["shooting", "SHO", "Shooting"],
@@ -157,7 +159,7 @@ export default function ClubPlayerAnalytics({ playerId, isCaptain = false, onClo
   const attributeData = attributesResource.data || {};
   const attributes = attributeData.attributes || attributeData.currentAttributes || {};
   const clubCareer = clubResource.data?.career || {};
-  const timeline = analytics?.timeline || [];
+  const timeline = analytics?.timeline || EMPTY_TIMELINE;
   const chartItems = useMemo(() => {
     const rated = timeline.filter(item => item.rating !== null && item.rating !== undefined);
     return range === "all" ? rated : rated.slice(-10);
