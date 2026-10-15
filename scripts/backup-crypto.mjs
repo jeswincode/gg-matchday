@@ -5,7 +5,7 @@ import { access, link, lstat, open, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
-const MAGIC = Buffer.from("GGMDBK02", "ascii");
+// v2 layout: magic(8) | salt(16) | IV(12) | GCM tag(16) | ciphertext.\n// Salt, IV and magic are authenticated as additional authenticated data.\nconst MAGIC = Buffer.from("GGMDBK02", "ascii");
 const LEGACY_MAGIC = Buffer.from("Salted__", "ascii");
 const SALT_BYTES = 16;
 const IV_BYTES = 12;
