@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
-import { access, link, lstat, open, rename, unlink, writeFile } from "node:fs/promises";
+import { access, link, lstat, open, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 
@@ -133,7 +133,7 @@ async function decryptLegacyCbc(inputPath, outputPath, passphrase, header) {
     );
     await publishNoReplace(tempPath, outputPath);
     console.error("Warning: legacy AES-CBC backup has no authentication tag; verify gzip integrity and restored contents.");
-  } catch (error) {
+  } catch {
     await unlink(tempPath).catch(() => {});
     throw new Error("Legacy backup decryption failed; check the key and archive.");
   }
