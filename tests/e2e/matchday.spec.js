@@ -191,3 +191,61 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
   expect(discoveryBounds.x).toBeGreaterThanOrEqual(subnavBounds.x);
   expect(historyBounds.x + historyBounds.width).toBeLessThanOrEqual(subnavBounds.x + subnavBounds.width + 1);
 });
+
+test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs transitions", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+
+  const html = page.locator("html");
+  const themeSwitch = page.locator(".gg-theme");
+  const clubsApp = page.locator(".clubs-app");
+
+  // Dark mode should preserve the Matchday-aligned navy background and controls.
+  await themeSwitch.getByRole("button", { name: "Dark", exact: true }).click();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(clubsApp).toBeVisible();
+  await expect(html).toHaveAttribute("data-product-mode", "clubs");
+  await expect.poll(() =>
+    clubsApp.evaluate(element => getComputedStyle(element).getPropertyValue("--clubs-bg").trim())
+  ).toBe("#080d17");
+
+  const darkClubHub = page.getByRole("navigation", { name: "Clubs navigation" })
+    .getByRole("button", { name: "Club Hub", exact: true });
+  await expect.poll(() =>
+    darkClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
+  ).toContain("225, 237, 255");
+  const darkPageFitsViewport = await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth + 1
+  );
+  expect(darkPageFitsViewport).toBeTruthy();
+
+  // The destination state switches immediately, but the transition guard lasts 720 ms.
+  // Wait for it to clear so this test checks the theme flow, not an intentionally guarded rapid tap.
+  await expect(page.locator(".product-mode-transition")).toHaveCount(0);
+
+  // Returning to Matchday must preserve the ability to choose Gold independently.
+  await page.getByRole("button", { name: /Matchday/ }).click();
+  await expect(html).toHaveAttribute("data-product-mode", "matchday");
+  await expect(page.locator(".product-mode-transition")).toHaveCount(0);
+  await themeSwitch.getByRole("button", { name: "Gold", exact: true }).click();
+  await expect(html).toHaveAttribute("data-theme", "golden");
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(clubsApp).toBeVisible();
+  await expect(html).toHaveAttribute("data-product-mode", "clubs");
+  await expect.poll(() =>
+    clubsApp.evaluate(element => getComputedStyle(element).getPropertyValue("--clubs-bg").trim())
+  ).toBe("#100e09");
+
+  const goldClubHub = page.getByRole("navigation", { name: "Clubs navigation" })
+    .getByRole("button", { name: "Club Hub", exact: true });
+  await expect.poll(() =>
+    goldClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
+  ).toContain("239, 208, 125");
+  const goldPageFitsViewport = await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth + 1
+  );
+  expect(goldPageFitsViewport).toBeTruthy();
+});
+
