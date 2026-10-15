@@ -221,9 +221,14 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   );
   expect(darkPageFitsViewport).toBeTruthy();
 
+  // The destination state switches immediately, but the transition guard lasts 720 ms.
+  // Wait for it to clear so this test checks the theme flow, not an intentionally guarded rapid tap.
+  await expect(page.locator(".product-mode-transition")).toHaveCount(0);
+
   // Returning to Matchday must preserve the ability to choose Gold independently.
   await page.getByRole("button", { name: /Matchday/ }).click();
   await expect(html).toHaveAttribute("data-product-mode", "matchday");
+  await expect(page.locator(".product-mode-transition")).toHaveCount(0);
   await themeSwitch.getByRole("button", { name: "Gold", exact: true }).click();
   await expect(html).toHaveAttribute("data-theme", "golden");
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
