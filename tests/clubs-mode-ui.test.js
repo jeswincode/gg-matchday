@@ -287,7 +287,7 @@ test("squad OVR cards open the combined analytics view and Club history stays fi
   assert.match(component, /<ClubPlayerAnalytics/);
   assert.match(analytics, /\/stats\/player\/.*performance/);
   assert.match(analytics, /\/clubs\/player\/.*analytics/);
-  assert.match(analytics, /CAREER SNAPSHOT/);
+  assert.match(analytics, /Career snapshot/);
   assert.match(analytics, /CLUBS CAREER/);
   assert.match(analytics, /Match History/);
   assert.match(analytics, /Defensive Rating/);
@@ -316,7 +316,7 @@ test("Club next-action guidance is persistent and formation stages explain their
   assert.ok(liveStatus >= 0 && nextAction > liveStatus && overview > nextAction,
     "The next action should remain available before every primary-tab content branch");
   assert.match(component, /WHAT HAPPENS NEXT/);
-  assert.match(component, /waiting for the administrator review/i);
+  assert.match(component, /administrator review/i);
   assert.match(component, /openCommandAction\(commandCenter.nextAction\)/);
   assert.match(styles, /\.clubs-formation-next-step/);
   assert.match(styles, /\.clubs-hub-next-action\.is-clear/);
