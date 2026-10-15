@@ -27,6 +27,7 @@ jobs:
       - run: node --check server/routes/profileRequests.js
       - run: node --check scripts/resolve-mongodb-db-name.mjs
       - run: node --check scripts/parse-mongodb-uri.mjs
+      - run: node --check scripts/backup-crypto.mjs
       - run: bash -n scripts/backup-mongodb.sh scripts/backup-mongodb-atlas.sh scripts/restore-mongodb.sh
 
   backup-restore-smoke:
@@ -76,10 +77,9 @@ jobs:
             --db="$MONGODB_DATABASE" \
             --archive=/tmp/gg-matchday-smoke.archive.gz \
             --gzip --quiet
-          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 \
-            -in /tmp/gg-matchday-smoke.archive.gz \
-            -out /tmp/gg-matchday-smoke.archive.gz.enc \
-            -pass env:BACKUP_ENCRYPTION_KEY
+          node scripts/backup-crypto.mjs encrypt \
+            /tmp/gg-matchday-smoke.archive.gz \
+            /tmp/gg-matchday-smoke.archive.gz.enc
 
           # The guarded preflight must validate the actual source-to-destination mapping without importing documents.
           bash scripts/restore-mongodb.sh /tmp/gg-matchday-smoke.archive.gz.enc \

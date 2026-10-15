@@ -13,14 +13,16 @@ function harness(overrides = {}) {
   const bin = join(dir, "bin");
   mkdirSync(bin);
   const backup = join(dir, "backup.archive.gz.enc");
-  writeFileSync(backup, "encrypted-fixture");
-  writeFileSync(join(bin, "openssl"), `#!/usr/bin/env bash
-set -eu
-if [[ "\${MOCK_OPENSSL_FAIL:-}" == "1" ]]; then echo "uri=\${MONGODB_URI:-secret}" >&2; exit 9; fi
-in=""; out=""
-while (($#)); do case "$1" in -in) in="$2"; shift 2;; -out) out="$2"; shift 2;; *) shift;; esac; done
-[[ -n "$in" && -n "$out" ]]; cp -- "$in" "$out"
-`);
+  const plainArchive = join(dir, "source.archive.gz");
+  writeFileSync(plainArchive, "archive-fixture-for-mocked-mongorestore");
+  const encryptedFixture = spawnSync(process.execPath, [
+    "scripts/backup-crypto.mjs", "encrypt", plainArchive, backup,
+  ], {
+    cwd: process.cwd(),
+    encoding: "utf8",
+    env: { ...process.env, BACKUP_ENCRYPTION_KEY: "test-only-key" },
+  });
+  assert.equal(encryptedFixture.status, 0, encryptedFixture.stderr);
   writeFileSync(join(bin, "gzip"), `#!/usr/bin/env bash
 set -eu
 if [[ "\${MOCK_GZIP_FAIL:-}" == "1" ]]; then echo "uri=\${MONGODB_URI:-secret}" >&2; exit 8; fi
@@ -46,7 +48,7 @@ else
   printf 'found collection metadata from \\x60%s.players\\x60 to restore to \\x60%s.players\\x60\\n' "$source" "$destination"
 fi
 `);
-  for (const tool of ["openssl", "gzip", "mongorestore"]) assert.equal(spawnSync("chmod", ["700", join(bin, tool)]).status, 0);
+  for (const tool of ["gzip", "mongorestore"]) assert.equal(spawnSync("chmod", ["700", join(bin, tool)]).status, 0);
   const env = {
     ...process.env, PATH: bin + ":" + process.env.PATH, MONGODB_URI: URI,
     MONGODB_DATABASE: "source_core", BACKUP_ENCRYPTION_KEY: "test-only-key",
@@ -192,17 +194,16 @@ test("drop requires execute and exact destination confirmation, and is absent by
 
 test("decryption, gzip integrity and mongorestore preflight failures stop before writes", () => {
   const failures = [
-    [{ MOCK_OPENSSL_FAIL: "1" }, /Backup decryption failed/],
+    [{ BACKUP_ENCRYPTION_KEY: "wrong-test-key" }, /Backup decryption failed/],
     [{ MOCK_GZIP_FAIL: "1" }, /failed gzip integrity validation/],
     [{ MOCK_RESTORE_FAIL: "1" }, /preflight failed/],
-  ];
-  for (const [env, expected] of failures) {
+  ];  for (const [env, expected] of failures) {
     const h = harness();
     try {
       const r = h.run(["--execute", "--target-database", "staging_restore", "--target-environment", "non-production"], env);
       assert.equal(r.status, 1); assert.match(r.stderr, expected); assertRedacted(r.stdout + r.stderr);
       assert.equal(h.calls().includes("--drop"), false);
-      if (env.MOCK_OPENSSL_FAIL || env.MOCK_GZIP_FAIL) {
+      if (env.BACKUP_ENCRYPTION_KEY || env.MOCK_GZIP_FAIL) {
         assert.deepEqual(h.calls(), []);
       } else {
         assert.equal(h.calls().filter(x => x === "--dryRun").length, 1);
