@@ -2800,9 +2800,6 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span
   font-size: 11px;
   line-height: 1.5;
 }
-html[data-theme="golden"][data-product-mode="clubs"] .clubs-formation-next-step {
-  border-color: rgba(228, 189, 107, .36);
-}
 @media(max-width: 760px) {
   .clubs-hub-next-action {
     grid-template-columns: auto minmax(0, 1fr);
