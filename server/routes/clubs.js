@@ -1899,6 +1899,27 @@ router.get("/player/history/me", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/player/:playerId/analytics", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.playerId)) {
+    return res.status(400).json({ message: "Invalid player id." });
+  }
+
+  try {
+    const player = await Player.findById(req.params.playerId).select("_id").lean();
+    if (!player) return res.status(404).json({ message: "Player not found." });
+
+    const rows = await ClubPlayerStats.find({ playerId: req.params.playerId })
+      .populate("clubId", "name logoUrl status")
+      .lean();
+    const { buildPlayerClubAnalytics } = await import("../services/playerClubAnalytics.js");
+    return res.json(buildPlayerClubAnalytics(rows));
+  } catch (error) {
+    console.error("Load player Club analytics error:", error);
+    return res.status(500).json({ message: "Failed to load player Club analytics." });
+  }
+});
+
 router.get("/:id", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
 
