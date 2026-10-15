@@ -43,6 +43,7 @@ import ClubSyncJob from "../models/ClubSyncJob.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
 import { generateClubMatchPrediction } from "../services/clubsPrediction.js";
+import { buildPlayerClubAnalytics } from "../services/playerClubAnalytics.js";
 import { placeClubMatchBet, settleClubMatchBets } from "../services/clubsBetting.js";
 import {
   activeCaptainApprovalComplete,
@@ -1912,7 +1913,6 @@ router.get("/player/:playerId/analytics", async (req, res) => {
     const rows = await ClubPlayerStats.find({ playerId: req.params.playerId })
       .populate("clubId", "name logoUrl status")
       .lean();
-    const { buildPlayerClubAnalytics } = await import("../services/playerClubAnalytics.js");
     return res.json(buildPlayerClubAnalytics(rows));
   } catch (error) {
     console.error("Load player Club analytics error:", error);
