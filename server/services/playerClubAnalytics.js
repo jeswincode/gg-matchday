@@ -65,6 +65,10 @@ export function buildPlayerClubAnalytics(rows = []) {
   return {
     clubCount: new Set(clubs.map(club => club.clubId)).size,
     career,
-    clubs: clubs.map(({ ratingTotal: _ratingTotal, ...club }) => club),
+    clubs: clubs.map(club => {
+      const safeClub = { ...club };
+      delete safeClub.ratingTotal;
+      return safeClub;
+    }),
   };
 }
