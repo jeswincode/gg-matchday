@@ -265,7 +265,7 @@ trap cleanup EXIT
 
 if ! node scripts/backup-crypto.mjs decrypt "$BACKUP_FILE" "$TEMP_ARCHIVE" \
   >/dev/null 2>"$DECRYPT_LOG"; then
-  echo "Backup authentication/decryption failed. Check the encryption key and archive; sensitive command output was suppressed." >&2
+  echo "Backup decryption failed or authentication failed. Check the encryption key and archive; sensitive command output was suppressed." >&2
   exit 1
 fi
 if [[ ! -s "$TEMP_ARCHIVE" ]]; then
