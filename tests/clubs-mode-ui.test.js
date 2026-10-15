@@ -271,3 +271,53 @@ test("My Club detail loading keeps independent resources usable and offers retry
   assert.match(component, /Reference ID:/);
   assert.match(styles, /\.clubs-error-retry/);
 });
+
+
+test("squad OVR cards open the combined analytics view and Club history stays financial-privacy safe", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const analytics = fs.readFileSync("src/features/clubs/ClubPlayerAnalytics.jsx", "utf8");
+  const analyticsStyles = fs.readFileSync("src/features/clubs/club-player-analytics.css", "utf8");
+  const modal = fs.readFileSync("src/components/Modal.jsx", "utf8");
+  const clubsRoutes = fs.readFileSync("server/routes/clubs.js", "utf8");
+  const analyticsService = fs.readFileSync("server/services/playerClubAnalytics.js", "utf8");
+
+  assert.match(component, /className="clubs-field-card"/);
+  assert.match(component, /setSelectedAnalyticsPlayerId\(String\(playerId\)\)/);
+  assert.match(component, /aria-haspopup="dialog"/);
+  assert.match(component, /<ClubPlayerAnalytics/);
+  assert.match(analytics, /\/stats\/player\/.*performance/);
+  assert.match(analytics, /\/clubs\/player\/.*analytics/);
+  assert.match(analytics, /CAREER SNAPSHOT/);
+  assert.match(analytics, /CLUBS CAREER/);
+  assert.match(analytics, /Match History/);
+  assert.match(analytics, /Defensive Rating/);
+  assert.match(analytics, /Financial data is not included/);
+  assert.match(clubsRoutes, /router\.get\("\/player\/:playerId\/analytics"/);
+  assert.match(analyticsService, /non-financial Clubs career summary/);
+  assert.doesNotMatch(analyticsService, /signingAmount|walletTransactions|playerWallet/);
+  assert.match(modal, /className=\{\x60gg-modal \$\{className\}\x60\.trim\(\)\}/);
+  assert.match(analyticsStyles, /@media\(max-width: 620px\)/);
+});
+
+test("Club next-action guidance is persistent and formation stages explain their next step", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+
+  assert.match(component, /function formationNextStep\(application, playerId\)/);
+  for (const status of [
+    "pendingMutualAgreement", "pendingName", "pendingCaptainVoteSetup",
+    "captainVote", "pendingCaptainDetailsApproval", "pendingAdminApproval", "rejected",
+  ]) {
+    assert.match(component, new RegExp('status === "' + status + '"'));
+  }
+  const liveStatus = component.indexOf('className="clubs-screen-reader-status"');
+  const nextAction = component.indexOf('data-next-action={commandCenter?.nextAction?.type || "loading"}');
+  const overview = component.indexOf('{activeSection === "overview" && ultimateSubsection === "overview" ? (');
+  assert.ok(liveStatus >= 0 && nextAction > liveStatus && overview > nextAction,
+    "The next action should remain available before every primary-tab content branch");
+  assert.match(component, /WHAT HAPPENS NEXT/);
+  assert.match(component, /waiting for the administrator review/i);
+  assert.match(component, /openCommandAction\(commandCenter.nextAction\)/);
+  assert.match(styles, /\.clubs-formation-next-step/);
+  assert.match(styles, /\.clubs-hub-next-action\.is-clear/);
+});
