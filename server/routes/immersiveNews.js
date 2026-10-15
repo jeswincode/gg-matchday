@@ -6,6 +6,7 @@ import { GoogleGenAI } from "@google/genai";
 
 import Match from "../models/Match.js";
 import { normalizeMatchScores } from "../services/statistics.js";
+import { buildFallbackImmersiveNews } from "../services/immersiveNewsFallback.js";
 
 dotenv.config();
 
@@ -58,13 +59,9 @@ function factsFor(match) {
 }
 
 router.get("/:matchId", requireAuth, limitAI, async (req, res) => {
-  try {
-    if (!API_KEY) {
-      return res.status(503).json({
-        message: "Gemini is not configured.",
-      });
-    }
+  let fallbackFacts = null;
 
+  try {
     const match = await Match.findById(req.params.matchId)
       .populate("participants.player", "name")
       .populate("events.player", "name");
@@ -77,6 +74,12 @@ router.get("/:matchId", requireAuth, limitAI, async (req, res) => {
 
     normalizeMatchScores(match);
     const facts = factsFor(match);
+    fallbackFacts = facts;
+
+    if (!API_KEY) {
+      return res.json(buildFallbackImmersiveNews(facts));
+    }
+
     const ai = new GoogleGenAI({ apiKey: API_KEY });
 
     const prompt = `
@@ -175,6 +178,10 @@ ${JSON.stringify(facts, null, 2)}
     });
   } catch (error) {
     console.error("Immersive Gemini error:", error);
+
+    if (fallbackFacts) {
+      return res.json(buildFallbackImmersiveNews(fallbackFacts));
+    }
 
     return res.status(500).json({
       message: "Failed to generate immersive commentary.",
