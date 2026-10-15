@@ -17,8 +17,16 @@ export async function runClubsMaintenance(now = new Date()) {
   // Expired offers stop reserving funds before reconciliation runs. The subsequent
   // balance reconciliation is per-club and transactional with wallet writes, so a
   // concurrent reservation cannot be overwritten by a stale aggregate snapshot.
-  await AuctionOffer.updateMany(
+  const expiredOffers = await AuctionOffer.updateMany(
     { status: { $in: ["active", "chosenByPlayer"] }, expiresAt: { $ne: null, $lte: now } },
+    { $set: { status: "cancelled", captainApprovalIds: [] } },
+  );
+
+  // Legacy chosen offers without an expiry cannot be approved safely (the
+  // approval route requires expiresAt), so cancel them and release their
+  // commitment through the same transactional reconciliation below.
+  const legacyChosenOffers = await AuctionOffer.updateMany(
+    { status: "chosenByPlayer", expiresAt: null },
     { $set: { status: "cancelled", captainApprovalIds: [] } },
   );
 
@@ -81,7 +89,7 @@ export async function runClubsMaintenance(now = new Date()) {
     }
   }
 
-  return { expiredClubMatches: expiredMatches.modifiedCount || 0, clubsReconciled };
+  return { expiredClubMatches: expiredMatches.modifiedCount || 0, expiredAuctionOffers: (expiredOffers.modifiedCount || 0) + (legacyChosenOffers.modifiedCount || 0), clubsReconciled };
 }
 
 export function startClubsMaintenanceWorker(intervalMs = 60_000) {
