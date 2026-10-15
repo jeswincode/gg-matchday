@@ -14,7 +14,6 @@ const rounded = value => Number(Number(value).toFixed(2));
  */
 export function buildPlayerClubAnalytics(rows = []) {
   const sourceRows = Array.isArray(rows) ? rows : [];
-  const ratingPoints = sourceRows.reduce((total, row) => total + numberOrZero(row?.ratingTotal), 0);
   const clubs = sourceRows
     .map(row => {
       const club = row?.clubId && typeof row.clubId === "object" ? row.clubId : null;
@@ -33,6 +32,7 @@ export function buildPlayerClubAnalytics(rows = []) {
         assists: numberOrZero(row?.assists),
         motm: numberOrZero(row?.motm),
         ratedMatches,
+        ratingTotal,
         averageRating: ratedMatches > 0 ? rounded(ratingTotal / ratedMatches) : null,
         lastPlayedAt: row?.lastPlayedAt || null,
       };
@@ -40,6 +40,7 @@ export function buildPlayerClubAnalytics(rows = []) {
     .filter(row => row.clubId)
     .sort((a, b) => new Date(b.lastPlayedAt || 0) - new Date(a.lastPlayedAt || 0) || a.clubName.localeCompare(b.clubName));
 
+  const ratingPoints = clubs.reduce((total, club) => total + club.ratingTotal, 0);
   const career = clubs.reduce((total, club) => {
     for (const key of ["matches", "wins", "draws", "losses", "goals", "assists", "motm", "ratedMatches"]) {
       total[key] += club[key];
@@ -64,6 +65,6 @@ export function buildPlayerClubAnalytics(rows = []) {
   return {
     clubCount: new Set(clubs.map(club => club.clubId)).size,
     career,
-    clubs,
+    clubs: clubs.map(({ ratingTotal: _ratingTotal, ...club }) => club),
   };
 }
