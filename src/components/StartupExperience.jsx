@@ -79,6 +79,24 @@ export function WelcomeScreen({ onEnter }) {
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [posterFailed, setPosterFailed] = useState(false);
 
+  useEffect(() => {
+    function handleGlobalEnter(event) {
+      if (event.key !== "Enter" || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+
+      const target = event.target;
+      if (target instanceof HTMLElement && (
+        target.isContentEditable ||
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+      )) return;
+
+      event.preventDefault();
+      onEnter();
+    }
+
+    window.addEventListener("keydown", handleGlobalEnter);
+    return () => window.removeEventListener("keydown", handleGlobalEnter);
+  }, [onEnter]);
+
   return (
     <main className={`gg-welcome-screen gg-welcome-image-screen${posterLoaded || posterFailed ? " is-ready" : ""}`}>
       <div className={`gg-welcome-poster-frame${posterLoaded ? " is-loaded" : ""}${!posterLoaded && !posterFailed ? " is-loading" : ""}${posterFailed ? " has-error" : ""}`}>
@@ -116,19 +134,19 @@ export function WelcomeScreen({ onEnter }) {
 
         <button
           type="button"
-          className={`gg-welcome-image-button${posterLoaded ? " is-image-overlay" : ""}`}
+          className="gg-welcome-image-button"
           onClick={onEnter}
           aria-label="Enter Matchday"
           title="Enter Matchday"
         >
-          {posterLoaded ? (
-            <span className="gg-welcome-sr-only">Enter Matchday</span>
-          ) : (
-            <>ENTER MATCHDAY <span aria-hidden="true">→</span></>
-          )}
+          <span className="gg-welcome-button-visual" aria-hidden="true">
+            ENTER MATCHDAY <span>→</span>
+          </span>
+          <span className="gg-welcome-sr-only">
+            Enter Matchday. Click anywhere on the poster or press Enter to continue.
+          </span>
         </button>
       </div>
-
     </main>
   );
 }
