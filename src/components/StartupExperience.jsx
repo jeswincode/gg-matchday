@@ -137,11 +137,7 @@ export function WelcomeScreen({ onEnter }) {
           className="gg-welcome-image-button"
           onClick={onEnter}
           aria-label="Enter Matchday"
-          title="Enter Matchday"
         >
-          <span className="gg-welcome-button-visual" aria-hidden="true">
-            ENTER MATCHDAY <span>→</span>
-          </span>
           <span className="gg-welcome-sr-only">
             Enter Matchday. Click anywhere on the poster or press Enter to continue.
           </span>

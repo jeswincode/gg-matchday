@@ -50,23 +50,20 @@ test("mobile welcome screen fills the viewport without stretching and any poster
   const frameBounds = await frame.boundingBox();
   const enter = page.getByRole("button", { name: "Enter Matchday" });
   const enterBounds = await enter.boundingBox();
-  const visualCta = page.locator(".gg-welcome-button-visual");
-  const visualBounds = await visualCta.boundingBox();
 
   expect(frameBounds).not.toBeNull();
   expect(enterBounds).not.toBeNull();
-  expect(visualBounds).not.toBeNull();
   expect(Math.abs(frameBounds.width - viewport.width)).toBeLessThanOrEqual(1);
   expect(Math.abs(frameBounds.height - viewport.height)).toBeLessThanOrEqual(1);
   expect(Math.abs(enterBounds.width - viewport.width)).toBeLessThanOrEqual(1);
   expect(Math.abs(enterBounds.height - viewport.height)).toBeLessThanOrEqual(1);
   expect(await poster.evaluate(element => getComputedStyle(element).objectFit)).toBe("cover");
   expect(await poster.evaluate(element => Math.abs(element.naturalWidth / element.naturalHeight - 9 / 16))).toBeLessThan(0.015);
-  expect(visualBounds.width).toBeGreaterThan(200);
-  expect(visualBounds.height).toBeGreaterThan(35);
-  expect(visualBounds.y).toBeGreaterThan(frameBounds.y + frameBounds.height * 0.76);
+  await expect(page.locator(".gg-welcome-button-visual")).toHaveCount(0);
+  expect(await enter.evaluate(element => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  expect(await enter.evaluate(element => getComputedStyle(element).borderWidth)).toBe("0px");
 
-  // Tap a part of the artwork well away from the visible CTA.
+  // Tap a part of the artwork well away from the former visible CTA.
   await page.mouse.click(viewport.width * 0.88, viewport.height * 0.36);
   await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
 });

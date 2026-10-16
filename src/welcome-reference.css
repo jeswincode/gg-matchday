@@ -1,6 +1,6 @@
 /* GG Matchday poster-led welcome screen.
-   The image keeps its natural proportions and fills the viewport via cover;
-   the full-screen accessible button includes the visible CTA in its usual place. */
+   The artwork is the entire visual experience; an invisible accessible hit target
+   covers the viewport, with focus feedback only for keyboard navigation. */
 
 .gg-welcome-screen.gg-welcome-image-screen {
   display: block;
@@ -75,45 +75,12 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: background 160ms ease;
+  outline: none;
+  transition: none;
 }
 
 .gg-welcome-image-button:hover {
-  background: rgba(255, 225, 142, .025);
-}
-
-.gg-welcome-button-visual {
-  position: absolute;
-  left: 33.25%;
-  top: 77.45%;
-  width: 33.5%;
-  height: 9.6%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 225, 142, .78);
-  border-radius: 999px;
-  background: linear-gradient(135deg, #ffe28a, #c8912d);
-  color: #120d03;
-  font-size: clamp(12px, 1.05vw, 17px);
-  font-weight: 900;
-  letter-spacing: .055em;
-  box-shadow: 0 0 0 3px rgba(10, 7, 2, .7), 0 0 20px rgba(245, 195, 75, .24);
-  pointer-events: none;
-  transition: box-shadow 160ms ease, filter 160ms ease, transform 160ms ease;
-}
-
-.gg-welcome-button-visual > span {
-  margin-left: 8px;
-  font-size: 1.2em;
-}
-
-.gg-welcome-image-button:hover .gg-welcome-button-visual {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-  box-shadow: 0 0 0 3px rgba(10, 7, 2, .7), 0 0 34px rgba(245, 195, 75, .38);
+  background: transparent;
 }
 
 .gg-welcome-image-button:focus-visible {
@@ -173,18 +140,9 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
 }
 
 /* Wide posters use the landscape asset; portrait devices load the dedicated
-   9:16 asset. object-fit: cover never stretches either image, and the viewport
-   button stays full-frame while its visible CTA remains in the lower-center. */
+   9:16 asset. object-fit: cover preserves proportions while allowing natural
+   edge cropping on screens whose aspect ratio differs from the artwork. */
 @media (max-aspect-ratio: 3 / 4) {
-  .gg-welcome-button-visual {
-    left: 16%;
-    top: 78.9%;
-    width: 68%;
-    height: 6.3%;
-    font-size: clamp(13px, 3.2vw, 17px);
-    letter-spacing: .035em;
-  }
-
   .gg-welcome-poster-frame.has-error {
     padding: 24px;
   }
@@ -192,8 +150,7 @@ html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
 
 @media (prefers-reduced-motion: reduce) {
   .gg-welcome-poster,
-  .gg-welcome-image-button,
-  .gg-welcome-button-visual {
+  .gg-welcome-image-button {
     transition: none;
   }
 }
