@@ -35,7 +35,7 @@ test("guest can open Matchday and reach the live leaderboard", async ({ page }) 
   await expect(page.getByText("Performance. Contribution. Results.")).toBeVisible();
 });
 
-test("mobile welcome screen loads the dedicated 9:16 poster with a clickable embedded CTA", async ({ page }) => {
+test("mobile welcome screen fills the viewport without stretching and any poster tap opens Matchday", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const poster = page.getByRole("img", { name: /GG Matchday cinematic football poster/i });
@@ -44,17 +44,41 @@ test("mobile welcome screen loads the dedicated 9:16 poster with a clickable emb
     const currentSrc = await poster.evaluate(element => element.currentSrc);
     return new URL(currentSrc).pathname;
   }).toBe("/enter-matchday-mobile.png");
+
+  const viewport = page.viewportSize();
   const frame = page.locator(".gg-welcome-poster-frame");
   const frameBounds = await frame.boundingBox();
   const enter = page.getByRole("button", { name: "Enter Matchday" });
   const enterBounds = await enter.boundingBox();
+  const visualCta = page.locator(".gg-welcome-button-visual");
+  const visualBounds = await visualCta.boundingBox();
+
   expect(frameBounds).not.toBeNull();
   expect(enterBounds).not.toBeNull();
-  expect(Math.abs(frameBounds.width / frameBounds.height - 9 / 16)).toBeLessThan(0.015);
-  expect(enterBounds.width).toBeGreaterThan(200);
-  expect(enterBounds.height).toBeGreaterThan(35);
-  expect(enterBounds.y).toBeGreaterThan(frameBounds.y + frameBounds.height * 0.76);
-  await enter.click();
+  expect(visualBounds).not.toBeNull();
+  expect(Math.abs(frameBounds.width - viewport.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(frameBounds.height - viewport.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(enterBounds.width - viewport.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(enterBounds.height - viewport.height)).toBeLessThanOrEqual(1);
+  expect(await poster.evaluate(element => getComputedStyle(element).objectFit)).toBe("cover");
+  expect(await poster.evaluate(element => Math.abs(element.naturalWidth / element.naturalHeight - 9 / 16))).toBeLessThan(0.015);
+  expect(visualBounds.width).toBeGreaterThan(200);
+  expect(visualBounds.height).toBeGreaterThan(35);
+  expect(visualBounds.y).toBeGreaterThan(frameBounds.y + frameBounds.height * 0.76);
+
+  // Tap a part of the artwork well away from the visible CTA.
+  await page.mouse.click(viewport.width * 0.88, viewport.height * 0.36);
+  await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
+});
+
+test("Enter key opens Matchday from the welcome screen without requiring a pointer", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto("/");
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enter Matchday" })).toBeVisible();
+
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
 });
 
 test("mobile viewport keeps primary navigation usable across key tabs", async ({ page }) => {
