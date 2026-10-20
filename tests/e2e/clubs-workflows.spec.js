@@ -41,6 +41,27 @@ async function newClubsActor(browser, actor) {
   return page;
 }
 
+function captureClubApi(page) {
+  const responses = [];
+  page.on("response", async response => {
+    if (!new URL(response.url()).pathname.startsWith("/api/clubs/") &&
+        !new URL(response.url()).pathname.startsWith("/api/players")) return;
+    let body = "";
+    try { body = (await response.text()).slice(0, 700); } catch { /* Response body may already be unavailable. */ }
+    responses.push({ status: response.status(), path: new URL(response.url()).pathname, body });
+  });
+  return responses;
+}
+
+async function expectAnnouncementOrExplainFailure(page, expected, responses) {
+  await expect.poll(async () => {
+    const announcement = (await page.locator(".clubs-screen-reader-status").innerText().catch(() => "")).trim();
+    if (announcement === expected) return announcement;
+    const error = (await page.locator(".clubs-error").innerText().catch(() => "")).trim();
+    return error ? `ERROR: ${error} | API: ${JSON.stringify(responses.slice(-8))}` : announcement;
+  }, { timeout: 10_000 }).toBe(expected);
+}
+
 async function goToPrimaryTab(page, name) {
   const navigation = page.getByRole("navigation", { name: "Clubs navigation" });
   await navigation.getByRole("button", { name, exact: true }).click();
@@ -55,6 +76,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
   try {
     const founder = await newClubsActor(browser, actors[0]);
     pages.push(founder);
+    const formationResponses = captureClubApi(founder);
 
     await founder.getByRole("button", { name: /Form a Club/ }).first().click();
     const inviteSelects = founder.locator("#clubs-formation-form .clubs-invite-grid select");
@@ -63,7 +85,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
       await inviteSelects.nth(index - 1).selectOption(actors[index].id);
     }
     await founder.getByRole("button", { name: "Start Club Formation" }).click();
-    await expect(founder.getByText("Club formation invitation sent to the selected players.")).toBeVisible();
+    await expectAnnouncementOrExplainFailure(founder, "Club formation invitation sent to the selected players.", formationResponses);
 
     // Each invitee joins with a separate test identity and accepts through the UI.
     const invitees = [];
@@ -148,16 +170,21 @@ test("auction signing reserves budget and settles only after player choice and b
   const pages = [];
   const captainOne = await newClubsActor(browser, AUCTION_PLAYERS.captainOne);
   pages.push(captainOne);
+  const auctionResponses = captureClubApi(captainOne);
 
   try {
     await goToPrimaryTab(captainOne, "Market");
     await expect(captainOne.getByRole("heading", { name: "Send a signing offer" })).toBeVisible();
     const offerSelects = captainOne.locator("#clubs-auction-desk .clubs-invite-grid select");
+    await expect.poll(
+      () => offerSelects.nth(0).locator("option").allTextContents(),
+      { timeout: 10_000 },
+    ).toContain(AUCTION_CLUB_NAME);
     await offerSelects.nth(0).selectOption({ label: AUCTION_CLUB_NAME });
     await offerSelects.nth(1).selectOption(AUCTION_PLAYERS.target.id);
     await captainOne.locator("#clubs-auction-desk input[type='number']").fill(AUCTION_AMOUNT);
     await captainOne.getByRole("button", { name: "Send Signing Offer", exact: true }).click();
-    await expect(captainOne.getByText("Signing offer sent.")).toBeVisible();
+    await expectAnnouncementOrExplainFailure(captainOne, "Signing offer sent.", auctionResponses);
 
     // The submitted offer reserves the Club budget without debiting it yet.
     await goToPrimaryTab(captainOne, "My Club");
