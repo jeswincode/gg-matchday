@@ -38,6 +38,18 @@ function formatAge(seconds) {
   return `${Math.floor(value / 86400)}d ago`;
 }
 
+function formatUptime(seconds) {
+  if (seconds == null || !Number.isFinite(Number(seconds))) return "Not reported";
+  const value = Math.max(0, Math.floor(Number(seconds)));
+  const days = Math.floor(value / 86400);
+  const hours = Math.floor((value % 86400) / 3600);
+  const minutes = Math.floor((value % 3600) / 60);
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${value}s`;
+}
+
 function formatDuration(value) {
   return value == null || !Number.isFinite(Number(value)) ? "—" : `${Math.round(Number(value))} ms`;
 }
@@ -101,7 +113,7 @@ export default function DatabaseHealth() {
     } finally {
       if (!controller.signal.aborted) {
         setLoading(false);
-        if (manual) setRefreshing(false);
+        setRefreshing(false);
       }
     }
   }, []);
@@ -238,7 +250,7 @@ export default function DatabaseHealth() {
           <>
             <div className="database-health-runtime-meta">
               <span>API process started: {formatTime(operationsHealth.runtime?.startedAt)}</span>
-              <span>Uptime: {formatAge(operationsHealth.runtime?.uptimeSeconds)}</span>
+              <span>Uptime: {formatUptime(operationsHealth.runtime?.uptimeSeconds)}</span>
               <span>{operationsHealth.runtime?.nodeVersion || "Node version not reported"}</span>
             </div>
 
