@@ -224,9 +224,13 @@ Before a production release:
 The administrator **Database Health** panel reads two protected APIs:
 
 - `GET /api/system/database-health` reports application-level MongoDB data/index sizes, estimated collection counts, and usage against a reference threshold. Unless `MONGODB_STORAGE_QUOTA_MB` is explicitly configured (minimum 1 MB), the reference defaults to 512 MB. This is not an authoritative MongoDB Atlas cluster quota or billing metric.
-- `GET /api/system/operations-health` performs live pings to the core database and configured Clubs database, and displays recent outcomes for Open-Meteo, Gemini and Matchday-to-Clubs synchronization.
+- `GET /api/system/operations-health` performs live pings to the core database and configured Clubs database, and displays recent outcomes for Open-Meteo, Gemini and Matchday-to-Clubs synchronization, plus a bounded 15-minute API error/latency summary.
 
-Provider outcomes are observed during normal application requests; the endpoint does not make extra calls to external providers. The counters, last outcomes and timestamps are process-local memory, reset when the API process restarts, and are not an availability SLA. “Not observed” means no request has exercised that provider in this process. Backup/restore health is not inferred from provider telemetry; use the scheduled backup workflow and isolated restore results as the evidence for those operations.
+API telemetry retains at most 1,000 recent request observations, 50 recent server-error/slow-request incidents, and 100 route buckets per process. It records status codes, durations, request IDs and Express route templates—not query strings, concrete resource IDs, request bodies, or auth data. It shows 4xx/5xx counts, HTTP 429 counts, slow requests, average/p50/p95 latency, and safe recent incident references. Samples and route counters are process-local, reset when the API restarts, and are not a durable log or SLA. “Not observed” means no request has exercised that provider in this process.
+
+Weather refreshes may return a previously successful stale cache when Open-Meteo fails; the response's `freshness` object labels that result and provides its age rather than presenting stale data as a new success. Provider health cards show recent failures and fallback use.
+
+Backup/restore health is not inferred from provider or database telemetry. The dashboard clearly labels backup workflow evidence as **not connected** because the runtime does not currently query GitHub Actions runs or artifact storage. Use the [MongoDB Backup and Restore Drill workflow](https://github.com/jeswincode/gg-matchday/actions/workflows/mongodb-backup.yml) and its isolated restore results to establish backup creation, verification, and restore success separately.
 
 ### Automated backup and recovery
 

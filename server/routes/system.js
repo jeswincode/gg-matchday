@@ -14,6 +14,7 @@ import User from "../models/User.js";
 import RatingDispute from "../models/RatingDispute.js";
 import { pingClubsDatabase } from "../config/clubsDatabase.js";
 import { getProviderHealthSnapshot } from "../services/providerHealth.js";
+import { getRequestHealthSnapshot } from "../services/requestHealth.js";
 
 const router = express.Router();
 
@@ -85,6 +86,7 @@ router.get("/operations-health", requireAuth, requireAdmin, async (req, res) => 
   }
 
   const providers = getProviderHealthSnapshot(generatedAt);
+  const requestHealth = getRequestHealthSnapshot(generatedAt);
   // Match the existing /api/health contract: Clubs being disconnected or
   // unconfigured is surfaced as degraded, even while the core database responds.
   const databaseDegraded = coreDatabase.status !== "connected" || clubsDatabase.status !== "connected";
@@ -101,6 +103,7 @@ router.get("/operations-health", requireAuth, requireAdmin, async (req, res) => 
     providerScope: providers.scope,
     providers: providers.providers,
     providerObservationsNote: providers.note,
+    requestHealth,
     limits: {
       externalProvidersAreNotProbedByThisEndpoint: true,
       providerCountersResetOnRestart: true,

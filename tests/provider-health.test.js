@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getProviderHealthSnapshot, recordProviderObservation } from "../server/services/providerHealth.js";
+import { getProviderHealthSnapshot, recordProviderObservation, safeProviderFailureReason } from "../server/services/providerHealth.js";
 
 test("provider health starts with explicit unobserved states and process-local scope", () => {
   const snapshot = getProviderHealthSnapshot();
@@ -42,4 +42,13 @@ test("provider health counts outcomes and never exposes untrusted reason strings
   assert.equal(succeeded.consecutiveFailures, 0);
   assert.equal(succeeded.lastDurationMs, 8);
   assert.ok(succeeded.lastSuccessAt);
+});
+
+test("provider failures use bounded reason codes for rate limits and malformed responses", () => {
+  assert.equal(safeProviderFailureReason({ status: 429, message: "secret-bearing provider error" }), "rate-limited");
+  assert.equal(safeProviderFailureReason({ code: "RESOURCE_EXHAUSTED" }), "rate-limited");
+  assert.equal(safeProviderFailureReason({ name: "AbortError" }), "timeout");
+  assert.equal(safeProviderFailureReason({ name: "InvalidProviderResponse" }), "invalid-response");
+  assert.equal(safeProviderFailureReason({ name: "SyntaxError" }), "parse-error");
+  assert.equal(safeProviderFailureReason({ message: "mongodb+srv://user:password@host" }), "provider-error");
 });

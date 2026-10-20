@@ -7,7 +7,7 @@ import { GoogleGenAI } from "@google/genai";
 import Match from "../models/Match.js";
 import { normalizeMatchScores } from "../services/statistics.js";
 import { buildFallbackImmersiveNews } from "../services/immersiveNewsFallback.js";
-import { recordProviderObservation } from "../services/providerHealth.js";
+import { recordProviderObservation, safeProviderFailureReason } from "../services/providerHealth.js";
 
 dotenv.config();
 
@@ -190,13 +190,9 @@ ${JSON.stringify(facts, null, 2)}
     });
   } catch (error) {
     if (providerStartedAt !== null) {
-      const reasonCode = error?.name === "AbortError"
-        ? "timeout"
-        : String(error?.message || "").includes("empty response")
-          ? "empty-response"
-          : String(error?.name || "").includes("Syntax")
-            ? "parse-error"
-            : "provider-error";
+      const reasonCode = String(error?.message || "").includes("empty response")
+        ? "empty-response"
+        : safeProviderFailureReason(error);
       recordProviderObservation("gemini.immersive-news", {
         outcome: "failure",
         durationMs: Date.now() - providerStartedAt,

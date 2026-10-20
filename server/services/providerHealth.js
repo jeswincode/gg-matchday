@@ -46,7 +46,17 @@ const SAFE_REASON_CODES = new Set([
   "empty-response",
   "invalid-response",
   "parse-error",
+  "rate-limited",
 ]);
+
+export function safeProviderFailureReason(error) {
+  const status = Number(error?.status ?? error?.statusCode ?? error?.response?.status);
+  if (status === 429 || error?.code === "RESOURCE_EXHAUSTED") return "rate-limited";
+  if (error?.name === "AbortError") return "timeout";
+  if (error?.name === "InvalidProviderResponse") return "invalid-response";
+  if (error?.name === "SyntaxError") return "parse-error";
+  return "provider-error";
+}
 
 function emptyObservation() {
   return {
@@ -54,6 +64,7 @@ function emptyObservation() {
     lastAttemptAt: null,
     lastSuccessAt: null,
     lastFailureAt: null,
+    lastFallbackAt: null,
     lastProviderOutcome: null,
     lastObservationKind: null,
     lastReasonCode: "",
@@ -81,7 +92,7 @@ export function recordProviderObservation(providerKey, {
   reasonCode = "",
 } = {}) {
   if (!PROVIDERS[providerKey]) return;
-  if (!["success", "failure", "not-configured", "cache-hit", "coalesced"].includes(outcome)) return;
+  if (!["success", "failure", "not-configured", "cache-hit", "coalesced", "fallback"].includes(outcome)) return;
 
   const previous = observations.get(providerKey) || emptyObservation();
   const now = new Date().toISOString();
@@ -115,7 +126,7 @@ export function recordProviderObservation(providerKey, {
     }
   }
 
-  if (fallbackUsed) next.fallbacksUsed += 1;
+  if (fallbackUsed) { next.fallbacksUsed += 1; next.lastFallbackAt = now; }
   if (outcome === "cache-hit") next.cacheHits += 1;
   if (outcome === "coalesced") next.coalescedRequests += 1;
 

@@ -26,6 +26,7 @@ import { pingClubsDatabase } from "./config/clubsDatabase.js";
 import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
 import ratingExplanationRoutes from "./routes/ratingExplanations.js";
 import ratingDisputeRoutes from "./routes/ratingDisputes.js";
+import { observeRequestMiddleware } from "./services/requestHealth.js";
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(observeRequestMiddleware);
 app.use(cors(createCorsOptions()));
 app.use(express.json({limit:"64kb"}));
 app.use("/api/chat", chatRoutes);
