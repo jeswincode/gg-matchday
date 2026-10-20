@@ -137,7 +137,7 @@ export default function RatingExplanation({ matchId, playerId, playerName, canDi
                   <ul>{data.calculated.matchBreakdown.map((item, index) => (
                     <li key={item.label + index}><span>{item.label}</span><strong>{points(item.points)}</strong></li>
                   ))}</ul>
-                  <div className="rating-explanation-total"><span>{data.calculated.matchTotal.clamped ? "Clamped and rounded" : "Rounded to one decimal"}</span><strong>{rating(data.calculated.matchRating)}</strong></div>
+                  <div className="rating-explanation-total"><span>Raw total {Number(data.calculated.matchTotal.rawTotal).toFixed(2)} · {data.calculated.matchTotal.clamped ? "clamped then rounded" : "rounded to one decimal"}</span><strong>{rating(data.calculated.matchRating)}</strong></div>
                   <p>{data.explanation?.matchRating}</p>
                 </section>
                 <section className="rating-explanation-breakdown">
@@ -145,7 +145,7 @@ export default function RatingExplanation({ matchId, playerId, playerName, canDi
                   <ul>{data.calculated.defensiveBreakdown.map((item, index) => (
                     <li key={item.label + index}><span>{item.label}</span><strong>{points(item.points)}</strong></li>
                   ))}</ul>
-                  <div className="rating-explanation-total"><span>{data.calculated.defensiveTotal.clamped ? "Clamped and rounded" : "Rounded to one decimal"}</span><strong>{rating(data.calculated.defensiveRating)}</strong></div>
+                  <div className="rating-explanation-total"><span>Raw total {Number(data.calculated.defensiveTotal.rawTotal).toFixed(2)} · {data.calculated.defensiveTotal.clamped ? "clamped then rounded" : "rounded to one decimal"}</span><strong>{rating(data.calculated.defensiveRating)}</strong></div>
                   <p>{data.explanation?.defensiveRating}</p>
                 </section>
               </div>
