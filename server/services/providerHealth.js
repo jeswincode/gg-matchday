@@ -54,6 +54,7 @@ function emptyObservation() {
     lastAttemptAt: null,
     lastSuccessAt: null,
     lastFailureAt: null,
+    lastFallbackAt: null,
     lastProviderOutcome: null,
     lastObservationKind: null,
     lastReasonCode: "",
@@ -81,7 +82,7 @@ export function recordProviderObservation(providerKey, {
   reasonCode = "",
 } = {}) {
   if (!PROVIDERS[providerKey]) return;
-  if (!["success", "failure", "not-configured", "cache-hit", "coalesced"].includes(outcome)) return;
+  if (!["success", "failure", "not-configured", "cache-hit", "coalesced", "fallback"].includes(outcome)) return;
 
   const previous = observations.get(providerKey) || emptyObservation();
   const now = new Date().toISOString();
@@ -115,7 +116,7 @@ export function recordProviderObservation(providerKey, {
     }
   }
 
-  if (fallbackUsed) next.fallbacksUsed += 1;
+  if (fallbackUsed) { next.fallbacksUsed += 1; next.lastFallbackAt = now; }
   if (outcome === "cache-hit") next.cacheHits += 1;
   if (outcome === "coalesced") next.coalescedRequests += 1;
 
