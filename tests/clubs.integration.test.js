@@ -23,6 +23,7 @@ const { default: PlayerWalletTransaction } = await import("../server/models/club
 const { default: ClubMatch } = await import("../server/models/clubs/ClubMatch.js");
 const { default: ClubFormationApplication } = await import("../server/models/clubs/ClubFormationApplication.js");
 const { default: ClubHistory } = await import("../server/models/clubs/ClubHistory.js");
+const { default: ClubAdminAuditEvent } = await import("../server/models/clubs/ClubAdminAuditEvent.js");
 const { default: ClubPlayerStats } = await import("../server/models/clubs/ClubPlayerStats.js");
 const { rebuildClubPlayerStats } = await import("../server/services/clubsMatchSync.js");
 const { default: Match } = await import("../server/models/Match.js");
@@ -63,7 +64,7 @@ before(async () => {
   await Promise.all([
     Player.init(), User.init(), Club.init(), ClubContract.init(), AuctionOffer.init(),
     ClubWalletTransaction.init(), PlayerWallet.init(), PlayerWalletTransaction.init(), ClubMatch.init(),
-    ClubFormationApplication.init(), ClubHistory.init(), Match.init(), PlayerStats.init(), SeasonStats.init(),
+    ClubFormationApplication.init(), ClubHistory.init(), ClubAdminAuditEvent.init(), Match.init(), PlayerStats.init(), SeasonStats.init(),
   ]);
 
   players = await Player.create(Array.from({ length: 10 }, (_, index) => ({
@@ -899,6 +900,74 @@ test("maintenance cancels legacy chosen offers without expiry and releases their
   assert.equal(Number(reconciledClub.committedBalance), 0);
 });
 
+
+
+test("Clubs operations endpoints require an administrator and return bounded persisted-state summaries", async () => {
+  const unauthenticated = await request("/clubs/admin/operations/summary", { token: null, role: null });
+  assert.equal(unauthenticated.status, 401);
+  const viewer = await request("/clubs/admin/operations/summary", { role: "viewer", playerId: players[9]._id });
+  assert.equal(viewer.status, 403);
+  const summary = await request("/clubs/admin/operations/summary", { role: "admin" });
+  assert.equal(summary.status, 200, JSON.stringify(summary.data));
+  assert.equal(summary.data.success, true);
+  assert.ok(summary.data.generatedAt);
+  assert.ok(Number.isFinite(summary.data.queueCount));
+  assert.ok(Number.isFinite(summary.data.counts.pendingApplications));
+  assert.equal(summary.data.telemetry.providerHealth, "not-instrumented-in-this-subsystem");
+
+  const queue = await request("/clubs/admin/operations/queue?limit=5&page=1&sort=priority", { role: "admin" });
+  assert.equal(queue.status, 200, JSON.stringify(queue.data));
+  assert.ok(Array.isArray(queue.data.items));
+  assert.ok(queue.data.items.length <= 5);
+  assert.equal(queue.data.pagination.limit, 5);
+  assert.deepEqual(queue.data.filters, { type: "", severity: "", status: "", search: "", sort: "priority" });
+
+  const invalidFilter = await request("/clubs/admin/operations/queue?severity=explode", { role: "admin" });
+  assert.equal(invalidFilter.status, 200);
+  assert.equal(invalidFilter.data.filters.severity, "");
+
+  const tooLarge = await request("/clubs/admin/operations/queue?limit=500000", { role: "admin" });
+  assert.equal(tooLarge.status, 200);
+  assert.equal(tooLarge.data.pagination.limit, 100);
+
+  const invalidActivityDate = await request("/clubs/admin/operations/activity?before=not-a-date", { role: "admin" });
+  assert.equal(invalidActivityDate.status, 400);
+
+  const activity = await request("/clubs/admin/operations/activity?limit=5&page=1", { role: "admin" });
+  assert.equal(activity.status, 200, JSON.stringify(activity.data));
+  assert.ok(Array.isArray(activity.data.items));
+});
+
+test("Club admin audit events record actual administrator actions and can be filtered by outcome", async () => {
+  const club = await Club.create({
+    name: "Operations Audit Formation FC",
+    description: "Formation approval audit fixture.",
+    memberIds: players.slice(0, 4).map(player => player._id),
+    captainIds: [players[0]._id],
+    status: "approved",
+    balance: 300,
+  });
+  const event = await ClubAdminAuditEvent.create({
+    actorName: "Integration Admin",
+    actorEmail: "admin@example.invalid",
+    actorRole: "admin",
+    action: "test-audit",
+    entityType: "club",
+    entityId: club._id,
+    clubId: club._id,
+    previousStatus: "pending",
+    nextStatus: "approved",
+    outcome: "success",
+    reason: "Persisted test event.",
+    requestId: "request-test-ops",
+  });
+  const response = await request("/clubs/admin/operations/activity?outcome=success&limit=10", { role: "admin" });
+  assert.equal(response.status, 200, JSON.stringify(response.data));
+  assert.ok(response.data.items.some(item => item.id === String(event._id) && item.action === "test-audit"));
+  const filtered = await request("/clubs/admin/operations/activity?outcome=failed&limit=10", { role: "admin" });
+  assert.equal(filtered.status, 200);
+  assert.ok(filtered.data.items.every(item => item.outcome === "failed"));
+});
 
 test("maintenance cancels legacy active offers without expiry and releases their reservation", async () => {
   const [targetPlayer] = await Player.create([{
