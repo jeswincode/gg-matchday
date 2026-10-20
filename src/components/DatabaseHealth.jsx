@@ -280,6 +280,79 @@ export default function DatabaseHealth() {
               })}
             </div>
 
+            {operationsHealth.requestHealth && (
+              <section className="database-health-request-health" aria-labelledby="database-api-observations-heading">
+                <div className="database-health-provider-group-heading">
+                  <div>
+                    <p className="eyebrow">API PERFORMANCE</p>
+                    <h4 id="database-api-observations-heading">Last 15 minutes</h4>
+                  </div>
+                  <span className={"database-health-provider-status status-" + operationsHealth.requestHealth.status}>
+                    {({
+                      healthy: "No recent API issues",
+                      watch: "Latency / rate-limit watch",
+                      degraded: "Server errors observed",
+                      unobserved: "No traffic observed",
+                    })[operationsHealth.requestHealth.status] || operationsHealth.requestHealth.status}
+                  </span>
+                </div>
+                <div className="database-health-api-metrics">
+                  {[
+                    ["API requests", operationsHealth.requestHealth.window?.requests ?? 0],
+                    ["Server errors (5xx)", operationsHealth.requestHealth.window?.serverErrors5xx ?? 0],
+                    ["Client errors (4xx)", operationsHealth.requestHealth.window?.clientErrors4xx ?? 0],
+                    ["Rate limited (429)", operationsHealth.requestHealth.window?.rateLimitedResponses429 ?? 0],
+                    ["Slow requests", operationsHealth.requestHealth.window?.slowRequests ?? 0],
+                    ["Average latency", formatDuration(operationsHealth.requestHealth.window?.averageLatencyMs)],
+                    ["P95 latency", formatDuration(operationsHealth.requestHealth.window?.p95LatencyMs)],
+                    ["5xx rate", operationsHealth.requestHealth.window?.serverErrorRatePercent == null ? "—" : operationsHealth.requestHealth.window.serverErrorRatePercent + "%"],
+                  ].map(([label, value]) => (
+                    <div key={label}><span>{label}</span><strong>{value}</strong></div>
+                  ))}
+                </div>
+                {operationsHealth.requestHealth.windowSampleLimited && (
+                  <p className="database-health-warning" role="status">The 15-minute estimate hit the in-memory sample cap and may undercount recent traffic.</p>
+                )}
+                <div className="database-health-incidents">
+                  <div className="database-health-provider-group-heading">
+                    <h5>Recent server errors and slow requests</h5>
+                    <span>Max {operationsHealth.requestHealth.retention?.maxRecentIncidents ?? 50} incidents</span>
+                  </div>
+                  {(operationsHealth.requestHealth.recentIncidents || []).length === 0 ? (
+                    <p className="database-health-provider-note">No server-error or slow-request incidents have been recorded in this API process since it started.</p>
+                  ) : (
+                    <div className="database-health-incident-list">
+                      {(operationsHealth.requestHealth.recentIncidents || []).map((incident, index) => (
+                        <article key={incident.requestId || incident.at + incident.route + index} data-kind={incident.kind}>
+                          <div><strong>{incident.kind.replace(/-/g, " ")}</strong><span>{formatTime(incident.at)} · {formatDuration(incident.durationMs)}</span></div>
+                          <p><code>{incident.method} {incident.route}</code> · HTTP {incident.statusCode}</p>
+                          {incident.requestId && <p className="database-health-request-id">Request ID: <code>{incident.requestId}</code></p>}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="muted database-health-note">{operationsHealth.requestHealth.note}</p>
+              </section>
+            )}
+
+            <section className="database-health-backup-evidence" aria-labelledby="database-backup-evidence-heading">
+              <div className="database-health-provider-head">
+                <div>
+                  <p className="eyebrow">BACKUP & RESTORE</p>
+                  <h4 id="database-backup-evidence-heading">Workflow evidence</h4>
+                </div>
+                <span className="database-health-provider-status status-unobserved">Not connected</span>
+              </div>
+              <p className="database-health-provider-note">
+                The runtime dashboard does not query GitHub Actions or artifact storage, so it cannot truthfully show the latest backup creation, upload, archive verification, preflight, or isolated restore result. No success status is inferred from database connectivity.
+              </p>
+              <div className="database-health-evidence-links">
+                <a href="https://github.com/jeswincode/gg-matchday/actions/workflows/mongodb-backup.yml" target="_blank" rel="noreferrer">Open backup / restore workflow</a>
+                <a href="https://github.com/jeswincode/gg-matchday/blob/main/docs/operations/reliability-runbook.md" target="_blank" rel="noreferrer">Open reliability runbook</a>
+              </div>
+            </section>
+
             <div className="database-health-provider-groups">
               {Object.entries(providerGroups).map(([group, groupProviders]) => (
                 <section key={group} className="database-health-provider-group">
