@@ -85,12 +85,13 @@ router.get("/operations-health", requireAuth, requireAdmin, async (req, res) => 
   }
 
   const providers = getProviderHealthSnapshot(generatedAt);
-  const requiredDatabaseDown = coreDatabase.status !== "connected" ||
-    (clubsDatabase.configured && clubsDatabase.status !== "connected");
+  // Match the existing /api/health contract: Clubs being disconnected or
+  // unconfigured is surfaced as degraded, even while the core database responds.
+  const databaseDegraded = coreDatabase.status !== "connected" || clubsDatabase.status !== "connected";
   return res.json({
-    success: !requiredDatabaseDown,
+    success: !databaseDegraded,
     generatedAt: generatedAt.toISOString(),
-    status: requiredDatabaseDown ? "degraded" : "ok",
+    status: databaseDegraded ? "degraded" : "ok",
     runtime: {
       nodeVersion: process.version,
       startedAt: providers.processStartedAt,
