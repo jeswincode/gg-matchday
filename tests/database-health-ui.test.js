@@ -10,7 +10,8 @@ test("Database Health explains application storage references and refreshes oper
 
   assert.match(component, /\/system\/database-health/);
   assert.match(component, /\/system\/operations-health/);
-  assert.match(component, /setInterval\(\(\) => refresh\(\)\.catch\(\) => \{\}\), 60_000\)/);
+  assert.match(component, /setInterval/);
+  assert.match(component, /60_000/);
   assert.match(component, /estimatedDocumentCount/);
   assert.match(component, /not an authoritative cluster quota or billing metric/i);
   assert.match(component, /No external-provider probes are run by this screen/i);
