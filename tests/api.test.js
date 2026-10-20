@@ -252,3 +252,30 @@ test("players can submit rating disputes without changing the match and admins c
   assert.equal(repeatedReview.status, 409);
   assert.deepEqual((await Match.findById(matchId).lean()), before);
 });
+
+
+test("admin operational health reports live database pings and process-local provider observations", async () => {
+  const denied = await request("/system/operations-health", { token: "viewer" });
+  assert.equal(denied.status, 403);
+
+  const response = await request("/system/operations-health", { token: "admin" });
+  assert.equal(response.status, 200, JSON.stringify(response.data));
+  assert.equal(response.data.success, true);
+  assert.equal(response.data.databases.core.status, "connected");
+  assert.ok(["connected", "unreachable", "disconnected", "not-configured"].includes(response.data.databases.clubs.status));
+  assert.equal(response.data.providerScope, "process-local-observations");
+  assert.equal(response.data.limits.externalProvidersAreNotProbedByThisEndpoint, true);
+  assert.equal(response.data.limits.providerCountersResetOnRestart, true);
+  assert.ok(Array.isArray(response.data.providers));
+  assert.ok(response.data.providers.some(provider => provider.key === "gemini.editorial"));
+  assert.ok(response.data.providers.some(provider => provider.key === "open-meteo-forecast"));
+  assert.match(response.data.providerObservationsNote, /reset on restart/i);
+
+  const databaseHealth = await request("/system/database-health", { token: "admin" });
+  assert.equal(databaseHealth.status, 200, JSON.stringify(databaseHealth.data));
+  assert.ok(Number.isFinite(databaseHealth.data.quotaReferenceBytes));
+  assert.ok(["environment-configured", "default-reference"].includes(databaseHealth.data.quotaReferenceSource));
+  assert.match(databaseHealth.data.quotaReferenceNote, /not an authoritative Atlas quota/i);
+  assert.equal(databaseHealth.data.collectionCountMethod, "estimatedDocumentCount");
+  assert.ok(Number.isFinite(databaseHealth.data.collections.ratingDisputes));
+});
