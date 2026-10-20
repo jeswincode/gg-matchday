@@ -110,7 +110,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
     // An administrator must not see a formation before its elected captain approves the details.
     adminBeforeDetails = await newClubsActor(browser, { role: "admin" });
     pages.push(adminBeforeDetails);
-    await adminBeforeDetails.getByRole("button", { name: "Applications", exact: true }).click();
+    await adminBeforeDetails.getByRole("button", { name: /^Applications/ }).click();
     await expect(adminBeforeDetails.getByText("No Club formations are waiting for admin action.")).toBeVisible();
     await adminBeforeDetails.close();
 
@@ -125,7 +125,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
 
     const admin = await newClubsActor(browser, { role: "admin" });
     pages.push(admin);
-    await admin.getByRole("button", { name: "Applications", exact: true }).click();
+    await admin.getByRole("button", { name: /^Applications/ }).click();
     const application = admin.locator(".clubs-application").filter({ hasText: FORMATION_CLUB_NAME });
     await expect(application).toBeVisible();
     await application.getByRole("button", { name: "Approve", exact: true }).click();
