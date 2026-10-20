@@ -3,7 +3,11 @@ const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUEST_HISTORY = 1000;
 const MAX_INCIDENT_HISTORY = 50;
 const MAX_ROUTE_BUCKETS = 100;
-const SLOW_REQUEST_MS = Math.max(250, Number(process.env.API_SLOW_REQUEST_MS) || 1000);
+const configuredSlowRequestMs = Number(process.env.API_SLOW_REQUEST_MS);
+const SLOW_REQUEST_MS = Math.min(
+  30_000,
+  Math.max(250, Number.isFinite(configuredSlowRequestMs) && configuredSlowRequestMs > 0 ? configuredSlowRequestMs : 1_000),
+);
 const requests = [];
 const incidents = [];
 const routeBuckets = new Map();
