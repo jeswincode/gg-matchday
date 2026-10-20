@@ -2534,7 +2534,9 @@ async function loadClubOperationsData(now = new Date()) {
   const [
     totalClubs, activeClubs, archivedClubs, pendingApplications,
     formationRows, contractsExpiring, activeOffers, syncJobs, pendingSettlementRows,
-    pendingMatchRows, allClubs, reservationRows, recentErrors,
+    pendingMatchRows, allClubs, walletMismatchResult, recentErrors,
+    captainAndMemberDecisionsCount, contractsExpiring7DaysCount, offersExpiring24HoursCount,
+    syncIssuesCount, pendingSettlementsCount, staleFormationsCount, staleSyncCount,
   ] = await Promise.all([
     Club.countDocuments({}),
     Club.countDocuments({ status: "approved" }),
@@ -2567,21 +2569,69 @@ async function loadClubOperationsData(now = new Date()) {
       ],
     }).sort({ scheduledAt: 1, createdAt: 1 }).limit(100).lean(),
     Club.find({}).select("_id name balance committedBalance status updatedAt").sort({ updatedAt: -1 }).limit(500).lean(),
-    AuctionOffer.aggregate([
-      { $match: {
-        $or: [
-          { status: "active", expiresAt: { $gt: now } },
-          { status: "chosenByPlayer" },
+    Club.aggregate([
+      { $lookup: {
+        from: AuctionOffer.collection.name,
+        let: { targetClubId: "$_id" },
+        pipeline: [
+          { $match: { $expr: { $and: [
+            { $eq: ["$clubId", "$targetClubId"] },
+            { $or: [
+              { $and: [{ $eq: ["$status", "active"] }, { $gt: ["$expiresAt", now] }] },
+              { $eq: ["$status", "chosenByPlayer"] },
+            ] },
+          ] } } },
+          { $group: { _id: null, amount: { $sum: "$amount" } } },
         ],
+        as: "reservedOfferTotals",
       } },
-      { $group: { _id: "$clubId", amount: { $sum: "$amount" } } },
+      { $addFields: {
+        expectedCommittedBalance: { $round: [{ $ifNull: [{ $arrayElemAt: ["$reservedOfferTotals.amount", 0] }, 0] }, 2] },
+        storedCommittedBalance: { $round: [{ $ifNull: ["$committedBalance", 0] }, 2] },
+      } },
+      { $match: { $expr: { $gt: [{ $abs: { $subtract: ["$storedCommittedBalance", "$expectedCommittedBalance"] } }, 0.001] } } },
+      { $facet: {
+        items: [
+          { $sort: { updatedAt: -1 } },
+          { $limit: 100 },
+          { $project: {
+            _id: 1, name: 1, balance: 1, status: 1, updatedAt: 1,
+            committedBalance: "$storedCommittedBalance",
+            expectedCommittedBalance: "$expectedCommittedBalance",
+          } },
+        ],
+        counts: [{ $count: "total" }],
+      } },
     ]),
     ClubAdminAuditEvent.find({ outcome: "failed", createdAt: { $gte: new Date(now.getTime() - 7 * OPERATIONS_DAY_MS) } })
       .sort({ createdAt: -1 }).limit(20).lean(),
+    ClubFormationApplication.countDocuments({ status: { $in: ACTIVE_FORMATION_STATUSES.filter(status => status !== "pendingAdminApproval") } }),
+    ClubContract.countDocuments({ status: "active", endAt: { $gt: now, $lte: sevenDays } }),
+    AuctionOffer.countDocuments({
+      status: { $in: ["active", "chosenByPlayer"] },
+      $or: [{ status: "chosenByPlayer" }, { status: "active", expiresAt: { $lte: oneDay } }, { status: "active", expiresAt: null }],
+    }),
+    ClubSyncJob.countDocuments({
+      $or: [
+        { status: "pending", $or: [{ lastError: { $nin: ["", null] } }, { nextAttemptAt: { $lte: now } }] },
+        { status: "processing", lockedUntil: { $lte: now } },
+      ],
+    }),
+    ClubMatch.countDocuments({ status: "completed", mainMatchId: { $ne: null }, settlementStatus: { $ne: "settled" } }),
+    ClubFormationApplication.countDocuments({ status: { $in: ACTIVE_FORMATION_STATUSES }, createdAt: { $lte: staleCutoff } }),
+    ClubSyncJob.countDocuments({
+      updatedAt: { $lte: staleCutoff },
+      $or: [
+        { status: "pending", $or: [{ lastError: { $nin: ["", null] } }, { nextAttemptAt: { $lte: now } }] },
+        { status: "processing" },
+      ],
+    }),
   ]);
 
-  const reservations = new Map(reservationRows.map(row => [String(row._id), Number(row.amount || 0)]));
   const clubsById = new Map(allClubs.map(club => [String(club._id), club]));
+  const walletMismatchDoc = walletMismatchResult[0] || {};
+  const walletMismatchRows = walletMismatchDoc.items || [];
+  const walletMismatchCount = Number(walletMismatchDoc.counts?.[0]?.total || 0);
   const queue = [];
 
   for (const application of formationRows) {
@@ -2727,34 +2777,26 @@ async function loadClubOperationsData(now = new Date()) {
     }, now));
   }
 
-  const mismatches = [];
-  for (const club of allClubs) {
-    const expected = Math.round(Number(reservations.get(String(club._id)) || 0) * 100) / 100;
-    const committed = Math.round(Number(club.committedBalance || 0) * 100) / 100;
-    if (Math.abs(committed - expected) > 0.001) {
-      mismatches.push({
-        club,
-        expected,
-        committed,
-      });
-      queue.push(operationsQueueItem({
-        type: "wallet-discrepancy",
-        severity: Number(club.balance || 0) < expected ? "critical" : "high",
-        entityType: "wallet",
-        entityId: club._id,
-        title: `${club.name || "Club"} reservation discrepancy`,
-        subtitle: `Committed ${committed} · expected ${expected} credits`,
-        detail: Number(club.balance || 0) < expected
-          ? "Reserved signing offers exceed the stored Club balance. Do not apply a manual correction from the dashboard; inspect offer and wallet ledgers first."
-          : "Stored committed balance differs from active/chosen offers. The maintenance reconciliation is canonical; inspect the related offers and wallet ledger first.",
-        status: "mismatch",
-        createdAt: club.updatedAt,
-        updatedAt: club.updatedAt,
-        target: "adminClubs",
-        nextAction: "Inspect Club wallet and offers",
-        metadata: { clubId: String(club._id), balance: Number(club.balance || 0), committedBalance: committed, expectedCommittedBalance: expected },
-      }, now));
-    }
+  for (const club of walletMismatchRows) {
+    const expected = Number(club.expectedCommittedBalance || 0);
+    const committed = Number(club.committedBalance || 0);
+    queue.push(operationsQueueItem({
+      type: "wallet-discrepancy",
+      severity: Number(club.balance || 0) < expected ? "critical" : "high",
+      entityType: "wallet",
+      entityId: club._id,
+      title: `${club.name || "Club"} reservation discrepancy`,
+      subtitle: `Committed ${committed} · expected ${expected} credits`,
+      detail: Number(club.balance || 0) < expected
+        ? "Reserved signing offers exceed the stored Club balance. Do not apply a manual correction from the dashboard; inspect offer and wallet ledgers first."
+        : "Stored committed balance differs from active/chosen offers. The maintenance reconciliation is canonical; inspect the related offers and wallet ledger first.",
+      status: "mismatch",
+      createdAt: club.updatedAt,
+      updatedAt: club.updatedAt,
+      target: "adminClubs",
+      nextAction: "Inspect Club wallet and offers",
+      metadata: { clubId: String(club._id), balance: Number(club.balance || 0), committedBalance: committed, expectedCommittedBalance: expected },
+    }, now));
   }
 
   for (const event of recentErrors) {
@@ -2775,11 +2817,8 @@ async function loadClubOperationsData(now = new Date()) {
     }, now));
   }
 
-  const staleFormations = formationRows.filter(application =>
-    new Date(application.createdAt || now).getTime() < staleCutoff.getTime() &&
-    ACTIVE_FORMATION_STATUSES.includes(application.status),
-  ).length;
-  const staleSyncJobs = syncJobs.filter(job => new Date(job.updatedAt || job.createdAt || now).getTime() < staleCutoff.getTime()).length;
+  const staleFormations = staleFormationsCount;
+  const staleSyncJobs = staleSyncCount;
 
   queue.sort((a, b) => {
     const severityWeight = { critical: 0, high: 1, warning: 2, info: 3 };
@@ -2795,12 +2834,12 @@ async function loadClubOperationsData(now = new Date()) {
       activeClubs,
       archivedClubs,
       pendingApplications,
-      captainAndMemberDecisions: formationRows.filter(application => application.status !== "pendingAdminApproval").length,
-      contractsExpiring7Days: contractsExpiring.filter(contract => new Date(contract.endAt).getTime() <= sevenDays.getTime()).length,
-      offersExpiring24Hours: activeOffers.filter(offer => offer.status === "chosenByPlayer" || !offer.expiresAt || new Date(offer.expiresAt).getTime() <= oneDay.getTime()).length,
-      syncFailures: syncJobs.filter(job => Boolean(job.lastError) || job.status === "processing").length,
-      pendingSettlements: pendingSettlementRows.length,
-      walletDiscrepancies: mismatches.length,
+      captainAndMemberDecisions: captainAndMemberDecisionsCount,
+      contractsExpiring7Days: contractsExpiring7DaysCount,
+      offersExpiring24Hours: offersExpiring24HoursCount,
+      syncFailures: syncIssuesCount,
+      pendingSettlements: pendingSettlementsCount,
+      walletDiscrepancies: walletMismatchCount,
       staleWorkflows: staleFormations + staleSyncJobs,
       recentCriticalErrors: recentErrors.length,
       upcomingMatches: await ClubMatch.countDocuments({ status: { $in: ["requested", "accepted"] } }),
