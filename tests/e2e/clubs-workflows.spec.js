@@ -105,7 +105,8 @@ test("Club formation works across member, captain, and admin browser sessions", 
     const founderCandidateButton = founder.locator(".clubs-vote-candidate").filter({ hasText: electedCandidateName });
     await expect(founderCandidateButton).toBeVisible();
     await founderCandidateButton.click();
-    await expect(founder.getByRole("button", { name: "Approve Details", exact: true })).toBeVisible();
+    const votedFormation = founder.locator(".clubs-application").filter({ hasText: FORMATION_CLUB_NAME });
+    await expect(votedFormation).toContainText("Waiting for captain details approval");
 
     // An administrator must not see a formation before its elected captain approves the details.
     adminBeforeDetails = await newClubsActor(browser, { role: "admin" });
