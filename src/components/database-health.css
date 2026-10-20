@@ -31,3 +31,5 @@
 .database-health-reason{display:block;margin-top:8px;color:var(--muted);font-size:9px;overflow-wrap:anywhere;}
 @media(max-width:720px){.database-health-databases,.database-health-provider-grid{grid-template-columns:1fr;}.database-health-heading-actions{justify-content:flex-start;}.database-health-provider-head{flex-direction:column;}.database-health-provider-status{max-width:100%;}}
 @media(max-width:520px){.database-health-workspace{gap:12px;}.database-health-provider dl{grid-template-columns:1fr 1fr;}.database-health-meter-head{align-items:flex-start;}.database-health-meter-head strong{font-size:22px;}.database-health-collections-head span{font-size:8px;}}
+
+.database-health-provider-config{margin:0 0 8px;color:var(--muted);font-size:9px;line-height:1.4;overflow-wrap:anywhere;}
