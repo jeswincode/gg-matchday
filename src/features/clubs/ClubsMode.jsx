@@ -214,7 +214,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [commandCenterLoading, setCommandCenterLoading] = useState(false);
   const [receivedReviews, setReceivedReviews] = useState([]);
   const [clubDiscovery, setClubDiscovery] = useState([]);
-  const [adminAttentionDetail, setAdminAttentionDetail] = useState(null);
   const [operationsSummary, setOperationsSummary] = useState(null);
   const [operationsQueue, setOperationsQueue] = useState({ items: [], pagination: { page: 1, pages: 1, total: 0 }, generatedAt: null });
   const [operationsActivity, setOperationsActivity] = useState({ items: [], pagination: { page: 1, hasMore: false }, nextBefore: null });
@@ -411,7 +410,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     if (!item || !["retry-sync", "settle-match", "review-formation"].includes(item.action)) {
       setOperationsError("This item requires inspection in its existing workflow.");
       return;
-      return;
     }
     if (item.action === "settle-match" && !window.confirm("Settle this completed Club Match using the canonical settlement service? This affects wallet ledgers.")) return;
     if (item.action === "review-formation") {
@@ -450,7 +448,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     if (!isAdmin || authUser?.playerProfile || activeSection !== "adminDashboard") return undefined;
     // This section refreshes server-sourced operational data on entry and when its filters change.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Dashboard entry intentionally fetches current operational data.
     refreshOperationsCenter().catch(() => {});
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Filter state is the deliberate reload trigger.
