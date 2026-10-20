@@ -289,7 +289,7 @@ export default function DatabaseHealth() {
                           </div>
                           <p className="database-health-provider-note">{provider.note}</p>
                           <dl>
-                            <div><dt>Last attempt</dt><dd>{formatTime(provider.lastAttemptAt)}</dd></div>
+                            <div><dt>Last attempt</dt><dd>{provider.lastProviderOutcome === "not-configured" ? "Not attempted" : formatTime(provider.lastAttemptAt)}</dd></div>
                             <div><dt>Last success</dt><dd>{formatTime(provider.lastSuccessAt)}</dd></div>
                             <div><dt>Last observed</dt><dd>{formatAge(provider.lastObservedAgeSeconds)}</dd></div>
                             <div><dt>Last duration</dt><dd>{formatDuration(provider.lastDurationMs)}</dd></div>
