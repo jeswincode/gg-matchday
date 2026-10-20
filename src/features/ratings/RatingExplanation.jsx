@@ -41,20 +41,19 @@ export default function RatingExplanation({ matchId, playerId, playerName, canDi
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError("");
     api(`/rating-explanations/matches/${matchId}/players/${playerId}`)
-      .then(result => { if (active) setData(result?.explanation || null); })
+      .then(result => {
+        if (!active) return;
+        setError("");
+        setData(result?.explanation || null);
+      })
       .catch(requestError => { if (active) setError(requestError.message || "Rating explanation is unavailable."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [matchId, playerId, refreshKey]);
 
   useEffect(() => {
-    if (!canDispute) {
-      setDisputes([]);
-      return undefined;
-    }
+    if (!canDispute) return undefined;
     let active = true;
     api(`/rating-disputes/me?matchId=${matchId}`)
       .then(result => { if (active) setDisputes(result?.disputes || []); })
@@ -102,7 +101,7 @@ export default function RatingExplanation({ matchId, playerId, playerName, canDi
       </div>
 
       {loading ? <p className="rating-explanation-muted" role="status">Calculating the explanation from the saved match record…</p> : null}
-      {error ? <div className="rating-explanation-error" role="alert">{error}<button type="button" onClick={() => setRefreshKey(value => value + 1)}>Retry</button></div> : null}
+      {error ? <div className="rating-explanation-error" role="alert">{error}<button type="button" onClick={() => { setLoading(true); setError(""); setRefreshKey(value => value + 1); }}>Retry</button></div> : null}
 
       {!loading && !error && data && (
         <>
