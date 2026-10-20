@@ -21,6 +21,7 @@ await connectClubsDatabase();
 const { default: app } = await import("../../server/app.js");
 const { default: Player } = await import("../../server/models/Player.js");
 const { default: Match } = await import("../../server/models/Match.js");
+const { default: RatingDispute } = await import("../../server/models/RatingDispute.js");
 const { default: User } = await import("../../server/models/User.js");
 const { default: Club } = await import("../../server/models/clubs/Club.js");
 const { default: ClubContract } = await import("../../server/models/clubs/ClubContract.js");
@@ -35,6 +36,7 @@ const { default: PlayerWalletTransaction } = await import("../../server/models/c
 await Promise.all([
   Player.init(),
   Match.init(),
+  RatingDispute.init(),
   User.init(),
   Club.init(),
   ClubContract.init(),
@@ -141,6 +143,73 @@ await Promise.all([
   seedAuctionClub("E2E Auction Workflow FC", auctionPlayers),
   seedAuctionClub("E2E Auction Retry Workflow FC", auctionRetryPlayers),
 ]);
+
+const ratingExplanationMatch = await Match.create({
+  date: new Date(),
+  name: "E2E Rating Explanation Match",
+  teamA: { label: "E2E Rating Side A", score: 1 },
+  teamB: { label: "E2E Rating Side B", score: 0 },
+  participants: [
+    {
+      player: new mongoose.Types.ObjectId(basePlayers[0].id),
+      team: "A",
+      performanceCodes: [],
+      rating: 7.3,
+      defensivePerformance: 6.5,
+      ratingSystem: "gg-v3",
+      ownGoals: 0,
+    },
+    {
+      player: new mongoose.Types.ObjectId(basePlayers[1].id),
+      team: "B",
+      performanceCodes: [],
+      rating: 5.7,
+      defensivePerformance: 5.9,
+      ratingSystem: "gg-v3",
+      ownGoals: 0,
+    },
+  ],
+  events: [{ player: new mongoose.Types.ObjectId(basePlayers[0].id), type: "goal" }],
+});
+
+const ratingDisputeReporter = await User.create({
+  firebaseUid: `e2e-test:viewer:${basePlayers[1].id}`,
+  name: "E2E Dispute Reporter",
+  email: "e2e-rating-dispute-reporter@test.invalid",
+  profileImage: "",
+  role: "viewer",
+  accessRequest: "none",
+  playerProfile: new mongoose.Types.ObjectId(basePlayers[1].id),
+});
+await RatingDispute.create({
+  match: ratingExplanationMatch._id,
+  player: new mongoose.Types.ObjectId(basePlayers[1].id),
+  submittedBy: ratingDisputeReporter._id,
+  category: "match-rating",
+  message: "Please review this seeded defensive and match rating concern.",
+  status: "pending",
+  open: true,
+  snapshot: {
+    matchId: String(ratingExplanationMatch._id),
+    matchName: ratingExplanationMatch.name,
+    matchDate: ratingExplanationMatch.date,
+    playerId: basePlayers[1].id,
+    playerName: basePlayers[1].name,
+    formulaVersion: "gg-v3",
+    stored: { matchRating: 5.7, defensiveRating: 5.9, ratingSystem: "gg-v3", performanceCodes: [] },
+    calculated: { matchRating: 5.7, defensiveRating: 5.9 },
+    score: { teamA: { label: "E2E Rating Side A", goals: 1 }, teamB: { label: "E2E Rating Side B", goals: 0 } },
+    capturedAt: new Date(),
+  },
+  history: [{
+    actorUserId: ratingDisputeReporter._id,
+    actorName: ratingDisputeReporter.name,
+    action: "submitted",
+    fromStatus: "",
+    toStatus: "pending",
+    note: "Seeded isolated browser fixture.",
+  }],
+});
 
 const adminApplicationMembers = adminOperationsPlayers.map(player => new mongoose.Types.ObjectId(player.id));
 await ClubFormationApplication.create({
