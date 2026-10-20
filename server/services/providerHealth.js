@@ -135,7 +135,9 @@ function stateFor(providerKey, nowMs) {
   let note = "No provider result has been observed.";
   if (item.lastProviderOutcome === "not-configured") {
     status = "not-configured";
-    note = "The most recent call used the local fallback because the provider is not configured.";
+    note = providerKey === "clubs.match-sync"
+      ? "The Clubs integration is not configured, so this synchronization was skipped."
+      : "Provider configuration is missing; the application uses its defined fallback where available.";
   } else if (item.consecutiveFailures > 0) {
     status = "degraded";
     note = "The latest provider attempt failed; a fallback may have been served to the caller.";
