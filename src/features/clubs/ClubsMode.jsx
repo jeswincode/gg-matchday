@@ -2089,7 +2089,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     </select>
                   </label>
                 </div>
-                <p className="clubs-operations-provenance">{operationsActivity.coverage?.audit}. Older history is shown only when a persisted ClubHistory record exists; missing events are not reconstructed.</p>
+                <p className="clubs-operations-provenance">{operationsActivity.coverage?.audit}. Older history is shown only when a persisted ClubHistory record exists; missing events are not reconstructed. Wallet entries come from the persisted Club wallet ledger, not inferred from a current balance.</p>
+                {operationsActivity.pagination?.reachedRetrievalCap && <p className="clubs-operations-provenance" role="status">The activity view reached its 150-record retrieval cap. Older records may exist beyond this bounded view.</p>}
                 {!operationsActivity.items?.length ? <div className="clubs-empty"><strong>No recorded activity matches.</strong><span>Operational observations are not presented as historical events.</span></div> : (
                   <div className="clubs-operations-activity">
                     {operationsActivity.items.map(event => (
