@@ -84,8 +84,7 @@ export default function DatabaseHealth() {
   const [operationsError, setOperationsError] = useState("");
   const requestController = useRef(null);
 
-  const refresh = useCallback(async ({ manual = false } = {}) => {
-    if (manual) setRefreshing(true);
+  const refresh = useCallback(async () => {
     requestController.current?.abort();
     const controller = new AbortController();
     requestController.current = controller;
@@ -136,7 +135,7 @@ export default function DatabaseHealth() {
   const status = databaseStatusCopy[data?.status] || null;
   const usagePercent = Number.isFinite(Number(data?.usagePercent)) ? Number(data.usagePercent) : 0;
   const width = Math.min(100, Math.max(0, usagePercent));
-  const providers = operationsHealth?.providers || [];
+  const providers = useMemo(() => operationsHealth?.providers || [], [operationsHealth?.providers]);
   const providerGroups = useMemo(() => providers.reduce((groups, provider) => {
     const key = provider.group || "Other";
     if (!groups[key]) groups[key] = [];
@@ -159,7 +158,7 @@ export default function DatabaseHealth() {
                 {status.icon} {status.label}
               </span>
             )}
-            <button type="button" className="secondary-button database-health-refresh" onClick={() => refresh({ manual: true })} disabled={refreshing}>
+            <button type="button" className="secondary-button database-health-refresh" onClick={() => { setRefreshing(true); refresh().catch(() => {}); }} disabled={refreshing}>
               {refreshing ? "Refreshing…" : "Refresh"}
             </button>
           </div>
