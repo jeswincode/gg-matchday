@@ -2866,3 +2866,13 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-formation-stepper span
 .clubs-operations-activity-item small{display:block;margin-top:6px;color:var(--muted);font-size:10px;overflow-wrap:anywhere;}
 @media(max-width:800px){.clubs-operations-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.clubs-operations-list{grid-template-columns:1fr;}.clubs-operations-filters{grid-template-columns:repeat(2,minmax(0,1fr));}.clubs-operations-search{grid-column:span 2;}}
 @media(max-width:520px){.clubs-operations-overview-head{flex-direction:column;}.clubs-operations-overview-head>span{text-align:left;}.clubs-operations-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}.clubs-operations-metric{min-height:100px;padding:11px;}.clubs-operations-metric strong{font-size:22px;}.clubs-operations-metric span{font-size:11px;}.clubs-operations-filters{grid-template-columns:1fr;}.clubs-operations-search{grid-column:auto;}.clubs-operations-search>div{flex-direction:column;}.clubs-operations-search .clubs-secondary-button{align-self:flex-start;}.clubs-operations-view-switch .clubs-secondary-button{margin-left:0;}.clubs-operations-actions{flex-direction:column;align-items:stretch;}.clubs-operations-actions button{width:100%;}.clubs-operations-pagination{flex-wrap:wrap;}.clubs-operations-pagination span{flex:1;}}
+
+.clubs-operations-item-detail{margin-top:12px;padding:13px;border:1px solid var(--border);border-radius:12px;background:var(--panel-soft);}
+.clubs-operations-item-detail h5{margin:0 0 7px;font-size:12px;}
+.clubs-operations-item-detail>p{margin:6px 0;color:var(--muted);font-size:11px;line-height:1.5;overflow-wrap:anywhere;}
+.clubs-operations-item-detail dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0;}
+.clubs-operations-item-detail dl>div{min-width:0;padding:8px;border:1px solid var(--border);border-radius:8px;}
+.clubs-operations-item-detail dt{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);}
+.clubs-operations-item-detail dd{margin:4px 0 0;font-size:11px;overflow-wrap:anywhere;word-break:break-word;}
+.clubs-operations-item-detail .clubs-operations-detail-next{color:inherit;}
+@media(max-width:520px){.clubs-operations-item-detail dl{grid-template-columns:1fr;}}
