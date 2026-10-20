@@ -20,7 +20,7 @@ const EXCLUDED_PATHS = new Set([
 function normalizeRoute(method, route) {
   const safeMethod = String(method || "GET").toUpperCase().slice(0, 12);
   const safeRoute = String(route || "/unmatched")
-    .replace(/\/+?/g, "/")
+    .replace(/\/+/g, "/")
     .slice(0, 180);
   return { method: safeMethod, route: safeRoute.startsWith("/") ? safeRoute : "/" + safeRoute };
 }
