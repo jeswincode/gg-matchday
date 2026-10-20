@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import Match from "../models/Match.js";
+import { normalizeMatchScores } from "../services/statistics.js";
 import RatingDispute from "../models/RatingDispute.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { buildRatingExplanation } from "../services/ratings/explanation.js";
@@ -88,6 +89,7 @@ router.post("/matches/:matchId/players/:playerId", requireAuth, async (req, res)
       .populate("participants.player", "name profileImage")
       .lean();
     if (!match) return res.status(404).json({ message: "Match not found." });
+    normalizeMatchScores(match);
     const participant = (match.participants || []).find(row => String(row.player?._id || row.player) === String(req.params.playerId));
     if (!participant) return res.status(404).json({ message: "This player did not participate in the selected match." });
 
