@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { buildFallbackMatchNews, normalizeGoalMilestoneHeadline } from "./matchNews.js";
+import { recordProviderObservation } from "./providerHealth.js";
 
 dotenv.config();
 
@@ -101,17 +102,19 @@ export async function generateMatchNews(
     );
 
   if (!API_KEY) {
-    console.error(
-      "❌ Gemini is not configured: GEMINI_API_KEY is missing."
-    );
-
+    console.error("Gemini match-news generation is not configured.");
+    recordProviderObservation("gemini.match-news", {
+      outcome: "not-configured",
+      fallbackUsed: true,
+      reasonCode: "not-configured",
+    });
     return {
       ...fallback,
-      aiError:
-        "GEMINI_API_KEY is missing",
+      aiError: "GEMINI_API_KEY is missing",
     };
   }
 
+  let providerStartedAt = null;
   try {
     const facts =
       getVerifiedFacts(
@@ -164,6 +167,7 @@ ${JSON.stringify(
       `🤖 Sending match ${match._id} to Gemini using ${MODEL}...`
     );
 
+    providerStartedAt = Date.now();
     const interaction =
       await ai.interactions.create(
         {
@@ -247,6 +251,10 @@ ${JSON.stringify(
       );
     }
 
+    recordProviderObservation("gemini.match-news", {
+      outcome: "success",
+      durationMs: Date.now() - providerStartedAt,
+    });
     return {
       headline:
         normalizeGoalMilestoneHeadline(
@@ -276,6 +284,21 @@ ${JSON.stringify(
         null,
     };
   } catch (error) {
+    if (providerStartedAt !== null) {
+      const reasonCode = error?.name === "AbortError"
+        ? "timeout"
+        : String(error?.message || "").includes("empty response")
+          ? "empty-response"
+          : String(error?.name || "").includes("Syntax")
+            ? "parse-error"
+            : "provider-error";
+      recordProviderObservation("gemini.match-news", {
+        outcome: "failure",
+        durationMs: Date.now() - providerStartedAt,
+        fallbackUsed: true,
+        reasonCode,
+      });
+    }
     console.error(
       "❌ Gemini generation failed."
     );
