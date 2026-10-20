@@ -19,12 +19,11 @@ const router = express.Router();
 
 const DEFAULT_QUOTA_MB = 512;
 const configuredQuotaMb = Number(process.env.MONGODB_STORAGE_QUOTA_MB);
-const quotaReferenceSource = Number.isFinite(configuredQuotaMb) && configuredQuotaMb > 0
-  ? "environment-configured"
-  : "default-reference";
+const quotaIsConfigured = Number.isFinite(configuredQuotaMb) && configuredQuotaMb >= 1;
+const quotaReferenceSource = quotaIsConfigured ? "environment-configured" : "default-reference";
 const quotaBytes = Math.max(
   1,
-  Number.isFinite(configuredQuotaMb) && configuredQuotaMb > 0 ? configuredQuotaMb : DEFAULT_QUOTA_MB
+  quotaIsConfigured ? configuredQuotaMb : DEFAULT_QUOTA_MB
 ) * 1024 * 1024;
 
 const collections = {
