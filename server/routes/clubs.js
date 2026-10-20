@@ -2367,6 +2367,7 @@ router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) =>
 
 router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid formation application id." });
   try {
     const application = await ClubFormationApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ message: "Club formation application not found." });
@@ -2398,6 +2399,7 @@ router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (
 
 router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid formation application id." });
   const session = await getClubsConnection().startSession();
   try {
     let createdClub;
@@ -2446,7 +2448,7 @@ router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async 
     await writeClubAdminAudit(req, {
       action: "formation-approve",
       entityType: "formation",
-      entityId: createdClub?._id || new mongoose.Types.ObjectId(req.params.id),
+      entityId: new mongoose.Types.ObjectId(req.params.id),
       clubId: createdClub?._id || null,
       previousStatus: "pendingAdminApproval",
       nextStatus: "approved",
