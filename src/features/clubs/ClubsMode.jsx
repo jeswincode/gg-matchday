@@ -360,6 +360,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setAdminMatches(Array.isArray(matchData) ? matchData : []);
       setAdminApplications(Array.isArray(applicationData) ? applicationData : []);
       setClubs(Array.isArray(clubData) ? clubData.filter(club => club.status === "approved") : []);
+      await refreshOperationsCenter();
       announce(action === "approve" ? "Club formation approved." : "Club formation rejected.");
     } catch (e) {
       setError(e.message);
