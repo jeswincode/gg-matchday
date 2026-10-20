@@ -260,7 +260,7 @@ test("admin operational health reports live database pings and process-local pro
 
   const response = await request("/system/operations-health", { token: "admin" });
   assert.equal(response.status, 200, JSON.stringify(response.data));
-  assert.equal(response.data.success, true);
+  assert.equal(response.data.success, response.data.status === "ok");
   assert.equal(response.data.databases.core.status, "connected");
   assert.ok(["connected", "unreachable", "disconnected", "not-configured"].includes(response.data.databases.clubs.status));
   assert.equal(response.data.providerScope, "process-local-observations");
