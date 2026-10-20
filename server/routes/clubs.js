@@ -2985,7 +2985,7 @@ router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, 
       createdAt: dateFilter,
       ...(entityType === "clubMatch" ? { eventType: "matchPlayed" } : {}),
     };
-    const retrievalLimit = Math.min(150, limit * page);
+    const retrievalLimit = Math.min(150, limit * page + 1);
     const [auditEvents, historyEvents, walletTransactions] = await Promise.all([
       ClubAdminAuditEvent.find(eventFilter).sort({ createdAt: -1, _id: -1 }).limit(retrievalLimit).lean(),
       ClubHistory.find(historyFilter).sort({ createdAt: -1, _id: -1 }).limit(retrievalLimit).lean(),
@@ -3035,10 +3035,10 @@ router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, 
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
       .slice(0, retrievalLimit);
     const items = merged.slice((page - 1) * limit, page * limit);
-    const hasMore = page * limit < 150 && items.length === limit;
+    const hasMore = page * limit < 150 && merged.length > page * limit;
     return res.json({
       success: true,
-      pagination: { page, limit, totalReturned: merged.length, hasMore, retrievalCap: 150, reachedRetrievalCap: merged.length >= 150 },
+      pagination: { page, limit, totalReturned: merged.length, hasMore, retrievalCap: 150, reachedRetrievalCap: retrievalLimit === 150 },
       nextBefore: items.length ? new Date(items[items.length - 1].createdAt).toISOString() : null,
       items,
       coverage: { audit: "Administrator actions recorded after deployment of this feature", history: "Persisted ClubHistory records only; missing older actions are not reconstructed", wallet: "Persisted Club wallet ledger entries; current state is not treated as an event history" },
