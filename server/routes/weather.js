@@ -7,7 +7,7 @@ router.get("/", async (req, res) => {
     if (!weather) return res.status(404).json({ message: "Weather location could not be resolved." });
     return res.json(weather);
   } catch (error) {
-    console.error("Weather error:", error);
+    console.error("Weather provider request failed.", { requestId: req.requestId || "" });
     return res.status(502).json({ message: "Weather is temporarily unavailable." });
   }
 });
