@@ -24,6 +24,8 @@ import ggAdminRoutes from "./routes/ggAdmin.js";
 import clubsRoutes from "./routes/clubs.js";
 import { pingClubsDatabase } from "./config/clubsDatabase.js";
 import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
+import ratingExplanationRoutes from "./routes/ratingExplanations.js";
+import ratingDisputeRoutes from "./routes/ratingDisputes.js";
 
 dotenv.config();
 
@@ -70,6 +72,8 @@ app.use("/api/profile-requests", profileSecurityRoutes);
 app.use("/api/profile-requests", profileRequestRoutes);
 app.use("/api/clubs", clubsRoutes);
 app.use("/api/clubs", playerClubHistoryRoutes);
+app.use("/api/rating-explanations", ratingExplanationRoutes);
+app.use("/api/rating-disputes", ratingDisputeRoutes);
 
 app.get("/api/health", async (req, res) => {
   let coreConnected = false;
