@@ -2802,7 +2802,7 @@ function App() {
       {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer}/>}
       {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer}/>}
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
-      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin}/>}
+      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
       </Suspense>
       {modeTransitionLayer}
     </main>
