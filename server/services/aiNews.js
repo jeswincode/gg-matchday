@@ -283,7 +283,7 @@ ${JSON.stringify(
       aiError:
         null,
     };
-  } catch (error) {
+  } catch {
     if (providerStartedAt !== null) {
       const reasonCode = error?.name === "AbortError"
         ? "timeout"
@@ -299,25 +299,10 @@ ${JSON.stringify(
         reasonCode,
       });
     }
-    console.error(
-      "❌ Gemini generation failed."
-    );
-
-    console.error(
-      "Model:",
-      MODEL
-    );
-
-    console.error(
-      "Error:",
-      error
-    );
-
+    console.error("Gemini match-news generation failed.", { model: MODEL });
     return {
       ...fallback,
-      aiError:
-        error?.message ||
-        "Unknown Gemini error",
+      aiError: "Gemini generation failed; the factual fallback was used.",
     };
   }
 }
