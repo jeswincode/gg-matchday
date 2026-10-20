@@ -83,13 +83,21 @@ app.get("/api/health", async (req, res) => {
       await mongoose.connection.db.admin().ping();
       coreConnected = true;
     }
-  } catch (error) {
-    console.error("Core database health check error:", error);
+  } catch {
+    console.error(JSON.stringify({
+      event: "database_health_ping_failed",
+      requestId: req.requestId,
+      dependency: "core-database",
+    }));
   }
   try {
     clubsConnected = await pingClubsDatabase();
-  } catch (error) {
-    console.error("Clubs database health check error:", error);
+  } catch {
+    console.error(JSON.stringify({
+      event: "database_health_ping_failed",
+      requestId: req.requestId,
+      dependency: "clubs-database",
+    }));
   }
   const healthy = coreConnected && clubsConnected;
   return res.status(healthy ? 200 : 503).json({
