@@ -4,6 +4,7 @@ import { getClubsConnection } from "../config/clubsDatabase.js";
 import { syncClubStatsForMatch } from "./clubsMatchSync.js";
 import { settleClubMatchRewards } from "./clubsMatchSettlement.js";
 import { settleClubMatchBets } from "./clubsBetting.js";
+import { recordProviderObservation } from "./providerHealth.js";
 
 export const CLUB_SYNC_RETRY_BASE_MS = 30_000;
 export const CLUB_SYNC_RETRY_MAX_MS = 60 * 60_000;
@@ -33,10 +34,28 @@ async function settleLinkedClubMatches(syncResult) {
 }
 
 export async function syncMainMatchToClubs(mainMatch) {
-  if (!clubsIntegrationConfigured()) return { linked: false, clubMatchIds: [], affectedClubIds: [] };
-  const result = await syncClubStatsForMatch(mainMatch);
-  await settleLinkedClubMatches(result);
-  return result;
+  if (!clubsIntegrationConfigured()) {
+    recordProviderObservation("clubs.match-sync", { outcome: "not-configured", reasonCode: "not-configured" });
+    return { linked: false, clubMatchIds: [], affectedClubIds: [] };
+  }
+
+  const startedAt = Date.now();
+  try {
+    const result = await syncClubStatsForMatch(mainMatch);
+    await settleLinkedClubMatches(result);
+    recordProviderObservation("clubs.match-sync", {
+      outcome: "success",
+      durationMs: Date.now() - startedAt,
+    });
+    return result;
+  } catch (error) {
+    recordProviderObservation("clubs.match-sync", {
+      outcome: "failure",
+      durationMs: Date.now() - startedAt,
+      reasonCode: "provider-error",
+    });
+    throw error;
+  }
 }
 
 export async function enqueueClubSyncJob(mainMatchId, lastError = "") {
