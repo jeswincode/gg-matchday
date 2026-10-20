@@ -299,8 +299,10 @@ export default function DatabaseHealth() {
                           <dl>
                             <div><dt>Last attempt</dt><dd>{provider.lastProviderOutcome === "not-configured" ? "Not attempted" : formatTime(provider.lastAttemptAt)}</dd></div>
                             <div><dt>Last success</dt><dd>{formatTime(provider.lastSuccessAt)}</dd></div>
+                            <div><dt>Last failure</dt><dd>{formatTime(provider.lastFailureAt)}</dd></div>
                             <div><dt>Last observed</dt><dd>{formatAge(provider.lastObservedAgeSeconds)}</dd></div>
                             <div><dt>Last duration</dt><dd>{formatDuration(provider.lastDurationMs)}</dd></div>
+                            <div><dt>Consecutive failures</dt><dd>{provider.consecutiveFailures || 0}</dd></div>
                           </dl>
                           <div className="database-health-provider-counts">
                             <span>{provider.successes || 0} successes</span>
