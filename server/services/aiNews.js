@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
 import { buildFallbackMatchNews, normalizeGoalMilestoneHeadline } from "./matchNews.js";
-import { recordProviderObservation } from "./providerHealth.js";
+import { recordProviderObservation, safeProviderFailureReason } from "./providerHealth.js";
 
 dotenv.config();
 
@@ -285,13 +285,9 @@ ${JSON.stringify(
     };
   } catch (error) {
     if (providerStartedAt !== null) {
-      const reasonCode = error?.name === "AbortError"
-        ? "timeout"
-        : String(error?.message || "").includes("empty response")
-          ? "empty-response"
-          : String(error?.name || "").includes("Syntax")
-            ? "parse-error"
-            : "provider-error";
+      const reasonCode = String(error?.message || "").includes("empty response")
+        ? "empty-response"
+        : safeProviderFailureReason(error);
       recordProviderObservation("gemini.match-news", {
         outcome: "failure",
         durationMs: Date.now() - providerStartedAt,
