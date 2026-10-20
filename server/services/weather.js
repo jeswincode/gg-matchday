@@ -1,4 +1,4 @@
-import { recordProviderObservation } from "./providerHealth.js";
+import { recordProviderObservation, safeProviderFailureReason } from "./providerHealth.js";
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
 const OPEN_METEO_GEOCODING = "https://geocoding-api.open-meteo.com/v1/search";
@@ -19,6 +19,7 @@ async function fetchJson(url, providerKey, validatePayload = () => true) {
     if (!response.ok) {
       const error = new Error("Weather provider returned HTTP " + response.status);
       error.name = "ProviderHttpError";
+      error.status = response.status;
       throw error;
     }
     const payload = await response.json().catch(() => {
@@ -40,11 +41,7 @@ async function fetchJson(url, providerKey, validatePayload = () => true) {
       recordProviderObservation(providerKey, {
         outcome: "failure",
         durationMs: Date.now() - startedAt,
-        reasonCode: error?.name === "AbortError"
-          ? "timeout"
-          : error?.name === "InvalidProviderResponse" || error?.name === "SyntaxError"
-            ? "invalid-response"
-            : "provider-error",
+        reasonCode: safeProviderFailureReason(error),
       });
     }
     throw error;
