@@ -40,6 +40,8 @@ import ClubMatchBet from "../models/clubs/ClubMatchBet.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
 import ClubSyncJob from "../models/ClubSyncJob.js";
+import ClubAdminAuditEvent from "../models/clubs/ClubAdminAuditEvent.js";
+import { processClubSyncJob } from "../services/clubsSync.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
 import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
 import { generateClubMatchPrediction } from "../services/clubsPrediction.js";
@@ -1400,14 +1402,35 @@ router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, r
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
   const session = await getClubsConnection().startSession();
+  let previousStatus = "unknown";
   try {
     let result;
     await session.withTransaction(async () => {
+      const existing = await ClubMatch.findById(req.params.matchId).session(session).select("settlementStatus").lean();
+      if (existing) previousStatus = existing.settlementStatus || "pending";
       result = await settleClubMatchRewards({ clubMatchId: req.params.matchId, session });
       await settleClubMatchBets({ clubMatchId: req.params.matchId, session });
     });
+    await writeClubAdminAudit(req, {
+      action: "match-settlement",
+      entityType: "clubMatch",
+      entityId: new mongoose.Types.ObjectId(req.params.matchId),
+      previousStatus,
+      nextStatus: result?.clubMatch?.settlementStatus || "settled",
+      outcome: "success",
+      reason: result?.alreadySettled ? "Admin requested settlement; canonical service confirmed it was already settled." : "Admin invoked canonical settlement and betting settlement services.",
+    });
     return res.json(result);
   } catch (error) {
+    await writeClubAdminAudit(req, {
+      action: "match-settlement",
+      entityType: "clubMatch",
+      entityId: new mongoose.Types.ObjectId(req.params.matchId),
+      previousStatus,
+      nextStatus: previousStatus,
+      outcome: "failed",
+      reason: String(error?.message || "Settlement failed").slice(0, 500),
+    });
     return res.status(400).json({ message: error.message || "Failed to settle Club Match economy." });
   } finally {
     await session.endSession();
@@ -2344,6 +2367,7 @@ router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) =>
 
 router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid formation application id." });
   try {
     const application = await ClubFormationApplication.findById(req.params.id);
     if (!application) return res.status(404).json({ message: "Club formation application not found." });
@@ -2353,9 +2377,19 @@ router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (
     }
     const reason = String(req.body?.reason || "").trim();
     if (!reason) return res.status(400).json({ message: "A rejection reason is required." });
+    const previousStatus = application.status;
     application.rejectionReason = reason;
     application.status = "rejected";
     await application.save();
+    await writeClubAdminAudit(req, {
+      action: "formation-reject",
+      entityType: "formation",
+      entityId: application._id,
+      previousStatus,
+      nextStatus: application.status,
+      outcome: "success",
+      reason,
+    });
     return res.json(application);
   } catch (error) {
     console.error("Club application rejection error:", error);
@@ -2365,6 +2399,7 @@ router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (
 
 router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid formation application id." });
   const session = await getClubsConnection().startSession();
   try {
     let createdClub;
@@ -2410,13 +2445,649 @@ router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async 
       await application.save({ session });
       createdClub = club;
     });
+    await writeClubAdminAudit(req, {
+      action: "formation-approve",
+      entityType: "formation",
+      entityId: new mongoose.Types.ObjectId(req.params.id),
+      clubId: createdClub?._id || null,
+      previousStatus: "pendingAdminApproval",
+      nextStatus: "approved",
+      outcome: "success",
+      reason: "Administrator approved a fully captain-approved Club formation.",
+    });
     return res.status(201).json(createdClub);
   } catch (error) {
+    await writeClubAdminAudit(req, {
+      action: "formation-approve",
+      entityType: "formation",
+      entityId: new mongoose.Types.ObjectId(req.params.id),
+      previousStatus: "pendingAdminApproval",
+      nextStatus: "pendingAdminApproval",
+      outcome: "failed",
+      reason: String(error?.message || "Formation approval failed").slice(0, 500),
+    });
     console.error("Club application approval error:", error);
     return res.status(400).json({ message: error.message || "Failed to approve the club application." });
   } finally {
     await session.endSession();
   }
 });
+
+
+const OPERATIONS_DAY_MS = 24 * 60 * 60 * 1000;
+const ACTIVE_FORMATION_STATUSES = [
+  "pendingMutualAgreement", "pendingName", "pendingCaptainVoteSetup",
+  "captainVote", "pendingCaptainDetailsApproval", "pendingAdminApproval",
+];
+
+function boundedPositiveInt(value, fallback, max) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, max) : fallback;
+}
+
+function operationsAgeHours(value, now = new Date()) {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? Math.max(0, Math.floor((now.getTime() - timestamp) / 3_600_000)) : null;
+}
+
+function operationsQueueItem({
+  type, severity = "info", entityType, entityId, title, subtitle = "",
+  detail = "", status = "", createdAt = null, updatedAt = null, dueAt = null,
+  target = "adminDashboard", nextAction = "Inspect record", action = null, metadata = {},
+}, now = new Date()) {
+  return {
+    id: `${type}:${String(entityId)}`,
+    type, severity, entityType, entityId: String(entityId), title, subtitle, detail,
+    status, createdAt, updatedAt,
+    ageHours: operationsAgeHours(createdAt, now),
+    dueAt,
+    target, nextAction, action,
+    metadata,
+  };
+}
+
+async function writeClubAdminAudit(req, event) {
+  try {
+    await ClubAdminAuditEvent.create({
+      actorUserId: req.user?._id || null,
+      actorName: String(req.user?.name || req.user?.email || "Administrator").slice(0, 120),
+      actorEmail: String(req.user?.email || "").slice(0, 254),
+      actorRole: "admin",
+      requestId: String(req.requestId || "").slice(0, 80),
+      ...event,
+    });
+  } catch {
+    // Auditing failures must never roll back or change the result of a business
+    // operation; emit only a correlation-safe event without payloads or secrets.
+    console.error("Clubs administrator audit write failed", {
+      requestId: req.requestId || "",
+      action: event?.action || "unknown",
+      entityType: event?.entityType || "unknown",
+    });
+  }
+}
+
+async function loadClubOperationsData(now = new Date()) {
+  const sevenDays = new Date(now.getTime() + 7 * OPERATIONS_DAY_MS);
+  const thirtyDays = new Date(now.getTime() + 30 * OPERATIONS_DAY_MS);
+  const oneDay = new Date(now.getTime() + OPERATIONS_DAY_MS);
+  const staleCutoff = new Date(now.getTime() - 7 * OPERATIONS_DAY_MS);
+  const [
+    totalClubs, activeClubs, archivedClubs, pendingApplications,
+    formationRows, contractsExpiring, activeOffers, syncJobs, pendingSettlementRows,
+    pendingMatchRows, allClubs, walletMismatchResult, recentErrors,
+    captainAndMemberDecisionsCount, contractsExpiring7DaysCount, offersExpiring24HoursCount,
+    syncIssuesCount, pendingSettlementsCount, staleFormationsCount, staleSyncCount,
+  ] = await Promise.all([
+    Club.countDocuments({}),
+    Club.countDocuments({ status: "approved" }),
+    Club.countDocuments({ status: "archived" }),
+    ClubFormationApplication.countDocuments({
+      status: "pendingAdminApproval",
+      $expr: { $and: [
+        { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: ["$details", ""] } } } }, 0] },
+        { $gt: [{ $size: { $ifNull: ["$electedCaptainIds", []] } }, 0] },
+        { $eq: [
+          { $size: { $setIntersection: [{ $ifNull: ["$electedCaptainIds", []] }, { $ifNull: ["$detailsApprovedBy", []] }] } },
+          { $size: { $ifNull: ["$electedCaptainIds", []] } },
+        ] },
+      ] },
+    }),
+    ClubFormationApplication.find({ status: { $in: ACTIVE_FORMATION_STATUSES } })
+      .sort({ createdAt: 1 }).limit(100).lean(),
+    ClubContract.find({ status: "active", endAt: { $gt: now, $lte: thirtyDays } })
+      .sort({ endAt: 1 }).limit(100).lean(),
+    AuctionOffer.find({
+      status: { $in: ["active", "chosenByPlayer"] },
+      $or: [
+        { expiresAt: { $lte: oneDay } },
+        { status: "chosenByPlayer" },
+        { expiresAt: null },
+      ],
+    }).sort({ expiresAt: 1, createdAt: 1 }).limit(100).lean(),
+    ClubSyncJob.find({
+      $or: [
+        { status: "pending", $or: [{ lastError: { $nin: ["", null] } }, { nextAttemptAt: { $lte: now } }] },
+        { status: "processing", lockedUntil: { $lte: now } },
+      ],
+    }).sort({ nextAttemptAt: 1, createdAt: 1 }).limit(100).lean(),
+    ClubMatch.find({ status: "completed", mainMatchId: { $ne: null }, settlementStatus: { $ne: "settled" } })
+      .sort({ updatedAt: 1 }).limit(100).lean(),
+    ClubMatch.find({
+      $or: [
+        { status: "requested" },
+        { status: "accepted", scheduledAt: { $lt: now }, mainMatchId: null },
+      ],
+    }).sort({ scheduledAt: 1, createdAt: 1 }).limit(100).lean(),
+    Club.find({}).select("_id name balance committedBalance status updatedAt").sort({ updatedAt: -1 }).limit(500).lean(),
+    Club.aggregate([
+      { $lookup: {
+        from: AuctionOffer.collection.name,
+        let: { targetClubId: "$_id" },
+        pipeline: [
+          { $match: { $expr: { $and: [
+            { $eq: ["$clubId", "$targetClubId"] },
+            { $or: [
+              { $and: [{ $eq: ["$status", "active"] }, { $gt: ["$expiresAt", now] }] },
+              { $eq: ["$status", "chosenByPlayer"] },
+            ] },
+          ] } } },
+          { $group: { _id: null, amount: { $sum: "$amount" } } },
+        ],
+        as: "reservedOfferTotals",
+      } },
+      { $addFields: {
+        expectedCommittedBalance: { $round: [{ $ifNull: [{ $arrayElemAt: ["$reservedOfferTotals.amount", 0] }, 0] }, 2] },
+        storedCommittedBalance: { $round: [{ $ifNull: ["$committedBalance", 0] }, 2] },
+      } },
+      { $match: { $expr: { $gt: [{ $abs: { $subtract: ["$storedCommittedBalance", "$expectedCommittedBalance"] } }, 0.001] } } },
+      { $facet: {
+        items: [
+          { $sort: { updatedAt: -1 } },
+          { $limit: 100 },
+          { $project: {
+            _id: 1, name: 1, balance: 1, status: 1, updatedAt: 1,
+            committedBalance: "$storedCommittedBalance",
+            expectedCommittedBalance: "$expectedCommittedBalance",
+          } },
+        ],
+        counts: [{ $count: "total" }],
+      } },
+    ]),
+    ClubAdminAuditEvent.find({ outcome: "failed", createdAt: { $gte: new Date(now.getTime() - 7 * OPERATIONS_DAY_MS) } })
+      .sort({ createdAt: -1 }).limit(20).lean(),
+    ClubFormationApplication.countDocuments({ status: { $in: ACTIVE_FORMATION_STATUSES.filter(status => status !== "pendingAdminApproval") } }),
+    ClubContract.countDocuments({ status: "active", endAt: { $gt: now, $lte: sevenDays } }),
+    AuctionOffer.countDocuments({
+      status: { $in: ["active", "chosenByPlayer"] },
+      $or: [{ status: "chosenByPlayer" }, { status: "active", expiresAt: { $lte: oneDay } }, { status: "active", expiresAt: null }],
+    }),
+    ClubSyncJob.countDocuments({
+      $or: [
+        { status: "pending", $or: [{ lastError: { $nin: ["", null] } }, { nextAttemptAt: { $lte: now } }] },
+        { status: "processing", lockedUntil: { $lte: now } },
+      ],
+    }),
+    ClubMatch.countDocuments({ status: "completed", mainMatchId: { $ne: null }, settlementStatus: { $ne: "settled" } }),
+    ClubFormationApplication.countDocuments({ status: { $in: ACTIVE_FORMATION_STATUSES }, createdAt: { $lte: staleCutoff } }),
+    ClubSyncJob.countDocuments({
+      updatedAt: { $lte: staleCutoff },
+      $or: [
+        { status: "pending", $or: [{ lastError: { $nin: ["", null] } }, { nextAttemptAt: { $lte: now } }] },
+        { status: "processing" },
+      ],
+    }),
+  ]);
+
+  const clubsById = new Map(allClubs.map(club => [String(club._id), club]));
+  const walletMismatchDoc = walletMismatchResult[0] || {};
+  const walletMismatchRows = walletMismatchDoc.items || [];
+  const walletMismatchCount = Number(walletMismatchDoc.counts?.[0]?.total || 0);
+  const sourceLimitsReached = [];
+  if (formationRows.length === 100) sourceLimitsReached.push("formation records (100)");
+  if (contractsExpiring.length === 100) sourceLimitsReached.push("contracts (100)");
+  if (activeOffers.length === 100) sourceLimitsReached.push("auction offers (100)");
+  if (syncJobs.length === 100) sourceLimitsReached.push("sync jobs (100)");
+  if (pendingSettlementRows.length === 100) sourceLimitsReached.push("settlements (100)");
+  if (pendingMatchRows.length === 100) sourceLimitsReached.push("fixtures (100)");
+  if (walletMismatchCount > walletMismatchRows.length) sourceLimitsReached.push("wallet discrepancies (first 100 displayed)");
+  if (recentErrors.length === 20) sourceLimitsReached.push("failed admin actions (20)");
+  const queue = [];
+
+  for (const application of formationRows) {
+    // Admin action is only permitted once the existing workflow reaches the
+    // canonical pendingAdminApproval state; earlier stages remain informational.
+    const readyForAdmin = application.status === "pendingAdminApproval" &&
+      captainDetailsAreApproved(application);
+    if (application.status === "pendingAdminApproval" && !readyForAdmin) continue;
+    const age = operationsAgeHours(application.createdAt, now);
+    const waitingForMember = application.status === "pendingMutualAgreement";
+    queue.push(operationsQueueItem({
+      type: "formation",
+      severity: readyForAdmin ? "high" : age >= 24 * 7 ? "high" : age >= 24 ? "warning" : "info",
+      entityType: "formation",
+      entityId: application._id,
+      title: application.proposedName || "Unnamed Club formation",
+      subtitle: `${application.memberIds?.length || 0} selected members · ${statusLabelForOperations(application.status)}`,
+      detail: readyForAdmin
+        ? "All required captain details approvals are recorded. An administrator can review and approve or reject with a reason."
+        : waitingForMember
+          ? "Member invitation responses are outstanding; no administrator approval action is available at this stage."
+          : "The formation workflow is awaiting a member or captain action.",
+      status: application.status,
+      createdAt: application.createdAt,
+      updatedAt: application.updatedAt,
+      target: readyForAdmin ? "adminApplications" : "adminDashboard",
+      nextAction: readyForAdmin ? "Review application" : "Inspect formation progress",
+      action: readyForAdmin ? "review-formation" : null,
+      metadata: { pendingMembers: (application.memberApprovals || []).filter(item => item.status === "pending").length },
+    }, now));
+    if (readyForAdmin) continue;
+  }
+
+  for (const contract of contractsExpiring) {
+    const club = clubsById.get(String(contract.clubId));
+    const remainingHours = Math.floor((new Date(contract.endAt).getTime() - now.getTime()) / 3_600_000);
+    queue.push(operationsQueueItem({
+      type: "contract",
+      severity: remainingHours <= 24 ? "high" : remainingHours <= 72 ? "warning" : "info",
+      entityType: "club",
+      entityId: contract.clubId,
+      title: club?.name || "Club contract renewal",
+      subtitle: `Contract expires ${new Date(contract.endAt).toISOString()}`,
+      detail: "An active player contract is approaching its existing renewal boundary; inspect the Club and current renewal decision before taking action.",
+      status: "active",
+      createdAt: contract.createdAt,
+      updatedAt: contract.updatedAt,
+      dueAt: contract.endAt,
+      target: "adminClubs",
+      nextAction: "Review Club contracts",
+      metadata: { playerId: String(contract.playerId), contractId: String(contract._id), contractEndAt: contract.endAt },
+    }, now));
+  }
+
+  for (const offer of activeOffers) {
+    const club = clubsById.get(String(offer.clubId));
+    const remaining = offer.expiresAt ? new Date(offer.expiresAt).getTime() - now.getTime() : null;
+    const expired = remaining !== null && remaining <= 0;
+    const chosen = offer.status === "chosenByPlayer";
+    queue.push(operationsQueueItem({
+      type: "auction",
+      severity: chosen ? (operationsAgeHours(offer.playerChosenAt || offer.updatedAt, now) >= 48 ? "high" : "warning")
+        : expired ? "high" : remaining !== null && remaining <= 6 * 60 * 60 * 1000 ? "warning" : "info",
+      entityType: "auctionOffer",
+      entityId: offer._id,
+      title: `${club?.name || "Club"} signing offer · ${offer.amount} credits`,
+      subtitle: chosen ? "Player selected · captain approval is required" : expired ? "Offer expired · maintenance should release its reservation" : "Offer nearing expiry",
+      detail: chosen
+        ? "The player's offer selection is persisted. Review captain approval state; settlement remains governed by the canonical auction service."
+        : expired ? "This offer is past its stored expiry but is still in an active state. Check maintenance and reservation reconciliation."
+          : "This active offer is approaching its stored expiration time.",
+      status: offer.status,
+      createdAt: offer.createdAt,
+      updatedAt: offer.updatedAt,
+      dueAt: offer.expiresAt,
+      target: "adminDashboard",
+      nextAction: chosen ? "Inspect signing approvals" : "Inspect offer and reserved budget",
+      metadata: { clubId: String(offer.clubId), playerId: String(offer.playerId), amount: offer.amount },
+    }, now));
+  }
+
+  for (const job of syncJobs) {
+    const age = operationsAgeHours(job.updatedAt || job.createdAt, now);
+    queue.push(operationsQueueItem({
+      type: "sync",
+      severity: job.lastError ? (age >= 24 ? "critical" : "high") : "warning",
+      entityType: "syncJob",
+      entityId: job._id,
+      title: "Matchday → Clubs synchronization needs attention",
+      subtitle: `Main match ${String(job.mainMatchId)} · ${job.attempts || 0} attempts`,
+      detail: job.lastError || (job.status === "processing" ? "Sync lock appears stale; the canonical worker can safely reclaim it after lock expiry." : "Sync is pending its next eligible retry."),
+      status: job.status,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt,
+      dueAt: job.nextAttemptAt,
+      target: "adminMatches",
+      nextAction: job.lastError ? "Inspect or retry synchronization" : "Inspect synchronization",
+      action: job.lastError ? "retry-sync" : null,
+      metadata: { mainMatchId: String(job.mainMatchId), attempts: job.attempts || 0, nextAttemptAt: job.nextAttemptAt },
+    }, now));
+  }
+
+  for (const match of pendingSettlementRows) {
+    const age = operationsAgeHours(match.updatedAt || match.createdAt, now);
+    queue.push(operationsQueueItem({
+      type: "settlement",
+      severity: age >= 24 ? "critical" : age >= 2 ? "high" : "warning",
+      entityType: "clubMatch",
+      entityId: match._id,
+      title: "Completed Club Match awaits settlement",
+      subtitle: `Fixture ${match.fixtureDate || match.scheduledAt}`,
+      detail: "A completed Club Match has a linked main Match Record but the canonical settlement flag is not settled. Review the match before invoking the idempotent settlement service.",
+      status: match.settlementStatus || "pending",
+      createdAt: match.createdAt,
+      updatedAt: match.updatedAt,
+      target: "adminMatches",
+      nextAction: "Review settlement",
+      action: "settle-match",
+      metadata: { mainMatchId: String(match.mainMatchId), clubAId: String(match.clubAId), clubBId: String(match.clubBId) },
+    }, now));
+  }
+
+  for (const match of pendingMatchRows) {
+    const pastFixture = match.status === "accepted" && new Date(match.scheduledAt).getTime() < now.getTime();
+    const age = operationsAgeHours(match.createdAt, now);
+    queue.push(operationsQueueItem({
+      type: "match",
+      severity: pastFixture ? "high" : age >= 24 * 3 ? "warning" : "info",
+      entityType: "clubMatch",
+      entityId: match._id,
+      title: pastFixture ? "Accepted fixture has no linked Matchday result" : "Club Match request is still open",
+      subtitle: `Fixture ${match.fixtureDate || match.scheduledAt}`,
+      detail: pastFixture
+        ? "The fixture date has passed and no main Match Record is linked. Verify the real match record before attempting a synchronization."
+        : "A fixture request remains in the requested state; the response remains the responsibility of the receiving Club's captains.",
+      status: match.status,
+      createdAt: match.createdAt,
+      updatedAt: match.updatedAt,
+      dueAt: match.scheduledAt,
+      target: "adminMatches",
+      nextAction: "Inspect fixture",
+      metadata: { clubAId: String(match.clubAId), clubBId: String(match.clubBId), mainMatchId: match.mainMatchId ? String(match.mainMatchId) : null },
+    }, now));
+  }
+
+  for (const club of walletMismatchRows) {
+    const expected = Number(club.expectedCommittedBalance || 0);
+    const committed = Number(club.committedBalance || 0);
+    queue.push(operationsQueueItem({
+      type: "wallet-discrepancy",
+      severity: Number(club.balance || 0) < expected ? "critical" : "high",
+      entityType: "wallet",
+      entityId: club._id,
+      title: `${club.name || "Club"} reservation discrepancy`,
+      subtitle: `Committed ${committed} · expected ${expected} credits`,
+      detail: Number(club.balance || 0) < expected
+        ? "Reserved signing offers exceed the stored Club balance. Do not apply a manual correction from the dashboard; inspect offer and wallet ledgers first."
+        : "Stored committed balance differs from active/chosen offers. The maintenance reconciliation is canonical; inspect the related offers and wallet ledger first.",
+      status: "mismatch",
+      createdAt: club.updatedAt,
+      updatedAt: club.updatedAt,
+      target: "adminClubs",
+      nextAction: "Inspect Club wallet and offers",
+      metadata: { clubId: String(club._id), balance: Number(club.balance || 0), committedBalance: committed, expectedCommittedBalance: expected },
+    }, now));
+  }
+
+  for (const event of recentErrors) {
+    queue.push(operationsQueueItem({
+      type: "admin-error",
+      severity: "high",
+      entityType: event.entityType,
+      entityId: event.entityId,
+      title: `Recent administrator action failed: ${event.action}`,
+      subtitle: event.reason || "An administrator action was recorded as failed.",
+      detail: "Review the audit event and underlying record. No automatic repair was applied.",
+      status: event.outcome,
+      createdAt: event.createdAt,
+      updatedAt: event.updatedAt,
+      target: "adminDashboard",
+      nextAction: "Inspect audit history",
+      metadata: { auditEventId: String(event._id), requestId: event.requestId || "" },
+    }, now));
+  }
+
+  const staleFormations = staleFormationsCount;
+  const staleSyncJobs = staleSyncCount;
+
+  queue.sort((a, b) => {
+    const severityWeight = { critical: 0, high: 1, warning: 2, info: 3 };
+    return severityWeight[a.severity] - severityWeight[b.severity]
+      || (new Date(a.dueAt || a.createdAt || now).getTime() - new Date(b.dueAt || b.createdAt || now).getTime());
+  });
+
+  return {
+    now,
+    queue,
+    sourceLimitsReached,
+    counts: {
+      totalClubs,
+      activeClubs,
+      archivedClubs,
+      pendingApplications,
+      captainAndMemberDecisions: captainAndMemberDecisionsCount,
+      contractsExpiring7Days: contractsExpiring7DaysCount,
+      offersExpiring24Hours: offersExpiring24HoursCount,
+      syncFailures: syncIssuesCount,
+      pendingSettlements: pendingSettlementsCount,
+      walletDiscrepancies: walletMismatchCount,
+      staleWorkflows: staleFormations + staleSyncJobs,
+      recentFailedAdminActions: recentErrors.length,
+      upcomingMatches: await ClubMatch.countDocuments({ status: { $in: ["requested", "accepted"] } }),
+      completedMatches: await ClubMatch.countDocuments({ status: "completed" }),
+    },
+  };
+}
+
+function statusLabelForOperations(status) {
+  return ({
+    pendingMutualAgreement: "waiting for member responses",
+    pendingName: "awaiting permanent name",
+    pendingCaptainVoteSetup: "captain vote setup",
+    captainVote: "captain election in progress",
+    pendingCaptainDetailsApproval: "waiting for captain details approval",
+    pendingAdminApproval: "waiting for administrator approval",
+    approved: "approved",
+    rejected: "rejected",
+  })[status] || String(status || "unknown");
+}
+
+function normalizeOperationsFilter(value, allowed, fallback = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  return allowed.includes(normalized) ? normalized : fallback;
+}
+
+router.get("/admin/operations/summary", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const data = await loadClubOperationsData();
+    return res.json({
+      success: true,
+      generatedAt: data.now.toISOString(),
+      counts: data.counts,
+      queueCount: data.queue.length,
+      queueSourceLimitsReached: data.sourceLimitsReached,
+      queueIsPartial: data.sourceLimitsReached.length > 0,
+      queueBySeverity: {
+        critical: data.queue.filter(item => item.severity === "critical").length,
+        high: data.queue.filter(item => item.severity === "high").length,
+        warning: data.queue.filter(item => item.severity === "warning").length,
+        info: data.queue.filter(item => item.severity === "info").length,
+      },
+      telemetry: {
+        source: "persisted-clubs-records",
+        auditCoverageSince: "administrator actions recorded after this feature is deployed",
+        syncHistoryAvailable: true,
+        providerHealth: "not-instrumented-in-this-subsystem",
+      },
+    });
+  } catch {
+    console.error("Clubs operations summary failed", { requestId: req.requestId || "" });
+    return res.status(500).json({ success: false, message: "Could not load Clubs operations summary." });
+  }
+});
+
+router.get("/admin/operations/queue", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const limit = boundedPositiveInt(req.query.limit, 25, 100);
+  const page = boundedPositiveInt(req.query.page, 1, 100_000);
+  const validTypes = ["formation", "contract", "auction", "sync", "settlement", "match", "wallet-discrepancy", "admin-error"];
+  const validSeverities = ["critical", "high", "warning", "info"];
+  const type = normalizeOperationsFilter(req.query.type, validTypes);
+  const severity = normalizeOperationsFilter(req.query.severity, validSeverities);
+  const status = String(req.query.status || "").trim().slice(0, 80);
+  const age = normalizeOperationsFilter(req.query.age, ["under24h", "1to7d", "over7d"]);
+  const club = String(req.query.club || "").trim().toLowerCase().slice(0, 120);
+  const search = String(req.query.search || "").trim().toLowerCase().slice(0, 120);
+  const sort = normalizeOperationsFilter(req.query.sort, ["priority", "oldest", "newest", "due"], "priority");
+  try {
+    const data = await loadClubOperationsData();
+    let items = data.queue;
+    if (type) items = items.filter(item => item.type === type);
+    if (severity) items = items.filter(item => item.severity === severity);
+    if (status) items = items.filter(item => String(item.status || "").toLowerCase() === status.toLowerCase());
+    if (age === "under24h") items = items.filter(item => item.ageHours != null && item.ageHours < 24);
+    if (age === "1to7d") items = items.filter(item => item.ageHours != null && item.ageHours >= 24 && item.ageHours < 168);
+    if (age === "over7d") items = items.filter(item => item.ageHours != null && item.ageHours >= 168);
+    if (club) items = items.filter(item => {
+      const metadata = item.metadata || {};
+      return [item.title, item.subtitle, metadata.clubName, metadata.clubId, metadata.clubAId, metadata.clubBId, item.entityId]
+        .some(value => String(value || "").toLowerCase().includes(club));
+    });
+    if (search) items = items.filter(item => [item.title, item.subtitle, item.detail, item.entityId].some(value => String(value || "").toLowerCase().includes(search)));
+    if (sort === "oldest") items = [...items].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    if (sort === "newest") items = [...items].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
+    if (sort === "due") items = [...items].sort((a, b) => new Date(a.dueAt || "9999-12-31") - new Date(b.dueAt || "9999-12-31"));
+    return res.json({
+      success: true,
+      generatedAt: data.now.toISOString(),
+      pagination: {
+        page, limit, totalObserved: items.length,
+        totalIsExact: data.sourceLimitsReached.length === 0,
+        pagesObserved: Math.max(1, Math.ceil(items.length / limit)),
+      },
+      sourceLimitsReached: data.sourceLimitsReached,
+      filters: { type, severity, status, age, club, search, sort },
+      items: items.slice((page - 1) * limit, page * limit),
+    });
+  } catch {
+    console.error("Clubs operations queue failed", { requestId: req.requestId || "" });
+    return res.status(500).json({ success: false, message: "Could not load Clubs operations queue." });
+  }
+});
+
+router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const limit = boundedPositiveInt(req.query.limit, 20, 50);
+  const page = boundedPositiveInt(req.query.page, 1, 100_000);
+  const types = ["formation", "club", "clubMatch", "auctionOffer", "wallet", "syncJob"];
+  const entityType = normalizeOperationsFilter(req.query.entityType, types);
+  const outcome = normalizeOperationsFilter(req.query.outcome, ["success", "failed", "requested"]);
+  const before = req.query.before ? new Date(String(req.query.before)) : null;
+  if (before && !Number.isFinite(before.getTime())) return res.status(400).json({ success: false, message: "Invalid activity cursor." });
+  const dateFilter = before ? { $lt: before } : { $exists: true };
+  try {
+    const eventFilter = {
+      ...(entityType ? { entityType } : {}),
+      ...(outcome ? { outcome } : {}),
+      createdAt: dateFilter,
+    };
+    const historyFilter = {
+      createdAt: dateFilter,
+      ...(entityType === "clubMatch" ? { eventType: "matchPlayed" } : {}),
+    };
+    const retrievalLimit = Math.min(150, limit * page + 1);
+    const [auditEvents, historyEvents, walletTransactions] = await Promise.all([
+      ClubAdminAuditEvent.find(eventFilter).sort({ createdAt: -1, _id: -1 }).limit(retrievalLimit).lean(),
+      ClubHistory.find(historyFilter).sort({ createdAt: -1, _id: -1 }).limit(retrievalLimit).lean(),
+      !entityType || entityType === "wallet"
+        ? ClubWalletTransaction.find(before ? { createdAt: { $lt: before } } : {})
+            .sort({ createdAt: -1, _id: -1 }).limit(retrievalLimit).lean()
+        : Promise.resolve([]),
+    ]);
+    const normalizedAudit = auditEvents.map(event => ({
+      id: String(event._id), source: "admin-audit", action: event.action,
+      actor: event.actorName || "Administrator", actorRole: event.actorRole || "admin",
+      entityType: event.entityType, entityId: String(event.entityId), clubId: event.clubId ? String(event.clubId) : null,
+      previousStatus: event.previousStatus || "", nextStatus: event.nextStatus || "",
+      outcome: event.outcome, reason: event.reason || "", requestId: event.requestId || "",
+      createdAt: event.createdAt, updatedAt: event.updatedAt,
+    }));
+    const normalizedHistory = historyEvents.map(event => {
+      const entityTypeForEvent = event.eventType === "matchPlayed" ? "clubMatch"
+        : event.eventType === "walletTransaction" ? "wallet" : "club";
+      return {
+        id: String(event._id), source: "club-history", action: event.eventType,
+        actor: "Recorded Club history", actorRole: "system", entityType: entityTypeForEvent,
+        entityId: String(event.relatedClubMatchId || event.clubId), clubId: String(event.clubId),
+        previousStatus: "", nextStatus: "", outcome: "success",
+        reason: event.description || "", requestId: "", createdAt: event.createdAt || event.occurredAt, updatedAt: event.updatedAt,
+      };
+    });
+    const normalizedWallet = walletTransactions.map(transaction => ({
+      id: String(transaction._id), source: "club-wallet-ledger",
+      action: "wallet-" + String(transaction.type || "transaction").replace(/_/g, "-"),
+      actor: "Persisted wallet ledger", actorRole: "system",
+      entityType: "wallet", entityId: String(transaction._id), clubId: String(transaction.clubId),
+      previousStatus: "", nextStatus: "recorded", outcome: "success",
+      reason: transaction.description || "Persisted Club wallet transaction.",
+      requestId: "", createdAt: transaction.createdAt, updatedAt: transaction.updatedAt,
+      metadata: {
+        amount: transaction.amount,
+        balanceAfter: transaction.balanceAfter,
+        mainMatchId: transaction.mainMatchId ? String(transaction.mainMatchId) : null,
+        clubMatchId: transaction.clubMatchId ? String(transaction.clubMatchId) : null,
+        auctionOfferId: transaction.auctionOfferId ? String(transaction.auctionOfferId) : null,
+        idempotencyKeyPresent: Boolean(transaction.idempotencyKey),
+      },
+    }));
+    const merged = [...normalizedAudit, ...normalizedHistory, ...normalizedWallet]
+      .filter(event => (!entityType || event.entityType === entityType) && (!outcome || event.outcome === outcome))
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, retrievalLimit);
+    const items = merged.slice((page - 1) * limit, page * limit);
+    const hasMore = page * limit < 150 && merged.length > page * limit;
+    return res.json({
+      success: true,
+      pagination: { page, limit, totalReturned: merged.length, hasMore, retrievalCap: 150, reachedRetrievalCap: retrievalLimit === 150 },
+      nextBefore: items.length ? new Date(items[items.length - 1].createdAt).toISOString() : null,
+      items,
+      coverage: { audit: "Administrator actions recorded after deployment of this feature", history: "Persisted ClubHistory records only; missing older actions are not reconstructed", wallet: "Persisted Club wallet ledger entries; current state is not treated as an event history" },
+    });
+  } catch {
+    console.error("Clubs operations activity failed", { requestId: req.requestId || "" });
+    return res.status(500).json({ success: false, message: "Could not load Clubs activity." });
+  }
+});
+
+router.post("/admin/operations/sync/:jobId/retry", requireAuth, requireAdmin, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  if (!mongoose.isValidObjectId(req.params.jobId)) return res.status(400).json({ success: false, message: "Invalid sync job id." });
+  try {
+    const job = await ClubSyncJob.findById(req.params.jobId);
+    if (!job) return res.status(404).json({ success: false, message: "Sync job not found." });
+    if (job.status === "completed") return res.status(409).json({ success: false, message: "Completed sync jobs cannot be retried." });
+    if (job.status === "processing" && job.lockedUntil && new Date(job.lockedUntil).getTime() > Date.now()) {
+      return res.status(409).json({ success: false, message: "The sync worker currently holds this job. Try again after its lock expires." });
+    }
+    const beforeStatus = job.status;
+    await ClubSyncJob.updateOne(
+      { _id: job._id, status: { $in: ["pending", "processing"] } },
+      { $set: { status: "pending", nextAttemptAt: new Date(), lockedUntil: null } },
+    );
+    const result = await processClubSyncJob({ _id: job._id });
+    await writeClubAdminAudit(req, {
+      action: "sync-retry",
+      entityType: "syncJob",
+      entityId: job._id,
+      previousStatus: beforeStatus,
+      nextStatus: result?.completed ? "completed" : "pending",
+      outcome: result?.completed ? "success" : "failed",
+      reason: result?.error ? String(result.error).slice(0, 500) : "Administrator invoked the canonical Club sync worker.",
+    });
+    return res.json({ success: Boolean(result?.completed), result: { completed: Boolean(result?.completed), skipped: Boolean(result?.skipped) }, message: result?.completed ? "Club synchronization completed." : "Club synchronization remains pending; inspect the updated error before retrying again." });
+  } catch (error) {
+    await writeClubAdminAudit(req, {
+      action: "sync-retry",
+      entityType: "syncJob",
+      entityId: new mongoose.Types.ObjectId(req.params.jobId),
+      outcome: "failed",
+      reason: String(error?.message || "Retry failed").slice(0, 500),
+    });
+    return res.status(500).json({ success: false, message: "Could not retry Club synchronization." });
+  }
+});
+
 
 export default router;

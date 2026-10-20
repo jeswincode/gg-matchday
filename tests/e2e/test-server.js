@@ -27,6 +27,7 @@ const { default: ClubContract } = await import("../../server/models/clubs/ClubCo
 const { default: ClubFormationApplication } = await import("../../server/models/clubs/ClubFormationApplication.js");
 const { default: AuctionOffer } = await import("../../server/models/clubs/AuctionOffer.js");
 const { default: ClubHistory } = await import("../../server/models/clubs/ClubHistory.js");
+const { default: ClubAdminAuditEvent } = await import("../../server/models/clubs/ClubAdminAuditEvent.js");
 const { default: ClubWalletTransaction } = await import("../../server/models/clubs/ClubWalletTransaction.js");
 const { default: PlayerWallet } = await import("../../server/models/clubs/PlayerWallet.js");
 const { default: PlayerWalletTransaction } = await import("../../server/models/clubs/PlayerWalletTransaction.js");
@@ -40,6 +41,7 @@ await Promise.all([
   ClubFormationApplication.init(),
   AuctionOffer.init(),
   ClubHistory.init(),
+  ClubAdminAuditEvent.init(),
   ClubWalletTransaction.init(),
   PlayerWallet.init(),
   PlayerWalletTransaction.init(),
@@ -80,12 +82,19 @@ const auctionRetryPlayers = [
   { id: "65a000000000000000000029", name: "E2E Auction Retry Member Four", position: "GK", pace: 67, physical: 79 },
   { id: "65a000000000000000000030", name: "E2E Auction Retry Signing Target", position: "RW", pace: 81, physical: 76 },
 ];
+const adminOperationsPlayers = [
+  { id: "65a000000000000000000031", name: "E2E Operations Founder", position: "CM", pace: 81, physical: 79 },
+  { id: "65a000000000000000000032", name: "E2E Operations Member Two", position: "ST", pace: 80, physical: 77 },
+  { id: "65a000000000000000000033", name: "E2E Operations Member Three", position: "CB", pace: 78, physical: 83 },
+  { id: "65a000000000000000000034", name: "E2E Operations Member Four", position: "GK", pace: 70, physical: 80 },
+];
 
 const workflowPlayers = [
   ...formationPlayers,
   ...formationRetryPlayers,
   ...auctionPlayers,
   ...auctionRetryPlayers,
+  ...adminOperationsPlayers,
 ];
 const allPlayers = [
   ...basePlayers.map(({ id, ...player }) => ({ _id: new mongoose.Types.ObjectId(id), ...player })),
@@ -132,6 +141,21 @@ await Promise.all([
   seedAuctionClub("E2E Auction Workflow FC", auctionPlayers),
   seedAuctionClub("E2E Auction Retry Workflow FC", auctionRetryPlayers),
 ]);
+
+const adminApplicationMembers = adminOperationsPlayers.map(player => new mongoose.Types.ObjectId(player.id));
+await ClubFormationApplication.create({
+  founderPlayerId: adminApplicationMembers[0],
+  memberIds: adminApplicationMembers,
+  memberApprovals: adminApplicationMembers.map(playerId => ({ playerId, status: "accepted", respondedAt: new Date() })),
+  proposedName: "E2E Operations Review FC",
+  proposedNameNormalized: "e2e operations review fc",
+  details: "A dedicated isolated application for testing the administrator operations queue.",
+  captainCandidates: adminApplicationMembers.slice(0, 2),
+  captainVotes: adminApplicationMembers.map(voterPlayerId => ({ voterPlayerId, candidatePlayerId: adminApplicationMembers[0] })),
+  electedCaptainIds: [adminApplicationMembers[0]],
+  detailsApprovedBy: [adminApplicationMembers[0]],
+  status: "pendingAdminApproval",
+});
 
 const server = app.listen(5000, "127.0.0.1", () => {
   console.log("GG Matchday isolated Playwright API ready on port 5000");
