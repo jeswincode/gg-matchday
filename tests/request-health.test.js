@@ -51,5 +51,5 @@ test("API telemetry keeps request history, incidents and route cardinality bound
   assert.ok(snapshot.busiestRoutes.length <= 10);
   assert.equal(snapshot.windowSampleLimited, true);
   assert.match(snapshot.note, /reset on restart/i);
-  assert.match(snapshot.note, /no query strings, concrete IDs/i);
+  assert.match(snapshot.note, /without query strings, concrete IDs/i);
 });
