@@ -33,6 +33,12 @@ const PROVIDERS = Object.freeze({
 
 const startedAt = new Date();
 const observations = new Map();
+
+function providerConfigured(providerKey) {
+  if (providerKey.startsWith("gemini.")) return Boolean(String(process.env.GEMINI_API_KEY || "").trim());
+  if (providerKey === "clubs.match-sync") return Boolean(String(process.env.CLUBS_MONGODB_URI || "").trim());
+  return true;
+}
 const SAFE_REASON_CODES = new Set([
   "not-configured",
   "timeout",
@@ -123,8 +129,11 @@ function stateFor(providerKey, nowMs) {
     return {
       key: providerKey,
       ...definition,
-      status: "unobserved",
-      note: "No provider operation has been observed since this process started.",
+      configured: providerConfigured(providerKey),
+      status: providerConfigured(providerKey) ? "unobserved" : "not-configured",
+      note: providerConfigured(providerKey)
+        ? "No provider operation has been observed since this process started."
+        : "Required configuration is missing; no provider call has been observed since this process started.",
       ...emptyObservation(),
       lastObservedAgeSeconds: null,
       lastSuccessAgeSeconds: null,
@@ -150,8 +159,11 @@ function stateFor(providerKey, nowMs) {
   return {
     key: providerKey,
     ...definition,
-    status,
-    note,
+    configured: providerConfigured(providerKey),
+    status: item.lastProviderOutcome === null && !providerConfigured(providerKey) ? "not-configured" : status,
+    note: item.lastProviderOutcome === null && !providerConfigured(providerKey)
+      ? "Required configuration is missing; no provider call has been observed since this process started."
+      : note,
     ...item,
     lastObservedAgeSeconds: ageSeconds(item.lastObservedAt),
     lastSuccessAgeSeconds: ageSeconds(item.lastSuccessAt),
