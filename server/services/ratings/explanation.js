@@ -130,8 +130,8 @@ export function buildRatingExplanation(match, playerId) {
       defensiveBreakdown: calculated.defensiveBreakdown,
       matchTotal: ratingLine(matchRawTotal, expectedMatch),
       defensiveTotal: ratingLine(defensiveRawTotal, expectedDefensive),
-      matchMatchesStored: base.stored.matchRating != null && Math.abs(base.stored.matchRating - expectedMatch) <= 0.05,
-      defensiveMatchesStored: base.stored.defensiveRating != null && Math.abs(base.stored.defensiveRating - expectedDefensive) <= 0.05,
+      matchMatchesStored: base.stored.matchRating == null ? null : Math.abs(base.stored.matchRating - expectedMatch) <= 0.05,
+      defensiveMatchesStored: base.stored.defensiveRating == null ? null : Math.abs(base.stored.defensiveRating - expectedDefensive) <= 0.05,
     },
     explanation: {
       matchRating: "Base 6.0 + goals + assists − 0.5 per own goal + team-result modifier + the selected match-performance codes. The raw total is clamped to 4.0–10.0 and rounded to one decimal.",
