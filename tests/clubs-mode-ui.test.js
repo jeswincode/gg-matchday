@@ -321,3 +321,26 @@ test("Club next-action guidance is persistent and formation stages explain their
   assert.match(styles, /\.clubs-formation-next-step/);
   assert.match(styles, /\.clubs-hub-next-action\.is-clear/);
 });
+
+test("Clubs admin dashboard uses the persisted operations API and exposes queue/activity workflows", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
+  const auditModel = fs.readFileSync("server/models/clubs/ClubAdminAuditEvent.js", "utf8");
+
+  assert.match(component, /\/clubs\/admin\/operations\/summary/);
+  assert.match(component, /\/clubs\/admin\/operations\/queue/);
+  assert.match(component, /\/clubs\/admin\/operations\/activity/);
+  assert.match(component, /Action queue/);
+  assert.match(component, /Activity & audit/);
+  assert.match(component, /data-severity=\{item\.severity\}/);
+  assert.match(component, /Review & settle/);
+  assert.match(component, /Retry canonical sync/);
+  assert.match(routes, /router\.get\("\/admin\/operations\/summary", requireAuth, requireAdmin/);
+  assert.match(routes, /router\.get\("\/admin\/operations\/queue", requireAuth, requireAdmin/);
+  assert.match(routes, /router\.get\("\/admin\/operations\/activity", requireAuth, requireAdmin/);
+  assert.match(routes, /router\.post\("\/admin\/operations\/sync\/:jobId\/retry", requireAuth, requireAdmin/);
+  assert.match(routes, /writeClubAdminAudit/);
+  assert.match(auditModel, /collection: "clubAdminAuditEvents"/);
+  assert.match(auditModel, /outcome: \{ type: String, enum: \["success", "failed", "requested"\]/);
+  assert.match(component, /not yet instrumented in this subsystem/i);
+});
