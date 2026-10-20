@@ -270,6 +270,20 @@ test("admin operational health reports live database pings and process-local pro
   assert.ok(response.data.providers.some(provider => provider.key === "gemini.editorial"));
   assert.ok(response.data.providers.some(provider => provider.key === "open-meteo-forecast"));
   assert.match(response.data.providerObservationsNote, /reset on restart/i);
+  assert.equal(response.data.requestHealth.scope, "process-local-request-observations");
+  assert.equal(response.data.requestHealth.windowMinutes, 15);
+  assert.ok(Number.isFinite(response.data.requestHealth.window.requests));
+  assert.ok(Number.isFinite(response.data.requestHealth.window.serverErrors5xx));
+  assert.ok(Array.isArray(response.data.requestHealth.recentIncidents));
+  assert.ok(response.data.requestHealth.recentIncidents.length <= 20);
+  assert.doesNotMatch(JSON.stringify(response.data.requestHealth), /token=|authorization|not-an-object-id/);
+
+  const invalidPath = "/players/not-an-object-id";
+  const invalid = await request(invalidPath);
+  assert.equal(invalid.status, 400);
+  const afterInvalid = await request("/system/operations-health", { token: "admin" });
+  assert.ok(afterInvalid.data.requestHealth.window.clientErrors4xx >= 1);
+  assert.doesNotMatch(JSON.stringify(afterInvalid.data.requestHealth), /not-an-object-id/);
 
   const databaseHealth = await request("/system/database-health", { token: "admin" });
   assert.equal(databaseHealth.status, 200, JSON.stringify(databaseHealth.data));
