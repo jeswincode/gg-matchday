@@ -236,7 +236,14 @@ export default function DatabaseHealth() {
             <h3>Database connections & providers</h3>
             <p className="muted">Live database pings plus the last outcomes observed during normal app requests.</p>
           </div>
-          {operationsHealth?.generatedAt && <span className="database-health-updated">Checked {formatTime(operationsHealth.generatedAt)}</span>}
+          <div className="database-health-heading-actions">
+            {operationsHealth && (
+              <span className={`database-health-status database-health-status-${operationsHealth.status === "degraded" ? "critical" : "healthy"}`}>
+                {operationsHealth.status === "degraded" ? "Database degraded" : "Database pings OK"}
+              </span>
+            )}
+            {operationsHealth?.generatedAt && <span className="database-health-updated">Checked {formatTime(operationsHealth.generatedAt)}</span>}
+          </div>
         </div>
 
         {operationsError && !operationsHealth && (
@@ -288,6 +295,7 @@ export default function DatabaseHealth() {
                             <span className={"database-health-provider-status status-" + provider.status}>{statusCopy.icon} {statusCopy.label}</span>
                           </div>
                           <p className="database-health-provider-note">{provider.note}</p>
+                          <p className="database-health-provider-config">Configuration: {provider.configuredBy}</p>
                           <dl>
                             <div><dt>Last attempt</dt><dd>{provider.lastProviderOutcome === "not-configured" ? "Not attempted" : formatTime(provider.lastAttemptAt)}</dd></div>
                             <div><dt>Last success</dt><dd>{formatTime(provider.lastSuccessAt)}</dd></div>
