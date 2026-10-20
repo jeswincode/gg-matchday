@@ -18,9 +18,10 @@ const AUCTION_PLAYERS = {
   target: { id: "65a000000000000000000025", name: "E2E Auction Signing Target" },
 };
 
-function actorUrl({ role = "editor", playerId = null }) {
+function actorUrl({ role = "editor", playerId = null, id = null }) {
   const params = new URLSearchParams({ e2eRole: role });
-  if (playerId) params.set("e2ePlayerId", playerId);
+  const resolvedPlayerId = playerId || id;
+  if (resolvedPlayerId) params.set("e2ePlayerId", resolvedPlayerId);
   return "/?" + params.toString();
 }
 
@@ -30,8 +31,9 @@ async function loadClubs(page, actor) {
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
+  const linkedPlayerId = actor.playerId || actor.id;
   await expect(page.getByRole("navigation", {
-    name: actor.role === "admin" && !actor.playerId ? "Clubs admin navigation" : "Clubs navigation",
+    name: actor.role === "admin" && !linkedPlayerId ? "Clubs admin navigation" : "Clubs navigation",
   })).toBeVisible();
 }
 
@@ -41,25 +43,16 @@ async function newClubsActor(browser, actor) {
   return page;
 }
 
-function captureClubApi(page) {
-  const responses = [];
-  page.on("response", async response => {
-    if (!new URL(response.url()).pathname.startsWith("/api/clubs/") &&
-        !new URL(response.url()).pathname.startsWith("/api/players")) return;
-    let body = "";
-    try { body = (await response.text()).slice(0, 700); } catch { /* Response body may already be unavailable. */ }
-    responses.push({ status: response.status(), path: new URL(response.url()).pathname, body });
-  });
-  return responses;
-}
-
-async function expectAnnouncementOrExplainFailure(page, expected, responses) {
-  await expect.poll(async () => {
-    const announcement = (await page.locator(".clubs-screen-reader-status").innerText().catch(() => "")).trim();
-    if (announcement === expected) return announcement;
-    const error = (await page.locator(".clubs-error").innerText().catch(() => "")).trim();
-    return error ? `ERROR: ${error} | API: ${JSON.stringify(responses.slice(-8))}` : announcement;
-  }, { timeout: 10_000 }).toBe(expected);
+async function clickAndExpectApi(page, locator, path, expectedStatus = 200) {
+  const responsePromise = page.waitForResponse(response =>
+    new URL(response.url()).pathname === path &&
+    response.request().method() === "POST",
+  );
+  await locator.click();
+  const response = await responsePromise;
+  const data = await response.json().catch(() => ({}));
+  expect(response.status(), `POST ${path} response: ${JSON.stringify(data)}`).toBe(expectedStatus);
+  return data;
 }
 
 async function goToPrimaryTab(page, name) {
@@ -76,7 +69,6 @@ test("Club formation works across member, captain, and admin browser sessions", 
   try {
     const founder = await newClubsActor(browser, actors[0]);
     pages.push(founder);
-    const formationResponses = captureClubApi(founder);
 
     await founder.getByRole("button", { name: /Form a Club/ }).first().click();
     const inviteSelects = founder.locator("#clubs-formation-form .clubs-invite-grid select");
@@ -84,8 +76,16 @@ test("Club formation works across member, captain, and admin browser sessions", 
     for (let index = 1; index < actors.length; index += 1) {
       await inviteSelects.nth(index - 1).selectOption(actors[index].id);
     }
-    await founder.getByRole("button", { name: "Start Club Formation" }).click();
-    await expectAnnouncementOrExplainFailure(founder, "Club formation invitation sent to the selected players.", formationResponses);
+    const createdFormation = await clickAndExpectApi(
+      founder,
+      founder.getByRole("button", { name: "Start Club Formation" }),
+      "/api/clubs/formation",
+      201,
+    );
+    const formationId = String(createdFormation._id);
+    const founderApplication = founder.locator(".clubs-application").filter({ hasText: "Unnamed club" });
+    await expect(founderApplication).toBeVisible();
+    await expect(founderApplication).toContainText("Waiting for all members");
 
     // Each invitee joins with a separate test identity and accepts through the UI.
     const invitees = [];
@@ -95,16 +95,30 @@ test("Club formation works across member, captain, and admin browser sessions", 
       pages.push(page);
       const accept = page.getByRole("button", { name: "Accept", exact: true });
       await expect(accept).toBeVisible();
-      await accept.click();
-      await expect(page.getByText("Club formation invitation accepted.")).toBeVisible();
+      await clickAndExpectApi(
+        page,
+        accept,
+        `/api/clubs/formation/${formationId}/respond`,
+      );
+      await expect(accept).toHaveCount(0);
+      await expect(page.locator(".clubs-application").filter({ hasText: "Unnamed club" })).toBeVisible();
     }
 
     // The founder reloads to observe the acceptance committed by the other sessions.
     await loadClubs(founder, actors[0]);
     await expect(founder.getByPlaceholder("Propose the permanent club name")).toBeVisible();
     await founder.getByPlaceholder("Propose the permanent club name").fill(FORMATION_CLUB_NAME);
-    await founder.getByRole("button", { name: "Propose Name", exact: true }).click();
-    await founder.getByRole("button", { name: "Start Captain Vote", exact: true }).click();
+    await clickAndExpectApi(
+      founder,
+      founder.getByRole("button", { name: "Propose Name", exact: true }),
+      `/api/clubs/formation/${formationId}/name`,
+    );
+    const startVote = founder.getByRole("button", { name: "Start Captain Vote", exact: true });
+    await clickAndExpectApi(
+      founder,
+      startVote,
+      `/api/clubs/formation/${formationId}/captain/setup`,
+    );
     await expect(founder.locator(".clubs-vote-candidate")).toHaveCount(2);
 
     const candidateNames = await founder.locator(".clubs-vote-candidate strong").allTextContents();
@@ -119,14 +133,23 @@ test("Club formation works across member, captain, and admin browser sessions", 
       await loadClubs(page, actor);
       const candidateButton = page.locator(".clubs-vote-candidate").filter({ hasText: electedCandidateName });
       await expect(candidateButton).toBeVisible();
-      await candidateButton.click();
-      await expect(page.getByText("Captain vote recorded.")).toBeVisible();
+      await clickAndExpectApi(
+        page,
+        candidateButton,
+        `/api/clubs/formation/${formationId}/captain/vote`,
+      );
+      await expect(page.locator(".clubs-captain-vote-head")).toContainText("Your vote is recorded");
     }
 
     // The founder votes last, which completes the all-members election.
     const founderCandidateButton = founder.locator(".clubs-vote-candidate").filter({ hasText: electedCandidateName });
     await expect(founderCandidateButton).toBeVisible();
-    await founderCandidateButton.click();
+    const completedVote = await clickAndExpectApi(
+      founder,
+      founderCandidateButton,
+      `/api/clubs/formation/${formationId}/captain/vote`,
+    );
+    expect(completedVote.status).toBe("pendingCaptainDetailsApproval");
     const votedFormation = founder.locator(".clubs-application").filter({ hasText: FORMATION_CLUB_NAME });
     await expect(votedFormation).toContainText("Waiting for captain details approval");
 
@@ -143,7 +166,12 @@ test("Club formation works across member, captain, and admin browser sessions", 
       : invitees[actors.findIndex(actor => actor.id === electedCandidate.id) - 1];
     await loadClubs(captainPage, electedCandidate);
     await captainPage.getByLabel("Club details / identity").fill(FORMATION_DETAILS);
-    await captainPage.getByRole("button", { name: "Approve Details", exact: true }).click();
+    const detailsResult = await clickAndExpectApi(
+      captainPage,
+      captainPage.getByRole("button", { name: "Approve Details", exact: true }),
+      `/api/clubs/formation/${formationId}/details`,
+    );
+    expect(detailsResult.status).toBe("pendingAdminApproval");
     await expect(captainPage.getByText("All elected captain(s) approved the details. Waiting for administrator approval.")).toBeVisible();
 
     const admin = await newClubsActor(browser, { role: "admin" });
@@ -151,8 +179,15 @@ test("Club formation works across member, captain, and admin browser sessions", 
     await admin.getByRole("button", { name: /^Applications/ }).click();
     const application = admin.locator(".clubs-application").filter({ hasText: FORMATION_CLUB_NAME });
     await expect(application).toBeVisible();
-    await application.getByRole("button", { name: "Approve", exact: true }).click();
-    await expect(admin.getByText("Club formation approved.")).toBeVisible();
+    await clickAndExpectApi(
+      admin,
+      application.getByRole("button", { name: "Approve", exact: true }),
+      `/api/clubs/admin/applications/${formationId}/approve`,
+      201,
+    );
+    await expect(admin.getByText("No Club formations are waiting for admin action.")).toBeVisible();
+    await admin.getByRole("button", { name: "Clubs", exact: true }).click();
+    await expect(admin.locator(".club-card").filter({ hasText: FORMATION_CLUB_NAME })).toBeVisible();
 
     // Verify the approved Club from a member's refreshed browser view.
     await loadClubs(founder, actors[0]);
@@ -170,7 +205,6 @@ test("auction signing reserves budget and settles only after player choice and b
   const pages = [];
   const captainOne = await newClubsActor(browser, AUCTION_PLAYERS.captainOne);
   pages.push(captainOne);
-  const auctionResponses = captureClubApi(captainOne);
 
   try {
     await goToPrimaryTab(captainOne, "Market");
@@ -183,8 +217,13 @@ test("auction signing reserves budget and settles only after player choice and b
     await offerSelects.nth(0).selectOption({ label: AUCTION_CLUB_NAME });
     await offerSelects.nth(1).selectOption(AUCTION_PLAYERS.target.id);
     await captainOne.locator("#clubs-auction-desk input[type='number']").fill(AUCTION_AMOUNT);
-    await captainOne.getByRole("button", { name: "Send Signing Offer", exact: true }).click();
-    await expectAnnouncementOrExplainFailure(captainOne, "Signing offer sent.", auctionResponses);
+    const createdOffer = await clickAndExpectApi(
+      captainOne,
+      captainOne.getByRole("button", { name: "Send Signing Offer", exact: true }),
+      "/api/clubs/auction/offers",
+      201,
+    );
+    const offerId = String(createdOffer._id);
 
     // The submitted offer reserves the Club budget without debiting it yet.
     await goToPrimaryTab(captainOne, "My Club");
@@ -201,8 +240,12 @@ test("auction signing reserves budget and settles only after player choice and b
     await expect(target.getByRole("heading", { name: "Offers made to you" })).toBeVisible();
     const chooseOffer = target.getByRole("button", { name: "Choose this club", exact: true });
     await expect(chooseOffer).toBeVisible();
-    await chooseOffer.click();
-    await expect(target.getByText("Auction offer selected.")).toBeVisible();
+    const chosenOffer = await clickAndExpectApi(
+      target,
+      chooseOffer,
+      `/api/clubs/auction/offers/${offerId}/choose`,
+    );
+    expect(chosenOffer.status).toBe("chosenByPlayer");
 
     // A chosen offer is not a completed signing: the target still has no Club and no payment.
     await goToPrimaryTab(target, "My Club");
@@ -212,7 +255,12 @@ test("auction signing reserves budget and settles only after player choice and b
     await goToPrimaryTab(captainOne, "Market");
     const incomingOffer = captainOne.locator(".clubs-application").filter({ hasText: AUCTION_PLAYERS.target.name });
     await expect(incomingOffer.getByRole("button", { name: "Approve signing", exact: true })).toBeVisible();
-    await incomingOffer.getByRole("button", { name: "Approve signing", exact: true }).click();
+    const firstCaptainApproval = await clickAndExpectApi(
+      captainOne,
+      incomingOffer.getByRole("button", { name: "Approve signing", exact: true }),
+      `/api/clubs/auction/offers/${offerId}/approve`,
+    );
+    expect(firstCaptainApproval.pendingCaptainApproval).toBe(true);
     await expect(incomingOffer.getByText("Your approval recorded", { exact: true })).toBeVisible();
 
     // One approval cannot finalize the transaction or consume the reserved balance.
@@ -227,8 +275,12 @@ test("auction signing reserves budget and settles only after player choice and b
     await goToPrimaryTab(captainTwo, "Market");
     const secondCaptainOffer = captainTwo.locator(".clubs-application").filter({ hasText: AUCTION_PLAYERS.target.name });
     await expect(secondCaptainOffer.getByRole("button", { name: "Approve signing", exact: true })).toBeVisible();
-    await secondCaptainOffer.getByRole("button", { name: "Approve signing", exact: true }).click();
-    await expect(captainTwo.getByText("Signing approval recorded.")).toBeVisible();
+    const finalizedSigning = await clickAndExpectApi(
+      captainTwo,
+      secondCaptainOffer.getByRole("button", { name: "Approve signing", exact: true }),
+      `/api/clubs/auction/offers/${offerId}/approve`,
+    );
+    expect(finalizedSigning.offer.status).toBe("approved");
 
     // The second captain completes the signing: wallet commitment settles exactly once.
     await loadClubs(captainOne, AUCTION_PLAYERS.captainOne);
