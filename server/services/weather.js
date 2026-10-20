@@ -7,21 +7,26 @@ const TIMEOUT_MS = 8000;
 const DEFAULT_CITY = String(process.env.WEATHER_DEFAULT_CITY || "Bengaluru").trim();
 const TIMEZONE = String(process.env.WEATHER_TIMEZONE || "Asia/Kolkata").trim();
 
-async function fetchJson(url, providerKey) {
+async function fetchJson(url, providerKey, validatePayload = () => true) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const startedAt = Date.now();
   let recorded = false;
   try {
     const response = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
+    if (!response.ok) {
+      const error = new Error("Weather provider returned HTTP " + response.status);
+      error.name = "ProviderHttpError";
+      throw error;
+    }
     const payload = await response.json().catch(() => {
       const error = new Error("Weather provider returned an invalid response.");
       error.name = "InvalidProviderResponse";
       throw error;
     });
-    if (!response.ok) {
-      const error = new Error("Weather provider returned HTTP " + response.status);
-      error.name = "ProviderHttpError";
+    if (!validatePayload(payload)) {
+      const error = new Error("Weather provider returned an unexpected response shape.");
+      error.name = "InvalidProviderResponse";
       throw error;
     }
     recordProviderObservation(providerKey, { outcome: "success", durationMs: Date.now() - startedAt });
@@ -62,7 +67,11 @@ async function geocodeCity(city) {
   if (!query) return null;
   return cached("open-meteo-geocoding", "geo:" + query.toLowerCase(), 86400000, async () => {
     const params = new URLSearchParams({ name: query, count: "1", language: "en", format: "json" });
-    const data = await fetchJson(OPEN_METEO_GEOCODING + "?" + params, "open-meteo-geocoding");
+    const data = await fetchJson(
+      OPEN_METEO_GEOCODING + "?" + params,
+      "open-meteo-geocoding",
+      payload => payload && typeof payload === "object" && (!("results" in payload) || payload.results === null || Array.isArray(payload.results)),
+    );
     const result = data?.results?.[0];
     return result ? { name: result.name || query, country: result.country || "", latitude: result.latitude, longitude: result.longitude } : null;
   });
@@ -79,7 +88,11 @@ export async function getWeather(city = DEFAULT_CITY) {
       timezone: TIMEZONE,
       forecast_days: "1",
     });
-    const data = await fetchJson(OPEN_METEO_BASE + "?" + params, "open-meteo-forecast");
+    const data = await fetchJson(
+      OPEN_METEO_BASE + "?" + params,
+      "open-meteo-forecast",
+      payload => payload?.current && typeof payload.current === "object",
+    );
     const current = data?.current || {};
     return {
       location,
