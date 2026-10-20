@@ -224,6 +224,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [operationsLoading, setOperationsLoading] = useState(false);
   const [operationsError, setOperationsError] = useState("");
   const [operationsActionId, setOperationsActionId] = useState(null);
+  const [expandedOperationsItemId, setExpandedOperationsItemId] = useState(null);
 
   const announce = message => {
     setAnnouncement("");
@@ -1994,16 +1995,32 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           {item.dueAt && <span>Due/expiry: {new Date(item.dueAt).toLocaleString()}</span>}
                         </div>
                         <div className="clubs-operations-actions">
-                          <button type="button" className="clubs-secondary-button" onClick={() => {
+                          <button type="button" className="clubs-secondary-button" aria-expanded={expandedOperationsItemId === item.id} onClick={() => {
                             if (item.target && item.target !== "adminDashboard") setActiveSection(item.target);
                             else if (item.type === "settlement" || item.type === "match" || item.type === "sync") setActiveSection("adminMatches");
                             else if (item.type === "wallet-discrepancy" || item.type === "contract") setActiveSection("adminClubs");
-                            else setAdminAttentionDetail(item);
-                          }}>Inspect workflow</button>
+                            setExpandedOperationsItemId(current => current === item.id ? null : item.id);
+                          }}>{expandedOperationsItemId === item.id ? "Hide details" : "Inspect workflow"}</button>
                           {item.action === "review-formation" && <button type="button" className="clubs-primary-button" onClick={() => setActiveSection("adminApplications")}>Review application</button>}
                           {item.action === "retry-sync" && <button type="button" className="clubs-primary-button" disabled={operationsActionId === item.id} onClick={() => runOperationsAction(item)}>{operationsActionId === item.id ? "Retrying…" : "Retry canonical sync"}</button>}
                           {item.action === "settle-match" && <button type="button" className="clubs-primary-button" disabled={operationsActionId === item.id} onClick={() => runOperationsAction(item)}>{operationsActionId === item.id ? "Settling…" : "Review & settle"}</button>}
                         </div>
+                        {expandedOperationsItemId === item.id && (
+                          <div className="clubs-operations-item-detail" role="region" aria-label={"Details for " + item.title}>
+                            <h5>Operational details</h5>
+                            <p>{item.detail}</p>
+                            <dl>
+                              <div><dt>Record type</dt><dd>{item.entityType}</dd></div>
+                              <div><dt>Record ID</dt><dd>{item.entityId}</dd></div>
+                              <div><dt>Last updated</dt><dd>{item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "Not recorded"}</dd></div>
+                              {item.dueAt && <div><dt>Due / expiry</dt><dd>{new Date(item.dueAt).toLocaleString()}</dd></div>}
+                              {item.metadata && Object.entries(item.metadata).filter(([key, value]) => value != null && !/email|secret|token|payload/i.test(key) && ["mainMatchId", "clubId", "playerId", "contractId", "amount", "attempts", "nextAttemptAt", "balance", "committedBalance", "expectedCommittedBalance", "pendingMembers"].includes(key)).map(([key, value]) => (
+                                <div key={key}><dt>{key.replace(/([A-Z])/g, " $1")}</dt><dd>{String(value)}</dd></div>
+                              ))}
+                            </dl>
+                            <p className="clubs-operations-detail-next"><strong>Next step:</strong> {item.nextAction || "Inspect the underlying record."}</p>
+                          </div>
+                        )}
                       </article>
                     ))}
                   </div>
