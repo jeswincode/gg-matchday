@@ -148,8 +148,8 @@ router.get("/database-health", requireAuth, requireAdmin, async (req, res) => {
       status: usageBand(usagePercent),
       collections: Object.fromEntries(counts),
     });
-  } catch (error) {
-    console.error("Database health error:", error);
+  } catch {
+    console.error("Database health query failed.", { requestId: req.requestId || "" });
     return res.status(500).json({
       success: false,
       message: "Could not load database health.",
