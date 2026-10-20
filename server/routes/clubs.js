@@ -2515,7 +2515,7 @@ async function writeClubAdminAudit(req, event) {
       requestId: String(req.requestId || "").slice(0, 80),
       ...event,
     });
-  } catch (error) {
+  } catch {
     // Auditing failures must never roll back or change the result of a business
     // operation; emit only a correlation-safe event without payloads or secrets.
     console.error("Clubs administrator audit write failed", {
@@ -2855,7 +2855,6 @@ async function loadClubOperationsData(now = new Date()) {
       upcomingMatches: await ClubMatch.countDocuments({ status: { $in: ["requested", "accepted"] } }),
       completedMatches: await ClubMatch.countDocuments({ status: "completed" }),
     },
-    queue,
   };
 }
 
@@ -2899,7 +2898,7 @@ router.get("/admin/operations/summary", requireAuth, requireAdmin, async (req, r
         providerHealth: "not-instrumented-in-this-subsystem",
       },
     });
-  } catch (error) {
+  } catch {
     console.error("Clubs operations summary failed", { requestId: req.requestId || "" });
     return res.status(500).json({ success: false, message: "Could not load Clubs operations summary." });
   }
@@ -2933,7 +2932,7 @@ router.get("/admin/operations/queue", requireAuth, requireAdmin, async (req, res
       filters: { type, severity, status, search, sort },
       items: items.slice((page - 1) * limit, page * limit),
     });
-  } catch (error) {
+  } catch {
     console.error("Clubs operations queue failed", { requestId: req.requestId || "" });
     return res.status(500).json({ success: false, message: "Could not load Clubs operations queue." });
   }
@@ -2990,7 +2989,7 @@ router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, 
       items,
       coverage: { audit: "Administrator actions recorded after deployment of this feature", history: "Persisted ClubHistory records only; missing older actions are not reconstructed" },
     });
-  } catch (error) {
+  } catch {
     console.error("Clubs operations activity failed", { requestId: req.requestId || "" });
     return res.status(500).json({ success: false, message: "Could not load Clubs activity." });
   }
