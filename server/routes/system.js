@@ -138,7 +138,7 @@ router.get("/database-health", requireAuth, requireAdmin, async (req, res) => {
       quotaReferenceSource,
       quotaReferenceNote: quotaReferenceSource === "environment-configured"
         ? "Configured application reference only; not an authoritative Atlas quota or billing metric."
-        : "Default 512 MB application reference only; configure MONGODB_STORAGE_QUOTA_MB for a local threshold. This is not an Atlas quota or billing metric.",
+        : "Default 512 MB application reference only; configure MONGODB_STORAGE_QUOTA_MB for a local threshold. This is not an authoritative Atlas quota or billing metric.",
       collectionCountMethod: "estimatedDocumentCount",
       collectionCountsGeneratedAt: new Date().toISOString(),
       dataBytes: Number(stats.dataSize || 0),
