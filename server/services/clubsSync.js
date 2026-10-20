@@ -127,7 +127,10 @@ export async function processClubSyncJob(job) {
         },
       },
     );
-    console.error("Clubs sync job failed:", claimed.mainMatchId, error?.message || error);
+    console.error("Clubs sync job failed.", {
+      mainMatchId: String(claimed.mainMatchId),
+      errorName: error?.name || "Error",
+    });
     return { completed: false, error: error?.message || String(error) };
   }
 }
@@ -152,7 +155,7 @@ export async function retryPendingClubSyncJobs({ limit = 10 } = {}) {
 
 export function startClubSyncWorker(intervalMs = CLUB_SYNC_RETRY_BASE_MS) {
   if (!clubsIntegrationConfigured()) return () => {};
-  const run = () => retryPendingClubSyncJobs().catch(error => console.error("Clubs sync worker failed:", error));
+  const run = () => retryPendingClubSyncJobs().catch(error => console.error("Clubs sync worker failed.", { errorName: error?.name || "Error" }));
   run();
   const timer = setInterval(run, intervalMs);
   timer.unref?.();
