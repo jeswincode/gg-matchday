@@ -4,7 +4,7 @@ mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdTok
 const {default:app}=await import('../server/app.js');const {default:User}=await import('../server/models/User.js');const {default:Match}=await import('../server/models/Match.js');const {default:Player}=await import('../server/models/Player.js');const {default:Award}=await import('../server/models/Award.js');const {default:Achievement}=await import('../server/models/Achievement.js');const {default:Vote}=await import('../server/models/Vote.js');const {default:ProfileChangeRequest}=await import('../server/models/ProfileChangeRequest.js');const {default:ChatMessage}=await import('../server/models/ChatMessage.js');const {syncHistory}=await import('../server/services/history.js');
 let database,server,origin,p1,p2,matchId,viewer;
 async function request(path,{token,method='GET',body}={}){const response=await fetch(origin+'/api'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,requestId:response.headers.get('x-request-id'),data:await response.json()};}
-before(async()=>{database=await MongoMemoryReplSet.create({binary:{version:'8.2.6'},replSet:{count:1}});await mongoose.connect(database.getUri());await Promise.all([User,Match,Player,Award,Achievement,Vote,ProfileChangeRequest,ChatMessage].map(m=>m.init()));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.on('listening',r));origin=`http://127.0.0.1:${server.address().port}`;for(const token of ['admin','viewer','other'])await request('/auth/me',{token});viewer=await User.findOne({firebaseUid:'test-viewer'});p1=await Player.create({name:'Test Forward'});p2=await Player.create({name:'Test Keeper'});}, {timeout:120000});
+before(async()=>{database=await MongoMemoryReplSet.create({binary:{version:'8.2.6'},replSet:{count:1}});await mongoose.connect(database.getUri());await Promise.all([User,Match,Player,Award,Achievement,Vote,ProfileChangeRequest,RatingDispute,ChatMessage].map(m=>m.init()));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.on('listening',r));origin=`http://127.0.0.1:${server.address().port}`;for(const token of ['admin','viewer','other'])await request('/auth/me',{token});viewer=await User.findOne({firebaseUid:'test-viewer'});p1=await Player.create({name:'Test Forward'});p2=await Player.create({name:'Test Keeper'});}, {timeout:120000});
 after(async()=>{await syncHistory().catch(()=>{});server?.closeAllConnections();if(server)await new Promise(r=>server.close(r));await mongoose.disconnect();await database?.stop();});
 const payload=()=>({date:'2026-01-04',name:'Test Sunday',teamA:{label:'Test A',score:99},teamB:{label:'Test B',score:99},participants:[{player:String(p1._id),team:'A',rating:8.9,defensivePerformance:8},{player:String(p2._id),team:'B',rating:7,defensivePerformance:6}],events:[{player:String(p1._id),type:'goal'}]});
 test('API responses include a safe request id and invalid ids remain client errors',async()=>{const health=await request('/health');assert.equal(health.status,503);assert.equal(health.data.status,'degraded');assert.equal(health.data.database,'connected');assert.equal(health.data.clubsDatabase,'disconnected');assert.match(health.requestId,/^[0-9a-f-]{36}$/i);const invalid=await request('/players/not-an-object-id');assert.equal(invalid.status,400);assert.equal(invalid.data.message,'Invalid resource id.');assert.match(invalid.requestId,/^[0-9a-f-]{36}$/i);assert.doesNotMatch(JSON.stringify(invalid.data),/mongodb|secret|password/i);});
@@ -137,4 +137,118 @@ test('concurrent first sign-ins for one Firebase UID safely reuse the created us
   const results=await Promise.all(Array.from({length:12},()=>request('/auth/me',{token:'racer'})));
   assert.ok(results.every(result=>result.status===200),JSON.stringify(results.map(result=>({status:result.status,data:result.data}))));
   assert.equal(await User.countDocuments({firebaseUid:'test-racer'}),1);
+});
+
+
+test("rating explanation is read-only and uses the canonical server GG-v3 calculator", async () => {
+  const before = await Match.findById(matchId).lean();
+  const response = await request(`/rating-explanations/matches/${matchId}/players/${p1._id}`);
+  assert.equal(response.status, 200, JSON.stringify(response.data));
+  const explanation = response.data.explanation;
+  assert.equal(explanation.available, true);
+  assert.equal(explanation.formulaVersion, "gg-v3");
+  assert.equal(explanation.player.id, String(p1._id));
+  assert.equal(explanation.stats.goals, 1);
+  assert.equal(explanation.calculated.matchRating, before.participants.find(row => String(row.player) === String(p1._id)).rating);
+  assert.equal(explanation.calculated.defensiveRating, before.participants.find(row => String(row.player) === String(p1._id)).defensivePerformance);
+  assert.ok(explanation.calculated.matchBreakdown.some(row => row.label === "Result"));
+  assert.ok(explanation.calculated.defensiveBreakdown.some(row => row.label === "Goals Conceded"));
+  assert.ok(explanation.explanation.matchRating.includes("clamped"));
+  assert.equal(response.requestId?.length > 0, true);
+  const after = await Match.findById(matchId).lean();
+  assert.deepEqual(after, before);
+
+  const badId = await request("/rating-explanations/matches/not-an-id/players/" + p1._id);
+  assert.equal(badId.status, 400);
+  const notParticipant = await request(`/rating-explanations/matches/${matchId}/players/${new mongoose.Types.ObjectId()}`);
+  assert.equal(notParticipant.status, 404);
+});
+
+test("legacy rating explanation clearly reports unavailable formula facts instead of inventing a breakdown", async () => {
+  const legacy = await Match.create({
+    date: new Date("2026-10-02"),
+    name: "Legacy Explanation No Formula Data",
+    teamA: { label: "Legacy A", score: 0 },
+    teamB: { label: "Legacy B", score: 0 },
+    participants: [
+      { player: p1._id, team: "A", rating: 7.2, defensivePerformance: null, ratingSystem: "legacy" },
+      { player: p2._id, team: "B", rating: 6.4, defensivePerformance: null, ratingSystem: "legacy" },
+    ],
+    events: [],
+  });
+  const response = await request(`/rating-explanations/matches/${legacy._id}/players/${p1._id}`);
+  assert.equal(response.status, 200, JSON.stringify(response.data));
+  assert.equal(response.data.explanation.available, false);
+  assert.equal(response.data.explanation.reason, "legacy-rating");
+  assert.equal(response.data.explanation.stored.matchRating, 7.2);
+  assert.equal(response.data.explanation.calculated, undefined);
+});
+
+test("players can submit rating disputes without changing the match and admins can review the append-only workflow", async () => {
+  const user = await User.findById(viewer._id).lean();
+  assert.equal(String(user.playerProfile), String(p1._id));
+
+  const before = await Match.findById(matchId).lean();
+  const forbidden = await request(`/rating-disputes/matches/${matchId}/players/${p2._id}`, {
+    token: "viewer", method: "POST",
+    body: { category: "match-rating", message: "I believe my rating is wrong." },
+  });
+  assert.equal(forbidden.status, 403);
+
+  const tooShort = await request(`/rating-disputes/matches/${matchId}/players/${p1._id}`, {
+    token: "viewer", method: "POST",
+    body: { category: "match-rating", message: "wrong" },
+  });
+  assert.equal(tooShort.status, 400);
+
+  const submitted = await request(`/rating-disputes/matches/${matchId}/players/${p1._id}`, {
+    token: "viewer", method: "POST",
+    body: { category: "match-rating", message: "Please explain why my goal and performance codes led to this rating." },
+  });
+  assert.equal(submitted.status, 201, JSON.stringify(submitted.data));
+  const disputeId = submitted.data.dispute.id;
+  assert.equal(submitted.data.dispute.status, "pending");
+  assert.match(submitted.data.message, /have not been changed/);
+
+  const afterSubmit = await Match.findById(matchId).lean();
+  assert.deepEqual(afterSubmit, before);
+  assert.equal(await RatingDispute.countDocuments({ match: matchId, player: p1._id, open: true }), 1);
+
+  const duplicate = await request(`/rating-disputes/matches/${matchId}/players/${p1._id}`, {
+    token: "viewer", method: "POST",
+    body: { category: "other", message: "I have another concern with the same rating." },
+  });
+  assert.equal(duplicate.status, 409);
+
+  assert.equal((await request("/rating-disputes/admin", { token: "viewer" })).status, 403);
+  const inbox = await request("/rating-disputes/admin?status=pending", { token: "admin" });
+  assert.equal(inbox.status, 200, JSON.stringify(inbox.data));
+  assert.ok(inbox.data.disputes.some(item => item.id === disputeId));
+
+  const start = await request(`/rating-disputes/admin/${disputeId}/review`, {
+    token: "admin", method: "PATCH", body: { status: "reviewing", note: "" },
+  });
+  assert.equal(start.status, 200, JSON.stringify(start.data));
+  assert.equal(start.data.dispute.status, "reviewing");
+  const correction = await request(`/rating-disputes/admin/${disputeId}/review`, {
+    token: "admin", method: "PATCH", body: { status: "correction_required", note: "Recheck the submitted performance codes." },
+  });
+  assert.equal(correction.status, 200, JSON.stringify(correction.data));
+  assert.equal(correction.data.dispute.open, true);
+  const close = await request(`/rating-disputes/admin/${disputeId}/review`, {
+    token: "admin", method: "PATCH", body: { status: "resolved_no_change", note: "Canonical calculation matches the stored result." },
+  });
+  assert.equal(close.status, 200, JSON.stringify(close.data));
+  assert.equal(close.data.dispute.open, false);
+  assert.equal(close.data.dispute.history.length, 4);
+  assert.deepEqual((await Match.findById(matchId).lean()), before);
+
+  const mine = await request(`/rating-disputes/me?matchId=${matchId}`, { token: "viewer" });
+  assert.equal(mine.status, 200, JSON.stringify(mine.data));
+  assert.equal(mine.data.disputes.find(item => item.id === disputeId).status, "resolved_no_change");
+  const repeatedReview = await request(`/rating-disputes/admin/${disputeId}/review`, {
+    token: "admin", method: "PATCH", body: { status: "reviewing" },
+  });
+  assert.equal(repeatedReview.status, 409);
+  assert.deepEqual((await Match.findById(matchId).lean()), before);
 });
