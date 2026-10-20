@@ -83,10 +83,14 @@ export function recordProviderObservation(providerKey, {
 
   if (outcome === "success" || outcome === "failure" || outcome === "not-configured") {
     next.lastProviderOutcome = outcome;
-    next.lastAttemptAt = now;
-    next.lastDurationMs = Number.isFinite(Number(durationMs)) && durationMs !== null
-      ? Math.max(0, Math.round(Number(durationMs)))
-      : null;
+    if (outcome !== "not-configured") {
+      next.lastAttemptAt = now;
+      next.lastDurationMs = Number.isFinite(Number(durationMs)) && durationMs !== null
+        ? Math.max(0, Math.round(Number(durationMs)))
+        : null;
+    } else {
+      next.lastDurationMs = null;
+    }
     if (outcome === "success") {
       next.attempts += 1;
       next.successes += 1;
