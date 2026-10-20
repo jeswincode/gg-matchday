@@ -150,8 +150,8 @@ export default function RatingExplanation({ matchId, playerId, playerName, canDi
                 </section>
               </div>
               <div className="rating-explanation-integrity">
-                <span>Match rating: {data.calculated.matchMatchesStored ? "saved value matches the canonical calculation" : "saved value differs from the canonical calculation"}</span>
-                <span>Defensive rating: {data.calculated.defensiveMatchesStored ? "saved value matches the canonical calculation" : "saved value differs from the canonical calculation"}</span>
+                <span>Match rating: {data.calculated.matchMatchesStored == null ? "no saved value to compare" : data.calculated.matchMatchesStored ? "saved value matches the canonical calculation" : "saved value differs from the canonical calculation"}</span>
+                <span>Defensive rating: {data.calculated.defensiveMatchesStored == null ? "no saved value to compare" : data.calculated.defensiveMatchesStored ? "saved value matches the canonical calculation" : "saved value differs from the canonical calculation"}</span>
               </div>
               <p className="rating-explanation-note">{data.explanation?.rounding}</p>
             </>
