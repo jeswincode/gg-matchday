@@ -8,7 +8,7 @@ async function enterMatchday(page, role, playerId) {
 }
 
 test("player can inspect canonical rating breakdown and submit a non-mutating dispute", async ({ page }) => {
-  await enterMatchday(page, "viewer", "65a000000000000000000001");
+  await enterMatchday(page, "editor", "65a000000000000000000001");
   await page.getByRole("button", { name: "Calendar" }).first().click();
 
   const matchCard = page.locator(".gg-match-open").filter({ hasText: "E2E Rating Explanation Match" });
