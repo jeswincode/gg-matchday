@@ -53,7 +53,7 @@ export function safeProviderFailureReason(error) {
   const status = Number(error?.status ?? error?.statusCode ?? error?.response?.status);
   if (status === 429 || error?.code === "RESOURCE_EXHAUSTED") return "rate-limited";
   if (error?.name === "AbortError") return "timeout";
-  if (error?.name === "InvalidProviderResponse" || error?.name === "SyntaxError") return "invalid-response";
+  if (error?.name === "InvalidProviderResponse") return "invalid-response";
   if (error?.name === "SyntaxError") return "parse-error";
   return "provider-error";
 }
