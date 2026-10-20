@@ -88,7 +88,7 @@ router.get("/operations-health", requireAuth, requireAdmin, async (req, res) => 
   const requiredDatabaseDown = coreDatabase.status !== "connected" ||
     (clubsDatabase.configured && clubsDatabase.status !== "connected");
   return res.json({
-    success: true,
+    success: !requiredDatabaseDown,
     generatedAt: generatedAt.toISOString(),
     status: requiredDatabaseDown ? "degraded" : "ok",
     runtime: {
