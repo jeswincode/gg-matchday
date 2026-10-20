@@ -7,6 +7,7 @@ import { GoogleGenAI } from "@google/genai";
 import Match from "../models/Match.js";
 import { normalizeMatchScores } from "../services/statistics.js";
 import { buildFallbackImmersiveNews } from "../services/immersiveNewsFallback.js";
+import { recordProviderObservation } from "../services/providerHealth.js";
 
 dotenv.config();
 
@@ -60,6 +61,7 @@ function factsFor(match) {
 
 router.get("/:matchId", requireAuth, limitAI, async (req, res) => {
   let fallbackFacts = null;
+  let providerStartedAt = null;
 
   try {
     const match = await Match.findById(req.params.matchId)
@@ -77,6 +79,11 @@ router.get("/:matchId", requireAuth, limitAI, async (req, res) => {
     fallbackFacts = facts;
 
     if (!API_KEY) {
+      recordProviderObservation("gemini.immersive-news", {
+        outcome: "not-configured",
+        fallbackUsed: true,
+        reasonCode: "not-configured",
+      });
       return res.json(buildFallbackImmersiveNews(facts));
     }
 
@@ -127,6 +134,7 @@ VERIFIED MATCH FACTS:
 ${JSON.stringify(facts, null, 2)}
 `;
 
+    providerStartedAt = Date.now();
     const interaction = await ai.interactions.create({
       model: MODEL, store: false,
       input: prompt,
@@ -163,6 +171,10 @@ ${JSON.stringify(facts, null, 2)}
 
     const parsed = JSON.parse(raw);
 
+    recordProviderObservation("gemini.immersive-news", {
+      outcome: "success",
+      durationMs: Date.now() - providerStartedAt,
+    });
     return res.json({
       generatedBy: "gemini",
       ...Object.fromEntries(
@@ -177,7 +189,22 @@ ${JSON.stringify(facts, null, 2)}
       ),
     });
   } catch (error) {
-    console.error("Immersive Gemini error:", error);
+    if (providerStartedAt !== null) {
+      const reasonCode = error?.name === "AbortError"
+        ? "timeout"
+        : String(error?.message || "").includes("empty response")
+          ? "empty-response"
+          : String(error?.name || "").includes("Syntax")
+            ? "parse-error"
+            : "provider-error";
+      recordProviderObservation("gemini.immersive-news", {
+        outcome: "failure",
+        durationMs: Date.now() - providerStartedAt,
+        fallbackUsed: Boolean(fallbackFacts),
+        reasonCode,
+      });
+    }
+    console.error("Immersive Gemini request failed.");
 
     if (fallbackFacts) {
       return res.json(buildFallbackImmersiveNews(fallbackFacts));

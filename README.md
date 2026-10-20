@@ -219,6 +219,15 @@ Before a production release:
 4. Confirm environment variables and database access for both core Matchday and Clubs.
 5. Verify the deployed frontend, API health endpoint, authentication, and the affected workflows after deployment.
 
+### Runtime diagnostics
+
+The administrator **Database Health** panel reads two protected APIs:
+
+- `GET /api/system/database-health` reports application-level MongoDB data/index sizes, estimated collection counts, and usage against a reference threshold. Unless `MONGODB_STORAGE_QUOTA_MB` is explicitly configured (minimum 1 MB), the reference defaults to 512 MB. This is not an authoritative MongoDB Atlas cluster quota or billing metric.
+- `GET /api/system/operations-health` performs live pings to the core database and configured Clubs database, and displays recent outcomes for Open-Meteo, Gemini and Matchday-to-Clubs synchronization.
+
+Provider outcomes are observed during normal application requests; the endpoint does not make extra calls to external providers. The counters, last outcomes and timestamps are process-local memory, reset when the API process restarts, and are not an availability SLA. “Not observed” means no request has exercised that provider in this process. Backup/restore health is not inferred from provider telemetry; use the scheduled backup workflow and isolated restore results as the evidence for those operations.
+
 ### Automated backup and recovery
 
 The repository includes a scheduled GitHub Actions workflow for encrypted core and Clubs MongoDB backups. The workflow validates the archives and restores them into isolated temporary databases before uploading encrypted artifacts, which are retained for 30 days.
