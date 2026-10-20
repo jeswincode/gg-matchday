@@ -218,7 +218,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [operationsQueue, setOperationsQueue] = useState({ items: [], pagination: { page: 1, pages: 1, total: 0 }, generatedAt: null });
   const [operationsActivity, setOperationsActivity] = useState({ items: [], pagination: { page: 1, hasMore: false }, nextBefore: null });
   const [operationsView, setOperationsView] = useState("queue");
-  const [operationsFilters, setOperationsFilters] = useState({ type: "", severity: "", search: "", sort: "priority", page: 1 });
+  const [operationsFilters, setOperationsFilters] = useState({ type: "", severity: "", status: "", age: "", club: "", search: "", sort: "priority", page: 1 });
   const [operationsSearchDraft, setOperationsSearchDraft] = useState("");
   const [operationsActivityFilter, setOperationsActivityFilter] = useState({ entityType: "", outcome: "", page: 1 });
   const [operationsLoading, setOperationsLoading] = useState(false);
@@ -381,6 +381,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     });
     if (filters.type) queueParams.set("type", filters.type);
     if (filters.severity) queueParams.set("severity", filters.severity);
+    if (filters.status) queueParams.set("status", filters.status);
+    if (filters.age) queueParams.set("age", filters.age);
+    if (filters.club) queueParams.set("club", filters.club);
     if (filters.search) queueParams.set("search", filters.search);
     const activityParams = new URLSearchParams({
       page: String(activityFilters.page || 1),
@@ -1909,7 +1912,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 ["Pending settlements", operationsSummary?.counts?.pendingSettlements, "settlement", "high", "adminMatches"],
                 ["Wallet discrepancies", operationsSummary?.counts?.walletDiscrepancies, "wallet-discrepancy", "critical", "adminClubs"],
                 ["Stale workflows", operationsSummary?.counts?.staleWorkflows, "", "warning", "adminDashboard"],
-                ["Recent critical errors", operationsSummary?.counts?.recentCriticalErrors, "admin-error", "high", "adminDashboard"],
+                ["Recent failed admin actions", operationsSummary?.counts?.recentFailedAdminActions, "admin-error", "high", "adminDashboard"],
               ].map(([label, value, type, severity, target]) => (
                 <button type="button" className="clubs-operations-metric" data-alert={severity && Number(value) > 0 ? severity : undefined} key={label} onClick={() => {
                   if (target !== "adminDashboard") setActiveSection(target);
@@ -1927,7 +1930,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <section className="clubs-subsection clubs-operations-workspace">
             <div className="clubs-section-heading">
               <div><p className="clubs-eyebrow">NEEDS ATTENTION</p><h3>Operations queue</h3><span>Every item is backed by a persisted workflow or ledger comparison.</span></div>
-              <div className="clubs-operations-queue-count">{operationsQueue.pagination?.total ?? operationsSummary?.queueCount ?? "—"} items</div>
+              <div className="clubs-operations-queue-count">{operationsSummary?.queueIsPartial ? "At least " : ""}{operationsQueue.pagination?.totalObserved ?? operationsSummary?.queueCount ?? "—"} observed items</div>
             </div>
             <div className="clubs-operations-view-switch" role="group" aria-label="Operations view">
               <button type="button" className={operationsView === "queue" ? "active" : ""} aria-pressed={operationsView === "queue"} onClick={() => setOperationsView("queue")}>Action queue</button>
@@ -1959,6 +1962,28 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       <option value="info">Informational</option>
                     </select>
                   </label>
+                  <label>Status
+                    <select value={operationsFilters.status} onChange={event => setOperationsFilters(current => ({ ...current, status: event.target.value, page: 1 }))}>
+                      <option value="">All statuses</option>
+                      <option value="pending">Pending</option>
+                      <option value="processing">Processing</option>
+                      <option value="requested">Requested</option>
+                      <option value="accepted">Accepted</option>
+                      <option value="active">Active</option>
+                      <option value="chosenByPlayer">Chosen by player</option>
+                      <option value="pendingAdminApproval">Awaiting admin approval</option>
+                      <option value="mismatch">Mismatch</option>
+                      <option value="failed">Failed</option>
+                    </select>
+                  </label>
+                  <label>Age
+                    <select value={operationsFilters.age} onChange={event => setOperationsFilters(current => ({ ...current, age: event.target.value, page: 1 }))}>
+                      <option value="">All ages</option>
+                      <option value="under24h">Under 24 hours</option>
+                      <option value="1to7d">1–7 days</option>
+                      <option value="over7d">Over 7 days</option>
+                    </select>
+                  </label>
                   <label>Sort
                     <select value={operationsFilters.sort} onChange={event => setOperationsFilters(current => ({ ...current, sort: event.target.value, page: 1 }))}>
                       <option value="priority">Priority first</option>
@@ -1967,12 +1992,20 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       <option value="newest">Recently updated</option>
                     </select>
                   </label>
+                  <label>Club name or ID
+                    <input value={operationsFilters.club} maxLength={120} onChange={event => setOperationsFilters(current => ({ ...current, club: event.target.value.trimStart(), page: 1 }))} placeholder="Optional Club filter"/>
+                  </label>
                   <form className="clubs-operations-search" onSubmit={event => { event.preventDefault(); setOperationsFilters(current => ({ ...current, search: operationsSearchDraft.trim(), page: 1 })); }}>
                     <label htmlFor="clubs-operations-search">Search records</label>
                     <div><input id="clubs-operations-search" value={operationsSearchDraft} maxLength={120} onChange={event => setOperationsSearchDraft(event.target.value)} placeholder="Club, match, player or record ID"/><button type="submit" className="clubs-secondary-button">Search</button></div>
                   </form>
                 </div>
                 {operationsError && <div className="clubs-error" role="alert">{operationsError}</div>}
+                {operationsQueue.sourceLimitsReached?.length > 0 && (
+                  <p className="clubs-operations-provenance" role="status">
+                    The displayed queue is a bounded scan, not an exhaustive work count, for: {operationsQueue.sourceLimitsReached.join(", ")}. Summary counters use separate database count queries where available. Workflow assignment is not currently supported.
+                  </p>
+                )}
                 {operationsLoading && !operationsQueue.items?.length ? <div className="clubs-empty">Loading operational records…</div> : operationsError && !operationsQueue.items?.length ? (
                   <div className="clubs-empty"><strong>Operations data unavailable</strong><span>The live queue could not be refreshed. Existing application workflows remain available in their tabs.</span><button type="button" className="clubs-secondary-button" onClick={() => refreshOperationsCenter()}>Retry</button></div>
                 ) : !operationsQueue.items?.length ? (
@@ -2025,11 +2058,11 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     ))}
                   </div>
                 )}
-                {(operationsQueue.pagination?.pages || 1) > 1 && (
+                {(operationsQueue.pagination?.pagesObserved || 1) > 1 && (
                   <div className="clubs-operations-pagination">
                     <button type="button" className="clubs-secondary-button" disabled={operationsFilters.page <= 1 || operationsLoading} onClick={() => setOperationsFilters(current => ({ ...current, page: Math.max(1, current.page - 1) }))}>Previous</button>
-                    <span>Page {operationsQueue.pagination.page} of {operationsQueue.pagination.pages} · {operationsQueue.pagination.total} items</span>
-                    <button type="button" className="clubs-secondary-button" disabled={operationsFilters.page >= operationsQueue.pagination.pages || operationsLoading} onClick={() => setOperationsFilters(current => ({ ...current, page: current.page + 1 }))}>Next</button>
+                    <span>Page {operationsQueue.pagination.page} of {operationsQueue.pagination.pagesObserved} · {operationsQueue.pagination.totalObserved} observed items</span>
+                    <button type="button" className="clubs-secondary-button" disabled={operationsFilters.page >= operationsQueue.pagination.pagesObserved || operationsLoading} onClick={() => setOperationsFilters(current => ({ ...current, page: current.page + 1 }))}>Next</button>
                   </div>
                 )}
               </>
@@ -2068,6 +2101,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                           <p>{event.reason || "No reason was stored with this event."}</p>
                           <small>{event.actor || "Unknown actor"} · {event.createdAt ? new Date(event.createdAt).toLocaleString() : "Time not recorded"} · {event.entityType} · {event.entityId}</small>
                           {event.requestId && <small>Request ID: {event.requestId}</small>}
+                          {event.metadata?.amount != null && <small>Amount: {Number(event.metadata.amount).toLocaleString("en-IN")} credits · Balance after: {event.metadata.balanceAfter == null ? "Not recorded" : Number(event.metadata.balanceAfter).toLocaleString("en-IN") + " credits"}</small>}
                         </div>
                       </article>
                     ))}
