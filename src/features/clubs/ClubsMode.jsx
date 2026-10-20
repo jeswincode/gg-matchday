@@ -215,6 +215,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [receivedReviews, setReceivedReviews] = useState([]);
   const [clubDiscovery, setClubDiscovery] = useState([]);
   const [adminAttentionDetail, setAdminAttentionDetail] = useState(null);
+  const [operationsSummary, setOperationsSummary] = useState(null);
+  const [operationsQueue, setOperationsQueue] = useState({ items: [], pagination: { page: 1, pages: 1, total: 0 }, generatedAt: null });
+  const [operationsActivity, setOperationsActivity] = useState({ items: [], pagination: { page: 1, hasMore: false }, nextBefore: null });
+  const [operationsView, setOperationsView] = useState("queue");
+  const [operationsFilters, setOperationsFilters] = useState({ type: "", severity: "", search: "", sort: "priority", page: 1 });
+  const [operationsSearchDraft, setOperationsSearchDraft] = useState("");
+  const [operationsActivityFilter, setOperationsActivityFilter] = useState({ entityType: "", outcome: "", page: 1 });
+  const [operationsLoading, setOperationsLoading] = useState(false);
+  const [operationsError, setOperationsError] = useState("");
+  const [operationsActionId, setOperationsActionId] = useState(null);
 
   const announce = message => {
     setAnnouncement("");
@@ -357,6 +367,97 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       setBusyId(null);
     }
   };
+
+  const refreshOperationsCenter = async ({
+    filters = operationsFilters,
+    activityFilters = operationsActivityFilter,
+  } = {}) => {
+    if (!isAdmin) return;
+    const queueParams = new URLSearchParams({
+      page: String(filters.page || 1),
+      limit: "25",
+      sort: filters.sort || "priority",
+    });
+    if (filters.type) queueParams.set("type", filters.type);
+    if (filters.severity) queueParams.set("severity", filters.severity);
+    if (filters.search) queueParams.set("search", filters.search);
+    const activityParams = new URLSearchParams({
+      page: String(activityFilters.page || 1),
+      limit: "20",
+    });
+    if (activityFilters.entityType) activityParams.set("entityType", activityFilters.entityType);
+    if (activityFilters.outcome) activityParams.set("outcome", activityFilters.outcome);
+
+    setOperationsLoading(true);
+    setOperationsError("");
+    try {
+      const [summary, queue, activity] = await Promise.all([
+        api("/clubs/admin/operations/summary"),
+        api("/clubs/admin/operations/queue?" + queueParams.toString()),
+        api("/clubs/admin/operations/activity?" + activityParams.toString()),
+      ]);
+      setOperationsSummary(summary || null);
+      setOperationsQueue(queue || { items: [], pagination: { page: 1, pages: 1, total: 0 } });
+      setOperationsActivity(activity || { items: [], pagination: { page: 1, hasMore: false } });
+    } catch (requestError) {
+      setOperationsError(requestError.message || "Clubs operations data is unavailable.");
+    } finally {
+      setOperationsLoading(false);
+    }
+  };
+
+  const runOperationsAction = async item => {
+    if (!item || !["retry-sync", "settle-match", "review-formation"].includes(item.action)) {
+      setOperationsError("This item requires inspection in its existing workflow.");
+      return;
+      return;
+    }
+    if (item.action === "settle-match" && !window.confirm("Settle this completed Club Match using the canonical settlement service? This affects wallet ledgers.")) return;
+    if (item.action === "review-formation") {
+      setActiveSection("adminApplications");
+      return;
+    }
+    setOperationsActionId(item.id);
+    setOperationsError("");
+    try {
+      if (item.action === "retry-sync") {
+        const result = await api("/clubs/admin/operations/sync/" + item.entityId + "/retry", { method: "POST" });
+        if (!result?.success) setOperationsError(result?.message || "The sync remains unresolved; inspect its updated error before trying again.");
+      } else if (item.action === "settle-match") {
+        await api("/clubs/matches/" + item.entityId + "/settle", { method: "POST" });
+      }
+      const [overviewData, clubData, matchData, applicationData] = await Promise.all([
+        api("/clubs/admin/overview"),
+        api("/clubs/admin/clubs"),
+        api("/clubs/admin/matches"),
+        api("/clubs/admin/applications"),
+      ]);
+      setAdminOverview(overviewData || null);
+      setAdminClubs(Array.isArray(clubData) ? clubData : []);
+      setAdminMatches(Array.isArray(matchData) ? matchData : []);
+      setAdminApplications(Array.isArray(applicationData) ? applicationData : []);
+      await refreshOperationsCenter();
+      announce(item.action === "retry-sync" ? "Canonical Club sync retry attempted." : "Club Match settlement action completed.");
+    } catch (requestError) {
+      setOperationsError(requestError.message || "The operational action failed. Review the item and audit history.");
+      await refreshOperationsCenter();
+    } finally {
+      setOperationsActionId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAdmin || authUser?.playerProfile || activeSection !== "adminDashboard") return undefined;
+    let active = true;
+    const load = async () => {
+      // This section refreshes server-sourced operational data on entry and when its filters change.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Dashboard entry intentionally fetches current operational data.
+      await refreshOperationsCenter();
+    };
+    load().catch(() => {});
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Filter state is the deliberate reload trigger.
+  }, [isAdmin, authUser?.playerProfile, activeSection, operationsFilters, operationsActivityFilter]);
 
   const refreshCommandCenter = async () => {
     if (!authUser?.playerProfile) {
@@ -1793,54 +1894,182 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 setAdminClubs(Array.isArray(clubData) ? clubData : []);
                 setAdminMatches(Array.isArray(matchData) ? matchData : []);
                 setAdminApplications(Array.isArray(applicationData) ? applicationData : []);
+                await refreshOperationsCenter();
               } catch (e) { setError(e.message); }
             }}>Refresh</button>
           </div>
-          <div className="clubs-history-summary-grid" aria-label="Clubs operational metrics">
-            {[
-              ["Active Clubs", adminOverview?.counts?.activeClubs ?? 0, false],
-              ["Pending Approvals", adminOverview?.counts?.pendingApplications ?? 0, true],
-              ["Active Players", adminOverview?.counts?.activeMembers ?? 0, false],
-              ["Club Matches", adminOverview?.counts?.upcomingMatches ?? 0, false],
-              ["Completed", adminOverview?.counts?.completedMatches ?? 0, false],
-              ["Archived Clubs", adminOverview?.counts?.archivedClubs ?? 0, false],
-              ["Sync Failures", adminOverview?.counts?.syncFailures ?? 0, true],
-              ["Renewal Risks", adminOverview?.counts?.renewalRisks ?? 0, true],
-            ].map(([label, value, attention]) => (
-              <div className="clubs-history-stat" data-alert={attention && Number(value) > 0 ? "true" : undefined} key={label}>
-                <strong>{value}</strong>
-                <span>{label}</span>
-              </div>
-            ))}
+          <div className="clubs-operations-overview" aria-label="Clubs operational metrics">
+            <div className="clubs-operations-overview-head">
+              <div><p className="clubs-eyebrow">LIVE WORKLOAD</p><h3>Operational health</h3></div>
+              <span>{operationsLoading && !operationsSummary ? "Loading live records…" : operationsSummary?.generatedAt ? "Updated " + new Date(operationsSummary.generatedAt).toLocaleTimeString() : "No observation yet"}</span>
+            </div>
+            {operationsError && <div className="clubs-error" role="alert">{operationsError}</div>}
+            <div className="clubs-operations-metric-grid">
+              {[
+                ["Pending approvals", operationsSummary?.counts?.pendingApplications, "formation", "high", "adminApplications"],
+                ["Captain/member decisions", operationsSummary?.counts?.captainAndMemberDecisions, "formation", "", "adminDashboard"],
+                ["Contracts due ≤7d", operationsSummary?.counts?.contractsExpiring7Days, "contract", "", "adminDashboard"],
+                ["Offers expiring / selected", operationsSummary?.counts?.offersExpiring24Hours, "auction", "", "adminDashboard"],
+                ["Sync issues", operationsSummary?.counts?.syncFailures, "sync", "high", "adminDashboard"],
+                ["Pending settlements", operationsSummary?.counts?.pendingSettlements, "settlement", "high", "adminMatches"],
+                ["Wallet discrepancies", operationsSummary?.counts?.walletDiscrepancies, "wallet-discrepancy", "critical", "adminClubs"],
+                ["Stale workflows", operationsSummary?.counts?.staleWorkflows, "", "warning", "adminDashboard"],
+                ["Recent critical errors", operationsSummary?.counts?.recentCriticalErrors, "admin-error", "high", "adminDashboard"],
+              ].map(([label, value, type, severity, target]) => (
+                <button type="button" className="clubs-operations-metric" data-alert={severity && Number(value) > 0 ? severity : undefined} key={label} onClick={() => {
+                  if (target !== "adminDashboard") setActiveSection(target);
+                  setOperationsFilters(current => ({ ...current, type: type || "", severity: severity || "", page: 1 }));
+                  setOperationsView("queue");
+                }}>
+                  <strong>{value == null ? "—" : Number(value).toLocaleString("en-IN")}</strong>
+                  <span>{label}</span>
+                  <small>Open related work →</small>
+                </button>
+              ))}
+            </div>
+            <p className="clubs-operations-provenance">Counts are derived from persisted Clubs records and the indicated observation time. Provider health and backup telemetry are not yet instrumented in this subsystem; no provider or backup status is inferred here.</p>
           </div>
-          <section className="clubs-subsection clubs-admin-attention">
-            <div className="clubs-section-heading"><div><p className="clubs-eyebrow">NEEDS ATTENTION</p><h3>Operational queue</h3><span>Every item points to the workflow that needs review.</span></div><span>{adminOverview?.attention?.length || 0}</span></div>
-            {adminAttentionDetail && (
-              <div className="clubs-admin-attention-detail" role="status">
-                <div><p className="clubs-eyebrow">{String(adminAttentionDetail.severity || "info").toUpperCase()} · {adminAttentionDetail.type}</p><strong>{adminAttentionDetail.title}</strong><span>{adminAttentionDetail.subtitle}</span><p>{adminAttentionDetail.detail}</p></div>
-                <button type="button" className="clubs-secondary-button" onClick={() => setAdminAttentionDetail(null)}>Dismiss</button>
-              </div>
-            )}
-            {(adminOverview?.attention || []).length === 0 ? (
-              <div className="clubs-empty"><strong>Everything is clear.</strong><span>No formation, sync, renewal or fixture items currently need administrator attention.</span></div>
+          <section className="clubs-subsection clubs-operations-workspace">
+            <div className="clubs-section-heading">
+              <div><p className="clubs-eyebrow">NEEDS ATTENTION</p><h3>Operations queue</h3><span>Every item is backed by a persisted workflow or ledger comparison.</span></div>
+              <div className="clubs-operations-queue-count">{operationsQueue.pagination?.total ?? operationsSummary?.queueCount ?? "—"} items</div>
+            </div>
+            <div className="clubs-operations-view-switch" role="group" aria-label="Operations view">
+              <button type="button" className={operationsView === "queue" ? "active" : ""} aria-pressed={operationsView === "queue"} onClick={() => setOperationsView("queue")}>Action queue</button>
+              <button type="button" className={operationsView === "activity" ? "active" : ""} aria-pressed={operationsView === "activity"} onClick={() => setOperationsView("activity")}>Activity & audit</button>
+              <button type="button" className="clubs-secondary-button" onClick={() => refreshOperationsCenter()} disabled={operationsLoading}>{operationsLoading ? "Refreshing…" : "Refresh data"}</button>
+            </div>
+            {operationsView === "queue" ? (
+              <>
+                <div className="clubs-operations-filters">
+                  <label>Issue type
+                    <select value={operationsFilters.type} onChange={event => setOperationsFilters(current => ({ ...current, type: event.target.value, page: 1 }))}>
+                      <option value="">All types</option>
+                      <option value="formation">Formation</option>
+                      <option value="contract">Contracts</option>
+                      <option value="auction">Auctions</option>
+                      <option value="sync">Match sync</option>
+                      <option value="settlement">Settlement</option>
+                      <option value="match">Fixtures</option>
+                      <option value="wallet-discrepancy">Wallet discrepancy</option>
+                      <option value="admin-error">Admin action errors</option>
+                    </select>
+                  </label>
+                  <label>Severity
+                    <select value={operationsFilters.severity} onChange={event => setOperationsFilters(current => ({ ...current, severity: event.target.value, page: 1 }))}>
+                      <option value="">All severities</option>
+                      <option value="critical">Critical</option>
+                      <option value="high">High priority</option>
+                      <option value="warning">Warning</option>
+                      <option value="info">Informational</option>
+                    </select>
+                  </label>
+                  <label>Sort
+                    <select value={operationsFilters.sort} onChange={event => setOperationsFilters(current => ({ ...current, sort: event.target.value, page: 1 }))}>
+                      <option value="priority">Priority first</option>
+                      <option value="due">Due soonest</option>
+                      <option value="oldest">Oldest first</option>
+                      <option value="newest">Recently updated</option>
+                    </select>
+                  </label>
+                  <form className="clubs-operations-search" onSubmit={event => { event.preventDefault(); setOperationsFilters(current => ({ ...current, search: operationsSearchDraft.trim(), page: 1 })); }}>
+                    <label htmlFor="clubs-operations-search">Search records</label>
+                    <div><input id="clubs-operations-search" value={operationsSearchDraft} maxLength={120} onChange={event => setOperationsSearchDraft(event.target.value)} placeholder="Club, match, player or record ID"/><button type="submit" className="clubs-secondary-button">Search</button></div>
+                  </form>
+                </div>
+                {operationsError && <div className="clubs-error" role="alert">{operationsError}</div>}
+                {operationsLoading && !operationsQueue.items?.length ? <div className="clubs-empty">Loading operational records…</div> : operationsError && !operationsQueue.items?.length ? (
+                  <div className="clubs-empty"><strong>Operations data unavailable</strong><span>The live queue could not be refreshed. Existing application workflows remain available in their tabs.</span><button type="button" className="clubs-secondary-button" onClick={() => refreshOperationsCenter()}>Retry</button></div>
+                ) : !operationsQueue.items?.length ? (
+                  <div className="clubs-empty"><strong>No matching operational issues.</strong><span>No persisted records match these filters. This is not a claim about uninstrumented provider or backup systems.</span></div>
+                ) : (
+                  <div className="clubs-operations-list">
+                    {operationsQueue.items.map(item => (
+                      <article className="clubs-operations-item" data-severity={item.severity} key={item.id}>
+                        <div className="clubs-operations-item-top">
+                          <span className="clubs-operations-severity">{String(item.severity || "info").replace("-", " ")}</span>
+                          <span className="clubs-operations-type">{String(item.type || "workflow").replace(/-/g, " ")}</span>
+                          <span className="clubs-operations-status">{item.status || "unknown"}</span>
+                        </div>
+                        <h4>{item.title}</h4>
+                        {item.subtitle && <p className="clubs-operations-subtitle">{item.subtitle}</p>}
+                        <p>{item.detail}</p>
+                        <div className="clubs-operations-meta">
+                          <span>Created: {item.createdAt ? new Date(item.createdAt).toLocaleString() : "Not recorded"}</span>
+                          <span>Age: {item.ageHours == null ? "Unknown" : item.ageHours + "h"}</span>
+                          {item.dueAt && <span>Due/expiry: {new Date(item.dueAt).toLocaleString()}</span>}
+                        </div>
+                        <div className="clubs-operations-actions">
+                          <button type="button" className="clubs-secondary-button" onClick={() => {
+                            if (item.target && item.target !== "adminDashboard") setActiveSection(item.target);
+                            else if (item.type === "settlement" || item.type === "match" || item.type === "sync") setActiveSection("adminMatches");
+                            else if (item.type === "wallet-discrepancy" || item.type === "contract") setActiveSection("adminClubs");
+                            else setAdminAttentionDetail(item);
+                          }}>Inspect workflow</button>
+                          {item.action === "review-formation" && <button type="button" className="clubs-primary-button" onClick={() => setActiveSection("adminApplications")}>Review application</button>}
+                          {item.action === "retry-sync" && <button type="button" className="clubs-primary-button" disabled={operationsActionId === item.id} onClick={() => runOperationsAction(item)}>{operationsActionId === item.id ? "Retrying…" : "Retry canonical sync"}</button>}
+                          {item.action === "settle-match" && <button type="button" className="clubs-primary-button" disabled={operationsActionId === item.id} onClick={() => runOperationsAction(item)}>{operationsActionId === item.id ? "Settling…" : "Review & settle"}</button>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                {(operationsQueue.pagination?.pages || 1) > 1 && (
+                  <div className="clubs-operations-pagination">
+                    <button type="button" className="clubs-secondary-button" disabled={operationsFilters.page <= 1 || operationsLoading} onClick={() => setOperationsFilters(current => ({ ...current, page: Math.max(1, current.page - 1) }))}>Previous</button>
+                    <span>Page {operationsQueue.pagination.page} of {operationsQueue.pagination.pages} · {operationsQueue.pagination.total} items</span>
+                    <button type="button" className="clubs-secondary-button" disabled={operationsFilters.page >= operationsQueue.pagination.pages || operationsLoading} onClick={() => setOperationsFilters(current => ({ ...current, page: current.page + 1 }))}>Next</button>
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="clubs-admin-attention-list">
-                {(adminOverview?.attention || []).map(item => (
-                  <button type="button" className="clubs-admin-attention-item" data-severity={item.severity} key={item.type + ":" + item.entityId + ":" + item.title} onClick={() => {
-                    if (item.target === "adminApplications") setActiveSection("adminApplications");
-                    else if (item.target === "adminClubs") setActiveSection("adminClubs");
-                    else if (item.target === "adminMatches") setActiveSection("adminMatches");
-                    setAdminAttentionDetail(item);
-                  }}>
-                    <span className="clubs-admin-attention-severity">{item.severity === "high" ? "!" : item.severity === "medium" ? "•" : "○"}</span>
-                    <span><strong>{item.title}</strong><small>{item.subtitle}</small><em>{item.detail}</em></span>
-                    <b>{item.actionLabel || "OPEN →"}</b>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="clubs-operations-filters">
+                  <label>Event type
+                    <select value={operationsActivityFilter.entityType} onChange={event => setOperationsActivityFilter(current => ({ ...current, entityType: event.target.value, page: 1 }))}>
+                      <option value="">All event types</option>
+                      <option value="formation">Formation</option>
+                      <option value="club">Club</option>
+                      <option value="clubMatch">Club Match</option>
+                      <option value="auctionOffer">Auction offer</option>
+                      <option value="wallet">Wallet</option>
+                      <option value="syncJob">Sync job</option>
+                    </select>
+                  </label>
+                  <label>Outcome
+                    <select value={operationsActivityFilter.outcome} onChange={event => setOperationsActivityFilter(current => ({ ...current, outcome: event.target.value, page: 1 }))}>
+                      <option value="">All outcomes</option>
+                      <option value="success">Succeeded</option>
+                      <option value="failed">Failed</option>
+                      <option value="requested">Requested</option>
+                    </select>
+                  </label>
+                </div>
+                <p className="clubs-operations-provenance">{operationsActivity.coverage?.audit}. Older history is shown only when a persisted ClubHistory record exists; missing events are not reconstructed.</p>
+                {!operationsActivity.items?.length ? <div className="clubs-empty"><strong>No recorded activity matches.</strong><span>Operational observations are not presented as historical events.</span></div> : (
+                  <div className="clubs-operations-activity">
+                    {operationsActivity.items.map(event => (
+                      <article className="clubs-operations-activity-item" key={event.source + ":" + event.id}>
+                        <span className="clubs-operations-activity-marker" data-outcome={event.outcome}/>
+                        <div>
+                          <div className="clubs-operations-item-top"><span className="clubs-operations-type">{event.source === "admin-audit" ? "Administrator audit" : "Club history"}</span><span className="clubs-operations-status">{event.outcome}</span></div>
+                          <h4>{String(event.action || "Recorded event").replace(/-/g, " ")}</h4>
+                          <p>{event.reason || "No reason was stored with this event."}</p>
+                          <small>{event.actor || "Unknown actor"} · {event.createdAt ? new Date(event.createdAt).toLocaleString() : "Time not recorded"} · {event.entityType} · {event.entityId}</small>
+                          {event.requestId && <small>Request ID: {event.requestId}</small>}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                <div className="clubs-operations-pagination">
+                  <button type="button" className="clubs-secondary-button" disabled={operationsActivityFilter.page <= 1 || operationsLoading} onClick={() => setOperationsActivityFilter(current => ({ ...current, page: Math.max(1, current.page - 1) }))}>Previous</button>
+                  <span>Page {operationsActivityFilter.page}</span>
+                  <button type="button" className="clubs-secondary-button" disabled={!operationsActivity.pagination?.hasMore || operationsLoading} onClick={() => setOperationsActivityFilter(current => ({ ...current, page: current.page + 1 }))}>Next</button>
+                </div>
+              </>
             )}
           </section>
-
           <section className="clubs-subsection clubs-admin-latest">
             <div className="clubs-section-heading">
               <div><p className="clubs-eyebrow">LATEST CLUBS</p><h3>Recently changed Clubs</h3></div>
