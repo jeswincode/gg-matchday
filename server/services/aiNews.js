@@ -283,7 +283,7 @@ ${JSON.stringify(
       aiError:
         null,
     };
-  } catch {
+  } catch (error) {
     if (providerStartedAt !== null) {
       const reasonCode = error?.name === "AbortError"
         ? "timeout"
