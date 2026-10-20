@@ -2642,6 +2642,15 @@ async function loadClubOperationsData(now = new Date()) {
   const walletMismatchDoc = walletMismatchResult[0] || {};
   const walletMismatchRows = walletMismatchDoc.items || [];
   const walletMismatchCount = Number(walletMismatchDoc.counts?.[0]?.total || 0);
+  const sourceLimitsReached = [];
+  if (formationRows.length === 100) sourceLimitsReached.push("formation records (100)");
+  if (contractsExpiring.length === 100) sourceLimitsReached.push("contracts (100)");
+  if (activeOffers.length === 100) sourceLimitsReached.push("auction offers (100)");
+  if (syncJobs.length === 100) sourceLimitsReached.push("sync jobs (100)");
+  if (pendingSettlementRows.length === 100) sourceLimitsReached.push("settlements (100)");
+  if (pendingMatchRows.length === 100) sourceLimitsReached.push("fixtures (100)");
+  if (walletMismatchCount > walletMismatchRows.length) sourceLimitsReached.push("wallet discrepancies (first 100 displayed)");
+  if (recentErrors.length === 20) sourceLimitsReached.push("failed admin actions (20)");
   const queue = [];
 
   for (const application of formationRows) {
@@ -2839,6 +2848,7 @@ async function loadClubOperationsData(now = new Date()) {
   return {
     now,
     queue,
+    sourceLimitsReached,
     counts: {
       totalClubs,
       activeClubs,
@@ -2851,7 +2861,7 @@ async function loadClubOperationsData(now = new Date()) {
       pendingSettlements: pendingSettlementsCount,
       walletDiscrepancies: walletMismatchCount,
       staleWorkflows: staleFormations + staleSyncJobs,
-      recentCriticalErrors: recentErrors.length,
+      recentFailedAdminActions: recentErrors.length,
       upcomingMatches: await ClubMatch.countDocuments({ status: { $in: ["requested", "accepted"] } }),
       completedMatches: await ClubMatch.countDocuments({ status: "completed" }),
     },
@@ -2885,6 +2895,8 @@ router.get("/admin/operations/summary", requireAuth, requireAdmin, async (req, r
       generatedAt: data.now.toISOString(),
       counts: data.counts,
       queueCount: data.queue.length,
+      queueSourceLimitsReached: data.sourceLimitsReached,
+      queueIsPartial: data.sourceLimitsReached.length > 0,
       queueBySeverity: {
         critical: data.queue.filter(item => item.severity === "critical").length,
         high: data.queue.filter(item => item.severity === "high").length,
@@ -2913,6 +2925,8 @@ router.get("/admin/operations/queue", requireAuth, requireAdmin, async (req, res
   const type = normalizeOperationsFilter(req.query.type, validTypes);
   const severity = normalizeOperationsFilter(req.query.severity, validSeverities);
   const status = String(req.query.status || "").trim().slice(0, 80);
+  const age = normalizeOperationsFilter(req.query.age, ["under24h", "1to7d", "over7d"]);
+  const club = String(req.query.club || "").trim().toLowerCase().slice(0, 120);
   const search = String(req.query.search || "").trim().toLowerCase().slice(0, 120);
   const sort = normalizeOperationsFilter(req.query.sort, ["priority", "oldest", "newest", "due"], "priority");
   try {
@@ -2920,7 +2934,15 @@ router.get("/admin/operations/queue", requireAuth, requireAdmin, async (req, res
     let items = data.queue;
     if (type) items = items.filter(item => item.type === type);
     if (severity) items = items.filter(item => item.severity === severity);
-    if (status) items = items.filter(item => item.status.toLowerCase() === status.toLowerCase());
+    if (status) items = items.filter(item => String(item.status || "").toLowerCase() === status.toLowerCase());
+    if (age === "under24h") items = items.filter(item => item.ageHours != null && item.ageHours < 24);
+    if (age === "1to7d") items = items.filter(item => item.ageHours != null && item.ageHours >= 24 && item.ageHours < 168);
+    if (age === "over7d") items = items.filter(item => item.ageHours != null && item.ageHours >= 168);
+    if (club) items = items.filter(item => {
+      const metadata = item.metadata || {};
+      return [item.title, item.subtitle, metadata.clubName, metadata.clubId, metadata.clubAId, metadata.clubBId, item.entityId]
+        .some(value => String(value || "").toLowerCase().includes(club));
+    });
     if (search) items = items.filter(item => [item.title, item.subtitle, item.detail, item.entityId].some(value => String(value || "").toLowerCase().includes(search)));
     if (sort === "oldest") items = [...items].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
     if (sort === "newest") items = [...items].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
@@ -2928,8 +2950,13 @@ router.get("/admin/operations/queue", requireAuth, requireAdmin, async (req, res
     return res.json({
       success: true,
       generatedAt: data.now.toISOString(),
-      pagination: { page, limit, total: items.length, pages: Math.max(1, Math.ceil(items.length / limit)) },
-      filters: { type, severity, status, search, sort },
+      pagination: {
+        page, limit, totalObserved: items.length,
+        totalIsExact: data.sourceLimitsReached.length === 0,
+        pagesObserved: Math.max(1, Math.ceil(items.length / limit)),
+      },
+      sourceLimitsReached: data.sourceLimitsReached,
+      filters: { type, severity, status, age, club, search, sort },
       items: items.slice((page - 1) * limit, page * limit),
     });
   } catch {
@@ -2958,9 +2985,14 @@ router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, 
       createdAt: dateFilter,
       ...(entityType === "clubMatch" ? { eventType: "matchPlayed" } : {}),
     };
-    const [auditEvents, historyEvents] = await Promise.all([
-      ClubAdminAuditEvent.find(eventFilter).sort({ createdAt: -1, _id: -1 }).limit(Math.min(150, limit * page)).lean(),
-      ClubHistory.find(historyFilter).sort({ createdAt: -1, _id: -1 }).limit(Math.min(150, limit * page)).lean(),
+    const retrievalLimit = Math.min(150, limit * page);
+    const [auditEvents, historyEvents, walletTransactions] = await Promise.all([
+      ClubAdminAuditEvent.find(eventFilter).sort({ createdAt: -1, _id: -1 }).limit(retrievalLimit).lean(),
+      ClubHistory.find(historyFilter).sort({ createdAt: -1, _id: -1 }).limit(retrievalLimit).lean(),
+      !entityType || entityType === "wallet"
+        ? ClubWalletTransaction.find(before ? { createdAt: { $lt: before } } : {})
+            .sort({ createdAt: -1, _id: -1 }).limit(retrievalLimit).lean()
+        : Promise.resolve([]),
     ]);
     const normalizedAudit = auditEvents.map(event => ({
       id: String(event._id), source: "admin-audit", action: event.action,
@@ -2970,24 +3002,46 @@ router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, 
       outcome: event.outcome, reason: event.reason || "", requestId: event.requestId || "",
       createdAt: event.createdAt, updatedAt: event.updatedAt,
     }));
-    const normalizedHistory = historyEvents.map(event => ({
-      id: String(event._id), source: "club-history", action: event.eventType,
-      actor: "Recorded Club history", actorRole: "system", entityType: "club",
-      entityId: String(event.clubId), clubId: String(event.clubId),
-      previousStatus: "", nextStatus: "", outcome: "success",
-      reason: event.description || "", requestId: "", createdAt: event.createdAt || event.occurredAt, updatedAt: event.updatedAt,
+    const normalizedHistory = historyEvents.map(event => {
+      const entityTypeForEvent = event.eventType === "matchPlayed" ? "clubMatch"
+        : event.eventType === "walletTransaction" ? "wallet" : "club";
+      return {
+        id: String(event._id), source: "club-history", action: event.eventType,
+        actor: "Recorded Club history", actorRole: "system", entityType: entityTypeForEvent,
+        entityId: String(event.relatedClubMatchId || event.clubId), clubId: String(event.clubId),
+        previousStatus: "", nextStatus: "", outcome: "success",
+        reason: event.description || "", requestId: "", createdAt: event.createdAt || event.occurredAt, updatedAt: event.updatedAt,
+      };
+    });
+    const normalizedWallet = walletTransactions.map(transaction => ({
+      id: String(transaction._id), source: "club-wallet-ledger",
+      action: "wallet-" + String(transaction.type || "transaction").replace(/_/g, "-"),
+      actor: "Persisted wallet ledger", actorRole: "system",
+      entityType: "wallet", entityId: String(transaction._id), clubId: String(transaction.clubId),
+      previousStatus: "", nextStatus: "recorded", outcome: "success",
+      reason: transaction.description || "Persisted Club wallet transaction.",
+      requestId: "", createdAt: transaction.createdAt, updatedAt: transaction.updatedAt,
+      metadata: {
+        amount: transaction.amount,
+        balanceAfter: transaction.balanceAfter,
+        mainMatchId: transaction.mainMatchId ? String(transaction.mainMatchId) : null,
+        clubMatchId: transaction.clubMatchId ? String(transaction.clubMatchId) : null,
+        auctionOfferId: transaction.auctionOfferId ? String(transaction.auctionOfferId) : null,
+        idempotencyKeyPresent: Boolean(transaction.idempotencyKey),
+      },
     }));
-    const merged = [...normalizedAudit, ...normalizedHistory]
+    const merged = [...normalizedAudit, ...normalizedHistory, ...normalizedWallet]
       .filter(event => (!entityType || event.entityType === entityType) && (!outcome || event.outcome === outcome))
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-      .slice(0, Math.min(150, limit * page));
+      .slice(0, retrievalLimit);
     const items = merged.slice((page - 1) * limit, page * limit);
+    const hasMore = page * limit < 150 && items.length === limit;
     return res.json({
       success: true,
-      pagination: { page, limit, totalReturned: merged.length, hasMore: merged.length === Math.min(150, limit * page) },
+      pagination: { page, limit, totalReturned: merged.length, hasMore, retrievalCap: 150, reachedRetrievalCap: merged.length >= 150 },
       nextBefore: items.length ? new Date(items[items.length - 1].createdAt).toISOString() : null,
       items,
-      coverage: { audit: "Administrator actions recorded after deployment of this feature", history: "Persisted ClubHistory records only; missing older actions are not reconstructed" },
+      coverage: { audit: "Administrator actions recorded after deployment of this feature", history: "Persisted ClubHistory records only; missing older actions are not reconstructed", wallet: "Persisted Club wallet ledger entries; current state is not treated as an event history" },
     });
   } catch {
     console.error("Clubs operations activity failed", { requestId: req.requestId || "" });
