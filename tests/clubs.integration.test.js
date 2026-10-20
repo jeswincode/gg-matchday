@@ -920,7 +920,7 @@ test("Clubs operations endpoints require an administrator and return bounded per
   assert.ok(Array.isArray(queue.data.items));
   assert.ok(queue.data.items.length <= 5);
   assert.equal(queue.data.pagination.limit, 5);
-  assert.deepEqual(queue.data.filters, { type: "", severity: "", status: "", search: "", sort: "priority" });
+  assert.deepEqual(queue.data.filters, { type: "", severity: "", status: "", age: "", club: "", search: "", sort: "priority" });
 
   const invalidFilter = await request("/clubs/admin/operations/queue?severity=explode", { role: "admin" });
   assert.equal(invalidFilter.status, 200);
