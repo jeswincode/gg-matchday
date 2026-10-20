@@ -448,14 +448,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   useEffect(() => {
     if (!isAdmin || authUser?.playerProfile || activeSection !== "adminDashboard") return undefined;
-    let active = true;
-    const load = async () => {
-      // This section refreshes server-sourced operational data on entry and when its filters change.
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Dashboard entry intentionally fetches current operational data.
-      await refreshOperationsCenter();
-    };
-    load().catch(() => {});
-    return () => { active = false; };
+    // This section refreshes server-sourced operational data on entry and when its filters change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Dashboard entry intentionally fetches current operational data.
+    refreshOperationsCenter().catch(() => {});
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Filter state is the deliberate reload trigger.
   }, [isAdmin, authUser?.playerProfile, activeSection, operationsFilters, operationsActivityFilter]);
 
