@@ -2541,7 +2541,17 @@ async function loadClubOperationsData(now = new Date()) {
     Club.countDocuments({}),
     Club.countDocuments({ status: "approved" }),
     Club.countDocuments({ status: "archived" }),
-    ClubFormationApplication.countDocuments({ status: "pendingAdminApproval", details: { $type: "string", $ne: "" } }),
+    ClubFormationApplication.countDocuments({
+      status: "pendingAdminApproval",
+      $expr: { $and: [
+        { $gt: [{ $strLenCP: { $trim: { input: { $ifNull: ["$details", ""] } } } }, 0] },
+        { $gt: [{ $size: { $ifNull: ["$electedCaptainIds", []] } }, 0] },
+        { $eq: [
+          { $size: { $setIntersection: [{ $ifNull: ["$electedCaptainIds", []] }, { $ifNull: ["$detailsApprovedBy", []] }] } },
+          { $size: { $ifNull: ["$electedCaptainIds", []] } },
+        ] },
+      ] },
+    }),
     ClubFormationApplication.find({ status: { $in: ACTIVE_FORMATION_STATUSES } })
       .sort({ createdAt: 1 }).limit(100).lean(),
     ClubContract.find({ status: "active", endAt: { $gt: now, $lte: thirtyDays } })
@@ -2969,7 +2979,7 @@ router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, 
       reason: event.description || "", requestId: "", createdAt: event.createdAt || event.occurredAt, updatedAt: event.updatedAt,
     }));
     const merged = [...normalizedAudit, ...normalizedHistory]
-      .filter(event => !entityType || event.entityType === entityType)
+      .filter(event => (!entityType || event.entityType === entityType) && (!outcome || event.outcome === outcome))
       .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
       .slice(0, Math.min(150, limit * page));
     const items = merged.slice((page - 1) * limit, page * limit);
