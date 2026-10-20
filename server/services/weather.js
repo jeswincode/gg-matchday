@@ -11,30 +11,35 @@ async function fetchJson(url, providerKey) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   const startedAt = Date.now();
+  let recorded = false;
   try {
     const response = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await response.json().catch(() => {
+      const error = new Error("Weather provider returned an invalid response.");
+      error.name = "InvalidProviderResponse";
+      throw error;
+    });
     if (!response.ok) {
+      const error = new Error("Weather provider returned HTTP " + response.status);
+      error.name = "ProviderHttpError";
+      throw error;
+    }
+    recordProviderObservation(providerKey, { outcome: "success", durationMs: Date.now() - startedAt });
+    recorded = true;
+    return payload;
+  } catch (error) {
+    // Never store raw URLs, provider response bodies or exception messages.
+    if (!recorded) {
       recordProviderObservation(providerKey, {
         outcome: "failure",
         durationMs: Date.now() - startedAt,
-        reasonCode: "provider-error",
+        reasonCode: error?.name === "AbortError"
+          ? "timeout"
+          : error?.name === "InvalidProviderResponse" || error?.name === "SyntaxError"
+            ? "invalid-response"
+            : "provider-error",
       });
-      throw new Error("Weather provider returned HTTP " + response.status);
     }
-    recordProviderObservation(providerKey, { outcome: "success", durationMs: Date.now() - startedAt });
-    return payload;
-  } catch (error) {
-    // A non-2xx response was already recorded above. Never store raw URLs or
-    // provider error messages in operational observations.
-    if (error?.name !== "AbortError" && String(error?.message || "").startsWith("Weather provider returned HTTP ")) {
-      throw error;
-    }
-    recordProviderObservation(providerKey, {
-      outcome: "failure",
-      durationMs: Date.now() - startedAt,
-      reasonCode: error?.name === "AbortError" ? "timeout" : "provider-error",
-    });
     throw error;
   } finally {
     clearTimeout(timeout);
