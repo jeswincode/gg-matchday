@@ -13,6 +13,21 @@ Every API response includes an `X-Request-ID` header. For 5xx responses, the JSO
 
 Use that ID to correlate the user's report with Render logs. Structured logs include method, route path (never the query string), response status, duration, and error class. They deliberately exclude tokens, authorization headers, request bodies, and raw error messages. Never paste secrets into an issue or incident report.
 
+## Administrator runtime health dashboard
+
+The **Admin → Database Health** panel reads two administrator-only endpoints:
+
+- `/api/system/database-health` reports MongoDB logical data/index size, estimated per-collection counts, and percentage against the configured `MONGODB_STORAGE_QUOTA_MB` reference. If unset, the app uses a 512 MB reference. This is not an Atlas cluster quota, disk-capacity guarantee, or billing measure.
+- `/api/system/operations-health` performs live core and configured Clubs MongoDB pings, returns provider observations, and summarizes API request status/latency for the latest 15-minute sample.
+
+The API request sampler retains at most 1,000 recent request observations, 50 incident records, and 100 route buckets in process memory. It reports 4xx/5xx counts, 429 responses, slow requests (default threshold 1,000 ms; configurable using `API_SLOW_REQUEST_MS` within the supported bounds), mean/p50/p95 latency and a bounded incident list. It records Express route templates and request IDs only; request bodies, query strings, concrete resource IDs, auth headers and raw exception messages are not stored. The sampler and provider counters reset when the API process restarts and are not durable logs or an SLA. A rolling estimate can be capped at the latest 1,000 requests under heavy traffic.
+
+Provider observations are updated by normal application requests, not active external probes from the dashboard. Status values describe the last observed provider call and fallback/cache activity; they are not continuous uptime checks.
+
+Weather responses can include a `freshness` object. A `stale-cache` status means an expired but previously successful weather value was served after the refresh failed; check its cached timestamp/age and the Open-Meteo provider card. Do not present stale cache as a new provider success.
+
+**Backup/restore status is intentionally not inferred by the runtime dashboard.** It is not currently connected to GitHub Actions run history or artifact storage. To verify backup creation, archive verification, isolated core/Clubs restores, and artifact upload separately, inspect the [MongoDB Backup and Restore Drill workflow](https://github.com/jeswincode/gg-matchday/actions/workflows/mongodb-backup.yml). The dashboard's “Not connected” state is an instrumentation limitation, not a failed backup result or a successful backup result.
+
 ## Frontend performance
 
 - Run `npm run build` followed by `npm run check:bundle`.
