@@ -27,6 +27,7 @@ const { default: ClubContract } = await import("../../server/models/clubs/ClubCo
 const { default: ClubFormationApplication } = await import("../../server/models/clubs/ClubFormationApplication.js");
 const { default: AuctionOffer } = await import("../../server/models/clubs/AuctionOffer.js");
 const { default: ClubHistory } = await import("../../server/models/clubs/ClubHistory.js");
+const { default: ClubAdminAuditEvent } = await import("../../server/models/clubs/ClubAdminAuditEvent.js");
 const { default: ClubWalletTransaction } = await import("../../server/models/clubs/ClubWalletTransaction.js");
 const { default: PlayerWallet } = await import("../../server/models/clubs/PlayerWallet.js");
 const { default: PlayerWalletTransaction } = await import("../../server/models/clubs/PlayerWalletTransaction.js");
@@ -40,6 +41,7 @@ await Promise.all([
   ClubFormationApplication.init(),
   AuctionOffer.init(),
   ClubHistory.init(),
+  ClubAdminAuditEvent.init(),
   ClubWalletTransaction.init(),
   PlayerWallet.init(),
   PlayerWalletTransaction.init(),
