@@ -1402,14 +1402,35 @@ router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, r
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
   const session = await getClubsConnection().startSession();
+  let previousStatus = "unknown";
   try {
     let result;
     await session.withTransaction(async () => {
+      const existing = await ClubMatch.findById(req.params.matchId).session(session).select("settlementStatus").lean();
+      if (existing) previousStatus = existing.settlementStatus || "pending";
       result = await settleClubMatchRewards({ clubMatchId: req.params.matchId, session });
       await settleClubMatchBets({ clubMatchId: req.params.matchId, session });
     });
+    await writeClubAdminAudit(req, {
+      action: "match-settlement",
+      entityType: "clubMatch",
+      entityId: new mongoose.Types.ObjectId(req.params.matchId),
+      previousStatus,
+      nextStatus: result?.clubMatch?.settlementStatus || "settled",
+      outcome: "success",
+      reason: result?.alreadySettled ? "Admin requested settlement; canonical service confirmed it was already settled." : "Admin invoked canonical settlement and betting settlement services.",
+    });
     return res.json(result);
   } catch (error) {
+    await writeClubAdminAudit(req, {
+      action: "match-settlement",
+      entityType: "clubMatch",
+      entityId: new mongoose.Types.ObjectId(req.params.matchId),
+      previousStatus,
+      nextStatus: previousStatus,
+      outcome: "failed",
+      reason: String(error?.message || "Settlement failed").slice(0, 500),
+    });
     return res.status(400).json({ message: error.message || "Failed to settle Club Match economy." });
   } finally {
     await session.endSession();
@@ -2355,9 +2376,19 @@ router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (
     }
     const reason = String(req.body?.reason || "").trim();
     if (!reason) return res.status(400).json({ message: "A rejection reason is required." });
+    const previousStatus = application.status;
     application.rejectionReason = reason;
     application.status = "rejected";
     await application.save();
+    await writeClubAdminAudit(req, {
+      action: "formation-reject",
+      entityType: "formation",
+      entityId: application._id,
+      previousStatus,
+      nextStatus: application.status,
+      outcome: "success",
+      reason,
+    });
     return res.json(application);
   } catch (error) {
     console.error("Club application rejection error:", error);
@@ -2412,8 +2443,27 @@ router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async 
       await application.save({ session });
       createdClub = club;
     });
+    await writeClubAdminAudit(req, {
+      action: "formation-approve",
+      entityType: "formation",
+      entityId: createdClub?._id || new mongoose.Types.ObjectId(req.params.id),
+      clubId: createdClub?._id || null,
+      previousStatus: "pendingAdminApproval",
+      nextStatus: "approved",
+      outcome: "success",
+      reason: "Administrator approved a fully captain-approved Club formation.",
+    });
     return res.status(201).json(createdClub);
   } catch (error) {
+    await writeClubAdminAudit(req, {
+      action: "formation-approve",
+      entityType: "formation",
+      entityId: new mongoose.Types.ObjectId(req.params.id),
+      previousStatus: "pendingAdminApproval",
+      nextStatus: "pendingAdminApproval",
+      outcome: "failed",
+      reason: String(error?.message || "Formation approval failed").slice(0, 500),
+    });
     console.error("Club application approval error:", error);
     return res.status(400).json({ message: error.message || "Failed to approve the club application." });
   } finally {
