@@ -1,7 +1,6 @@
 import express from "express";
 import mongoose from "mongoose";
 import Match from "../models/Match.js";
-import Player from "../models/Player.js";
 import RatingDispute from "../models/RatingDispute.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { buildRatingExplanation } from "../services/ratings/explanation.js";
@@ -9,7 +8,7 @@ import { buildRatingExplanation } from "../services/ratings/explanation.js";
 const router = express.Router();
 const CATEGORIES = ["match-rating", "defensive-rating", "performance-codes", "match-statistics", "other"];
 const REVIEW_STATUSES = ["reviewing", "correction_required", "resolved_no_change", "rejected"];
-const OPEN_STATUSES = ["pending", "reviewing"];
+const OPEN_STATUSES = ["pending", "reviewing", "correction_required"];
 
 function validId(value) {
   return mongoose.isValidObjectId(value);
