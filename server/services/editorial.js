@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { createHash } from "node:crypto";
-import { recordProviderObservation } from "./providerHealth.js";
+import { recordProviderObservation, safeProviderFailureReason } from "./providerHealth.js";
 
 const cache = new Map();
 const pending = new Map();
@@ -72,13 +72,13 @@ export async function editorial(kind, facts, fallback) {
             reasonCode: "empty-response",
           });
         }
-      } catch {
+      } catch (error) {
         // A factual template remains available; raw provider errors are not stored.
         recordProviderObservation("gemini.editorial", {
           outcome: "failure",
           durationMs: Date.now() - startedAt,
           fallbackUsed: true,
-          reasonCode: "provider-error",
+          reasonCode: safeProviderFailureReason(error),
         });
       }
     }
