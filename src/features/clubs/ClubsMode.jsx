@@ -151,6 +151,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminOverview, setAdminOverview] = useState(null);
   const [adminClubs, setAdminClubs] = useState([]);
+  const [adminClubSearch, setAdminClubSearch] = useState("");
+  const [adminClubStatus, setAdminClubStatus] = useState("all");
+  const [expandedAdminClubId, setExpandedAdminClubId] = useState(null);
   const [adminMatches, setAdminMatches] = useState([]);
   const [adminRejectReasons, setAdminRejectReasons] = useState({});
   const [meta, setMeta] = useState(null);
@@ -807,6 +810,23 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     clubs.find(club => String(club._id) === String(clubId))?.name || "Unknown club";
   const adminOnlyView = Boolean(isAdmin && !authUser?.playerProfile);
   const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
+  const adminClubStatuses = [...new Set(adminClubs.map(club => String(club.status || "unknown")))].sort();
+  const filteredAdminClubs = useMemo(() => {
+    const query = adminClubSearch.trim().toLowerCase();
+    return adminClubs.filter(club => {
+      const status = String(club.status || "unknown");
+      if (adminClubStatus !== "all" && status !== adminClubStatus) return false;
+      if (!query) return true;
+      const searchable = [
+        club.name, club.description, status,
+        ...(club.members || []).map(member => member?.name),
+      ].filter(Boolean).join(" ").toLowerCase();
+      return searchable.includes(query);
+    });
+  }, [adminClubs, adminClubSearch, adminClubStatus]);
+  const adminClubMemberCount = adminClubs.reduce((total, club) => total + Number(club.memberCount || club.memberIds?.length || 0), 0);
+  const adminClubApprovedCount = adminClubs.filter(club => club.status === "approved").length;
+  const adminClubTotalBalance = adminClubs.reduce((total, club) => total + Number(club.balance || 0), 0);
   const currentClub =
     clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null;
   const activeFormationApplication = applications.find(application => !["approved", "rejected"].includes(application.status)) || null;
@@ -1769,8 +1789,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 return (
                   <article className="clubs-scout-card" key={player._id}>
                     <div className="clubs-scout-top">
-                      <span className="clubs-scout-avatar">{player.profileImage ? <img src={player.profileImage} alt="" /> : playerInitials(player.name)}</span>
-                      <div><p className="clubs-eyebrow">{player.position || "PLAYER"}</p><h3>{player.name}</h3><span>{player.jerseyNumber ? "#" + player.jerseyNumber : "GG PLAYER"}</span></div>
+                      <button
+                        type="button"
+                        className="clubs-scout-profile"
+                        onClick={() => setSelectedAnalyticsPlayerId(String(player._id))}
+                        aria-haspopup="dialog"
+                        aria-label={"Open player OVR card for " + (player.name || "Player")}
+                      >
+                        <span className="clubs-scout-avatar">{player.profileImage ? <img src={player.profileImage} alt="" /> : playerInitials(player.name)}</span>
+                        <span className="clubs-scout-identity"><p className="clubs-eyebrow">{player.position || "PLAYER"}</p><strong>{player.name}</strong><span>{player.jerseyNumber ? "#" + player.jerseyNumber : "GG PLAYER"}</span><small>View player card ↗</small></span>
+                      </button>
                       <strong>{player.currentOvr ?? player.ovrSnapshot?.currentOvr ?? "—"}<small>OVR</small></strong>
                     </div>
                     <div className="clubs-scout-metrics">
@@ -2177,24 +2205,111 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           )}
         </section>
       ) : adminOnlyView && activeSection === "adminClubs" ? (
-        <section className="clubs-section">
-          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">CLUB DIRECTORY</p><h2>Every Club formed</h2></div><span>{adminClubs.length}</span></div>
-          {adminClubs.length === 0 ? <div className="clubs-empty">No Club records exist yet.</div> : (
-            <div className="clubs-grid">
-              {adminClubs.map(club => (
-                <article className="club-card" key={String(club._id)}>
-                  <div className="club-card-mark">GG</div>
-                  <div>
-                    <p className="clubs-eyebrow">{String(club.status || "").toUpperCase()}</p>
-                    <h3>{club.name}</h3>
-                    <span>{club.memberCount || club.memberIds?.length || 0}/5 members · {club.captainCount || club.captainIds?.length || 0} captain(s) · squad OVR {club.squadOvr ?? "—"}</span>
-                    <div className="clubs-roster-premium">
-                      {(club.members || []).map(member => <span key={String(member?._id)}>{member?.name || "Player"} · {member?.ovr ?? "—"}{member?.isCaptain ? " ★" : ""}</span>)}
-                    </div>
-                  </div>
-                  <strong>{club.balance ?? 0}</strong>
-                </article>
-              ))}
+        <section className="clubs-section clubs-admin-directory">
+          <div className="clubs-section-heading">
+            <div>
+              <p className="clubs-eyebrow">CLUB DIRECTORY</p>
+              <h2>Every Club formed</h2>
+              <p className="clubs-admin-directory-intro">Open a Club to inspect its squad. Select any player to view their OVR card and Matchday analytics.</p>
+            </div>
+            <span>{filteredAdminClubs.length} of {adminClubs.length} Clubs</span>
+          </div>
+
+          <div className="clubs-admin-directory-overview" aria-label="Club directory summary">
+            <article><span>ALL CLUBS</span><strong>{adminClubs.length}</strong><small>Created in Ultimate Clubs</small></article>
+            <article><span>APPROVED</span><strong>{adminClubApprovedCount}</strong><small>Active official Clubs</small></article>
+            <article><span>SQUAD PLAYERS</span><strong>{adminClubMemberCount}</strong><small>Across all Club rosters</small></article>
+            <article><span>TOTAL TREASURY</span><strong>{adminClubTotalBalance.toLocaleString("en-IN")}</strong><small>Credits across Club wallets</small></article>
+          </div>
+
+          <div className="clubs-admin-directory-controls">
+            <label>
+              <span>SEARCH CLUB OR PLAYER</span>
+              <input value={adminClubSearch} onChange={event => setAdminClubSearch(event.target.value)} placeholder="Search Club, player or status…" />
+            </label>
+            <label>
+              <span>CLUB STATUS</span>
+              <select value={adminClubStatus} onChange={event => setAdminClubStatus(event.target.value)}>
+                <option value="all">All statuses</option>
+                {adminClubStatuses.map(status => <option key={status} value={status}>{status.replace(/([A-Z])/g, " $1").replace(/^./, letter => letter.toUpperCase())}</option>)}
+              </select>
+            </label>
+            {(adminClubSearch || adminClubStatus !== "all") && (
+              <button type="button" className="clubs-secondary-button clubs-admin-directory-reset" onClick={() => { setAdminClubSearch(""); setAdminClubStatus("all"); }}>Clear filters</button>
+            )}
+          </div>
+
+          {adminClubs.length === 0 ? (
+            <div className="clubs-empty"><strong>No Club records exist yet.</strong><span>Approved Clubs will appear here with their roster, squad OVR and wallet summary.</span></div>
+          ) : filteredAdminClubs.length === 0 ? (
+            <div className="clubs-empty"><strong>No matching Clubs.</strong><span>Try another Club name, player name or status.</span></div>
+          ) : (
+            <div className="clubs-admin-directory-grid">
+              {filteredAdminClubs.map(club => {
+                const clubId = String(club._id);
+                const expanded = expandedAdminClubId === clubId;
+                const members = Array.isArray(club.members) ? club.members : [];
+                return (
+                  <article className={"clubs-admin-directory-card" + (expanded ? " is-expanded" : "")} key={clubId}>
+                    <button
+                      type="button"
+                      className="clubs-admin-directory-main"
+                      aria-expanded={expanded}
+                      aria-controls={"admin-club-roster-" + clubId}
+                      onClick={() => setExpandedAdminClubId(expanded ? null : clubId)}
+                    >
+                      <span className="clubs-admin-directory-mark" aria-hidden="true">GG</span>
+                      <span className="clubs-admin-directory-copy">
+                        <span className="clubs-admin-directory-meta">
+                          <span className="clubs-admin-directory-status" data-status={String(club.status || "unknown")}>{String(club.status || "unknown").replace(/([A-Z])/g, " $1")}</span>
+                          <span>{club.memberCount || club.memberIds?.length || 0}/5 players</span>
+                        </span>
+                        <strong>{club.name || "Unnamed Club"}</strong>
+                        <small>{club.description || "A registered GG Matchday Club and its current squad."}</small>
+                        <span className="clubs-admin-directory-captains">{club.captainCount || club.captainIds?.length || 0} captain(s) · Squad OVR {club.squadOvr ?? "—"}</span>
+                      </span>
+                      <span className="clubs-admin-directory-wallet">
+                        <small>CLUB WALLET</small>
+                        <strong>{Number(club.balance || 0).toLocaleString("en-IN")}</strong>
+                        <span>{expanded ? "Hide squad ↑" : "View squad ↓"}</span>
+                      </span>
+                    </button>
+
+                    {expanded && (
+                      <div className="clubs-admin-directory-expanded" id={"admin-club-roster-" + clubId}>
+                        <div className="clubs-admin-directory-expanded-heading">
+                          <div><p className="clubs-eyebrow">CURRENT ROSTER</p><h3>{club.name || "Club squad"}</h3></div>
+                          <span>{members.length} player(s)</span>
+                        </div>
+                        {members.length ? (
+                          <div className="clubs-admin-directory-roster">
+                            {members.map(member => (
+                              <button
+                                type="button"
+                                className="clubs-admin-directory-player"
+                                key={String(member?._id)}
+                                onClick={() => setSelectedAnalyticsPlayerId(String(member._id))}
+                                aria-haspopup="dialog"
+                                aria-label={"Open player OVR card for " + (member?.name || "Player")}
+                              >
+                                <span className="clubs-admin-directory-player-avatar">
+                                  {member?.profileImage ? <img src={member.profileImage} alt="" /> : playerInitials(member?.name)}
+                                </span>
+                                <span className="clubs-admin-directory-player-copy">
+                                  <strong>{member?.name || "Player"}</strong>
+                                  <small>{member?.position || "Position not set"}{member?.isCaptain ? " · Captain ★" : ""}</small>
+                                </span>
+                                <strong className="clubs-admin-directory-player-ovr">{member?.ovr ?? "—"}<small>OVR</small></strong>
+                              </button>
+                            ))}
+                          </div>
+                        ) : <p className="clubs-admin-directory-empty-roster">No linked player profiles are available for this Club yet.</p>}
+                        <p className="clubs-admin-directory-footnote">Player OVR cards are read-only; opening a card will not change Club membership or wallet data.</p>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>

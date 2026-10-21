@@ -352,7 +352,7 @@ router.get("/seasons", safe(async (req, res) => {
     const computed = annualAwardsFromSnapshots(rows, year);
     if (clasicoAwards[0]) computed.push({ ...clasicoAwards[0], finalized: false });
     const byType = new Map(computed.map(award => [award.type, award]));
-    for (const award of persistedAwards.filter(item => Number(item.year) === year)) {
+    for (const award of persistedAwards.filter(item => Number(item.year) === year && item.type !== "motm")) {
       byType.set(award.type, {
         type: award.type, year: award.year, month: award.month ?? null, player: award.player,
         playerId: id(award.player), playerName: award.playerName, value: award.value,

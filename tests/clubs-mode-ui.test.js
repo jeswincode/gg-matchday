@@ -344,3 +344,27 @@ test("Clubs admin dashboard uses the persisted operations API and exposes queue/
   assert.match(auditModel, /outcome: \{ type: String, enum: \["success", "failed", "requested"\]/);
   assert.match(component, /not yet instrumented in this subsystem/i);
 });
+
+
+test("Club admin directory exposes responsive search, expandable rosters, and player-card actions", () => {
+  const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  assert.match(component, /clubs-admin-directory-controls/);
+  assert.match(component, /aria-expanded=\{expanded\}/);
+  assert.match(component, /setSelectedAnalyticsPlayerId\(String\(member\._id\)\)/);
+  assert.match(component, /clubs-scout-profile/);
+  assert.match(component, /setSelectedAnalyticsPlayerId\(String\(player\._id\)\)/);
+  assert.match(styles, /\.clubs-admin-directory-grid\s*\{/);
+  assert.match(styles, /\.clubs-admin-directory-player\s*\{/);
+  assert.match(styles, /@media \(max-width: 620px\)/);
+});
+
+test("Season award display omits MOTM and labels the El Clasico season award clearly", () => {
+  const component = fs.readFileSync("src/components/HomeAnalyticsHub.jsx", "utf8");
+  const routes = fs.readFileSync("server/routes/stats.js", "utf8");
+  const matchDetails = fs.readFileSync("src/components/MatchDetail.jsx", "utf8");
+  assert.match(component, /season\.awards\.filter\(a=>a\.type!=="motm"\)/);
+  assert.match(component, /El Clásico Player of the Season/);
+  assert.match(routes, /item\.type !== "motm"/);
+  assert.match(matchDetails, /Player of the Match/);
+});
