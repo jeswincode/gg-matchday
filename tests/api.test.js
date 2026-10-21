@@ -293,3 +293,29 @@ test("admin operational health reports live database pings and process-local pro
   assert.equal(databaseHealth.data.collectionCountMethod, "estimatedDocumentCount");
   assert.ok(Number.isFinite(databaseHealth.data.collections.ratingDisputes));
 });
+
+test('season summary excludes per-match MOTM awards while match-level recognition remains stored', async () => {
+  assert.ok(matchId);
+  await Award.updateOne(
+    { key: `motm:${matchId}` },
+    { $set: {
+      key: `motm:${matchId}`,
+      type: 'motm',
+      year: 2026,
+      month: null,
+      match: matchId,
+      player: p1._id,
+      playerName: 'Test Forward',
+      value: 1,
+      metric: 'votes',
+    } },
+    { upsert: true },
+  );
+
+  const result = await request('/stats/seasons');
+  assert.equal(result.status, 200, JSON.stringify(result.data));
+  const season = result.data.seasons.find(item => item.year === 2026);
+  assert.ok(season, '2026 season should be present for the recorded test match');
+  assert.equal(season.awards.some(award => award.type === 'motm'), false);
+  assert.ok(await Award.exists({ key: `motm:${matchId}`, type: 'motm' }), 'match-level MOTM award remains persisted');
+});
