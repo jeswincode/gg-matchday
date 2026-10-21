@@ -210,7 +210,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
     );
     await expect(admin.getByText("No Club formations are waiting for admin action.")).toBeVisible();
     await admin.getByRole("button", { name: "Clubs", exact: true }).click();
-    await expect(admin.locator(".club-card").filter({ hasText: formationClubName })).toBeVisible();
+    await expect(admin.locator(".clubs-admin-directory-card").filter({ hasText: formationClubName })).toBeVisible();
 
     // Verify the approved Club from a member's refreshed browser view.
     await loadClubs(founder, actors[0]);
