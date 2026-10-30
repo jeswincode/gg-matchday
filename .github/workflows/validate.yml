@@ -1,5 +1,10 @@
 name: Validate
 
+# Keep only the newest validation snapshot for a branch/PR head.
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main, refactor/phase2-architecture, GG-Matchday-v3, GG-Matchday-v3-hardening-check, GG-Matchday-v3-club-match-classification, GG-Matchday-v4]
