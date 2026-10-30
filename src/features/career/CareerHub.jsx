@@ -4,6 +4,8 @@ import "./career-hub.css";
 import { getCareerKits, getCareerMilestones, getNextCareerObjective } from "./career-progression.js";
 import { getCareerRecords } from "./career-records.js";
 
+const EMPTY_STATS = Object.freeze({});
+const EMPTY_MATCHES = Object.freeze([]);
 const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const compactDate = value => {
   const date = new Date(value);
@@ -111,7 +113,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   const loading = !responseIsCurrent;
   const error = responseIsCurrent ? careerResponse.error : "";
 
-  const stats = career?.stats || {};
+  const stats = career?.stats || EMPTY_STATS;
   const objective = useMemo(() => getNextCareerObjective(stats), [stats]);
   const milestoneCards = useMemo(() => getCareerMilestones(stats), [stats]);
   const careerKits = useMemo(() => getCareerKits(stats), [stats]);
@@ -126,7 +128,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   };
   const seasonRows = career?.seasons || [];
   const awards = career?.awards || [];
-  const matches = career?.matches || [];
+  const matches = career?.matches || EMPTY_MATCHES;
   const matchById = useMemo(() => new Map(matches.map(match => [String(match._id), match])), [matches]);
   const recent = (stats?.recent || []).map(item => ({
     ...item,
