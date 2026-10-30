@@ -20,7 +20,7 @@ const ADMIN_LOCATIONS = [
 ];
 
 export default function ClubWorldMap({ activeLocation = "overview", onNavigate, clubName = "Ultimate Clubs", isAdmin = false, adminOnly = false, incomingMatches = 0, pendingApplications = 0 }) {
-  const locations = adminOnly ? ADMIN_LOCATIONS : LOCATIONS.filter(item => !item.admin || isAdmin);
+  const locations = adminOnly ? ADMIN_LOCATIONS : LOCATIONS.filter(item => !item.admin);
   const current = locations.find(item => item.key === activeLocation) || locations[0];
   const counts = { matches: incomingMatches, adminApplications: pendingApplications };
   const [pan, setPan] = useState({ x: 0, y: 0 });
