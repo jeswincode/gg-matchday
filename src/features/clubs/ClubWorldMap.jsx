@@ -58,7 +58,7 @@ export default function ClubWorldMap({ activeLocation = "overview", onNavigate, 
           const active = location.key === activeLocation || (location.key === "matches" && activeLocation === "overview" && current?.key === "matches");
           const badgeCount = counts[location.key] || 0;
           return (
-            <button key={location.key} type="button" className={`club-world-building club-world-building--${location.tone}` + (active ? " active" : "")} style={{ left: location.x + "%", top: location.y + "%" }} data-primary-tab={location.key} data-location={location.key} aria-current={active ? "page" : undefined} aria-label={`Enter ${location.title}: ${location.desc}`} onClick={() => onNavigate(location.key)}>
+            <button key={location.key} type="button" className={`club-world-building club-world-building--${location.tone}` + (active ? " active" : "")} style={{ left: location.x + "%", top: location.y + "%" }} data-primary-tab={location.key} data-location={location.key} aria-current={active ? "page" : undefined} aria-label={location.title} title={location.desc} onClick={() => onNavigate(location.key)}>
               <span className="club-world-building-art"><i>{location.icon}</i><b>{location.building.toUpperCase()}</b></span>
               <strong>{location.title}</strong><small>{location.desc}</small>
               {badgeCount > 0 && <em>{badgeCount}</em>}
@@ -70,7 +70,7 @@ export default function ClubWorldMap({ activeLocation = "overview", onNavigate, 
       <div className="club-world-map-selected" aria-live="polite">
         <span className="club-world-selected-mark">{current?.icon}</span>
         <div><small>SELECTED LOCATION</small><strong>{current?.building}</strong><p>{current?.desc}</p></div>
-        <button type="button" onClick={() => onNavigate(current.key)}>Enter {current?.title} ↗</button>
+        <button type="button" onClick={() => onNavigate(current.key)}>Enter selected building ↗</button>
       </div>
       <p className="club-world-map-hint">Select any building on the map or use its location card. All existing Club permissions and workflows still apply.</p>
     </nav>
