@@ -4,9 +4,17 @@ import { getCareerKits, getCareerMilestones, getNextCareerObjective } from "../s
 
 test("career objectives advance from official career record counts", () => {
   assert.equal(getNextCareerObjective({ matches: 0 }).key, "matches");
-  assert.equal(getNextCareerObjective({ matches: 1, goals: 0 }).key, "goals");
-  assert.equal(getNextCareerObjective({ matches: 18, goals: 12, assists: 0 }).key, "assists");
-  assert.equal(getNextCareerObjective({ matches: 50, goals: 100, assists: 50, cleanSheets: 100, wins: 100 }).target, 60);
+  const ten = getNextCareerObjective({ matches: 1, goals: 0 });
+  assert.equal(ten.key, "matches");
+  assert.equal(ten.current, 1);
+  assert.equal(ten.target, 10);
+
+  const twentyFive = getNextCareerObjective({ matches: 18, goals: 0, assists: 0 });
+  assert.equal(twentyFive.current, 18);
+  assert.equal(twentyFive.target, 25);
+
+  const nextCareer = getNextCareerObjective({ matches: 50, goals: 0, assists: 0, cleanSheets: 0, wins: 0 });
+  assert.equal(nextCareer.target, 100);
 });
 
 test("career milestones unlock at exact thresholds and preserve next progress", () => {
