@@ -16,7 +16,7 @@ const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
 const GGWorld = lazy(() => import("./features/world/GGWorld"));
-const GGCompanion = lazy(() => import("./features/world/GGWorld").then(module => ({ default: module.GGCompanion })));
+const GGCompanion = lazy(() => import("./features/world/GGCompanion"));
 import {
   useEffect,
   useMemo,
