@@ -21,6 +21,7 @@ const { default: ClubWalletTransaction } = await import("../server/models/clubs/
 const { default: PlayerWallet } = await import("../server/models/clubs/PlayerWallet.js");
 const { default: PlayerWalletTransaction } = await import("../server/models/clubs/PlayerWalletTransaction.js");
 const { default: ClubMatch } = await import("../server/models/clubs/ClubMatch.js");
+const { default: ClubTrainingSession } = await import("../server/models/clubs/ClubTrainingSession.js");
 const { default: ClubFormationApplication } = await import("../server/models/clubs/ClubFormationApplication.js");
 const { default: ClubHistory } = await import("../server/models/clubs/ClubHistory.js");
 const { default: ClubAdminAuditEvent } = await import("../server/models/clubs/ClubAdminAuditEvent.js");
@@ -63,7 +64,7 @@ before(async () => {
 
   await Promise.all([
     Player.init(), User.init(), Club.init(), ClubContract.init(), AuctionOffer.init(),
-    ClubWalletTransaction.init(), PlayerWallet.init(), PlayerWalletTransaction.init(), ClubMatch.init(),
+    ClubWalletTransaction.init(), PlayerWallet.init(), PlayerWalletTransaction.init(), ClubMatch.init(), ClubTrainingSession.init(),
     ClubFormationApplication.init(), ClubHistory.init(), ClubAdminAuditEvent.init(), Match.init(), PlayerStats.init(), SeasonStats.init(),
   ]);
 
@@ -710,6 +711,108 @@ test("GET Club wallet uses the route called by the My Club dashboard and restric
 
   const nonMemberResponse = await request(`/clubs/${club._id}/wallet`, { playerId: players[8]._id });
   assert.equal(nonMemberResponse.status, 403, JSON.stringify(nonMemberResponse.data));
+});
+
+test("Club team training supports captain scheduling, member RSVPs, attendance and completion without touching wallets", async () => {
+  const roster = players.slice(0, 4);
+  for (const player of roster) {
+    const linked = await request("/auth/me", { playerId: player._id });
+    assert.equal(linked.status, 200, JSON.stringify(linked.data));
+  }
+  const club = await Club.create({
+    name: "Team Training Integration FC",
+    description: "Shared team training route test.",
+    memberIds: roster.map(player => player._id),
+    captainIds: [roster[0]._id],
+    status: "approved",
+    balance: 300,
+    committedBalance: 45,
+  });
+  const originalWallet = await Club.findById(club._id).select("balance committedBalance").lean();
+  const future = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+  const nonCaptainCreate = await request(`/clubs/training/${club._id}`, {
+    playerId: roster[1]._id,
+    method: "POST",
+    body: { title: "Passing patterns", focus: "passing", scheduledAt: future },
+  });
+  assert.equal(nonCaptainCreate.status, 403, JSON.stringify(nonCaptainCreate.data));
+
+  const created = await request(`/clubs/training/${club._id}`, {
+    playerId: roster[0]._id,
+    method: "POST",
+    body: {
+      title: "Thursday passing patterns",
+      focus: "passing",
+      notes: "First touch, third-player runs and quick combinations.",
+      scheduledAt: future,
+      invitedPlayerIds: roster.slice(0, 2).map(player => String(player._id)),
+    },
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.equal(created.data.status, "scheduled");
+  assert.equal(created.data.attendees.length, 2);
+  const sessionId = String(created.data._id);
+
+  const outsiderRead = await request(`/clubs/training/${club._id}`, { playerId: players[8]._id });
+  assert.equal(outsiderRead.status, 404, JSON.stringify(outsiderRead.data));
+
+  const nonInvitedResponse = await request(`/clubs/training/${club._id}/${sessionId}/response`, {
+    playerId: roster[2]._id,
+    method: "PATCH",
+    body: { response: "accepted" },
+  });
+  assert.equal(nonInvitedResponse.status, 403, JSON.stringify(nonInvitedResponse.data));
+
+  const accepted = await request(`/clubs/training/${club._id}/${sessionId}/response`, {
+    playerId: roster[1]._id,
+    method: "PATCH",
+    body: { response: "accepted" },
+  });
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  assert.equal(accepted.data.attendees.find(item => String(item.playerId) === String(roster[1]._id)).response, "accepted");
+
+  const nonCaptainAttendance = await request(`/clubs/training/${club._id}/${sessionId}/attendance`, {
+    playerId: roster[1]._id,
+    method: "PATCH",
+    body: { playerId: roster[1]._id, attendance: "present" },
+  });
+  assert.equal(nonCaptainAttendance.status, 403, JSON.stringify(nonCaptainAttendance.data));
+
+  const attendance = await request(`/clubs/training/${club._id}/${sessionId}/attendance`, {
+    playerId: roster[0]._id,
+    method: "PATCH",
+    body: { playerId: roster[1]._id, attendance: "present" },
+  });
+  assert.equal(attendance.status, 200, JSON.stringify(attendance.data));
+  assert.equal(attendance.data.attendees.find(item => String(item.playerId) === String(roster[1]._id)).attendance, "present");
+
+  const nonCaptainComplete = await request(`/clubs/training/${club._id}/${sessionId}/complete`, {
+    playerId: roster[1]._id,
+    method: "POST",
+    body: {},
+  });
+  assert.equal(nonCaptainComplete.status, 403, JSON.stringify(nonCaptainComplete.data));
+
+  const completed = await request(`/clubs/training/${club._id}/${sessionId}/complete`, {
+    playerId: roster[0]._id,
+    method: "POST",
+    body: {},
+  });
+  assert.equal(completed.status, 200, JSON.stringify(completed.data));
+  assert.equal(completed.data.status, "completed");
+  assert.ok(completed.data.completedAt);
+
+  const history = await request(`/clubs/training/${club._id}`, { playerId: roster[1]._id });
+  assert.equal(history.status, 200, JSON.stringify(history.data));
+  assert.equal(history.data.sessions.length, 1);
+  assert.equal(history.data.sessions[0].status, "completed");
+  assert.equal(history.data.sessions[0].attendees.find(item => String(item.playerId) === String(roster[1]._id)).attendance, "present");
+
+  const finalWallet = await Club.findById(club._id).select("balance committedBalance").lean();
+  assert.equal(finalWallet.balance, originalWallet.balance);
+  assert.equal(finalWallet.committedBalance, originalWallet.committedBalance);
+  assert.equal(await ClubWalletTransaction.countDocuments({ clubId: club._id }), 0);
 });
 
 test("GET Club Matches is read-only and does not expire stale requests", async () => {
