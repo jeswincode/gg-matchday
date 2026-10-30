@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
+import ClubHeadquarters from "./ClubHeadquarters";
 import "./clubs-mode.css";
 
 const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
@@ -2472,6 +2473,13 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </div>
           ) : (
             <>
+              <ClubHeadquarters
+                club={currentClub}
+                completedMatches={completedClubMatches}
+                nextMatch={nextClubMatch}
+                clubOvr={clubOvr}
+                history={commandCenter?.recentHistory || clubHistory}
+              />
               <header className="clubs-command-header">
                 <div className="clubs-command-title">
                   <p className="clubs-eyebrow">MY CLUB / DASHBOARD</p>
