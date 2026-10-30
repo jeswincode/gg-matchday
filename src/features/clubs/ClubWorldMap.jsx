@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import "./club-world-map.css";
 
 const LOCATIONS = [
@@ -21,6 +22,20 @@ export default function ClubWorldMap({ activeLocation = "overview", onNavigate, 
   const locations = adminOnly ? ADMIN_LOCATIONS : LOCATIONS.filter(item => !item.admin || isAdmin);
   const current = locations.find(item => item.key === activeLocation) || locations[0];
   const counts = { matches: incomingMatches, adminApplications: pendingApplications };
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panStart = useRef(null);
+  const startPan = event => {
+    if (event.target?.closest?.("button")) return;
+    panStart.current = { x: event.clientX, y: event.clientY, originX: pan.x, originY: pan.y };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const movePan = event => {
+    if (!panStart.current) return;
+    const nextX = panStart.current.originX + event.clientX - panStart.current.x;
+    const nextY = panStart.current.originY + event.clientY - panStart.current.y;
+    setPan({ x: Math.max(-44, Math.min(44, nextX)), y: Math.max(-34, Math.min(34, nextY)) });
+  };
+  const finishPan = () => { panStart.current = null; };
 
   return (
     <nav className={"club-world-map" + (adminOnly ? " is-admin-map" : "")} aria-label={adminOnly ? "Clubs admin navigation" : "Clubs navigation"}>
@@ -28,7 +43,8 @@ export default function ClubWorldMap({ activeLocation = "overview", onNavigate, 
         <div><p className="clubs-eyebrow">{adminOnly ? "ULTIMATE CLUBS / OPERATIONS MAP" : "ULTIMATE CLUBS / CAMPUS MAP"}</p><h2>{adminOnly ? "Operations Campus" : (clubName && clubName !== "Ultimate Clubs" ? clubName + " Grounds" : "Ultimate Clubs Grounds")}</h2><p>{adminOnly ? "Select an operations building to enter its workspace." : "Choose a building to open the real Club workflow inside."}</p></div>
         <span className="club-world-map-live">● INTERACTIVE MAP</span>
       </div>
-      <div className="club-world-map-scene">
+      <div className="club-world-map-scene" onPointerDown={startPan} onPointerMove={movePan} onPointerUp={finishPan} onPointerCancel={finishPan}>
+        <div className="club-world-map-pan" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0)` }}>
         <svg className="club-world-map-art" viewBox="0 0 1100 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs><linearGradient id="club-world-ground" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#244a3c"/><stop offset="1" stopColor="#142c28"/></linearGradient><pattern id="club-world-grid" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M34 0H0V34" fill="none" stroke="#e8ecd8" strokeOpacity=".06"/></pattern></defs>
           <rect width="1100" height="520" fill="url(#club-world-ground)"/><rect width="1100" height="520" fill="url(#club-world-grid)"/>
@@ -49,6 +65,7 @@ export default function ClubWorldMap({ activeLocation = "overview", onNavigate, 
             </button>
           );
         })}
+        </div>
       </div>
       <div className="club-world-map-selected" aria-live="polite">
         <span className="club-world-selected-mark">{current?.icon}</span>
