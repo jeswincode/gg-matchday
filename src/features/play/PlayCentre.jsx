@@ -246,9 +246,9 @@ function TacticalLab({ players }) {
           <div className="tactical-section-heading"><div><p className="play-eyebrow">02 / SQUAD SELECTION</p><h4>Pick your players</h4></div><span>{pickedPlayers.length} / {capacity} selected</span></div>
           <div className="tactical-player-list">
             {players.map(player => {
-              const selected = selectedPlayers.includes(String(player._id));
+              const selected = effectiveSelectedPlayers.includes(String(player._id));
               const ovr = playerOvr(player);
-              return <button type="button" key={player._id} className={selected ? "selected" : ""} onClick={() => togglePlayer(String(player._id))} disabled={!selected && selectedPlayers.length >= squadSize}><span className="tactical-player-avatar">{player.profileImage ? <img src={player.profileImage} alt=""/> : player.name.slice(0,1).toUpperCase()}</span><span className="tactical-player-name"><strong>{player.name}</strong><small>{player.position || "Position not set"}</small></span><span className="tactical-player-rating">{ovr ?? "—"}</span><span className="tactical-player-check">{selected ? "✓" : "+"}</span></button>;
+              return <button type="button" key={player._id} className={selected ? "selected" : ""} onClick={() => togglePlayer(String(player._id))} disabled={!selected && effectiveSelectedPlayers.length >= squadSize}><span className="tactical-player-avatar">{player.profileImage ? <img src={player.profileImage} alt=""/> : player.name.slice(0,1).toUpperCase()}</span><span className="tactical-player-name"><strong>{player.name}</strong><small>{player.position || "Position not set"}</small></span><span className="tactical-player-rating">{ovr ?? "—"}</span><span className="tactical-player-check">{selected ? "✓" : "+"}</span></button>;
             })}
             {!players.length && <div className="play-empty">Player directory is empty.</div>}
           </div>
