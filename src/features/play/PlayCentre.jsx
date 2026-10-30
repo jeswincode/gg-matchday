@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import "./play-centre.css";
 import { evaluateTacticalPlan, penaltyIsGoal, positionGroup, targetIsHit } from "./play-engine.js";
 
@@ -52,13 +52,6 @@ function GamePanel({ mode, onModeChange, playerId }) {
   const [power, setPower] = useState("balanced");
   const [dribbleStep, setDribbleStep] = useState(0);
 
-  useEffect(() => {
-    setBest(bestFor(bestKey));
-    setRound(null);
-    setFeedback("");
-    setDribbleStep(0);
-  }, [bestKey]);
-
   const start = () => {
     if (mode === "penalties") {
       setRound({ step: 0, score: 0, keepers: Array.from({ length: 5 }, () => choose(LANES)), complete: false });
@@ -75,7 +68,7 @@ function GamePanel({ mode, onModeChange, playerId }) {
     const finalScore = Math.round(score);
     saveBest(bestKey, finalScore);
     setBest(current => Math.max(current, finalScore));
-    setRound(current => ({ ...current, complete: true, score: finalScore, total }));
+    setRound(current => ({ ...current, step: current.step + 1, complete: true, score: finalScore, total }));
     setFeedback("Challenge complete. Your best score is saved on this device.");
   };
 
@@ -171,14 +164,8 @@ function GamePanel({ mode, onModeChange, playerId }) {
 function TacticalLab({ players }) {
   const [squadSize, setSquadSize] = useState(4);
   const [formation, setFormation] = useState("1-2-1");
-  const [selectedPlayers, setSelectedPlayers] = useState(() => players.slice(0, 4).map(player => String(player._id)));
-  const didInitialiseSquad = useRef(false);
-
-  useEffect(() => {
-    if (didInitialiseSquad.current || !players.length) return;
-    didInitialiseSquad.current = true;
-    setSelectedPlayers(players.slice(0, 4).map(player => String(player._id)));
-  }, [players]);
+  const [selectedPlayers, setSelectedPlayers] = useState(null);
+  const effectiveSelectedPlayers = selectedPlayers ?? players.slice(0, squadSize).map(player => String(player._id));
   const [scenarioIndex, setScenarioIndex] = useState(0);
   const [answer, setAnswer] = useState(null);
   const [approach, setApproach] = useState("balanced");
@@ -186,7 +173,7 @@ function TacticalLab({ players }) {
   const scenario = SCENARIOS[scenarioIndex];
   const capacity = squadSize;
   const options = squadSize === 5 ? FORMATIONS.five : FORMATIONS.four;
-  const pickedPlayers = useMemo(() => players.filter(player => selectedPlayers.includes(String(player._id))), [players, selectedPlayers]);
+  const pickedPlayers = useMemo(() => players.filter(player => effectiveSelectedPlayers.includes(String(player._id))), [players, effectiveSelectedPlayers]);
   const groups = pickedPlayers.map(player => positionGroup(player.position));
   const ovrValues = pickedPlayers.map(playerOvr).filter(value => value !== null);
   const planScore = evaluateTacticalPlan({
@@ -198,26 +185,26 @@ function TacticalLab({ players }) {
     approachScore: scenario.approachScores[approach] ?? 5,
     ovrValues,
   });
+  const layoutFormation = options.includes(formation) ? formation : options[0];
   const pitchSlots = useMemo(() => {
-    const lines = formation.split("-").map(Number);
+    const lines = layoutFormation.split("-").map(Number);
     const lastRow = Math.max(1, lines.length - 1);
     return lines.flatMap((count, row) => Array.from({ length: count }, (_, column) => ({
       x: ((column + 1) / (count + 1)) * 100,
       y: 18 + (row / lastRow) * 64,
     })));
-  }, [formation]);
+  }, [layoutFormation]);
   const shapeAdvice = pickedPlayers.length !== capacity
     ? "Your current selection has " + pickedPlayers.length + " players; this shape requires exactly " + capacity + ". Choose the matching 4v4 or 5v5 squad size."
     : "Your squad size matches the selected small-sided shape.";
-  useEffect(() => {
-    if (!options.includes(formation)) setFormation(options[0]);
-  }, [formation, options]);
-
   const togglePlayer = id => {
     setResult(null);
-    setSelectedPlayers(current => current.includes(id)
-      ? current.filter(value => value !== id)
-      : current.length >= squadSize ? current : [...current, id]);
+    setSelectedPlayers(current => {
+      const selected = current ?? players.slice(0, squadSize).map(player => String(player._id));
+      return selected.includes(id)
+        ? selected.filter(value => value !== id)
+        : selected.length >= squadSize ? selected : [...selected, id];
+    });
   };
 
   const runChallenge = () => {
@@ -243,15 +230,15 @@ function TacticalLab({ players }) {
           <div className="tactical-size-switch" role="group" aria-label="Squad size">
             {[4, 5].map(size => <button key={size} type="button" className={squadSize === size ? "active" : ""} aria-pressed={squadSize === size} onClick={() => {
               setSquadSize(size);
-              setSelectedPlayers(current => current.slice(0, size));
+              setSelectedPlayers(current => (current ?? players.slice(0, size).map(player => String(player._id))).slice(0, size));
               setResult(null);
             }}>{size}v{size}</button>)}
           </div>
-          <div className="tactical-formation-select">{options.map(option => <button key={option} type="button" className={formation === option ? "active" : ""} onClick={() => { setFormation(option); setResult(null); }}>{option}</button>)}</div>
+          <div className="tactical-formation-select">{options.map(option => <button key={option} type="button" className={layoutFormation === option ? "active" : ""} onClick={() => { setFormation(option); setResult(null); }}>{option}</button>)}</div>
           <div className="tactical-pitch">
             <span className="tactical-pitch-circle"/><span className="tactical-pitch-line"/>
             <div className="tactical-pitch-slots">{Array.from({ length: capacity }, (_, index) => { const slot = pitchSlots[index] || { x: 50, y: 50 }; return <span key={index} style={{ left: slot.x + "%", top: slot.y + "%" }} className={pickedPlayers[index] ? "filled" : ""} title={pickedPlayers[index]?.name || "Open position"}>{pickedPlayers[index] ? pickedPlayers[index].name.slice(0, 1).toUpperCase() : index + 1}</span>; })}</div>
-            <small>{formation} · {capacity}v{capacity}</small>
+            <small>{layoutFormation} · {capacity}v{capacity}</small>
           </div>
           <p className="tactical-shape-advice">{shapeAdvice}</p>
         </section>
@@ -288,7 +275,7 @@ export default function PlayCentre({ players = [], playerId = null }) {
     <section className="tab-content play-centre">
       <div className="play-centre-hero"><div><p className="play-eyebrow">GG MATCHDAY / TRAINING GROUND</p><h2>Play Centre</h2><p>Step away from the stats. Test your touch, sharpen your decisions and chase a personal best.</p></div><div className="play-centre-ball">⚽</div></div>
       <div className="play-centre-tabs" role="tablist" aria-label="Play Centre sections"><button type="button" role="tab" aria-selected={section === "arcade"} className={section === "arcade" ? "active" : ""} onClick={() => setSection("arcade")}>GG Arcade</button><button type="button" role="tab" aria-selected={section === "tactics"} className={section === "tactics" ? "active" : ""} onClick={() => setSection("tactics")}>Tactical Lab</button></div>
-      {section === "arcade" ? <GamePanel mode={mode} onModeChange={setMode} playerId={playerId}/> : <TacticalLab players={players}/>}
+      {section === "arcade" ? <GamePanel key={mode + ":" + String(playerId || "guest")} mode={mode} onModeChange={setMode} playerId={playerId}/> : <TacticalLab players={players}/>}
     </section>
   );
 }
