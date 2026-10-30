@@ -17,12 +17,14 @@ function Facility({ icon, label, tier, progress, note }) {
   );
 }
 
-export default function ClubHeadquarters({ club, clubs = [], completedMatches = [], nextMatch, clubOvr, history = [] }) {
+export default function ClubHeadquarters({ club, clubs = [], completedMatches = [], nextMatch, clubOvr, trainingSessions = [], history = [] }) {
   const clubId = String(club?._id || "");
   const record = summarizeClubRecord(clubId, completedMatches);
   const played = completedMatches.length;
   const memberCount = club?.memberIds?.length || 0;
-  const facilities = getClubFacilityProgress({ fixtures: played, teamOvr: clubOvr, memberCount });
+  const completedTrainingSessions = trainingSessions.filter(session => session.status === "completed");
+  const teamTrainingAttendance = completedTrainingSessions.reduce((total, session) => total + (session.attendees || []).filter(attendee => attendee.attendance === "present").length, 0);
+  const facilities = getClubFacilityProgress({ fixtures: played, completedTrainingSessions: completedTrainingSessions.length, memberCount });
   const { ground, groundProgress, training, trainingProgress, academy, academyProgress } = facilities;
   const getClubName = (id, fallback) => clubs.find(item => String(item._id) === String(id))?.name || fallback;
   const honours = [...completedMatches].sort((a, b) => new Date(b.scheduledAt || b.fixtureDate || 0) - new Date(a.scheduledAt || a.fixtureDate || 0)).slice(0, 5);
@@ -67,7 +69,7 @@ export default function ClubHeadquarters({ club, clubs = [], completedMatches = 
       <div className="club-hq-section-heading"><div><p className="clubs-eyebrow">DEVELOPMENT WING</p><h4>Facilities evolve with your Club</h4></div><span>Read-only progression · no wallet spending</span></div>
       <div className="club-hq-facilities">
         <Facility icon="⌂" label="Home Ground" tier={ground} progress={groundProgress} note={played + " / " + (ground.level === 1 ? 5 : ground.level === 2 ? 15 : ground.level === 3 ? 30 : 30) + " fixtures"}/>
-        <Facility icon="⚒" label="Training Centre" tier={training} progress={trainingProgress} note={clubOvr == null ? "OVR sample unavailable" : "Current squad OVR " + clubOvr}/>
+        <Facility icon="⚒" label="Training Centre" tier={training} progress={trainingProgress} note={completedTrainingSessions.length + " completed team sessions · " + teamTrainingAttendance + " recorded attendances"}/>
         <Facility icon="♙" label="Academy" tier={academy} progress={academyProgress} note={memberCount + " / 5 active members"}/>
         <article className="club-hq-facility club-hq-honours">
           <div className="club-hq-facility-head"><span className="club-hq-facility-icon">★</span><span className="club-hq-level">LIVE RECORD</span></div>
@@ -96,7 +98,7 @@ export default function ClubHeadquarters({ club, clubs = [], completedMatches = 
           {history.length ? history.slice(0, 5).map((event, index) => <div className="club-hq-event" key={String(event._id || index)}><span>✦</span><div><strong>{event.description || formatEventType(event.eventType)}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleDateString("en-IN") : "Club history"}</small></div></div>) : <div className="club-hq-empty">Official Club milestones will appear here as the Club history grows.</div>}
         </section>
       </div>
-      <p className="club-hq-footnote">Facility tiers are visual summaries derived from completed, synchronised Club matches, current squad size and available member OVR. They do not create credits, alter bids, affect rewards or change the Club Wallet.</p>
+      <p className="club-hq-footnote">Home Ground tiers are derived from completed, synchronised Club matches; Training Centre tiers are derived from completed Club training sessions; Academy tiers reflect current squad size. They do not create credits, alter bids, affect rewards or change the Club Wallet.</p>
     </section>
   );
 }
