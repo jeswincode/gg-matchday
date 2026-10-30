@@ -45,6 +45,7 @@ const TABS = {
   CALENDAR: "calendar",
   PLAYERS: "players",
   ADMIN: "admin",
+  PLAY: "play",
 };
 
 const TAB_ORDER = [
@@ -53,6 +54,7 @@ const TAB_ORDER = [
   TABS.LEADERBOARD,
   TABS.CALENDAR,
   TABS.PLAYERS,
+  TABS.PLAY,
 ];
 
 function toNumber(value) {
@@ -2708,6 +2710,8 @@ function App() {
         </section>
       )}
 
+      {activeTab === TABS.PLAY && <PlayCentre players={players} />}
+
       {/* =====================================================
           ADMIN
       ===================================================== */}
@@ -2794,6 +2798,13 @@ function App() {
               TABS.PLAYERS
             )
           }
+        />
+
+        <NavButton
+          active={activeTab === TABS.PLAY}
+          icon="⚽"
+          label="Play"
+          onClick={() => setActiveTab(TABS.PLAY)}
         />
 
       </nav>
