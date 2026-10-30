@@ -29,11 +29,14 @@ test("stadium facilities progress through completed fixture tiers", () => {
   assert.equal(getClubFacilityProgress({ fixtures: 30 }).ground.level, 4);
 });
 
-test("training and academy facility tiers use only supplied OVR and roster evidence", () => {
-  assert.equal(getClubFacilityProgress({ teamOvr: null }).training.level, 1);
-  assert.equal(getClubFacilityProgress({ teamOvr: 65 }).training.level, 2);
-  assert.equal(getClubFacilityProgress({ teamOvr: 75 }).training.level, 3);
-  assert.equal(getClubFacilityProgress({ teamOvr: 85 }).training.level, 4);
+test("Training Centre progresses from completed Club team sessions rather than OVR", () => {
+  assert.equal(getClubFacilityProgress({ completedTrainingSessions: 0, teamOvr: 99 }).training.level, 1);
+  assert.equal(getClubFacilityProgress({ completedTrainingSessions: 3, teamOvr: 10 }).training.level, 2);
+  assert.equal(getClubFacilityProgress({ completedTrainingSessions: 10, teamOvr: null }).training.level, 3);
+  assert.equal(getClubFacilityProgress({ completedTrainingSessions: 25, teamOvr: 1 }).training.level, 4);
+  assert.equal(getClubFacilityProgress({ completedTrainingSessions: 2 }).trainingProgress, 67);
+  assert.equal(getClubFacilityProgress({ completedTrainingSessions: 6 }).trainingProgress, 43);
+  assert.equal(getClubFacilityProgress({ completedTrainingSessions: 17 }).trainingProgress, 47);
   assert.equal(getClubFacilityProgress({ memberCount: 4 }).academy.level, 2);
   assert.equal(getClubFacilityProgress({ memberCount: 5 }).academy.level, 3);
 });
