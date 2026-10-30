@@ -11,6 +11,17 @@ const compactDate = value => {
     : new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(date);
 };
 const titleCase = value => String(value || "").replace(/[-_]/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
+const AWARD_LABELS = {
+  player: "Player of the Month",
+  offensive: "Best Offensive Player",
+  defensive: "Best Defensive Player",
+  "golden-boot": "Golden Boot",
+  "assist-leader": "Assist Leader",
+  clasico: "El Clásico Award",
+  motm: "Man of the Match",
+};
+const awardLabel = award => AWARD_LABELS[award.type] || awardLabel(award);
+
 
 function readSelectedKit(playerId) {
   try { return window.localStorage.getItem("gg-v4-career-kit:" + playerId) || "home"; }
