@@ -69,9 +69,22 @@ export const TRAINING_DRILLS = Object.freeze([
       { prompt: "The opponent breaks the first press. What becomes the priority?", options: ["Keep chasing from behind", "Protect the central route to goal and recover shape", "Stop tracking runners"], correct: 1, feedback: "Recover compactness and protect the most dangerous central spaces." },
     ],
   },
+  {
+    id: "keeper-angles",
+    name: "Goalkeeper Angles",
+    skill: "Goalkeeping",
+    focus: ["GK"],
+    description: "Manage angles, rebounds and distribution decisions.",
+    questions: [
+      { prompt: "The ball is wide and the attacker has not yet entered the box. Where should your starting position move?", options: ["Stay centred regardless of the ball", "Adjust toward the near post while protecting the far side", "Stand on the goal line at the far post"], correct: 1, feedback: "Adjust your position with the ball while keeping the goal covered." },
+      { prompt: "An attacker approaches from an angle and takes a heavy touch. What should you do?", options: ["Set your feet and narrow the angle without diving early", "Rush past the attacker", "Turn away from the ball"], correct: 0, feedback: "Stay balanced and make the target smaller before committing." },
+      { prompt: "A cross travels into a crowded six-yard area. What is the first decision?", options: ["Stay silent", "Always punch no matter the flight", "Judge the flight and traffic, then call and claim only when you can reach it cleanly"], correct: 2, feedback: "Make a clear early decision based on flight, reach and traffic." },
+      { prompt: "You claim the ball while the opposition presses high. What is a safe distribution cue?", options: ["Release immediately without looking", "Scan for a free teammate or space before choosing the throw or kick", "Roll it straight into the nearest opponent"], correct: 1, feedback: "A quick scan helps choose a distribution that keeps possession." },
+      { prompt: "Your first save spills back into the box. What matters next?", options: ["Recover your feet and react to the rebound", "Watch the first shot", "Leave the goal unprotected"], correct: 0, feedback: "The second action matters: recover quickly and stay ready for the rebound." },
+    ],
+  },
 ]);
-
-export function drillsForPosition(position = "") {
+(position = "") {
   const code = String(position || "").trim().toUpperCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
   const aliases = [
     ["GK", ["GK", "GOALKEEPER"]],
