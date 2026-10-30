@@ -36,7 +36,7 @@ export default function ClubHeadquarters({ club, clubs = [], completedMatches = 
       <div className="club-hq-hero">
         <div className="club-hq-hero-copy">
           <span className="club-hq-label">YOUR HOME</span>
-          <div className="club-hq-crest">{shortName(club?.name)}</div>
+          <div className="club-hq-crest">{club?.logoUrl ? <img src={club.logoUrl} alt={club.name + " crest"} /> : shortName(club?.name)}</div>
           <h4>{club?.name || "Your Club"}</h4>
           <p>{club?.description || "A team identity built by the players who represent it."}</p>
           <div className="club-hq-meta"><span>{memberCount}/5 PLAYERS</span><span>{club?.captainIds?.length || 0} CAPTAIN(S)</span><span>{played} COMPLETED FIXTURES</span></div>
