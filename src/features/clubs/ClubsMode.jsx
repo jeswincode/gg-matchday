@@ -837,7 +837,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const nextClubMatch = currentClubMatches
     .filter(match => ["requested", "accepted"].includes(match.status))
     .sort((a, b) => new Date(a.scheduledAt || a.fixtureDate || 0) - new Date(b.scheduledAt || b.fixtureDate || 0))[0] || null;
-  const completedClubMatches = currentClubMatches.filter(match => match.status === "completed");
+  const completedClubMatches = currentClubMatches.filter(match => match.status === "completed" && Boolean(match.mainMatchId));
   const playerCredits = Math.max(0, Number(wallet?.wallet?.balance ?? 0));
   const recentPlayerTransactions = Array.isArray(wallet?.transactions) ? wallet.transactions.slice(0, 3) : [];
   const clubTotalBudget = Math.max(0, Number(clubWallet?.club?.balance ?? currentClub?.balance ?? 0));
