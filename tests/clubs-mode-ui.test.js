@@ -200,25 +200,32 @@ test("Club Hub is formation-first and keeps Club credits out of the first-screen
   assert.match(styles, /@media\s*\(max-width:\s*520px\)/);
 });
 
-test("Club primary navigation uses top-level Market and Matches with guarded touch-swipe navigation", () => {
+test("Club campus map replaces the horizontal tab strip and routes buildings into guarded workflows", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
-  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  const map = fs.readFileSync("src/features/clubs/ClubWorldMap.jsx", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/club-world-map.css", "utf8");
 
   assert.match(component, /const primaryTabKeys =/);
   assert.match(component, /const navigatePrimaryTab = key =>/);
-  assert.match(component, /onTouchStart=\{handleClubsTouchStart\}/);
-  assert.match(component, /onTouchEnd=\{handleClubsTouchEnd\}/);
-  assert.match(component, /Math\.abs\(dx\) < 72/);
-  assert.match(component, /input, textarea, select, button, a, \[contenteditable='true'\]/);
+  assert.match(component, /<ClubWorldMap/);
+  assert.match(component, /onNavigate=\{navigatePrimaryTab\}/);
   assert.match(component, /activeSection === "market"/);
   assert.match(component, /setActiveSection\("market"\)/);
-  assert.match(component, /Swipe left or right to switch tabs/);
-  assert.doesNotMatch(component, /aria-label="Ultimate Clubs sections"/);
-  assert.doesNotMatch(component, /aria-label="My Club sections"/);
-
-  assert.match(styles, /\.clubs-swipe-hint\s*\{/);
-  assert.match(styles, /scroll-snap-type:\s*x mandatory/);
-  assert.match(styles, /@media\s*\(max-width:\s*760px\)/);
+  assert.match(component, /onTouchStart=\{handleClubsTouchStart\}/);
+  assert.match(component, /onTouchEnd=\{handleClubsTouchEnd\}/);
+  assert.match(component, /\.club-world-map, \.clubs-nav/);
+  assert.doesNotMatch(component, /className="clubs-nav"/);
+  assert.doesNotMatch(component, /Swipe left or right to switch tabs/);
+  assert.match(map, /data-primary-tab=\{location\.key\}/);
+  assert.match(map, /onClick=\{\(\) => onNavigate\(location\.key\)\}/);
+  assert.match(map, /onPointerDown=\{startPan\}/);
+  assert.match(map, /onPointerMove=\{movePan\}/);
+  for (const building of ["overview", "myClub", "clubTraining", "market", "matches", "players", "reviews"]) {
+    assert.match(map, new RegExp('key: "' + building + '"'));
+  }
+  assert.match(styles, /\.club-world-map-scene/);
+  assert.match(styles, /touch-action:pan-y/);
+  assert.match(styles, /@media\(max-width:650px\)/);
 });
 
 
