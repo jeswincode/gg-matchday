@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import "./career-hub.css";
 import { getCareerKits, getCareerMilestones, getNextCareerObjective } from "./career-progression.js";
+import { getCareerRecords } from "./career-records.js";
 
 const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const compactDate = value => {
@@ -51,6 +52,16 @@ function Shirt({ number: shirtNumber }) {
   );
 }
 
+function CareerRecord({ label, value, detail }) {
+  return (
+    <article className="career-record">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail || "No record available yet"}</small>
+    </article>
+  );
+}
+
 function CareerMetric({ label, value, hint }) {
   return (
     <article className="career-metric">
@@ -72,22 +83,35 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
 
   useEffect(() => {
     let active = true;
-    api("/stats/player/" + encodeURIComponent(player._id) + "?historyLimit=all")
-      .then(data => {
-        if (active) setCareerResponse({ key: requestKey, data, error: "" });
-      })
-      .catch(requestError => {
-        if (active) setCareerResponse({
+    const playerKey = encodeURIComponent(player._id);
+
+    Promise.allSettled([
+      api("/stats/player/" + playerKey + "?historyLimit=all"),
+      api("/stats/player/" + playerKey + "/performance"),
+    ]).then(([careerResult, performanceResult]) => {
+      if (!active) return;
+      if (careerResult.status !== "fulfilled") {
+        setCareerResponse({
           key: requestKey,
           data: null,
-          error: requestError.message || "Career data could not be loaded.",
+          analytics: null,
+          error: careerResult.reason?.message || "Career data could not be loaded.",
         });
+        return;
+      }
+      setCareerResponse({
+        key: requestKey,
+        data: careerResult.value,
+        analytics: performanceResult.status === "fulfilled" ? performanceResult.value?.analytics || null : null,
+        error: "",
       });
+    });
     return () => { active = false; };
   }, [requestKey, player._id]);
 
   const responseIsCurrent = careerResponse?.key === requestKey;
   const career = responseIsCurrent ? careerResponse.data : null;
+  const analytics = responseIsCurrent ? careerResponse.analytics : null;
   const loading = !responseIsCurrent;
   const error = responseIsCurrent ? careerResponse.error : "";
 
@@ -95,6 +119,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   const objective = useMemo(() => getNextCareerObjective(stats), [stats]);
   const milestoneCards = useMemo(() => getCareerMilestones(stats), [stats]);
   const careerKits = useMemo(() => getCareerKits(stats), [stats]);
+  const personalRecords = useMemo(() => getCareerRecords(analytics), [analytics]);
   const playerId = String(player._id);
   const savedKitId = kitSelection.playerId === playerId ? kitSelection.kitId : readSelectedKit(playerId);
   const selectedKit = careerKits.find(kit => kit.id === savedKitId && kit.unlocked) || careerKits[0];
@@ -211,6 +236,40 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
         <CareerMetric label="Avg. match rating" value={stats?.averageRating == null ? "—" : Number(stats.averageRating).toFixed(2)} hint={(stats?.ratedMatches ?? 0) + " rated appearances"}/>
         <CareerMetric label="Clean sheets" value={stats?.cleanSheets ?? 0} hint="Team clean sheets"/>
       </div>
+
+      <section className="career-hub-panel career-hub-records-panel">
+        <div className="career-hub-section-head">
+          <div><p className="eyebrow">THE RECORD BOOK</p><h4>Personal records</h4></div>
+          <span>Best verified performances</span>
+        </div>
+        <div className="career-hub-records-grid">
+          <CareerRecord
+            label="Highest match rating"
+            value={personalRecords.bestRating ? Number(personalRecords.bestRating.rating).toFixed(2) : "—"}
+            detail={personalRecords.bestRating ? (personalRecords.bestRating.name || "Matchday appearance") + " · " + compactDate(personalRecords.bestRating.date) : "No rated match yet"}
+          />
+          <CareerRecord
+            label="Most goals in a match"
+            value={personalRecords.bestGoals ? personalRecords.bestGoals.goals : "—"}
+            detail={personalRecords.bestGoals ? (personalRecords.bestGoals.name || "Matchday appearance") + " · " + compactDate(personalRecords.bestGoals.date) : "No goal record yet"}
+          />
+          <CareerRecord
+            label="Most assists in a match"
+            value={personalRecords.bestAssists ? personalRecords.bestAssists.assists : "—"}
+            detail={personalRecords.bestAssists ? (personalRecords.bestAssists.name || "Matchday appearance") + " · " + compactDate(personalRecords.bestAssists.date) : "No assist record yet"}
+          />
+          <CareerRecord
+            label="Best rated month"
+            value={personalRecords.bestMonth ? Number(personalRecords.bestMonth.averageRating).toFixed(2) : "—"}
+            detail={personalRecords.bestMonth ? new Date(Date.UTC(personalRecords.bestMonth.year, personalRecords.bestMonth.month - 1, 1)).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }) + " · " + personalRecords.bestMonth.count + " rated matches" : "Requires at least two rated matches"}
+          />
+          <CareerRecord
+            label="Best teammate"
+            value={personalRecords.bestTeammate?.name || "—"}
+            detail={personalRecords.bestTeammate ? personalRecords.bestTeammate.sharedMatches + " shared matches · " + Math.round(personalRecords.bestTeammate.winRate * 100) + "% wins" : "Build a shared match history"}
+          />
+        </div>
+      </section>
 
       <div className="career-hub-section-head">
         <div><p className="eyebrow">COLLECTIBLES & PROGRESSION</p><h4>Career milestones</h4></div>
