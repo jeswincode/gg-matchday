@@ -206,3 +206,13 @@ test('player performance keeps the modal as the single scroll container',()=>{
   assert.doesNotMatch(css,/\.perf-dashboard\{[^}]*overflow\s*:/);
   assert.doesNotMatch(css,/\.perf-dashboard\{[^}]*max-height\s*:/);
 });
+
+
+test('private training remounts between player profiles and position changes',()=>{
+  const world=read('src/features/world/GGWorld.jsx');
+  const engine=read('src/features/world/TrainingCenter.jsx');
+  assert.match(world,/TrainingCenter key=\{String\(playerId\) \+ ":" \+ String\(player\?\.position \|\| ""\)\}/);
+  assert.match(engine,/STORE_PREFIX = "gg-v4-private-training:"/);
+  assert.match(engine,/window\.localStorage\.getItem\(STORE_PREFIX \+ playerId\)/);
+  assert.match(engine,/window\.localStorage\.setItem\(STORE_PREFIX \+ playerId/);
+});
