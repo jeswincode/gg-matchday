@@ -295,7 +295,7 @@ router.get("/player/:id", safe(async (req, res) => {
   ]);
   const matchHistory = req.query.historyLimit === "all" ? own : own.slice(0, 20);
   const clasico = buildStatistics([player], own.filter(match => isClasico(match.name)), { minimumMatches: 3 })[0];
-  const performance = buildPlayerPerformanceAnalytics(players, own, id(player));
+  const performance = req.query.historyLimit === "all" ? buildPlayerPerformanceAnalytics(players, own, id(player)) : null;
   res.json({
     player, stats: currentStats, matches: matchHistory, seasons, awards, achievements,
     milestones: milestones(currentStats), styles, clasico, performance,
