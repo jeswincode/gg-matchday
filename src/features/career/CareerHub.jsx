@@ -83,29 +83,25 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
 
   useEffect(() => {
     let active = true;
-    const playerKey = encodeURIComponent(player._id);
-
-    Promise.allSettled([
-      api("/stats/player/" + playerKey + "?historyLimit=all"),
-      api("/stats/player/" + playerKey + "/performance"),
-    ]).then(([careerResult, performanceResult]) => {
-      if (!active) return;
-      if (careerResult.status !== "fulfilled") {
+    api("/stats/player/" + encodeURIComponent(player._id) + "?historyLimit=all")
+      .then(data => {
+        if (!active) return;
+        setCareerResponse({
+          key: requestKey,
+          data,
+          analytics: data?.performance || null,
+          error: "",
+        });
+      })
+      .catch(requestError => {
+        if (!active) return;
         setCareerResponse({
           key: requestKey,
           data: null,
           analytics: null,
-          error: careerResult.reason?.message || "Career data could not be loaded.",
+          error: requestError.message || "Career data could not be loaded.",
         });
-        return;
-      }
-      setCareerResponse({
-        key: requestKey,
-        data: careerResult.value,
-        analytics: performanceResult.status === "fulfilled" ? performanceResult.value?.analytics || null : null,
-        error: "",
       });
-    });
     return () => { active = false; };
   }, [requestKey, player._id]);
 
