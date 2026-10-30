@@ -121,3 +121,8 @@
 .tactical-pitch-slots{position:absolute;inset:0;z-index:1;display:block;max-width:none;pointer-events:none}
 .tactical-pitch-slots span{position:absolute;transform:translate(-50%,-50%);box-shadow:0 3px 9px rgba(0,0,0,.25)}
 @media(max-width:620px){.play-training-cue{font-size:8px}.tactical-pitch-slots span{width:29px;height:29px}}
+
+.tactical-opponent-shape{display:flex;align-items:center;gap:8px;width:max-content;max-width:100%;margin-top:9px;padding:6px 8px;border:1px solid var(--border);border-radius:9px;background:var(--panel)}
+.tactical-opponent-shape span,.tactical-opponent-shape small{font-size:7px;color:var(--muted);font-weight:900;letter-spacing:.08em}
+.tactical-opponent-shape strong{font-size:11px;color:var(--accent);font-variant-numeric:tabular-nums}
+@media(max-width:620px){.tactical-opponent-shape{margin-top:8px}}
