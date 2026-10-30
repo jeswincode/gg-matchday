@@ -202,6 +202,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [clubWallet, setClubWallet] = useState(null);
   const [clubHistory, setClubHistory] = useState([]);
   const [clubTrainingSessions, setClubTrainingSessions] = useState([]);
+  const [clubTrainingClubId, setClubTrainingClubId] = useState(null);
   const [playerAttributes, setPlayerAttributes] = useState({});
   const [selectedAnalyticsPlayerId, setSelectedAnalyticsPlayerId] = useState(null);
   const [auctionState, setAuctionState] = useState(null);
@@ -1240,14 +1241,14 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [authUser, activeSection]);
 
   useEffect(() => {
-    if (!authUser || activeSection !== "myClub" || !currentClub?._id) {
-      setClubTrainingSessions([]);
-      return undefined;
-    }
+    const clubId = String(currentClub?._id || "");
+    if (!authUser || activeSection !== "myClub" || !clubId) return undefined;
     let active = true;
-    api("/clubs/training/" + currentClub._id)
+    api("/clubs/training/" + clubId)
       .then(data => {
-        if (active) setClubTrainingSessions(Array.isArray(data?.sessions) ? data.sessions : []);
+        if (!active) return;
+        setClubTrainingSessions(Array.isArray(data?.sessions) ? data.sessions : []);
+        setClubTrainingClubId(clubId);
       })
       .catch(e => {
         if (active) setError(e.message || "Club training sessions could not be loaded.");
@@ -1255,10 +1256,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => { active = false; };
   }, [authUser, activeSection, currentClub?._id]);
 
+  const visibleClubTrainingSessions = currentClub?._id && clubTrainingClubId === String(currentClub._id)
+    ? clubTrainingSessions
+    : [];
+
   const refreshClubTraining = async () => {
     if (!currentClub?._id) return;
-    const data = await api("/clubs/training/" + currentClub._id);
+    const clubId = String(currentClub._id);
+    const data = await api("/clubs/training/" + clubId);
     setClubTrainingSessions(Array.isArray(data?.sessions) ? data.sessions : []);
+    setClubTrainingClubId(clubId);
   };
 
   useEffect(() => {
@@ -1318,7 +1325,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         activeLocation={activePrimaryTabKey}
         onNavigate={navigatePrimaryTab}
         clubName={currentClub?.name || "Ultimate Clubs"}
-        isAdmin={isAdmin}
         adminOnly={adminOnlyView}
         incomingMatches={incomingMatchRequests.length}
         pendingApplications={adminApplications.filter(application => !["approved", "rejected"].includes(application.status)).length}
@@ -2416,7 +2422,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               players={players}
               playerId={currentPlayerId}
               isCaptain={Boolean(currentClub.captainIds?.some(id => String(id) === String(currentPlayerId)))}
-              sessions={clubTrainingSessions}
+              sessions={visibleClubTrainingSessions}
               onRefresh={refreshClubTraining}
             />
           ) : (
@@ -2509,7 +2515,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 completedMatches={completedClubMatches}
                 nextMatch={nextClubMatch}
                 clubOvr={clubOvr}
-                trainingSessions={clubTrainingSessions}
+                trainingSessions={visibleClubTrainingSessions}
                 history={commandCenter?.recentHistory?.length ? commandCenter.recentHistory : clubHistory}
               />
               <header className="clubs-command-header">
