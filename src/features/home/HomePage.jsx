@@ -30,31 +30,25 @@ export default function HomePage({
   onOpenPlayer,
   currentPlayer = null,
 }) {
-  const [careerStats, setCareerStats] = useState(null);
-  const [careerLoading, setCareerLoading] = useState(false);
+  const [careerResponse, setCareerResponse] = useState(null);
   const playerId = currentPlayer?._id ? String(currentPlayer._id) : null;
 
   useEffect(() => {
     let active = true;
-    if (!playerId) {
-      setCareerStats(null);
-      setCareerLoading(false);
-      return () => { active = false; };
-    }
-    setCareerLoading(true);
+    if (!playerId) return () => { active = false; };
     api("/stats/player/" + encodeURIComponent(playerId))
       .then(data => {
-        if (active) setCareerStats(data?.stats || null);
+        if (active) setCareerResponse({ playerId, stats: data?.stats || null });
       })
       .catch(() => {
-        if (active) setCareerStats(null);
-      })
-      .finally(() => {
-        if (active) setCareerLoading(false);
+        if (active) setCareerResponse({ playerId, stats: null });
       });
     return () => { active = false; };
   }, [playerId]);
 
+  const responseIsCurrent = careerResponse?.playerId === playerId;
+  const careerStats = responseIsCurrent ? careerResponse.stats : null;
+  const careerLoading = Boolean(playerId) && !responseIsCurrent;
   const nextCareerObjective = useMemo(
     () => careerStats ? getNextCareerObjective(careerStats) : null,
     [careerStats],
