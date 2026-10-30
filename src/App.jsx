@@ -15,7 +15,8 @@ const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
-const PlayCentre = lazy(() => import("./features/play/PlayCentre"));
+const GGWorld = lazy(() => import("./features/world/GGWorld"));
+const GGCompanion = lazy(() => import("./features/world/GGWorld").then(module => ({ default: module.GGCompanion })));
 import {
   useEffect,
   useMemo,
@@ -46,7 +47,6 @@ const TABS = {
   CALENDAR: "calendar",
   PLAYERS: "players",
   ADMIN: "admin",
-  PLAY: "play",
 };
 
 const TAB_ORDER = [
@@ -55,7 +55,6 @@ const TAB_ORDER = [
   TABS.LEADERBOARD,
   TABS.CALENDAR,
   TABS.PLAYERS,
-  TABS.PLAY,
 ];
 
 function toNumber(value) {
@@ -89,6 +88,8 @@ function App() {
   // Product mode is intentionally session-only. A full reload always starts
   // in the main Matchday Home experience, including when the previous mode was Clubs.
   const [productMode,setProductMode]=useState("matchday");
+  const [worldOpen,setWorldOpen]=useState(false);
+  const [worldLocation,setWorldLocation]=useState("map");
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
@@ -101,6 +102,7 @@ function App() {
   const [swipeAnimating,setSwipeAnimating]=useState(false);
   const [modeTransition,setModeTransition]=useState(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
+  const openWorld=useCallback((location="map")=>{setWorldLocation(location);setWorldOpen(true);},[]);
 
   const switchProductMode=useCallback((nextMode)=>{
     if(nextMode===productMode || modeTransition) return;
@@ -2423,7 +2425,7 @@ function App() {
           </p>
 
           <h1>
-            {activeTab === TABS.PLAY ? "Play Centre" : "Football Stats"}
+            "Football Stats"
           </h1>
         </div>
 
@@ -2431,7 +2433,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button gg-world-open-button" type="button" onClick={()=>openWorld("map")}>Explore Grounds</button><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2712,8 +2714,6 @@ function App() {
         </section>
       )}
 
-      {activeTab === TABS.PLAY && <PlayCentre players={players} playerId={backendUser?.playerProfile || "guest"} />}
-
       {/* =====================================================
           ADMIN
       ===================================================== */}
@@ -2802,14 +2802,27 @@ function App() {
           }
         />
 
-        <NavButton
-          active={activeTab === TABS.PLAY}
-          icon="⚽"
-          label="Play"
-          onClick={() => setActiveTab(TABS.PLAY)}
-        />
-
       </nav>
+
+      <Suspense fallback={null}><GGCompanion onOpen={openWorld} /></Suspense>
+      {worldOpen && (
+        <Suspense fallback={<div className="loading-panel">Opening GG Grounds…</div>}>
+          <GGWorld
+            onClose={() => setWorldOpen(false)}
+            players={players}
+            player={players.find(player => String(player._id) === String(backendUser?.playerProfile)) || null}
+            playerId={backendUser?.playerProfile || "guest"}
+            initialLocation={worldLocation}
+            onOpenCareer={() => {
+              const currentPlayer = players.find(player => String(player._id) === String(backendUser?.playerProfile));
+              if (currentPlayer) openPlayerProfile(currentPlayer);
+              setActiveTab(TABS.PLAYERS);
+            }}
+            onOpenClubs={() => switchProductMode("clubs")}
+            onGoMatches={() => setActiveTab(TABS.RECORD)}
+          />
+        </Suspense>
+      )}
 
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
       {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer}/>}
