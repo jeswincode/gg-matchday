@@ -159,15 +159,14 @@ test("Clubs command center explains both captain-details and admin-review waitin
 
 test("Club Hub is formation-first and keeps Club credits out of the first-screen showcase", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
+  const map = fs.readFileSync("src/features/clubs/ClubWorldMap.jsx", "utf8");
   const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
 
   assert.match(component, /<h1>\{adminOnlyView \? "Clubs Admin" : "Club Hub"\}<\/h1>/);
-  assert.match(component, /data-primary-tab="overview"/);
-  assert.match(component, /data-primary-tab="myClub"/);
-  assert.match(component, /data-primary-tab="market"/);
-  assert.match(component, /data-primary-tab="matches"/);
-  assert.match(component, /data-primary-tab="players"/);
-  assert.match(component, /data-primary-tab="reviews"/);
+  assert.match(component, /<ClubWorldMap/);
+  for (const key of ["overview", "myClub", "clubTraining", "market", "matches", "players", "reviews"]) {
+    assert.match(map, new RegExp('key: "' + key + '"'));
+  }
   assert.match(component, /Your formation progress/);
   assert.match(component, /clubs-hub-pipeline-actions/);
   assert.match(component, /OFFICIAL CLUB DIRECTORY/);
