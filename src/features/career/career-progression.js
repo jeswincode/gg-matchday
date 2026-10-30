@@ -50,3 +50,78 @@ export function getCareerMilestones(stats = {}) {
     };
   });
 }
+
+
+export const CAREER_KIT_CATALOGUE = [
+  {
+    id: "home",
+    label: "Matchday Home",
+    subtitle: "Your first colours",
+    requirement: "Available from the start",
+    metric: null,
+    threshold: 0,
+    light: "#b9a056",
+    dark: "#524522",
+  },
+  {
+    id: "heritage",
+    label: "Heritage",
+    subtitle: "A growing career",
+    requirement: "25 recorded appearances",
+    metric: "matches",
+    threshold: 25,
+    light: "#c77c58",
+    dark: "#713a2c",
+  },
+  {
+    id: "golden",
+    label: "Golden Season",
+    subtitle: "Consistency deserves its shine",
+    requirement: "50 recorded appearances",
+    metric: "matches",
+    threshold: 50,
+    light: "#f0d17d",
+    dark: "#78571d",
+  },
+  {
+    id: "golden-boot",
+    label: "Golden Boot",
+    subtitle: "A proven goalscorer",
+    requirement: "25 career goals",
+    metric: "goals",
+    threshold: 25,
+    light: "#e5b95b",
+    dark: "#77432d",
+  },
+  {
+    id: "playmaker",
+    label: "The Architect",
+    subtitle: "Built on creativity",
+    requirement: "25 career assists",
+    metric: "assists",
+    threshold: 25,
+    light: "#74b8ae",
+    dark: "#285a5a",
+  },
+  {
+    id: "centurion",
+    label: "Centurion",
+    subtitle: "A century of appearances",
+    requirement: "100 recorded appearances",
+    metric: "matches",
+    threshold: 100,
+    light: "#b6a0df",
+    dark: "#514078",
+  },
+];
+
+export function getCareerKits(stats = {}) {
+  return CAREER_KIT_CATALOGUE.map(kit => ({
+    ...kit,
+    unlocked: kit.metric === null || number(stats[kit.metric]) >= kit.threshold,
+    progress: kit.metric === null
+      ? 100
+      : Math.min(100, Math.round((number(stats[kit.metric]) / kit.threshold) * 100)),
+    current: kit.metric === null ? null : number(stats[kit.metric]),
+  }));
+}
