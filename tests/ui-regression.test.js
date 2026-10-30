@@ -142,7 +142,7 @@ test('admin player video inputs fall back to loaded player video URLs',()=>{cons
 
 test('mobile navigation supports ordered horizontal tab swipes without wrapping',()=>{
   const app=read('src/App.jsx');
-  assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*\]/);
+  assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*TABS\.PLAY,\s*\]/);
   assert.match(app,/touchStartRef=useRef\(null\)/);
   assert.match(app,/const threshold=Math\.min\(92, Math\.max\(56, window\.innerWidth\*0\.16\)\)/);
   assert.match(app,/deltaX<0 \? currentIndex\+1 : currentIndex-1/);
