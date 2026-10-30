@@ -42,8 +42,10 @@ const FORMATIONS = {
 function bestFor(mode) { return readBest(mode); }
 function laneLabel(lane) { return lane === "centre" ? "CENTRE" : lane.toUpperCase(); }
 
-function GamePanel({ mode, onModeChange }) {
-  const [best, setBest] = useState(() => bestFor(mode));
+function GamePanel({ mode, onModeChange, playerId }) {
+  const scoreScope = String(playerId || "guest").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const bestKey = scoreScope + "-" + mode;
+  const [best, setBest] = useState(() => bestFor(bestKey));
   const [round, setRound] = useState(null);
   const [feedback, setFeedback] = useState("");
   const [selectedLane, setSelectedLane] = useState("centre");
@@ -51,11 +53,11 @@ function GamePanel({ mode, onModeChange }) {
   const [dribbleStep, setDribbleStep] = useState(0);
 
   useEffect(() => {
-    setBest(bestFor(mode));
+    setBest(bestFor(bestKey));
     setRound(null);
     setFeedback("");
     setDribbleStep(0);
-  }, [mode]);
+  }, [bestKey]);
 
   const start = () => {
     if (mode === "penalties") {
@@ -71,7 +73,7 @@ function GamePanel({ mode, onModeChange }) {
 
   const finish = (score, total) => {
     const finalScore = Math.round(score);
-    saveBest(mode, finalScore);
+    saveBest(bestKey, finalScore);
     setBest(current => Math.max(current, finalScore));
     setRound(current => ({ ...current, complete: true, score: finalScore, total }));
     setFeedback("Challenge complete. Your best score is saved on this device.");
@@ -281,14 +283,14 @@ function TacticalLab({ players }) {
   );
 }
 
-export default function PlayCentre({ players = [] }) {
+export default function PlayCentre({ players = [], playerId = null }) {
   const [section, setSection] = useState("arcade");
   const [mode, setMode] = useState("penalties");
   return (
     <section className="tab-content play-centre">
       <div className="play-centre-hero"><div><p className="play-eyebrow">GG MATCHDAY / TRAINING GROUND</p><h2>Play Centre</h2><p>Step away from the stats. Test your touch, sharpen your decisions and chase a personal best.</p></div><div className="play-centre-ball">⚽</div></div>
       <div className="play-centre-tabs" role="tablist" aria-label="Play Centre sections"><button type="button" role="tab" aria-selected={section === "arcade"} className={section === "arcade" ? "active" : ""} onClick={() => setSection("arcade")}>GG Arcade</button><button type="button" role="tab" aria-selected={section === "tactics"} className={section === "tactics" ? "active" : ""} onClick={() => setSection("tactics")}>Tactical Lab</button></div>
-      {section === "arcade" ? <GamePanel mode={mode} onModeChange={setMode}/> : <TacticalLab players={players}/>}
+      {section === "arcade" ? <GamePanel mode={mode} onModeChange={setMode} playerId={playerId}/> : <TacticalLab players={players}/>}
     </section>
   );
 }
