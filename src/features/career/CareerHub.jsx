@@ -41,27 +41,30 @@ function CareerMetric({ label, value, hint }) {
 }
 
 export default function CareerHub({ player, attributes, refreshKey = 0, onMatch }) {
-  const [career, setCareer] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [careerResponse, setCareerResponse] = useState(null);
   const [retryKey, setRetryKey] = useState(0);
+  const requestKey = String(player._id) + ":" + String(refreshKey) + ":" + String(retryKey);
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError("");
     api("/stats/player/" + encodeURIComponent(player._id) + "?historyLimit=all")
       .then(data => {
-        if (active) setCareer(data);
+        if (active) setCareerResponse({ key: requestKey, data, error: "" });
       })
       .catch(requestError => {
-        if (active) setError(requestError.message || "Career data could not be loaded.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+        if (active) setCareerResponse({
+          key: requestKey,
+          data: null,
+          error: requestError.message || "Career data could not be loaded.",
+        });
       });
     return () => { active = false; };
-  }, [player._id, refreshKey, retryKey]);
+  }, [requestKey, player._id]);
+
+  const responseIsCurrent = careerResponse?.key === requestKey;
+  const career = responseIsCurrent ? careerResponse.data : null;
+  const loading = !responseIsCurrent;
+  const error = responseIsCurrent ? careerResponse.error : "";
 
   const stats = career?.stats || null;
   const objective = useMemo(() => getNextCareerObjective(stats), [stats]);
