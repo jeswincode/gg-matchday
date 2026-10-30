@@ -2423,7 +2423,7 @@ function App() {
           </p>
 
           <h1>
-            Football Stats
+            {activeTab === TABS.PLAY ? "Play Centre" : "Football Stats"}
           </h1>
         </div>
 
