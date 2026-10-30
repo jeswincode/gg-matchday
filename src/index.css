@@ -2133,7 +2133,7 @@ textarea:focus {
     translateX(-50%);
 
   width: min(
-    700px,
+    760px,
     calc(
       100% - 24px
     )
@@ -2143,8 +2143,8 @@ textarea:focus {
 
   grid-template-columns:
     repeat(
-      5,
-      1fr
+      6,
+      minmax(0, 1fr)
     );
 
   gap: 5px;
@@ -2539,3 +2539,12 @@ textarea:focus {
 .calendar-world-teams span{font-size:10px;line-height:1.3}
 .calendar-world-fixture small{justify-content:flex-start;font-size:9px;font-weight:600}
 @media(max-width:700px){.calendar-world-fixtures{grid-template-columns:1fr}}
+
+
+/* V4 adds the Play Centre without making the bottom bar overflow on phones. */
+@media (max-width: 520px) {
+  .bottom-nav { gap: 2px; padding: 6px; border-radius: 16px; }
+  .bottom-nav button { padding: 9px 2px; border-radius: 11px; }
+  .bottom-nav button span { font-size: 16px; }
+  .bottom-nav button small { font-size: 8px; letter-spacing: -.02em; }
+}
