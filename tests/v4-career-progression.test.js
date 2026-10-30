@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getCareerMilestones, getNextCareerObjective } from "../src/features/career/career-progression.js";
+import { getCareerKits, getCareerMilestones, getNextCareerObjective } from "../src/features/career/career-progression.js";
 
 test("career objectives advance from official career record counts", () => {
   assert.equal(getNextCareerObjective({ matches: 0 }).key, "matches");
@@ -26,4 +26,20 @@ test("empty career data gives a safe first objective and no earned collectibles"
   assert.equal(objective.current, 0);
   assert.equal(objective.target, 1);
   assert.equal(getCareerMilestones({}).every(item => item.earnedLevels.length === 0), true);
+});
+
+
+test("career kit unlocks are derived from appearances, goals and assists", () => {
+  const initial = getCareerKits({});
+  assert.equal(initial.find(kit => kit.id === "home").unlocked, true);
+  assert.equal(initial.find(kit => kit.id === "heritage").unlocked, false);
+  assert.equal(initial.find(kit => kit.id === "golden-boot").unlocked, false);
+
+  const earned = getCareerKits({ matches: 50, goals: 25, assists: 24 });
+  assert.equal(earned.find(kit => kit.id === "heritage").unlocked, true);
+  assert.equal(earned.find(kit => kit.id === "golden").unlocked, true);
+  assert.equal(earned.find(kit => kit.id === "golden-boot").unlocked, true);
+  assert.equal(earned.find(kit => kit.id === "playmaker").unlocked, false);
+  assert.equal(earned.find(kit => kit.id === "playmaker").progress, 96);
+  assert.equal(getCareerKits({ matches: 100 }).find(kit => kit.id === "centurion").unlocked, true);
 });
