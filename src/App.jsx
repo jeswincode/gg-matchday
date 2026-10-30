@@ -2711,7 +2711,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === TABS.PLAY && <PlayCentre players={players} />}
+      {activeTab === TABS.PLAY && <PlayCentre players={players} playerId={backendUser?.playerProfile || "guest"} />}
 
       {/* =====================================================
           ADMIN
