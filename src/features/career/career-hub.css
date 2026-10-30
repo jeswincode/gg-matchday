@@ -1,0 +1,98 @@
+.career-hub{display:grid;gap:17px;margin-top:22px;color:var(--text);min-width:0}
+.career-hub-heading,.career-hub-section-head{display:flex;align-items:end;justify-content:space-between;gap:14px}
+.career-hub-heading h3,.career-hub-section-head h4{margin:0;letter-spacing:-.035em}
+.career-hub-heading h3{font-size:clamp(22px,3vw,30px)}
+.career-hub-subtitle{margin:6px 0 0;color:var(--muted);font-size:12px}
+.career-hub-earned{display:grid;justify-items:end;gap:2px}
+.career-hub-earned strong{font-size:26px;color:var(--accent);line-height:1}
+.career-hub-earned span,.career-hub-section-head>span{font-size:9px;letter-spacing:.1em;color:var(--muted);font-weight:800}
+.career-hub-feature{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(230px,.75fr);gap:12px}
+.career-hub-dressing-room{position:relative;overflow:hidden;isolation:isolate;min-height:260px;padding:24px;border:1px solid var(--border);border-radius:22px;background:radial-gradient(ellipse at 72% 45%,color-mix(in srgb,var(--accent) 22%,transparent),transparent 45%),linear-gradient(120deg,#101419,#171b20 55%,#222426);color:#f6f5f0;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.career-hub-dressing-room:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 38px,rgba(255,255,255,.025) 39px 40px);z-index:-1}
+.career-hub-ground-lines{position:absolute;inset:35% -15% -50% 26%;border:1px solid rgba(255,255,255,.14);border-radius:50%;transform:rotate(-18deg);z-index:-1}
+.career-hub-ground-lines:before{content:"";position:absolute;inset:12% 16%;border:1px solid rgba(255,255,255,.12);border-radius:50%}
+.career-hub-dressing-copy{position:relative;z-index:2;max-width:48%}
+.career-hub-kicker{margin:0 0 9px;font-size:9px;font-weight:900;letter-spacing:.17em;color:#d9b96c}
+.career-hub-dressing-copy h4{margin:0;font-size:clamp(25px,4vw,39px);line-height:1.03;letter-spacing:-.055em}
+.career-hub-dressing-copy>p:not(.career-hub-kicker){margin:8px 0 22px;color:rgba(255,255,255,.66);font-size:12px}
+.career-hub-shirt-caption{display:grid;gap:4px}
+.career-hub-shirt-caption span{font-size:8px;letter-spacing:.12em;color:rgba(255,255,255,.55);font-weight:800}
+.career-hub-shirt-caption strong{font-size:19px;color:#e8c979}
+.career-hub-shirt{position:absolute;right:8%;top:13%;width:min(42%,210px);height:82%;display:grid;place-items:center;transform:rotate(4deg);filter:drop-shadow(0 15px 18px rgba(0,0,0,.3))}
+.career-shirt-art{width:100%;height:100%;overflow:visible;--career-shirt-light:#b9a056;--career-shirt-dark:#524522}
+.career-shirt-number{font-size:43px;font-weight:950;fill:#fff8de;stroke:rgba(0,0,0,.35);stroke-width:1px;paint-order:stroke}
+.career-hub-player-image{position:absolute;right:19px;bottom:17px;width:42px;height:42px;overflow:hidden;border:2px solid rgba(255,255,255,.5);border-radius:50%;background:#292d31;display:grid;place-items:center;font-weight:900;color:#f2d587}
+.career-hub-player-image img{width:100%;height:100%;object-fit:cover}
+.career-hub-rating{position:absolute;right:20px;top:17px;display:grid;justify-items:end;gap:0}
+.career-hub-rating span,.career-hub-rating small{font-size:8px;letter-spacing:.12em;font-weight:800;color:rgba(255,255,255,.6)}
+.career-hub-rating strong{font-size:26px;color:#f3d178;line-height:1.1}
+.career-hub-objective{display:grid;align-content:start;gap:10px;padding:20px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));border-radius:22px;background:linear-gradient(145deg,var(--panel-soft),var(--panel))}
+.career-hub-objective-top{display:flex;justify-content:space-between;gap:8px;color:var(--accent);font-size:9px;font-weight:900;letter-spacing:.12em}
+.career-hub-objective-index{color:var(--muted);font-size:8px}
+.career-hub-objective-icon{width:37px;height:37px;display:grid;place-items:center;border-radius:12px;background:color-mix(in srgb,var(--accent) 13%,var(--panel));color:var(--accent);font-size:25px}
+.career-hub-objective h4{margin:0;font-size:20px;line-height:1.17;letter-spacing:-.04em}
+.career-hub-objective p{margin:0;color:var(--muted);font-size:11px;line-height:1.55}
+.career-hub-progress-label{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:10px;color:var(--muted)}
+.career-hub-progress-label strong{color:var(--accent);font-variant-numeric:tabular-nums}
+.career-hub-progress,.career-milestone-track{height:6px;overflow:hidden;border-radius:99px;background:var(--border)}
+.career-hub-progress span,.career-milestone-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 52%,white));transition:width .25s ease}
+.career-hub-objective>small{font-size:9px;line-height:1.45;color:var(--muted)}
+.career-hub-metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.career-metric{min-width:0;display:grid;gap:5px;padding:13px;border:1px solid var(--border);border-radius:15px;background:var(--panel)}
+.career-metric span{color:var(--muted);font-size:8px;letter-spacing:.08em;font-weight:850;text-transform:uppercase}
+.career-metric strong{font-size:clamp(20px,2.4vw,27px);letter-spacing:-.05em;line-height:1.05;font-variant-numeric:tabular-nums}
+.career-metric small{font-size:9px;line-height:1.35;color:var(--muted)}
+.career-hub-section-head h4{font-size:18px}
+.career-hub-milestones{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.career-milestone{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;padding:12px;border:1px solid var(--border);border-radius:15px;background:var(--panel)}
+.career-milestone.is-earned{border-color:color-mix(in srgb,var(--accent) 34%,var(--border))}
+.career-milestone-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--panel-soft);color:var(--muted);font-size:10px;font-weight:950}
+.career-milestone.is-earned .career-milestone-icon{background:color-mix(in srgb,var(--accent) 15%,var(--panel));color:var(--accent)}
+.career-milestone-copy{display:grid;gap:5px;min-width:0}
+.career-milestone-copy strong{font-size:12px}
+.career-milestone-copy>span,.career-milestone-copy small{color:var(--muted);font-size:9px}
+.career-milestone-status{font-size:18px;color:var(--accent);font-weight:900}
+.career-hub-lower-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.career-hub-panel{min-width:0;padding:17px;border:1px solid var(--border);border-radius:18px;background:var(--panel)}
+.career-hub-panel .career-hub-section-head{margin-bottom:12px}
+.career-hub-panel .career-hub-section-head>span{white-space:nowrap}
+.career-hub-awards,.career-hub-seasons{display:grid;gap:7px}
+.career-hub-award{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px;border-radius:12px;background:var(--panel-soft)}
+.career-hub-award-mark{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:#18140b;background:linear-gradient(140deg,#f5d985,#b28a36);font-size:17px}
+.career-hub-award>div{display:grid;gap:3px;min-width:0}
+.career-hub-award strong{font-size:11px}
+.career-hub-award small{font-size:9px;color:var(--muted)}
+.career-hub-award>b{font-size:11px;color:var(--accent)}
+.career-hub-season{display:grid;grid-template-columns:75px minmax(0,1fr);gap:10px;align-items:center;padding:10px;border-radius:12px;background:var(--panel-soft)}
+.career-hub-season-year{display:grid;gap:3px}
+.career-hub-season-year strong{font-size:17px}
+.career-hub-season-year span{font-size:7px;color:var(--muted);font-weight:850;letter-spacing:.08em}
+.career-hub-season-data{display:flex;flex-wrap:wrap;justify-content:space-between;gap:7px}
+.career-hub-season-data span{font-size:8px;color:var(--muted)}
+.career-hub-season-data b{font-size:13px;color:var(--text)}
+.career-hub-empty{min-height:115px;display:grid;align-content:center;justify-items:center;gap:5px;padding:14px;border:1px dashed var(--border);border-radius:13px;text-align:center}
+.career-hub-empty-icon{font-size:23px;color:var(--accent)}
+.career-hub-empty strong{font-size:11px}
+.career-hub-empty small{max-width:260px;font-size:9px;line-height:1.4;color:var(--muted)}
+.career-hub-stored-achievements{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.career-hub-stored-achievements .eyebrow{width:100%;margin:0 0 2px}
+.career-hub-stored-achievements>span{padding:6px 8px;border-radius:99px;background:color-mix(in srgb,var(--accent) 11%,var(--panel));color:var(--accent);font-size:9px;font-weight:800}
+.career-hub-recent{display:grid}
+.career-hub-recent-match{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:11px 2px;border:0;border-bottom:1px solid var(--border);background:transparent;color:inherit;text-align:left;cursor:pointer}
+.career-hub-recent-match:last-child{border-bottom:0}
+.career-hub-result{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:950;font-size:11px;background:var(--panel-soft);color:var(--muted)}
+.career-hub-result-w{background:rgba(50,170,117,.15);color:#46c18c}
+.career-hub-result-l{background:rgba(210,76,76,.13);color:#dd8181}
+.career-hub-result-d{background:rgba(180,180,180,.13);color:var(--muted)}
+.career-hub-recent-copy{display:grid;gap:3px;min-width:0}
+.career-hub-recent-copy strong{font-size:11px}
+.career-hub-recent-copy small,.career-hub-recent-open{font-size:9px;color:var(--muted)}
+.career-hub-recent-open{font-weight:850;letter-spacing:.08em}
+.career-hub-recent-match:hover .career-hub-recent-open{color:var(--accent)}
+.career-hub-footnote{margin:0;color:var(--muted);font-size:9px;line-height:1.5}
+.career-hub-skeleton{height:220px;border:1px solid var(--border);border-radius:20px;background:linear-gradient(110deg,var(--panel),var(--panel-soft),var(--panel));background-size:200% 100%;animation:career-hub-shimmer 1.5s linear infinite}
+.career-hub-error{padding:14px;border:1px solid #a45a5a;border-radius:12px;color:var(--danger);background:var(--panel)}
+@keyframes career-hub-shimmer{to{background-position:-200% 0}}
+@media(max-width:900px){.career-hub-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.career-hub-feature{grid-template-columns:1fr}.career-hub-objective{grid-template-columns:auto minmax(0,1fr);align-items:center}.career-hub-objective-top,.career-hub-progress-label,.career-hub-progress,.career-hub-objective>small{grid-column:1/-1}.career-hub-objective-icon{grid-row:2 / span 2}.career-hub-objective h4{align-self:end}.career-hub-objective p{grid-column:2;align-self:start}}
+@media(max-width:620px){.career-hub{gap:12px}.career-hub-heading{align-items:start}.career-hub-earned{min-width:95px}.career-hub-earned span{text-align:right;font-size:7px}.career-hub-dressing-room{min-height:230px;padding:17px}.career-hub-dressing-copy{max-width:53%}.career-hub-shirt{right:3%;width:47%;top:17%}.career-hub-rating{right:13px;top:12px}.career-hub-player-image{width:34px;height:34px;right:12px;bottom:12px}.career-hub-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.career-hub-milestones,.career-hub-lower-grid{grid-template-columns:1fr}.career-hub-section-head{align-items:start}.career-hub-section-head>span{text-align:right;max-width:130px;line-height:1.35}.career-hub-recent-open{font-size:8px}}
+@media(prefers-reduced-motion:reduce){.career-hub-skeleton{animation:none}.career-hub-progress span,.career-milestone-track span{transition:none}}
