@@ -19,7 +19,7 @@
 .career-hub-shirt-caption span{font-size:8px;letter-spacing:.12em;color:rgba(255,255,255,.55);font-weight:800}
 .career-hub-shirt-caption strong{font-size:19px;color:#e8c979}
 .career-hub-shirt{position:absolute;right:8%;top:13%;width:min(42%,210px);height:82%;display:grid;place-items:center;transform:rotate(4deg);filter:drop-shadow(0 15px 18px rgba(0,0,0,.3))}
-.career-shirt-art{width:100%;height:100%;overflow:visible;--career-shirt-light:#b9a056;--career-shirt-dark:#524522}
+.career-shirt-art{width:100%;height:100%;overflow:visible}
 .career-shirt-number{font-size:43px;font-weight:950;fill:#fff8de;stroke:rgba(0,0,0,.35);stroke-width:1px;paint-order:stroke}
 .career-hub-player-image{position:absolute;right:19px;bottom:17px;width:42px;height:42px;overflow:hidden;border:2px solid rgba(255,255,255,.5);border-radius:50%;background:#292d31;display:grid;place-items:center;font-weight:900;color:#f2d587}
 .career-hub-player-image img{width:100%;height:100%;object-fit:cover}
