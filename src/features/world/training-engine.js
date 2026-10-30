@@ -72,7 +72,7 @@ export const TRAINING_DRILLS = Object.freeze([
 ]);
 
 export function drillsForPosition(position = "") {
-  const code = String(position || "").trim().toUpperCase().replace(/[_-]+/g, " ").replace(/\\s+/g, " ");
+  const code = String(position || "").trim().toUpperCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
   const aliases = [
     ["GK", ["GK", "GOALKEEPER"]],
     ["CB", ["CB", "CENTRE BACK", "CENTER BACK", "CENTRAL DEFENDER"]],
