@@ -243,8 +243,8 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   const darkClubHub = page.getByRole("navigation", { name: "Clubs navigation" })
     .getByRole("button", { name: "Club Hub", exact: true });
   await expect.poll(() =>
-    darkClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
-  ).toContain("225, 237, 255");
+    darkClubHub.evaluate(element => getComputedStyle(element.querySelector(".club-world-building-art")).borderColor)
+  ).toBe("rgb(220, 232, 248)");
   const darkPageFitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );
@@ -270,8 +270,8 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   const goldClubHub = page.getByRole("navigation", { name: "Clubs navigation" })
     .getByRole("button", { name: "Club Hub", exact: true });
   await expect.poll(() =>
-    goldClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
-  ).toContain("239, 208, 125");
+    goldClubHub.evaluate(element => getComputedStyle(element.querySelector(".club-world-building-art")).borderColor)
+  ).toBe("rgb(228, 189, 107)");
   const goldPageFitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );
