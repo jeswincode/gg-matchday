@@ -115,3 +115,9 @@
 .tactical-size-switch{display:flex;gap:6px;margin:0 0 8px}
 .tactical-size-switch button{padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--muted);font-size:9px;font-weight:900}
 .tactical-size-switch button.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel));color:var(--accent)}
+
+.play-training-cue{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:6px 9px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--border));border-radius:8px;background:color-mix(in srgb,var(--accent) 9%,var(--panel));color:var(--accent)!important;font-size:9px;font-weight:950;letter-spacing:.07em}
+.play-target-spot.is-target{background:#e9d18b;color:#17140d;box-shadow:0 0 0 4px rgba(233,209,139,.18),0 0 18px rgba(233,209,139,.55);transform:scale(1.08)}
+.tactical-pitch-slots{position:absolute;inset:0;z-index:1;display:block;max-width:none;pointer-events:none}
+.tactical-pitch-slots span{position:absolute;transform:translate(-50%,-50%);box-shadow:0 3px 9px rgba(0,0,0,.25)}
+@media(max-width:620px){.play-training-cue{font-size:8px}.tactical-pitch-slots span{width:29px;height:29px}}
