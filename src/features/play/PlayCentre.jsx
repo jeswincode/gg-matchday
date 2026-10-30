@@ -12,8 +12,10 @@ const LANES = ["left", "centre", "right"];
 const DRIBBLE_KEYS = ["left", "right", "up"];
 const STORE_PREFIX = "gg-v4-practice-best-";
 const readBest = key => {
-  try { return Number(window.localStorage.getItem(STORE_PREFIX + key) || 0); }
-  catch { return 0; }
+  try {
+    const value = Number(window.localStorage.getItem(STORE_PREFIX + key) || 0);
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+  } catch { return 0; }
 };
 const saveBest = (key, score) => {
   try {
@@ -102,6 +104,15 @@ function GamePanel({ mode, onModeChange }) {
   };
 
   const progress = round ? Math.min(100, round.step / (mode === "dribble" ? 8 : 5) * 100) : 0;
+  const currentTarget = round?.targets?.[round.step];
+  const currentDribbleMove = round?.sequence?.[dribbleStep];
+  const trainingCue = mode === "dribble"
+    ? ({ left: "MOVE LEFT", right: "MOVE RIGHT", up: "PUSH FORWARD" }[currentDribbleMove] || "Choose your next touch")
+    : mode === "crossbar"
+      ? "Current target: " + laneLabel(currentTarget || "centre")
+      : mode === "freekick"
+        ? "Target quadrant: " + String(currentTarget || "high-left").replace("-", " ").toUpperCase()
+        : "The keeper's starting position is hidden.";
   const modeCopy = {
     penalties: { eyebrow: "ONE VERSUS ONE", title: "Penalty Shootout", description: "Five kicks. Read the keeper. Choose your corner." },
     crossbar: { eyebrow: "TECHNIQUE TEST", title: "Crossbar Challenge", description: "Five attempts to place the ball in the target zone." },
@@ -118,7 +129,7 @@ function GamePanel({ mode, onModeChange }) {
       <div className="play-pitch-scene">
         <div className="play-pitch-lines" aria-hidden="true"><span/><span/><span/></div>
         {mode === "penalties" && <div className="play-goal"><span className="play-goal-net"/><span className="play-keeper">GK</span><span className="play-ball">⚽</span></div>}
-        {mode === "crossbar" && <div className="play-target-board"><span className="play-target-spot play-target-left">01</span><span className="play-target-spot play-target-centre">02</span><span className="play-target-spot play-target-right">03</span><b>CROSSBAR ZONES</b></div>}
+        {mode === "crossbar" && <div className="play-target-board"><span className={"play-target-spot play-target-left" + (currentTarget === "left" ? " is-target" : "")}>01</span><span className={"play-target-spot play-target-centre" + (currentTarget === "centre" ? " is-target" : "")}>02</span><span className={"play-target-spot play-target-right" + (currentTarget === "right" ? " is-target" : "")}>03</span><b>CROSSBAR ZONES</b></div>}
         {mode === "freekick" && <div className="play-free-wall"><span className="play-wall">▮ ▮ ▮ ▮ ▮</span><span className="play-free-goal">GOAL</span><span className="play-ball">⚽</span></div>}
         {mode === "dribble" && <div className="play-cone-course"><span>▲</span><span>▲</span><span>▲</span><span>▲</span><span>▲</span><b>DRIBBLE COURSE</b></div>}
         <div className="play-scoreboard"><span>ATTEMPT</span><strong>{round ? Math.min(round.step + (round.complete ? 0 : 1), mode === "dribble" ? 8 : 5) : 0} <small>/ {mode === "dribble" ? 8 : 5}</small></strong><i>{round ? round.score : 0} {mode === "dribble" ? "PTS" : "SCORE"}</i></div>
@@ -133,7 +144,7 @@ function GamePanel({ mode, onModeChange }) {
         </div>
       ) : mode === "dribble" ? (
         <div className="play-controls">
-          <div className="play-control-copy"><strong>Move {dribbleStep + 1} of 8</strong><small>Follow the highlighted direction.</small></div>
+          <div className="play-control-copy"><strong>Move {dribbleStep + 1} of 8</strong><small>Read the cue and choose the matching touch.</small><small className="play-training-cue">{trainingCue}</small></div>
           <div className="play-direction-grid">
             <button type="button" className="play-direction-up" onClick={() => makeDribbleMove("up")}>↑ Push forward</button>
             <button type="button" onClick={() => makeDribbleMove("left")}>← Left</button>
@@ -142,7 +153,7 @@ function GamePanel({ mode, onModeChange }) {
         </div>
       ) : (
         <div className="play-controls">
-          <div className="play-control-copy"><strong>{mode === "penalties" ? "Choose your shot direction" : mode === "crossbar" ? "Pick a target zone" : "Pick a free-kick quadrant"}</strong><small>{mode === "penalties" ? "Balanced power is the safer option. Power shots are harder to place." : "You have five attempts to find the target."}</small></div>
+          <div className="play-control-copy"><strong>{mode === "penalties" ? "Choose your shot direction" : mode === "crossbar" ? "Pick a target zone" : "Pick a free-kick quadrant"}</strong><small>{mode === "penalties" ? "Balanced power is the safer option. Power shots carry a small execution risk." : "You have five attempts to find the target."}</small>{round && <small className="play-training-cue">{trainingCue}</small>}</div>
           {mode === "penalties" && <div className="play-power-toggle"><button type="button" className={power === "balanced" ? "active" : ""} onClick={() => setPower("balanced")}>Balanced</button><button type="button" className={power === "power" ? "active" : ""} onClick={() => setPower("power")}>Power</button></div>}
           <div className="play-lane-grid">
             {(mode === "freekick" ? ["low-left", "high-left", "high-right", "low-right"] : LANES).map(lane => <button type="button" key={lane} className={selectedLane === lane ? "selected" : ""} onClick={() => takeShot(lane)}>{mode === "freekick" ? lane.replace("-", " ") : laneLabel(lane)}</button>)}
@@ -185,6 +196,14 @@ function TacticalLab({ players }) {
     approachScore: scenario.approachScores[approach] ?? 5,
     ovrValues,
   });
+  const pitchSlots = useMemo(() => {
+    const lines = formation.split("-").map(Number);
+    const lastRow = Math.max(1, lines.length - 1);
+    return lines.flatMap((count, row) => Array.from({ length: count }, (_, column) => ({
+      x: ((column + 1) / (count + 1)) * 100,
+      y: 18 + (row / lastRow) * 64,
+    })));
+  }, [formation]);
   const shapeAdvice = pickedPlayers.length !== capacity
     ? "Your current selection has " + pickedPlayers.length + " players; this shape requires exactly " + capacity + ". Choose the matching 4v4 or 5v5 squad size."
     : "Your squad size matches the selected small-sided shape.";
@@ -231,7 +250,7 @@ function TacticalLab({ players }) {
           <div className="tactical-formation-select">{options.map(option => <button key={option} type="button" className={formation === option ? "active" : ""} onClick={() => { setFormation(option); setResult(null); }}>{option}</button>)}</div>
           <div className="tactical-pitch">
             <span className="tactical-pitch-circle"/><span className="tactical-pitch-line"/>
-            <div className="tactical-pitch-slots">{Array.from({ length: capacity }, (_, index) => <span key={index} className={pickedPlayers[index] ? "filled" : ""}>{pickedPlayers[index] ? pickedPlayers[index].name.slice(0, 1).toUpperCase() : index + 1}</span>)}</div>
+            <div className="tactical-pitch-slots">{Array.from({ length: capacity }, (_, index) => { const slot = pitchSlots[index] || { x: 50, y: 50 }; return <span key={index} style={{ left: slot.x + "%", top: slot.y + "%" }} className={pickedPlayers[index] ? "filled" : ""} title={pickedPlayers[index]?.name || "Open position"}>{pickedPlayers[index] ? pickedPlayers[index].name.slice(0, 1).toUpperCase() : index + 1}</span>; })}</div>
             <small>{formation} · {capacity}v{capacity}</small>
           </div>
           <p className="tactical-shape-advice">{shapeAdvice}</p>
