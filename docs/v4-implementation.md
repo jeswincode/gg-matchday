@@ -29,7 +29,7 @@ V4 should feel like a football world, not merely a statistics dashboard. It pres
 
 Matchday keeps exactly five primary destinations: Home, Record, Leaderboard, Calendar and Players. Arcade and Tactical Lab are no longer primary tabs or mobile swipe destinations.
 
-The Matchday header opens GG Grounds, and the floating GG Scout companion opens the same world. The companion can be dragged around the interface, offers short dialogue, has direct entrances to the map and Training Ground, and also supports keyboard activation.
+The Matchday header opens GG Grounds, and the floating GG Scout companion opens the same world. The companion can be dragged around the interface, offers short dialogue, has direct entrances to the map and Training Ground, and also supports keyboard activation. GG Scout is loaded from a separate lightweight component so showing the companion does not eagerly load the full world, arcade and training JavaScript.
 
 The illustrated campus provides selectable buildings for:
 
@@ -77,7 +77,7 @@ Current actions:
 - Only an elected captain can schedule a session.
 - Captains choose a training focus and date/time; the current Club roster receives invitations by default.
 - Invited members can accept or decline their invitation.
-- Only a captain can mark invited members present/absent and complete a scheduled session.
+- Only a captain can mark invited members present/absent and complete a scheduled session. Attendance and completion are rejected until the scheduled session start time has arrived.
 - Completed sessions and their attendance history remain available to Club members.
 
 The Club Training Complex is an actual destination on the campus map. The Training Centre facility tier progresses from completed shared Club sessions, not OVR. Club training does not create a new currency, consume Club or player credits, change player ratings/OVR, produce match results, or affect betting and settlement.
