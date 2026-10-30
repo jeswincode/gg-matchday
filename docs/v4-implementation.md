@@ -30,6 +30,7 @@ The Hub is integrated into each player profile and reads \`GET /stats/player/:id
 
 It presents:
 
+- A signed-in player's next career objective on the Matchday home screen, with a direct link to that player's Career Hub.
 - Player identity and jersey-number illustration.
 - OVR only from the existing attribute snapshot passed by the profile.
 - Career appearances, goals, assists, wins, clean sheets and average match rating.
