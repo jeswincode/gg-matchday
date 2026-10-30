@@ -53,3 +53,9 @@ test("full player position labels resolve to the same programme as their role co
   assert.ok(stLabel.includes("finish-quick"));
   assert.ok(!stLabel.includes("defensive-shape"));
 });
+
+test("goalkeepers receive a dedicated angle and distribution programme", () => {
+  const drills = drillsForPosition("Goalkeeper");
+  assert.deepEqual(drills.map(drill => drill.id), ["keeper-angles"]);
+  assert.equal(drills[0].questions.length, 5);
+});
