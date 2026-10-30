@@ -72,6 +72,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   const [career, setCareer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -88,7 +89,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [player._id, refreshKey]);
+  }, [player._id, refreshKey, retryKey]);
 
   const stats = career?.stats || null;
   const objective = useMemo(() => nextObjective(stats), [stats]);
@@ -100,8 +101,12 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   }), [stats]);
   const seasonRows = career?.seasons || [];
   const awards = career?.awards || [];
-  const recent = stats?.recent || [];
   const matches = career?.matches || [];
+  const matchById = useMemo(() => new Map(matches.map(match => [String(match._id), match])), [matches]);
+  const recent = (stats?.recent || []).map(item => ({
+    ...item,
+    name: matchById.get(String(item.matchId))?.name || "Matchday appearance",
+  }));
   const winRate = stats?.matches ? Math.round((number(stats.wins) / number(stats.matches)) * 100) : 0;
   const objectiveProgress = Math.min(100, Math.round((objective.current / objective.target) * 100));
   const earnedCount = milestoneCards.reduce((total, item) => total + (item.unlocked > 0 ? 1 : 0), 0) + awards.length;
@@ -120,7 +125,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
       <section className="career-hub" aria-label="Player Career Hub">
         <div className="career-hub-heading"><div><p className="eyebrow">CAREER MODE</p><h3>Player Career Hub</h3></div></div>
         <div className="career-hub-error" role="alert">{error}</div>
-        <button type="button" className="secondary-button" onClick={() => setCareer(null)}>Refresh the profile to retry</button>
+        <button type="button" className="secondary-button" onClick={() => setRetryKey(value => value + 1)}>Retry career data</button>
       </section>
     );
   }
