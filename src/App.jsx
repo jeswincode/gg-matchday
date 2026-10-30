@@ -2425,7 +2425,7 @@ function App() {
           </p>
 
           <h1>
-            "Football Stats"
+            Football Stats
           </h1>
         </div>
 
