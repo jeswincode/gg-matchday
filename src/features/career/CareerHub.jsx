@@ -91,7 +91,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   const loading = !responseIsCurrent;
   const error = responseIsCurrent ? careerResponse.error : "";
 
-  const stats = career?.stats || null;
+  const stats = career?.stats || {};
   const objective = useMemo(() => getNextCareerObjective(stats), [stats]);
   const milestoneCards = useMemo(() => getCareerMilestones(stats), [stats]);
   const careerKits = useMemo(() => getCareerKits(stats), [stats]);
