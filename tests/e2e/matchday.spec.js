@@ -170,9 +170,15 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
   await expect.poll(() => page.evaluate(() => window.scrollY || document.scrollingElement.scrollTop)).toBeGreaterThan(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
   await page.evaluate(() => window.scrollTo(0, 0));
-  for (const label of ["Club Hub", "My Club", "Market", "Matches", "Players", "Reviews"]) {
+  for (const label of ["Club Hub", "My Club", "Training Centre", "Market", "Matches", "Players", "Reviews"]) {
     await expect(nav.getByRole("button", { name: new RegExp(label) })).toBeVisible();
   }
+
+  await nav.getByRole("button", { name: "Training Centre" }).click();
+  await expect(page.getByText("Your Club Training Centre will appear here.")).toBeVisible();
+  await expect(nav.locator('[data-primary-tab="clubTraining"]')).toHaveAttribute("aria-current", "page");
+  await nav.getByRole("button", { name: "Club Hub" }).click();
+  await expect(page.locator(".clubs-hub-discovery-grid")).toBeVisible();
 
   // A left swipe on non-interactive page content advances one primary tab.
   await clubsApp.evaluate(element => {
