@@ -2,6 +2,7 @@ import {useEffect,useState} from "react";
 import {formatDate} from "../../lib/date";
 import {api} from "../../lib/api";
 import ProfileInsights from "../../components/ProfileInsights";
+import CareerHub from "../career/CareerHub";
 
 function PlayerCard({ player, attributes, onShare }) {
   const labels = [["pace","PACE"],["shooting","SHOOTING"],["passing","PASSING"],["dribbling","DRIBBLING"],["defending","DEFENDING"],["physical","PHYSICAL"]];
@@ -459,6 +460,7 @@ export default function PlayerProfile({
             </>}
           </section>
           {!attributesLoading && !attributesError && <PlayerCard player={player} attributes={attributes} onShare={shareCard} />}
+          <CareerHub player={player} attributes={attributes} refreshKey={refreshKey} onMatch={onMatch}/>
     
           <section className="card">
     
