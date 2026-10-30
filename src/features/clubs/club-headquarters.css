@@ -65,3 +65,27 @@
 .club-hq-footnote{margin:0;color:var(--clubs-muted);font-size:8px;line-height:1.5}
 @media(max-width:850px){.club-hq-hero{grid-template-columns:1fr}.club-hq-hero-copy{padding-bottom:5px}.club-hq-stadium{min-height:230px}.club-hq-facilities{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.club-hq{padding:12px;border-radius:17px}.club-hq-title-row{align-items:start}.club-hq-official{white-space:nowrap}.club-hq-record{grid-template-columns:repeat(2,minmax(0,1fr))}.club-hq-history-grid{grid-template-columns:1fr}.club-hq-stadium{min-height:205px}.club-hq-meta span{font-size:6px}.club-hq-facilities{gap:7px}.club-hq-facility{padding:10px}.club-hq-section-heading{align-items:start}}
+
+
+.club-hq-crest img{width:100%;height:100%;object-fit:cover;clip-path:inherit}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq{background:radial-gradient(ellipse at 84% 3%,rgba(228,189,107,.14),transparent 35%),linear-gradient(145deg,#211c13,#15110a);border-color:#4a3d25;color:#f7f0df}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-title-row>div>p:last-child,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-section-heading>span,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-footnote{color:#a59b88}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-hero{border-color:#4a3d25;background:linear-gradient(115deg,#211b12,#17140e 65%,#211a0f)}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-hero-copy h4,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-record strong,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-facility>strong,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-fixture>b,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-event strong{color:#f7f0df}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-record>div,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-facility,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-history-card{border-color:#4a3d25;background:linear-gradient(145deg,#211d16,#191712)}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-fixture,
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-event{border-color:#4a3d25}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-crest{background:linear-gradient(145deg,#e4bd6b,#9d7330);color:#211707}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-facility-icon{background:rgba(228,189,107,.13);color:#e4bd6b}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-facility-track{background:#4a3d25}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-facility-track span{background:linear-gradient(90deg,#a77c35,#e4bd6b)}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-empty{border-color:#4a3d25;color:#a59b88}
+html[data-theme="golden"][data-product-mode="clubs"] .club-hq-official{border-color:#84652f;color:#e4bd6b}
