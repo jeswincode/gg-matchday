@@ -1,0 +1,257 @@
+import { useEffect, useMemo, useState } from "react";
+import { api } from "../../lib/api";
+import "./career-hub.css";
+
+const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+const compactDate = value => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Date unavailable"
+    : new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(date);
+};
+const titleCase = value => String(value || "").replace(/[-_]/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
+
+const milestoneRules = [
+  { key: "matches", label: "Appearances", icon: "AP", thresholds: [1, 10, 25, 50, 100, 200, 500] },
+  { key: "goals", label: "Goals", icon: "GO", thresholds: [1, 10, 25, 50, 100, 150, 200] },
+  { key: "assists", label: "Assists", icon: "AS", thresholds: [1, 10, 25, 50, 100] },
+  { key: "cleanSheets", label: "Clean sheets", icon: "CS", thresholds: [1, 10, 25, 50, 100] },
+  { key: "wins", label: "Team wins", icon: "W", thresholds: [1, 10, 25, 50, 100] },
+];
+
+function nextObjective(stats) {
+  const goals = [
+    { key: "matches", label: "Make your first appearance", current: number(stats?.matches), target: 1, detail: "Your career starts with a recorded Matchday appearance." },
+    { key: "goals", label: "Score your first career goal", current: number(stats?.goals), target: 1, detail: "Get your name onto the official GG Matchday scoresheet." },
+    { key: "assists", label: "Record your first assist", current: number(stats?.assists), target: 1, detail: "Create a goal and add your first career assist." },
+    { key: "matches", label: "Reach 10 appearances", current: number(stats?.matches), target: 10, detail: "Build consistency and reach double-digit appearances." },
+    { key: "goals", label: "Reach 10 career goals", current: number(stats?.goals), target: 10, detail: "Move into the double-digit goals club." },
+    { key: "assists", label: "Reach 10 career assists", current: number(stats?.assists), target: 10, detail: "Become a regular source of chances for your team." },
+    { key: "cleanSheets", label: "Record 10 clean sheets", current: number(stats?.cleanSheets), target: 10, detail: "Help your side keep the opposition scoreless." },
+    { key: "wins", label: "Reach 25 team wins", current: number(stats?.wins), target: 25, detail: "Make your mark on another milestone in your career." },
+    { key: "matches", label: "Reach 50 appearances", current: number(stats?.matches), target: 50, detail: "A major career milestone built match by match." },
+  ];
+  return goals.find(goal => goal.current < goal.target) || {
+    key: "matches",
+    label: "Keep building your legacy",
+    current: number(stats?.matches),
+    target: number(stats?.matches) + 10,
+    detail: "Your next milestone is waiting in the next ten appearances.",
+  };
+}
+
+function Shirt({ number: shirtNumber }) {
+  return (
+    <svg className="career-shirt-art" viewBox="0 0 180 174" role="img" aria-label={"Jersey number " + (shirtNumber ?? "not set")}>
+      <defs>
+        <linearGradient id="career-shirt-fill" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="var(--career-shirt-light)" />
+          <stop offset="1" stopColor="var(--career-shirt-dark)" />
+        </linearGradient>
+      </defs>
+      <path d="M52 18 25 31 8 73l27 13 10-19v92h80V67l10 19 27-13-17-42-27-13-21 17H73L52 18Z" fill="url(#career-shirt-fill)" stroke="rgba(255,255,255,.62)" strokeWidth="2.5" strokeLinejoin="round"/>
+      <path d="M66 18c2 13 10 21 24 21s22-8 24-21" fill="none" stroke="rgba(255,255,255,.55)" strokeWidth="4"/>
+      <path d="M45 67v92m90-92v92" stroke="rgba(255,255,255,.17)" strokeWidth="2"/>
+      <text x="85" y="111" textAnchor="middle" className="career-shirt-number">{shirtNumber ?? "—"}</text>
+      <path d="M18 71 36 80m126-9-18 9" stroke="rgba(255,255,255,.42)" strokeWidth="3"/>
+    </svg>
+  );
+}
+
+function CareerMetric({ label, value, hint }) {
+  return (
+    <article className="career-metric">
+      <span>{label}</span>
+      <strong>{value ?? "—"}</strong>
+      <small>{hint}</small>
+    </article>
+  );
+}
+
+export default function CareerHub({ player, attributes, refreshKey = 0, onMatch }) {
+  const [career, setCareer] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    api("/stats/player/" + encodeURIComponent(player._id) + "?historyLimit=all")
+      .then(data => {
+        if (active) setCareer(data);
+      })
+      .catch(requestError => {
+        if (active) setError(requestError.message || "Career data could not be loaded.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [player._id, refreshKey]);
+
+  const stats = career?.stats || null;
+  const objective = useMemo(() => nextObjective(stats), [stats]);
+  const milestoneCards = useMemo(() => milestoneRules.map(rule => {
+    const value = number(stats?.[rule.key]);
+    const unlocked = [...rule.thresholds].reverse().find(threshold => value >= threshold) || 0;
+    const next = rule.thresholds.find(threshold => threshold > value) || Math.ceil((value + 1) / 100) * 100;
+    return { ...rule, value, unlocked, next, progress: Math.min(100, Math.round((value / next) * 100)) };
+  }), [stats]);
+  const seasonRows = career?.seasons || [];
+  const awards = career?.awards || [];
+  const recent = stats?.recent || [];
+  const matches = career?.matches || [];
+  const winRate = stats?.matches ? Math.round((number(stats.wins) / number(stats.matches)) * 100) : 0;
+  const objectiveProgress = Math.min(100, Math.round((objective.current / objective.target) * 100));
+  const earnedCount = milestoneCards.reduce((total, item) => total + (item.unlocked > 0 ? 1 : 0), 0) + awards.length;
+
+  if (loading && !career) {
+    return (
+      <section className="career-hub" aria-label="Player Career Hub" aria-busy="true">
+        <div className="career-hub-heading"><div><p className="eyebrow">CAREER MODE</p><h3>Building your football story…</h3></div></div>
+        <div className="career-hub-skeleton" />
+      </section>
+    );
+  }
+
+  if (error && !career) {
+    return (
+      <section className="career-hub" aria-label="Player Career Hub">
+        <div className="career-hub-heading"><div><p className="eyebrow">CAREER MODE</p><h3>Player Career Hub</h3></div></div>
+        <div className="career-hub-error" role="alert">{error}</div>
+        <button type="button" className="secondary-button" onClick={() => setCareer(null)}>Refresh the profile to retry</button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="career-hub" aria-label="Player Career Hub">
+      <div className="career-hub-heading">
+        <div>
+          <p className="eyebrow">GG MATCHDAY / PLAYER CAREER</p>
+          <h3>Career Hub</h3>
+          <p className="career-hub-subtitle">Your football journey, built from recorded Matchday history.</p>
+        </div>
+        <div className="career-hub-earned"><strong>{earnedCount}</strong><span>CAREER HONOURS & MILESTONES</span></div>
+      </div>
+
+      <div className="career-hub-feature">
+        <div className="career-hub-dressing-room">
+          <div className="career-hub-dressing-copy">
+            <p className="career-hub-kicker">THE DRESSING ROOM</p>
+            <h4>{player.name}</h4>
+            <p>{player.position || "Position not set"} · {player.preferredFoot || "Foot not set"}</p>
+            <div className="career-hub-shirt-caption"><span>OFFICIAL PLAYER NUMBER</span><strong>{player.jerseyNumber ?? "—"}</strong></div>
+          </div>
+          <div className="career-hub-shirt"><Shirt number={player.jerseyNumber}/></div>
+          <div className="career-hub-player-image">
+            {player.profileImage ? <img src={player.profileImage} alt="" /> : <span>{String(player.name || "P").slice(0, 1).toUpperCase()}</span>}
+          </div>
+          <div className="career-hub-ground-lines" aria-hidden="true" />
+          <div className="career-hub-rating">
+            <span>PLAYER OVR</span><strong>{attributes?.ovr ?? "—"}</strong><small>{attributes?.sampleStage || "Match data"}</small>
+          </div>
+        </div>
+
+        <aside className="career-hub-objective">
+          <div className="career-hub-objective-top"><span>NEXT OBJECTIVE</span><span className="career-hub-objective-index">01 / CAREER</span></div>
+          <div className="career-hub-objective-icon">◎</div>
+          <h4>{objective.label}</h4>
+          <p>{objective.detail}</p>
+          <div className="career-hub-progress-label"><span>{objective.current} / {objective.target}</span><strong>{objectiveProgress}%</strong></div>
+          <div className="career-hub-progress"><span style={{ width: objectiveProgress + "%" }} /></div>
+          <small>Progress updates from Match Record data. No manual claims.</small>
+        </aside>
+      </div>
+
+      <div className="career-hub-metrics">
+        <CareerMetric label="Appearances" value={stats?.matches ?? 0} hint="Recorded matches"/>
+        <CareerMetric label="Goals" value={stats?.goals ?? 0} hint="Official goal events"/>
+        <CareerMetric label="Assists" value={stats?.assists ?? 0} hint="Official assist events"/>
+        <CareerMetric label="Win rate" value={winRate + "%"} hint={(stats?.wins ?? 0) + " team wins"}/>
+        <CareerMetric label="Avg. match rating" value={stats?.averageRating == null ? "—" : Number(stats.averageRating).toFixed(2)} hint={(stats?.ratedMatches ?? 0) + " rated appearances"}/>
+        <CareerMetric label="Clean sheets" value={stats?.cleanSheets ?? 0} hint="Team clean sheets"/>
+      </div>
+
+      <div className="career-hub-section-head">
+        <div><p className="eyebrow">COLLECTIBLES & PROGRESSION</p><h4>Career milestones</h4></div>
+        <span>Earned through recorded performances</span>
+      </div>
+      <div className="career-hub-milestones">
+        {milestoneCards.map(item => (
+          <article className={"career-milestone" + (item.unlocked ? " is-earned" : "")} key={item.key}>
+            <div className="career-milestone-icon">{item.icon}</div>
+            <div className="career-milestone-copy">
+              <strong>{item.label}</strong>
+              <span>{item.unlocked ? "Best unlocked: " + item.unlocked : "First milestone: " + item.next}</span>
+              <div className="career-milestone-track"><span style={{ width: item.progress + "%" }} /></div>
+              <small>{item.value} / {item.next}</small>
+            </div>
+            <div className="career-milestone-status">{item.unlocked ? "✓" : "·"}</div>
+          </article>
+        ))}
+      </div>
+
+      <div className="career-hub-lower-grid">
+        <section className="career-hub-panel">
+          <div className="career-hub-section-head"><div><p className="eyebrow">HONOURS CABINET</p><h4>Official awards</h4></div><span>{awards.length} recorded</span></div>
+          {awards.length ? (
+            <div className="career-hub-awards">
+              {awards.map((award, index) => (
+                <article className="career-hub-award" key={String(award._id || award.key || index)}>
+                  <span className="career-hub-award-mark">★</span>
+                  <div><strong>{titleCase(award.label || award.type || "Career award")}</strong><small>{award.month ? new Date(Date.UTC(award.year, award.month - 1, 1)).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }) : award.year || "GG Matchday"}</small></div>
+                  {award.value != null && <b>{award.value}</b>}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="career-hub-empty"><span className="career-hub-empty-icon">◇</span><strong>Your first trophy is waiting.</strong><small>Official monthly and seasonal awards will appear here when earned.</small></div>
+          )}
+          {career?.achievements?.length > 0 && (
+            <div className="career-hub-stored-achievements">
+              <p className="eyebrow">RECORDED ACHIEVEMENTS</p>
+              {career.achievements.map((achievement, index) => <span key={String(achievement._id || index)}>{achievement.label || titleCase(achievement.key)}</span>)}
+            </div>
+          )}
+        </section>
+
+        <section className="career-hub-panel">
+          <div className="career-hub-section-head"><div><p className="eyebrow">SEASON ARCHIVE</p><h4>Every season counts</h4></div><span>{seasonRows.length} seasons</span></div>
+          {seasonRows.length ? (
+            <div className="career-hub-seasons">
+              {seasonRows.slice(0, 6).map(season => (
+                <article className="career-hub-season" key={season.year}>
+                  <div className="career-hub-season-year"><strong>{season.year}</strong><span>{season.matches || 0} MATCHES</span></div>
+                  <div className="career-hub-season-data"><span><b>{season.goals || 0}</b> G</span><span><b>{season.assists || 0}</b> A</span><span><b>{season.wins || 0}</b> W</span><span><b>{season.ggRating == null ? "—" : Number(season.ggRating).toFixed(2)}</b> GG</span></div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="career-hub-empty"><span className="career-hub-empty-icon">▤</span><strong>Your season archive is empty.</strong><small>Season summaries appear after your first recorded match.</small></div>
+          )}
+        </section>
+      </div>
+
+      <section className="career-hub-panel career-hub-match-panel">
+        <div className="career-hub-section-head"><div><p className="eyebrow">CAREER TIMELINE</p><h4>Recent appearances</h4></div><span>{matches.length} loaded</span></div>
+        {recent.length ? (
+          <div className="career-hub-recent">
+            {recent.slice(0, 5).map((match, index) => (
+              <button className="career-hub-recent-match" type="button" key={match.matchId || index} onClick={() => onMatch?.(match.matchId)}>
+                <span className={"career-hub-result career-hub-result-" + String(match.result || "D").toLowerCase()}>{match.result || "—"}</span>
+                <span className="career-hub-recent-copy"><strong>{match.name || "Matchday appearance"}</strong><small>{compactDate(match.date)}</small></span>
+                <span className="career-hub-recent-open">VIEW →</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="career-hub-empty"><strong>No appearances yet.</strong><small>Your career timeline will start when a match is recorded.</small></div>
+        )}
+      </section>
+
+      <p className="career-hub-footnote">Career statistics, honours and progress are read from Matchday records. Cosmetic progression does not change match ratings, OVR, team results or Club Wallets.</p>
+    </section>
+  );
+}
