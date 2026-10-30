@@ -76,7 +76,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   }));
   const winRate = stats?.matches ? Math.round((number(stats.wins) / number(stats.matches)) * 100) : 0;
   const objectiveProgress = Math.min(100, Math.round((objective.current / objective.target) * 100));
-  const earnedCount = milestoneCards.reduce((total, item) => total + (item.unlocked > 0 ? 1 : 0), 0) + awards.length;
+  const earnedCount = milestoneCards.reduce((total, item) => total + item.earnedLevels.length, 0) + awards.length + (career?.achievements?.length || 0);
 
   if (loading && !career) {
     return (
@@ -159,6 +159,10 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
               <span>{item.unlocked ? "Best unlocked: " + item.unlocked : "First milestone: " + item.next}</span>
               <div className="career-milestone-track"><span style={{ width: item.progress + "%" }} /></div>
               <small>{item.value} / {item.next}</small>
+              <div className="career-milestone-badges" aria-label={item.label + " collectible levels"}>
+                {item.earnedLevels.map(level => <span key={level} title={item.label + " milestone: " + level}>★ {level}</span>)}
+                {!item.earnedLevels.length && <span className="is-locked">Next unlock · {item.next}</span>}
+              </div>
             </div>
             <div className="career-milestone-status">{item.unlocked ? "✓" : "·"}</div>
           </article>
