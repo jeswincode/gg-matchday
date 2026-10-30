@@ -43,6 +43,10 @@
     "node": "24.x"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.14.5"
+    "@grpc/grpc-js": "^1.14.5",
+    "body-parser": "^2.4.0",
+    "qs": "^6.16.1",
+    "re2js": "^2.8.7",
+    "zod": "^4.6.6"
   }
 }
