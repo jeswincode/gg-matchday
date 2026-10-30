@@ -72,9 +72,23 @@ export const TRAINING_DRILLS = Object.freeze([
 ]);
 
 export function drillsForPosition(position = "") {
-  const code = String(position || "").trim().toUpperCase();
-  const role = ["GK", "CB", "LB", "RB", "CDM", "CM", "CAM", "LM", "RM", "LW", "RW", "CF", "ST"]
-    .find((item) => code === item || code.startsWith(item + " ") || code.startsWith(item + "/"));
+  const code = String(position || "").trim().toUpperCase().replace(/[_-]+/g, " ").replace(/\\s+/g, " ");
+  const aliases = [
+    ["GK", ["GK", "GOALKEEPER"]],
+    ["CB", ["CB", "CENTRE BACK", "CENTER BACK", "CENTRAL DEFENDER"]],
+    ["LB", ["LB", "LEFT BACK", "LEFT FULLBACK", "LEFT FULL BACK"]],
+    ["RB", ["RB", "RIGHT BACK", "RIGHT FULLBACK", "RIGHT FULL BACK"]],
+    ["CDM", ["CDM", "DEFENSIVE MIDFIELDER", "HOLDING MIDFIELDER"]],
+    ["CM", ["CM", "CENTRAL MIDFIELDER", "CENTRE MIDFIELDER", "CENTER MIDFIELDER"]],
+    ["CAM", ["CAM", "AM", "ATTACKING MIDFIELDER", "OFFENSIVE MIDFIELDER"]],
+    ["LM", ["LM", "LEFT MIDFIELDER", "LEFT WINGER MIDFIELDER"]],
+    ["RM", ["RM", "RIGHT MIDFIELDER", "RIGHT WINGER MIDFIELDER"]],
+    ["LW", ["LW", "LEFT WINGER"]],
+    ["RW", ["RW", "RIGHT WINGER"]],
+    ["CF", ["CF", "CENTRE FORWARD", "CENTER FORWARD", "SECOND STRIKER"]],
+    ["ST", ["ST", "STRIKER", "CENTRE STRIKER", "CENTER STRIKER", "CENTRE FORWARD"]],
+  ];
+  const role = aliases.find(([, names]) => names.some(name => code === name || code.startsWith(name + " ")))?.[0];
   if (!role) return TRAINING_DRILLS;
   const matching = TRAINING_DRILLS.filter((drill) => drill.focus.includes(role));
   return matching.length ? matching : TRAINING_DRILLS;
