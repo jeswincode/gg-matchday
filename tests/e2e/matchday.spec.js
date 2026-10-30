@@ -85,7 +85,7 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
   const navigation = page.locator(".bottom-nav");
   await expect(navigation).toBeVisible();
   await expect(navigation.locator("button")).toHaveCount(5);
-  await expect(navigation.getByRole("button", { name: /Play/ })).toHaveCount(0);
+  await expect(navigation.getByRole("button", { name: "Play", exact: true })).toHaveCount(0);
   await navigation.getByRole("button", { name: /Players/ }).click();
   await expect(navigation.getByRole("button", { name: /Players/ })).toBeVisible();
   await navigation.getByRole("button", { name: /Calendar/ }).click();
@@ -134,7 +134,7 @@ test("My Club keeps stats and history available when wallet loading fails, then 
   await nav.getByRole("button", { name: "My Club" }).click();
 
   await expect(page.getByRole("heading", { name: "Your individual budget" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /E2E My Club Regression FC/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "E2E My Club Regression FC", exact: true })).toBeVisible();
   const alert = page.getByRole("alert");
   await expect(alert).toContainText(/Couldn’t load club wallet/i);
   await expect(alert).toContainText("e2e-wallet-first-failure");
