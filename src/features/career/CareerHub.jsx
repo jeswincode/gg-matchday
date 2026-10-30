@@ -20,7 +20,7 @@ const AWARD_LABELS = {
   clasico: "El Clásico Award",
   motm: "Man of the Match",
 };
-const awardLabel = award => AWARD_LABELS[award.type] || awardLabel(award);
+const awardLabel = award => AWARD_LABELS[award.type] || titleCase(award.label || award.type || "Career award");
 
 
 function readSelectedKit(playerId) {
@@ -243,7 +243,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
               {awards.map((award, index) => (
                 <article className="career-hub-award" key={String(award._id || award.key || index)}>
                   <span className="career-hub-award-mark">★</span>
-                  <div><strong>{titleCase(award.label || award.type || "Career award")}</strong><small>{award.month ? new Date(Date.UTC(award.year, award.month - 1, 1)).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }) : award.year || "GG Matchday"}</small></div>
+                  <div><strong>{awardLabel(award)}</strong><small>{award.month ? new Date(Date.UTC(award.year, award.month - 1, 1)).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }) : award.year || "GG Matchday"}</small></div>
                   {award.value != null && <b>{award.value}</b>}
                 </article>
               ))}
