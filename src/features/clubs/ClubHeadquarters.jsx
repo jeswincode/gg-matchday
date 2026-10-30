@@ -2,6 +2,7 @@ import "./club-headquarters.css";
 import { getClubFacilityProgress, summarizeClubRecord } from "./club-progression.js";
 
 const shortName = value => String(value || "GG Club").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "GG";
+const formatEventType = value => String(value || "Club milestone").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_]/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
 
 function Facility({ icon, label, tier, progress, note }) {
   return (
@@ -60,7 +61,7 @@ export default function ClubHeadquarters({ club, clubs = [], completedMatches = 
         <div><span>CLUB MATCH RECORD</span><strong>{record.wins}<i>W</i> {record.draws}<i>D</i> {record.losses}<i>L</i></strong></div>
         <div><span>TEAM OVR</span><strong>{clubOvr ?? "—"}</strong><small>{clubOvr == null ? "Waiting for complete player samples" : "Derived from member OVR"}</small></div>
         <div><span>CLUB APPEARANCES</span><strong>{played}</strong><small>Completed synced fixtures</small></div>
-        <div><span>NEXT FIXTURE</span><strong>{nextMatch ? (nextMatch.clubAName || getClubName(nextMatch.clubAId, "Club A")) + " vs " + (nextMatch.clubBName || getClubName(nextMatch.clubBId, "Club B")) : "—"}</strong><small>{nextMatch?.fixtureDate || (nextMatch?.scheduledAt ? new Date(nextMatch.scheduledAt).toLocaleDateString("en-IN") : "No accepted fixture")}</small></div>
+        <div><span>NEXT FIXTURE</span><strong>{nextMatch ? (nextMatch.clubAName || getClubName(nextMatch.clubAId, "Club A")) + " vs " + (nextMatch.clubBName || getClubName(nextMatch.clubBId, "Club B")) : "—"}</strong><small>{nextMatch?.status === "requested" ? "Awaiting captain approval · " : ""}{nextMatch?.fixtureDate || (nextMatch?.scheduledAt ? new Date(nextMatch.scheduledAt).toLocaleDateString("en-IN") : "No accepted fixture")}</small></div>
       </div>
 
       <div className="club-hq-section-heading"><div><p className="clubs-eyebrow">DEVELOPMENT WING</p><h4>Facilities evolve with your Club</h4></div><span>Read-only progression · no wallet spending</span></div>
@@ -92,7 +93,7 @@ export default function ClubHeadquarters({ club, clubs = [], completedMatches = 
         </section>
         <section className="club-hq-history-card club-hq-timeline">
           <div className="club-hq-section-heading"><div><p className="clubs-eyebrow">CLUB CHRONICLE</p><h4>Recent milestones</h4></div><span>{history.length} events</span></div>
-          {history.length ? history.slice(0, 5).map((event, index) => <div className="club-hq-event" key={String(event._id || index)}><span>✦</span><div><strong>{event.description || event.eventType || "Club milestone"}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleDateString("en-IN") : "Club history"}</small></div></div>) : <div className="club-hq-empty">Official Club milestones will appear here as the Club history grows.</div>}
+          {history.length ? history.slice(0, 5).map((event, index) => <div className="club-hq-event" key={String(event._id || index)}><span>✦</span><div><strong>{event.description || formatEventType(event.eventType)}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleDateString("en-IN") : "Club history"}</small></div></div>) : <div className="club-hq-empty">Official Club milestones will appear here as the Club history grows.</div>}
         </section>
       </div>
       <p className="club-hq-footnote">Facility tiers are visual summaries derived from completed, synchronised Club matches, current squad size and available member OVR. They do not create credits, alter bids, affect rewards or change the Club Wallet.</p>
