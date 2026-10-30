@@ -69,7 +69,7 @@ export default function GGWorld({ onClose, players = [], player = null, playerId
             </aside>
           </div>
         ) : location === "training" ? (
-          <TrainingCenter player={player} playerId={playerId}/>
+          <TrainingCenter key={String(playerId) + ":" + String(player?.position || "")} player={player} playerId={playerId}/>
         ) : (location === "arcade" || location === "tactics") ? (
           <div className="gg-world-play"><div className="gg-world-location-intro"><span>{location === "arcade" ? "🎮 ARCADE PAVILION" : "♟ TACTICAL PAVILION"}</span><h3>{location === "arcade" ? "Game on." : "Read the game."}</h3><p>{location === "arcade" ? "Step into the skill games and chase your personal best." : "Build a small-sided team, read the opposition and make your plan."}</p></div><PlayCentre key={location} players={players} playerId={playerId} initialSection={location}/></div>
         ) : (
