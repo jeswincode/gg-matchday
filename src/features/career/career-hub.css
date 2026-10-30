@@ -100,3 +100,23 @@
 .career-milestone-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px}
 .career-milestone-badges span{padding:4px 6px;border:1px solid color-mix(in srgb,var(--accent) 36%,var(--border));border-radius:7px;background:color-mix(in srgb,var(--accent) 11%,var(--panel));color:var(--accent);font-size:8px;font-weight:900;letter-spacing:.03em}
 .career-milestone-badges span.is-locked{border-style:dashed;border-color:var(--border);background:transparent;color:var(--muted);font-weight:750}
+
+.career-hub-kit-section{display:grid;gap:10px;padding:15px;border:1px solid var(--border);border-radius:18px;background:var(--panel)}
+.career-hub-kits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.career-hub-kit{position:relative;min-width:0;display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:9px;padding:10px;border:1px solid var(--border);border-radius:13px;background:var(--panel-soft);color:var(--text);text-align:left;cursor:pointer;overflow:hidden}
+.career-hub-kit.is-selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.career-hub-kit.is-locked{cursor:not-allowed;opacity:.68}
+.career-hub-kit-shirt{width:38px;height:39px;display:grid;place-items:center;clip-path:polygon(24% 0,41% 8%,59% 8%,76% 0,100% 18%,87% 48%,78% 42%,78% 100%,22% 100%,22% 42%,13% 48%,0 18%);background:linear-gradient(140deg,var(--kit-light),var(--kit-dark));color:rgba(255,255,255,.9);font-size:12px;font-weight:950;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.career-hub-kit-copy{display:grid;gap:3px;min-width:0}
+.career-hub-kit-copy strong{font-size:10px;overflow-wrap:anywhere}
+.career-hub-kit-copy small{font-size:8px;color:var(--muted);line-height:1.3}
+.career-hub-kit-copy em{font-size:7px;color:var(--accent);font-weight:950;font-style:normal;letter-spacing:.08em}
+.career-hub-kit.is-locked .career-hub-kit-copy em{color:var(--muted)}
+.career-hub-kit-state{font-size:12px;font-weight:950;color:var(--accent)}
+.career-hub-kit.is-locked .career-hub-kit-state{font-size:7px;color:var(--muted);letter-spacing:.04em}
+.career-hub-kit-track{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--border)}
+.career-hub-kit-track span{display:block;height:100%;background:var(--accent)}
+.career-hub-kit-name{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);width:100%;text-align:center;color:rgba(255,255,255,.76);font-size:7px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.career-hub-kit-note{margin:0;color:var(--muted);font-size:8px;line-height:1.5}
+@media(max-width:900px){.career-hub-kits{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.career-hub-kit-section{padding:12px}.career-hub-kits{grid-template-columns:1fr}.career-hub-kit{grid-template-columns:36px minmax(0,1fr) auto;padding:9px}.career-hub-kit-shirt{width:34px;height:35px}}
