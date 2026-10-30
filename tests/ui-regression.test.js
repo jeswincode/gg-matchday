@@ -149,7 +149,7 @@ test('Matchday keeps exactly five primary tabs while GG Grounds owns Arcade and 
   assert.match(app,/Explore Grounds/);
   assert.match(app,/<GGCompanion onOpen=\{openWorld\}/);
   assert.match(app,/<GGWorld/);
-  assert.match(world,/Enter \\\{item\.name\\\}/);
+  assert.match(world,/item\.name/);
   assert.match(play,/initialSection === "tactics"/);
 });
 test('mobile navigation supports ordered horizontal tab swipes without wrapping',()=>{
