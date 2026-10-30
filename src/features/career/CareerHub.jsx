@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import "./career-hub.css";
-import { getCareerMilestones, getNextCareerObjective } from "./career-progression.js";
+import { getCareerKits, getCareerMilestones, getNextCareerObjective } from "./career-progression.js";
 
 const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const compactDate = value => {
@@ -11,6 +11,16 @@ const compactDate = value => {
     : new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(date);
 };
 const titleCase = value => String(value || "").replace(/[-_]/g, " ").replace(/\b\w/g, letter => letter.toUpperCase());
+
+function readSelectedKit(playerId) {
+  try { return window.localStorage.getItem("gg-v4-career-kit:" + playerId) || "home"; }
+  catch { return "home"; }
+}
+
+function writeSelectedKit(playerId, kitId) {
+  try { window.localStorage.setItem("gg-v4-career-kit:" + playerId, kitId); }
+  catch { /* Kit selection is a convenience preference, not an unlock record. */ }
+}
 
 function Shirt({ number: shirtNumber }) {
   return (
@@ -43,6 +53,10 @@ function CareerMetric({ label, value, hint }) {
 export default function CareerHub({ player, attributes, refreshKey = 0, onMatch }) {
   const [careerResponse, setCareerResponse] = useState(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [kitSelection, setKitSelection] = useState(() => ({
+    playerId: String(player._id),
+    kitId: readSelectedKit(String(player._id)),
+  }));
   const requestKey = String(player._id) + ":" + String(refreshKey) + ":" + String(retryKey);
 
   useEffect(() => {
@@ -69,6 +83,15 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   const stats = career?.stats || null;
   const objective = useMemo(() => getNextCareerObjective(stats), [stats]);
   const milestoneCards = useMemo(() => getCareerMilestones(stats), [stats]);
+  const careerKits = useMemo(() => getCareerKits(stats), [stats]);
+  const playerId = String(player._id);
+  const savedKitId = kitSelection.playerId === playerId ? kitSelection.kitId : readSelectedKit(playerId);
+  const selectedKit = careerKits.find(kit => kit.id === savedKitId && kit.unlocked) || careerKits[0];
+  const selectKit = kit => {
+    if (!kit.unlocked) return;
+    writeSelectedKit(playerId, kit.id);
+    setKitSelection({ playerId, kitId: kit.id });
+  };
   const seasonRows = career?.seasons || [];
   const awards = career?.awards || [];
   const matches = career?.matches || [];
@@ -79,7 +102,9 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
   }));
   const winRate = stats?.matches ? Math.round((number(stats.wins) / number(stats.matches)) * 100) : 0;
   const objectiveProgress = Math.min(100, Math.round((objective.current / objective.target) * 100));
-  const earnedCount = milestoneCards.reduce((total, item) => total + item.earnedLevels.length, 0) + awards.length + (career?.achievements?.length || 0);
+  const earnedCount = milestoneCards.reduce((total, item) => total + item.earnedLevels.length, 0)
+    + awards.length + (career?.achievements?.length || 0)
+    + careerKits.filter(kit => kit.unlocked && kit.id !== "home").length;
 
   if (loading && !career) {
     return (
@@ -119,7 +144,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
             <p>{player.position || "Position not set"} · {player.preferredFoot || "Foot not set"}</p>
             <div className="career-hub-shirt-caption"><span>OFFICIAL PLAYER NUMBER</span><strong>{player.jerseyNumber ?? "—"}</strong></div>
           </div>
-          <div className="career-hub-shirt"><Shirt number={player.jerseyNumber}/></div>
+          <div className="career-hub-shirt" style={{ "--career-shirt-light": selectedKit.light, "--career-shirt-dark": selectedKit.dark }}><Shirt number={player.jerseyNumber}/><span className="career-hub-kit-name">{selectedKit.label}</span></div>
           <div className="career-hub-player-image">
             {player.profileImage ? <img src={player.profileImage} alt="" /> : <span>{String(player.name || "P").slice(0, 1).toUpperCase()}</span>}
           </div>
@@ -139,6 +164,33 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
           <small>Progress updates from Match Record data. No manual claims.</small>
         </aside>
       </div>
+
+      <section className="career-hub-kit-section">
+        <div className="career-hub-section-head">
+          <div><p className="eyebrow">DRESSING ROOM / KIT COLLECTION</p><h4>Choose your colours</h4></div>
+          <span>{careerKits.filter(kit => kit.unlocked).length} / {careerKits.length} kits unlocked</span>
+        </div>
+        <div className="career-hub-kits">
+          {careerKits.map(kit => (
+            <button
+              type="button"
+              key={kit.id}
+              className={"career-hub-kit" + (kit.unlocked ? " is-unlocked" : " is-locked") + (selectedKit.id === kit.id ? " is-selected" : "")}
+              style={{ "--kit-light": kit.light, "--kit-dark": kit.dark }}
+              disabled={!kit.unlocked}
+              aria-pressed={selectedKit.id === kit.id}
+              aria-label={(kit.unlocked ? "Select " : "Locked ") + kit.label + " kit"}
+              onClick={() => selectKit(kit)}
+            >
+              <span className="career-hub-kit-shirt">G</span>
+              <span className="career-hub-kit-copy"><strong>{kit.label}</strong><small>{kit.subtitle}</small><em>{kit.unlocked ? (selectedKit.id === kit.id ? "CURRENT KIT" : "UNLOCKED") : kit.requirement}</em></span>
+              <span className="career-hub-kit-state">{kit.unlocked ? (selectedKit.id === kit.id ? "✓" : "＋") : "LOCK"}</span>
+              {!kit.unlocked && <span className="career-hub-kit-track"><span style={{ width: kit.progress + "%" }}/></span>}
+            </button>
+          ))}
+        </div>
+        <p className="career-hub-kit-note">Kits unlock automatically from recorded appearances, goals and assists. Your selected look is saved on this device; no credits are charged.</p>
+      </section>
 
       <div className="career-hub-metrics">
         <CareerMetric label="Appearances" value={stats?.matches ?? 0} hint="Recorded matches"/>
@@ -230,7 +282,7 @@ export default function CareerHub({ player, attributes, refreshKey = 0, onMatch 
         )}
       </section>
 
-      <p className="career-hub-footnote">Career statistics, honours and progress are read from Matchday records. Cosmetic progression does not change match ratings, OVR, team results or Club Wallets.</p>
+      <p className="career-hub-footnote">Career statistics, honours and kit unlocks are derived from Matchday records. Kit selection is device-local. Cosmetic progression does not change match ratings, OVR, team results or Club Wallets.</p>
     </section>
   );
 }
