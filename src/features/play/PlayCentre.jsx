@@ -29,10 +29,10 @@ const playerOvr = player => {
 };
 
 const SCENARIOS = [
-  { key: "press", opponent: "Aggressive high press", problem: "They close passing lanes quickly and try to win the ball near your goal.", answers: ["Quick combinations and third-man runs", "Hold the ball in your own half", "Dribble into pressure"], correct: 0, clue: "Move the ball quickly and use the space behind the first press.", approachScores: { balanced: 9, aggressive: 10, conservative: 5 } },
-  { key: "block", opponent: "Compact low block", problem: "They defend deep, protect the centre and leave little room between the lines.", answers: ["Force every pass through the middle", "Stretch the pitch and create wide overloads", "Drop every attacker into your own half"], correct: 1, clue: "Stretch the block horizontally before attacking the gaps.", approachScores: { balanced: 10, aggressive: 8, conservative: 6 } },
-  { key: "counter", opponent: "Fast counter-attacking side", problem: "They leave players high and attack quickly when you lose possession.", answers: ["Send everyone forward at once", "Keep rest-defence cover and circulate patiently", "Abandon the midfield"], correct: 1, clue: "Protect the space behind the ball while keeping possession.", approachScores: { balanced: 9, aggressive: 4, conservative: 10 } },
-  { key: "midfield", opponent: "Midfield overload", problem: "They crowd the centre and try to win second balls around the middle.", answers: ["Create wide outlets and switch play", "Keep all players in the centre", "Play short passes into the crowded zone"], correct: 0, clue: "Use width to pull their midfield apart.", approachScores: { balanced: 10, aggressive: 8, conservative: 6 } },
+  { key: "press", opponent: "Aggressive high press", opponentFormation: "1-2-1", problem: "They close passing lanes quickly and try to win the ball near your goal.", answers: ["Quick combinations and third-man runs", "Hold the ball in your own half", "Dribble into pressure"], correct: 0, clue: "Move the ball quickly and use the space behind the first press.", approachScores: { balanced: 9, aggressive: 10, conservative: 5 } },
+  { key: "block", opponent: "Compact low block", opponentFormation: "2-1-2", problem: "They defend deep, protect the centre and leave little room between the lines.", answers: ["Force every pass through the middle", "Stretch the pitch and create wide overloads", "Drop every attacker into your own half"], correct: 1, clue: "Stretch the block horizontally before attacking the gaps.", approachScores: { balanced: 10, aggressive: 8, conservative: 6 } },
+  { key: "counter", opponent: "Fast counter-attacking side", opponentFormation: "2-2-1", problem: "They leave players high and attack quickly when you lose possession.", answers: ["Send everyone forward at once", "Keep rest-defence cover and circulate patiently", "Abandon the midfield"], correct: 1, clue: "Protect the space behind the ball while keeping possession.", approachScores: { balanced: 9, aggressive: 4, conservative: 10 } },
+  { key: "midfield", opponent: "Midfield overload", opponentFormation: "1-3-1", problem: "They crowd the centre and try to win second balls around the middle.", answers: ["Create wide outlets and switch play", "Keep all players in the centre", "Play short passes into the crowded zone"], correct: 0, clue: "Use width to pull their midfield apart.", approachScores: { balanced: 10, aggressive: 8, conservative: 6 } },
 ];
 const FORMATIONS = {
   four: ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"],
@@ -221,7 +221,7 @@ function TacticalLab({ players }) {
     <section className="tactical-lab">
       <div className="tactical-heading"><div><p className="play-eyebrow">THE TOUCHLINE / PRACTICE MODE</p><h3>Tactical Challenges</h3><p>Build a small-sided squad, read the opponent and choose a response.</p></div><div className="tactical-scenario-count">SCENARIO {scenarioIndex + 1} / {SCENARIOS.length}</div></div>
       <div className="tactical-opponent">
-        <div><span className="tactical-opponent-label">OPPOSITION SCOUT REPORT</span><h4>{scenario.opponent}</h4><p>{scenario.problem}</p></div>
+        <div><span className="tactical-opponent-label">OPPOSITION SCOUT REPORT</span><h4>{scenario.opponent}</h4><p>{scenario.problem}</p><div className="tactical-opponent-shape"><span>OPPOSITION FORMATION</span><strong>{scenario.opponentFormation}</strong><small>SMALL-SIDED SHAPE</small></div></div>
         <button type="button" className="play-secondary-button" onClick={() => { setScenarioIndex(current => (current + 1) % SCENARIOS.length); setAnswer(null); setResult(null); }}>Next scenario ↗</button>
       </div>
       <div className="tactical-builder">
