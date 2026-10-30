@@ -22,9 +22,9 @@ export function summarizeClubRecord(clubId, matches = []) {
   return summary;
 }
 
-export function getClubFacilityProgress({ fixtures = 0, teamOvr = null, memberCount = 0 } = {}) {
+export function getClubFacilityProgress({ fixtures = 0, completedTrainingSessions = 0, teamOvr = null, memberCount = 0 } = {}) {
   const played = Math.max(0, numeric(fixtures) || 0);
-  const ovr = numeric(teamOvr);
+  const completedSessions = Math.max(0, numeric(completedTrainingSessions) || 0);
   const members = Math.max(0, numeric(memberCount) || 0);
 
   const ground = played >= 30
@@ -39,24 +39,17 @@ export function getClubFacilityProgress({ fixtures = 0, teamOvr = null, memberCo
       : played >= 5 ? Math.round((played - 5) / 10 * 100)
         : Math.round(played / 5 * 100);
 
-  let training;
-  let trainingProgress;
-  if (ovr === null) {
-    training = { level: 1, name: "Training Base", description: "Build a larger Matchday sample to develop the facility." };
-    trainingProgress = 0;
-  } else if (ovr >= 85) {
-    training = { level: 4, name: "Elite Centre", description: "The squad's current OVR has reached the elite band." };
-    trainingProgress = 100;
-  } else if (ovr >= 75) {
-    training = { level: 3, name: "Performance Centre", description: "Your squad is developing into a strong unit." };
-    trainingProgress = Math.round((ovr - 75) / 10 * 100);
-  } else if (ovr >= 65) {
-    training = { level: 2, name: "Training Centre", description: "Recorded player performances are shaping the facility." };
-    trainingProgress = Math.round((ovr - 65) / 10 * 100);
-  } else {
-    training = { level: 1, name: "Training Base", description: "Build a larger Matchday sample to develop the facility." };
-    trainingProgress = Math.max(0, Math.round(ovr / 65 * 100));
-  }
+  const training = completedSessions >= 25
+    ? { level: 4, name: "Elite Centre", description: "A sustained record of completed team training sessions." }
+    : completedSessions >= 10
+      ? { level: 3, name: "Performance Centre", description: "Your squad has built a consistent shared training routine." }
+      : completedSessions >= 3
+        ? { level: 2, name: "Training Centre", description: "The Club has started recording regular team sessions." }
+        : { level: 1, name: "Training Base", description: "Schedule and complete team sessions to develop this facility." };
+  const trainingProgress = completedSessions >= 25 ? 100
+    : completedSessions >= 10 ? Math.round((completedSessions - 10) / 15 * 100)
+      : completedSessions >= 3 ? Math.round((completedSessions - 3) / 7 * 100)
+        : Math.round(completedSessions / 3 * 100);
 
   const hasFullSquad = members >= 5;
   const academy = {
