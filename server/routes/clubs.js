@@ -1803,6 +1803,9 @@ router.patch("/training/:clubId/:sessionId/attendance", requireAuth, async (req,
     const session = await ClubTrainingSession.findOne({ _id: req.params.sessionId, clubId: club._id });
     if (!session) return res.status(404).json({ message: "Training session not found." });
     if (session.status !== "scheduled") return res.status(409).json({ message: "Attendance is locked for this session." });
+    if (new Date(session.scheduledAt).getTime() > Date.now()) {
+      return res.status(409).json({ message: "Attendance opens when the scheduled session time has arrived." });
+    }
     const attendee = session.attendees.find(item => String(item.playerId) === attendeePlayerId);
     if (!attendee) return res.status(404).json({ message: "That player was not invited to this session." });
     attendee.attendance = attendance;
@@ -1832,6 +1835,9 @@ router.post("/training/:clubId/:sessionId/complete", requireAuth, async (req, re
     const session = await ClubTrainingSession.findOne({ _id: req.params.sessionId, clubId: club._id });
     if (!session) return res.status(404).json({ message: "Training session not found." });
     if (session.status !== "scheduled") return res.status(409).json({ message: "This training session is already closed." });
+    if (new Date(session.scheduledAt).getTime() > Date.now()) {
+      return res.status(409).json({ message: "A Club session cannot be completed before its scheduled time." });
+    }
     session.status = "completed";
     session.completedAt = new Date();
     await session.save();
