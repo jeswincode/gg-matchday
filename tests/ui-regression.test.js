@@ -140,9 +140,21 @@ test('guest mode keeps an explicit sign-in path after entering the app',()=>{con
 test('admin player video inputs fall back to loaded player video URLs',()=>{const source=read('src/features/admin/AdminPage.jsx');assert.match(source,/videoDrafts\[id\] \?\? player\.backgroundVideoUrl \?\? ""/);});
 
 
+test('Matchday keeps exactly five primary tabs while GG Grounds owns Arcade and Tactical Lab',()=>{
+  const app=read('src/App.jsx');
+  const world=read('src/features/world/GGWorld.jsx');
+  const play=read('src/features/play/PlayCentre.jsx');
+  assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*\]/);
+  assert.doesNotMatch(app,/TABS\.PLAY\b/);
+  assert.match(app,/Explore Grounds/);
+  assert.match(app,/<GGCompanion onOpen=\{openWorld\}/);
+  assert.match(app,/<GGWorld/);
+  assert.match(world,/Enter \\\{item\.name\\\}/);
+  assert.match(play,/initialSection === "tactics"/);
+});
 test('mobile navigation supports ordered horizontal tab swipes without wrapping',()=>{
   const app=read('src/App.jsx');
-  assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*TABS\.PLAY,\s*\]/);
+  assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*\]/);
   assert.match(app,/touchStartRef=useRef\(null\)/);
   assert.match(app,/const threshold=Math\.min\(92, Math\.max\(56, window\.innerWidth\*0\.16\)\)/);
   assert.match(app,/deltaX<0 \? currentIndex\+1 : currentIndex-1/);
