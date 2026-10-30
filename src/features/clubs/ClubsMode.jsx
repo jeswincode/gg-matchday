@@ -867,7 +867,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   const primaryTabKeys = adminOnlyView
     ? ["adminDashboard", "adminApplications", "adminClubs", "adminMatches"]
-    : ["overview", "myClub", "clubTraining", "market", "matches", "players", "reviews", ...(isAdmin ? ["admin"] : [])];
+    : ["overview", "myClub", "clubTraining", "market", "matches", "players", "reviews"];
   const activePrimaryTabKey = adminOnlyView
     ? activeSection
     : activeSection === "overview"
@@ -904,7 +904,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   };
   const handleClubsTouchStart = event => {
     const target = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
-    if (target?.closest?.("input, textarea, select, button, a, [contenteditable='true'], [data-no-tab-swipe], .clubs-nav, .clubs-section-tabs, .clubs-subnav")) {
+    if (target?.closest?.("input, textarea, select, button, a, [contenteditable='true'], [data-no-tab-swipe], .club-world-map, .clubs-nav, .clubs-section-tabs, .clubs-subnav")) {
       swipeStartRef.current = null;
       return;
     }
