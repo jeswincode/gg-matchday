@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./play-centre.css";
 
 const MODES = [
@@ -170,15 +170,23 @@ function GamePanel({ mode, onModeChange }) {
 }
 
 function TacticalLab({ players }) {
+  const [squadSize, setSquadSize] = useState(4);
   const [formation, setFormation] = useState("1-2-1");
   const [selectedPlayers, setSelectedPlayers] = useState(() => players.slice(0, 4).map(player => String(player._id)));
+  const didInitialiseSquad = useRef(false);
+
+  useEffect(() => {
+    if (didInitialiseSquad.current || !players.length) return;
+    didInitialiseSquad.current = true;
+    setSelectedPlayers(players.slice(0, 4).map(player => String(player._id)));
+  }, [players]);
   const [scenarioIndex, setScenarioIndex] = useState(0);
   const [answer, setAnswer] = useState(null);
   const [approach, setApproach] = useState("balanced");
   const [result, setResult] = useState(null);
   const scenario = SCENARIOS[scenarioIndex];
-  const capacity = formation.split("-").reduce((sum, value) => sum + Number(value), 0) + 1;
-  const options = capacity === 5 ? FORMATIONS.five : FORMATIONS.four;
+  const capacity = squadSize;
+  const options = squadSize === 5 ? FORMATIONS.five : FORMATIONS.four;
   const pickedPlayers = useMemo(() => players.filter(player => selectedPlayers.includes(String(player._id))), [players, selectedPlayers]);
   const groups = pickedPlayers.map(positionGroup);
   const ovrValues = pickedPlayers.map(playerOvr).filter(value => value !== null);
@@ -197,7 +205,7 @@ function TacticalLab({ players }) {
   const score = scoreParts.reduce((sum, value) => sum + value, 0);
   const maxScore = scoreParts.length === 4 ? 75 : 95;
   const shapeAdvice = pickedPlayers.length !== capacity
-    ? "Your current selection has " + pickedPlayers.length + " players; this shape is designed for " + capacity + "."
+    ? "Your current selection has " + pickedPlayers.length + " players; this shape requires exactly " + capacity + ". Choose the matching 4v4 or 5v5 squad size.
     : "Your squad size matches the selected small-sided shape.";
   const formationOptions = options.includes(formation) ? options : options[0];
 
@@ -235,6 +243,13 @@ function TacticalLab({ players }) {
       <div className="tactical-builder">
         <section className="tactical-builder-panel">
           <div className="tactical-section-heading"><div><p className="play-eyebrow">01 / YOUR SHAPE</p><h4>Choose a formation</h4></div><span>{capacity} players</span></div>
+          <div className="tactical-size-switch" role="group" aria-label="Squad size">
+            {[4, 5].map(size => <button key={size} type="button" className={squadSize === size ? "active" : ""} aria-pressed={squadSize === size} onClick={() => {
+              setSquadSize(size);
+              setSelectedPlayers(current => current.slice(0, size));
+              setResult(null);
+            }}>{size}v{size}</button>)}
+          </div>
           <div className="tactical-formation-select">{options.map(option => <button key={option} type="button" className={formation === option ? "active" : ""} onClick={() => { setFormation(option); setResult(null); }}>{option}</button>)}</div>
           <div className="tactical-pitch">
             <span className="tactical-pitch-circle"/><span className="tactical-pitch-line"/>
@@ -261,7 +276,7 @@ function TacticalLab({ players }) {
         <div className="tactical-approach-options">{[{key:"balanced",label:"Balanced",detail:"Keep structure in and out of possession."},{key:"aggressive",label:"Aggressive",detail:"Commit more players to the press and attack."},{key:"conservative",label:"Conservative",detail:"Protect space and reduce transition risk."}].map(item => <button type="button" key={item.key} className={approach === item.key ? "active" : ""} onClick={() => { setApproach(item.key); setResult(null); }}><strong>{item.label}</strong><small>{item.detail}</small></button>)}</div>
         <p className="tactical-question">What is your best response to the opposition?</p>
         <div className="tactical-answer-options">{scenario.answers.map((item, index) => <button type="button" key={item} className={answer === index ? "active" : ""} onClick={() => { setAnswer(index); setResult(null); }}><span>{String.fromCharCode(65 + index)}</span>{item}</button>)}</div>
-        <button type="button" className="play-primary-button tactical-submit" disabled={pickedPlayers.length < 4 || answer === null} onClick={runChallenge}>Evaluate my game plan →</button>
+        <button type="button" className="play-primary-button tactical-submit" disabled={pickedPlayers.length !== capacity || answer === null} onClick={runChallenge}>Evaluate my game plan →</button>
       </section>
       {result && <section className="tactical-result" aria-live="polite"><div className="tactical-result-score"><span>TACTICAL EXERCISE SCORE</span><strong>{result.score}<small> / {result.maxScore}</small></strong><em>{result.tacticalCorrect ? "SCOUTING READ CORRECT" : "SCOUTING READ NEEDS WORK"}</em></div><div className="tactical-result-copy"><p className="play-eyebrow">COACH'S REVIEW</p><h4>{result.tacticalCorrect ? "Good reading of the game." : "There is another way through."}</h4><p>{result.explanation}</p><p>{result.shapeAdvice}</p><small>{result.assessedOvr === null ? "No OVR snapshot was available; the score excludes OVR." : "Average selected-player OVR evidence: " + result.assessedOvr.toFixed(1) + ". This is practice feedback only."}</small></div></section>}
       <p className="play-safety-note">Practice simulation only. Tactical scores never affect GG Match ratings, OVR, official match records, Club Wallets, auction outcomes or competitive rankings.</p>
