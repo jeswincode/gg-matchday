@@ -41,3 +41,15 @@ test("missing responses are counted as missed practice reps", () => {
   assert.equal(result.correct, 4);
   assert.equal(result.total, 5);
 });
+
+test("full player position labels resolve to the same programme as their role codes", () => {
+  const camCodes = drillsForPosition("CAM").map(drill => drill.id);
+  const camLabel = drillsForPosition("Attacking Midfielder").map(drill => drill.id);
+  const cmLabel = drillsForPosition("Central Midfielder").map(drill => drill.id);
+  const stLabel = drillsForPosition("Striker").map(drill => drill.id);
+  assert.deepEqual(camLabel, camCodes);
+  assert.ok(cmLabel.includes("scan-release"));
+  assert.ok(cmLabel.includes("passing-lanes"));
+  assert.ok(stLabel.includes("finish-quick"));
+  assert.ok(!stLabel.includes("defensive-shape"));
+});
