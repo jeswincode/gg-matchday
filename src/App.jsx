@@ -2592,6 +2592,7 @@ function App() {
           onHallOfFame={() => setModal('hall')}
           onPlayer={showPlayer}
           onLeaderboard={() => setActiveTab(TABS.LEADERBOARD)}
+          currentPlayer={players.find(player => String(player._id) === String(backendUser?.playerProfile)) || null}
           onOpenPlayer={(player) => {
             openPlayerProfile(player);
             setActiveTab(TABS.PLAYERS);
