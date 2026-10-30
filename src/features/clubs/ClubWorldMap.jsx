@@ -8,7 +8,8 @@ const LOCATIONS = [
   { key: "market", title: "Market", building: "Transfer Office", icon: "↗", desc: "Signing offers, auctions and transfer decisions.", x: 85, y: 52, tone: "market" },
   { key: "players", title: "Players", building: "Academy & Scouting", icon: "♙", desc: "Player discovery, profiles and Club history.", x: 65, y: 79, tone: "academy" },
   { key: "reviews", title: "Reviews", building: "Honours Hall", icon: "★", desc: "Player reviews, Club legacy and honours.", x: 34, y: 79, tone: "honours" },
-  { key: "admin", title: "Admin", building: "Operations Room", icon: "⚙", desc: "Approvals, wallet controls and operational oversight.", x: 50, y: 51, tone: "ops", admin: true },
+  { key: "clubTraining", title: "Training Centre", building: "Training Complex", icon: "⚽", desc: "Team sessions, invitations and shared attendance.", x: 50, y: 52, tone: "academy" },
+  { key: "admin", title: "Admin", building: "Operations Room", icon: "⚙", desc: "Approvals, wallet controls and operational oversight.", x: 50, y: 91, tone: "ops", admin: true },
 ];
 
 const ADMIN_LOCATIONS = [
