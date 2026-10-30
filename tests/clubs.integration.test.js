@@ -754,6 +754,18 @@ test("Club team training supports captain scheduling, member RSVPs, attendance a
   assert.equal(created.data.attendees.length, 2);
   const sessionId = String(created.data._id);
 
+  const earlyAttendance = await request(`/clubs/training/${club._id}/${sessionId}/attendance`, {
+    playerId: roster[0]._id,
+    method: "PATCH",
+    body: { playerId: roster[1]._id, attendance: "present" },
+  });
+  assert.equal(earlyAttendance.status, 409, JSON.stringify(earlyAttendance.data));
+  assert.match(earlyAttendance.data.message, /scheduled session time has arrived/i);
+  await ClubTrainingSession.updateOne(
+    { _id: sessionId },
+    { $set: { scheduledAt: new Date(Date.now() - 60 * 1000) } },
+  );
+
   const outsiderRead = await request(`/clubs/training/${club._id}`, { playerId: players[8]._id });
   assert.equal(outsiderRead.status, 404, JSON.stringify(outsiderRead.data));
 
