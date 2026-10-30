@@ -268,8 +268,8 @@ function TacticalLab({ players }) {
   );
 }
 
-export default function PlayCentre({ players = [], playerId = null }) {
-  const [section, setSection] = useState("arcade");
+export default function PlayCentre({ players = [], playerId = null, initialSection = "arcade" }) {
+  const [section, setSection] = useState(initialSection === "tactics" ? "tactics" : "arcade");
   const [mode, setMode] = useState("penalties");
   return (
     <section className="tab-content play-centre">
