@@ -36,6 +36,7 @@ import PlayerReview from "../models/clubs/PlayerReview.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
 import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
+import ClubTrainingSession from "../models/clubs/ClubTrainingSession.js";
 import ClubMatchBet from "../models/clubs/ClubMatchBet.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
@@ -1675,6 +1676,169 @@ router.post("/matches/:matchId/bets/settle", requireAuth, requireAdmin, async (r
     return res.status(400).json({ message: error.message || "Failed to settle Club Match bets." });
   } finally {
     await session.endSession();
+  }
+});
+
+const CLUB_TRAINING_FOCUS = new Set(["passing", "possession", "pressing", "finishing", "set-pieces", "tactical"]);
+
+router.get("/training/:clubId", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ message: "Invalid Club id." });
+
+  try {
+    const club = await Club.findOne({
+      _id: req.params.clubId,
+      status: "approved",
+      memberIds: playerId,
+    }).select("_id name memberIds captainIds").lean();
+    if (!club) return res.status(404).json({ message: "Club not found." });
+
+    const sessions = await ClubTrainingSession.find({ clubId: club._id })
+      .sort({ scheduledAt: -1, createdAt: -1 })
+      .limit(50)
+      .lean();
+    return res.json({ club, sessions });
+  } catch (error) {
+    console.error("Load Club training sessions error:", error);
+    return res.status(500).json({ message: "Failed to load Club training sessions." });
+  }
+});
+
+router.post("/training/:clubId", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ message: "Invalid Club id." });
+
+  const title = String(req.body?.title || "").trim();
+  const focus = String(req.body?.focus || "").trim();
+  const notes = String(req.body?.notes || "").trim();
+  const scheduledAt = new Date(req.body?.scheduledAt);
+  if (title.length < 3 || title.length > 80) return res.status(400).json({ message: "Session title must contain 3–80 characters." });
+  if (!CLUB_TRAINING_FOCUS.has(focus)) return res.status(400).json({ message: "Choose a valid Club training focus." });
+  if (notes.length > 280) return res.status(400).json({ message: "Training notes must be 280 characters or fewer." });
+  if (Number.isNaN(scheduledAt.getTime()) || scheduledAt.getTime() <= Date.now()) {
+    return res.status(400).json({ message: "Choose a valid future session date and time." });
+  }
+
+  try {
+    const club = await Club.findOne({ _id: req.params.clubId, status: "approved" }).select("_id memberIds captainIds").lean();
+    if (!club) return res.status(404).json({ message: "Club not found." });
+    const isCaptain = club.captainIds?.some(id => String(id) === String(playerId));
+    if (!isCaptain) return res.status(403).json({ message: "Only an elected Club captain can schedule team training." });
+
+    const members = (club.memberIds || []).map(String);
+    const invited = Array.isArray(req.body?.invitedPlayerIds) && req.body.invitedPlayerIds.length
+      ? [...new Set(req.body.invitedPlayerIds.map(String))]
+      : members;
+    if (!invited.length || invited.length > 5 || invited.some(id => !members.includes(id))) {
+      return res.status(400).json({ message: "Invite one to five current Club members only." });
+    }
+
+    const session = await ClubTrainingSession.create({
+      clubId: club._id,
+      title,
+      focus,
+      notes,
+      scheduledAt,
+      createdBy: playerId,
+      attendees: invited.map(id => ({ playerId: id, response: "pending", attendance: "unmarked" })),
+    });
+    return res.status(201).json(session.toObject());
+  } catch (error) {
+    console.error("Create Club training session error:", error);
+    return res.status(400).json({ message: error.message || "Could not schedule the Club training session." });
+  }
+});
+
+router.patch("/training/:clubId/:sessionId/response", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.clubId) || !mongoose.isValidObjectId(req.params.sessionId)) {
+    return res.status(400).json({ message: "Invalid Club training reference." });
+  }
+  const response = String(req.body?.response || "");
+  if (!["accepted", "declined"].includes(response)) return res.status(400).json({ message: "Choose accept or decline." });
+
+  try {
+    const club = await Club.findOne({ _id: req.params.clubId, status: "approved", memberIds: playerId }).select("_id").lean();
+    if (!club) return res.status(404).json({ message: "Club not found." });
+    const session = await ClubTrainingSession.findOne({ _id: req.params.sessionId, clubId: club._id });
+    if (!session) return res.status(404).json({ message: "Training session not found." });
+    if (session.status !== "scheduled") return res.status(409).json({ message: "This training session is no longer open for responses." });
+    const attendee = session.attendees.find(item => String(item.playerId) === String(playerId));
+    if (!attendee) return res.status(403).json({ message: "You were not invited to this training session." });
+    attendee.response = response;
+    attendee.respondedAt = new Date();
+    await session.save();
+    return res.json(session.toObject());
+  } catch (error) {
+    console.error("Club training response error:", error);
+    return res.status(400).json({ message: error.message || "Could not save your training response." });
+  }
+});
+
+router.patch("/training/:clubId/:sessionId/attendance", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.clubId) || !mongoose.isValidObjectId(req.params.sessionId)) {
+    return res.status(400).json({ message: "Invalid Club training reference." });
+  }
+  const attendeePlayerId = String(req.body?.playerId || "");
+  const attendance = String(req.body?.attendance || "");
+  if (!mongoose.isValidObjectId(attendeePlayerId) || !["present", "absent", "unmarked"].includes(attendance)) {
+    return res.status(400).json({ message: "Choose a valid invited member and attendance status." });
+  }
+
+  try {
+    const club = await Club.findOne({ _id: req.params.clubId, status: "approved" }).select("_id captainIds").lean();
+    if (!club) return res.status(404).json({ message: "Club not found." });
+    if (!club.captainIds?.some(id => String(id) === String(playerId))) {
+      return res.status(403).json({ message: "Only an elected Club captain can record team attendance." });
+    }
+    const session = await ClubTrainingSession.findOne({ _id: req.params.sessionId, clubId: club._id });
+    if (!session) return res.status(404).json({ message: "Training session not found." });
+    if (session.status !== "scheduled") return res.status(409).json({ message: "Attendance is locked for this session." });
+    const attendee = session.attendees.find(item => String(item.playerId) === attendeePlayerId);
+    if (!attendee) return res.status(404).json({ message: "That player was not invited to this session." });
+    attendee.attendance = attendance;
+    attendee.markedAt = attendance === "unmarked" ? null : new Date();
+    await session.save();
+    return res.json(session.toObject());
+  } catch (error) {
+    console.error("Club training attendance error:", error);
+    return res.status(400).json({ message: error.message || "Could not update training attendance." });
+  }
+});
+
+router.post("/training/:clubId/:sessionId/complete", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.clubId) || !mongoose.isValidObjectId(req.params.sessionId)) {
+    return res.status(400).json({ message: "Invalid Club training reference." });
+  }
+
+  try {
+    const club = await Club.findOne({ _id: req.params.clubId, status: "approved" }).select("_id captainIds").lean();
+    if (!club) return res.status(404).json({ message: "Club not found." });
+    if (!club.captainIds?.some(id => String(id) === String(playerId))) {
+      return res.status(403).json({ message: "Only an elected Club captain can complete a team training session." });
+    }
+    const session = await ClubTrainingSession.findOne({ _id: req.params.sessionId, clubId: club._id });
+    if (!session) return res.status(404).json({ message: "Training session not found." });
+    if (session.status !== "scheduled") return res.status(409).json({ message: "This training session is already closed." });
+    session.status = "completed";
+    session.completedAt = new Date();
+    await session.save();
+    return res.json(session.toObject());
+  } catch (error) {
+    console.error("Complete Club training session error:", error);
+    return res.status(400).json({ message: error.message || "Could not complete the Club training session." });
   }
 });
 
