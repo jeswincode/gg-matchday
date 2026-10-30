@@ -1297,11 +1297,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     ? Math.round(clubOvrValues.reduce((sum, value) => sum + value, 0) / clubOvrValues.length)
     : null;
 
-  useEffect(() => {
-    const activeTab = document.querySelector('.club-world-map [data-primary-tab="' + activePrimaryTabKey + '"]');
-    activeTab?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-  }, [activePrimaryTabKey]);
-
   return (
     <main className="clubs-app" onTouchStart={handleClubsTouchStart} onTouchMove={handleClubsTouchMove} onTouchEnd={handleClubsTouchEnd} onTouchCancel={() => { swipeStartRef.current = null; }}>
       <header className="clubs-topbar">
