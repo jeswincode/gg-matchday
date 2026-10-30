@@ -387,3 +387,24 @@ test("Season award display omits MOTM and labels the El Clasico season award cle
   assert.match(routes, /item\.type !== "motm"/);
   assert.match(matchDetails, /Player of the Match/);
 });
+
+
+test("Club team training is shared through member-scoped, captain-authorised session records", () => {
+  const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
+  const model = fs.readFileSync("server/models/clubs/ClubTrainingSession.js", "utf8");
+  const view = fs.readFileSync("src/features/clubs/ClubTrainingCentre.jsx", "utf8");
+
+  assert.match(model, /collection: "clubTrainingSessions"/);
+  assert.match(model, /response: \{ type: String, enum: \["pending", "accepted", "declined"\]/);
+  assert.match(model, /attendance: \{ type: String, enum: \["unmarked", "present", "absent"\]/);
+  assert.match(routes, /router\.get\("\/training\/:clubId", requireAuth/);
+  assert.match(routes, /memberIds: playerId/);
+  assert.match(routes, /Only an elected Club captain can schedule team training/);
+  assert.match(routes, /Only an elected Club captain can record team attendance/);
+  assert.match(routes, /Only an elected Club captain can complete a team training session/);
+  assert.equal((routes.match(/new Date\(session\.scheduledAt\)\.getTime\(\) > Date\.now\(\)/g) || []).length, 2);
+  assert.match(view, /Accept invitation/);
+  assert.match(view, /Mark .* present/);
+  assert.match(view, /Complete session/);
+  assert.match(view, /Individual GG Grounds training history remains private/);
+});
