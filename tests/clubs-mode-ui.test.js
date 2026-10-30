@@ -5,11 +5,20 @@ import fs from "node:fs";
 test("Clubs mode keeps formation controls, discovery and admin surfaces while using task navigation", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
   const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  const map = fs.readFileSync("src/features/clubs/ClubWorldMap.jsx", "utf8");
 
   assert.match(component, /Ultimate Clubs/);
+  assert.match(component, /<ClubWorldMap/);
+  assert.match(component, /onNavigate=\{navigatePrimaryTab\}/);
   assert.match(component, /Player History/);
-  assert.match(component, /data-primary-tab="overview"/);
-  assert.match(component, /data-primary-tab="myClub"/);
+  assert.match(map, /data-primary-tab=\{location\.key\}/);
+  assert.match(map, /key: "overview"/);
+  assert.match(map, /key: "myClub"/);
+  assert.match(map, /key: "market"/);
+  assert.match(map, /key: "matches"/);
+  assert.match(map, /onClick=\{\(\) => onNavigate\(location\.key\)\}/);
+  assert.match(map, /onPointerMove=\{movePan\}/);
+  assert.match(map, /Enter selected building/);
   assert.doesNotMatch(component, /aria-label="Ultimate Clubs sections"/);
   assert.doesNotMatch(component, /aria-label="My Club sections"/);
   assert.match(component, /clubs-subnav/);
