@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
 import ClubHeadquarters from "./ClubHeadquarters";
+import ClubWorldMap from "./ClubWorldMap";
 import "./clubs-mode.css";
 
 const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
@@ -1268,7 +1269,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     : null;
 
   useEffect(() => {
-    const activeTab = document.querySelector('.clubs-nav [data-primary-tab="' + activePrimaryTabKey + '"]');
+    const activeTab = document.querySelector('.club-world-map [data-primary-tab="' + activePrimaryTabKey + '"]');
     activeTab?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   }, [activePrimaryTabKey]);
 
@@ -1289,29 +1290,15 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </button>
       </header>
 
-      {adminOnlyView ? (
-        <nav className="clubs-nav" aria-label="Clubs admin navigation">
-          <button aria-current={activeSection === "adminDashboard" ? "page" : undefined} className={activeSection === "adminDashboard" ? "active" : ""} type="button" onClick={() => setActiveSection("adminDashboard")}>Dashboard</button>
-          <button aria-current={activeSection === "adminApplications" ? "page" : undefined} className={activeSection === "adminApplications" ? "active" : ""} type="button" onClick={() => setActiveSection("adminApplications")}>
-            Applications{adminApplications.length > 0 && <span className="clubs-nav-badge">{adminApplications.length}</span>}
-          </button>
-          <button aria-current={activeSection === "adminClubs" ? "page" : undefined} className={activeSection === "adminClubs" ? "active" : ""} type="button" onClick={() => setActiveSection("adminClubs")}>Clubs</button>
-          <button aria-current={activeSection === "adminMatches" ? "page" : undefined} className={activeSection === "adminMatches" ? "active" : ""} type="button" onClick={() => setActiveSection("adminMatches")}>Matches</button>
-        </nav>
-      ) : (
-        <>
-          <nav className="clubs-nav" aria-label="Clubs navigation">
-            <button data-primary-tab="overview" aria-current={activeSection === "overview" && ultimateSubsection === "overview" ? "page" : undefined} className={activeSection === "overview" && ultimateSubsection === "overview" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("overview")}>Club Hub</button>
-            <button data-primary-tab="myClub" aria-current={activeSection === "myClub" ? "page" : undefined} className={activeSection === "myClub" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("myClub")}>My Club</button>
-            <button data-primary-tab="market" aria-current={activeSection === "market" ? "page" : undefined} className={activeSection === "market" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("market")}>Market</button>
-            <button data-primary-tab="matches" aria-current={activeSection === "overview" && ultimateSubsection === "matches" ? "page" : undefined} className={activeSection === "overview" && ultimateSubsection === "matches" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("matches")}>Matches{incomingMatchRequests.length > 0 && <span className="clubs-nav-badge">{incomingMatchRequests.length}</span>}</button>
-            <button data-primary-tab="players" aria-current={activeSection === "players" ? "page" : undefined} className={activeSection === "players" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("players")}>Players</button>
-            <button data-primary-tab="reviews" aria-current={activeSection === "reviews" ? "page" : undefined} className={activeSection === "reviews" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("reviews")}>Reviews</button>
-            {isAdmin && <button data-primary-tab="admin" aria-current={activeSection === "admin" ? "page" : undefined} className={activeSection === "admin" ? "active" : ""} type="button" onClick={() => navigatePrimaryTab("admin")}>Admin</button>}
-          </nav>
-          <p className="clubs-swipe-hint" aria-hidden="true">Swipe left or right to switch tabs</p>
-        </>
-      )}
+      <ClubWorldMap
+        activeLocation={activePrimaryTabKey}
+        onNavigate={navigatePrimaryTab}
+        clubName={currentClub?.name || "Ultimate Clubs"}
+        isAdmin={isAdmin}
+        adminOnly={adminOnlyView}
+        incomingMatches={incomingMatchRequests.length}
+        pendingApplications={adminApplications.filter(application => !["approved", "rejected"].includes(application.status)).length}
+      />
 
       {error && (
         <div className="clubs-error" role="alert">
