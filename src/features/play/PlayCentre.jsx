@@ -103,11 +103,11 @@ function GamePanel({ mode, onModeChange, playerId }) {
   const currentDribbleMove = round?.sequence?.[dribbleStep];
   const trainingCue = mode === "dribble"
     ? ({ left: "MOVE LEFT", right: "MOVE RIGHT", up: "PUSH FORWARD" }[currentDribbleMove] || "Choose your next touch")
-    : mode === "crossbar"
-      ? "Current target: " + laneLabel(currentTarget || "centre")
-      : mode === "freekick"
-        ? "Target quadrant: " + String(currentTarget || "high-left").replace("-", " ").toUpperCase()
-        : "The keeper's starting position is hidden.";
+    : mode === "penalties"
+      ? "The keeper's starting position is hidden."
+      : mode === "crossbar"
+        ? "Choose one of the three crossbar zones."
+        : "Choose a quadrant around the defensive wall.";
   const modeCopy = {
     penalties: { eyebrow: "ONE VERSUS ONE", title: "Penalty Shootout", description: "Five kicks. Read the keeper. Choose your corner." },
     crossbar: { eyebrow: "TECHNIQUE TEST", title: "Crossbar Challenge", description: "Five attempts to place the ball in the target zone." },
@@ -124,7 +124,7 @@ function GamePanel({ mode, onModeChange, playerId }) {
       <div className="play-pitch-scene">
         <div className="play-pitch-lines" aria-hidden="true"><span/><span/><span/></div>
         {mode === "penalties" && <div className="play-goal"><span className="play-goal-net"/><span className="play-keeper">GK</span><span className="play-ball">⚽</span></div>}
-        {mode === "crossbar" && <div className="play-target-board"><span className={"play-target-spot play-target-left" + (currentTarget === "left" ? " is-target" : "")}>01</span><span className={"play-target-spot play-target-centre" + (currentTarget === "centre" ? " is-target" : "")}>02</span><span className={"play-target-spot play-target-right" + (currentTarget === "right" ? " is-target" : "")}>03</span><b>CROSSBAR ZONES</b></div>}
+        {mode === "crossbar" && <div className="play-target-board"><span className="play-target-spot play-target-left">01</span><span className="play-target-spot play-target-centre">02</span><span className="play-target-spot play-target-right">03</span><b>CROSSBAR ZONES</b></div>}
         {mode === "freekick" && <div className="play-free-wall"><span className="play-wall">▮ ▮ ▮ ▮ ▮</span><span className="play-free-goal">GOAL</span><span className="play-ball">⚽</span></div>}
         {mode === "dribble" && <div className="play-cone-course"><span>▲</span><span>▲</span><span>▲</span><span>▲</span><span>▲</span><b>DRIBBLE COURSE</b></div>}
         <div className="play-scoreboard"><span>ATTEMPT</span><strong>{round ? Math.min(round.step + (round.complete ? 0 : 1), mode === "dribble" ? 8 : 5) : 0} <small>/ {mode === "dribble" ? 8 : 5}</small></strong><i>{round ? round.score : 0} {mode === "dribble" ? "PTS" : "SCORE"}</i></div>
