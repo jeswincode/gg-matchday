@@ -1,4 +1,7 @@
+import { useEffect, useMemo, useState } from 'react';
 import PlayerComparisons from '../../components/PlayerComparisons';
+import { api } from '../../lib/api';
+import { getNextCareerObjective } from '../career/career-progression.js';
 import SectionHeading from '../../components/ui/SectionHeading';
 import {formatDate} from '../../lib/date';
 
@@ -25,7 +28,41 @@ export default function HomePage({
   onPlayer,
   onLeaderboard,
   onOpenPlayer,
+  currentPlayer = null,
 }) {
+  const [careerStats, setCareerStats] = useState(null);
+  const [careerLoading, setCareerLoading] = useState(false);
+  const playerId = currentPlayer?._id ? String(currentPlayer._id) : null;
+
+  useEffect(() => {
+    let active = true;
+    if (!playerId) {
+      setCareerStats(null);
+      setCareerLoading(false);
+      return () => { active = false; };
+    }
+    setCareerLoading(true);
+    api("/stats/player/" + encodeURIComponent(playerId))
+      .then(data => {
+        if (active) setCareerStats(data?.stats || null);
+      })
+      .catch(() => {
+        if (active) setCareerStats(null);
+      })
+      .finally(() => {
+        if (active) setCareerLoading(false);
+      });
+    return () => { active = false; };
+  }, [playerId]);
+
+  const nextCareerObjective = useMemo(
+    () => careerStats ? getNextCareerObjective(careerStats) : null,
+    [careerStats],
+  );
+  const objectiveProgress = nextCareerObjective
+    ? Math.min(100, Math.round((nextCareerObjective.current / nextCareerObjective.target) * 100))
+    : 0;
+
   return (
     <section className="tab-content home-page">
       <section className="home-hero">
@@ -40,6 +77,28 @@ export default function HomePage({
           ★ Hall of Fame →
         </button>
       </section>
+
+      {currentPlayer && (
+        <section className="home-career-objective">
+          <div className="home-career-objective-mark">◎</div>
+          <div className="home-career-objective-copy">
+            <p className="eyebrow">YOUR NEXT CAREER OBJECTIVE</p>
+            {careerLoading ? (
+              <><strong>Reading your Matchday career…</strong><small>Checking your verified player records.</small></>
+            ) : nextCareerObjective ? (
+              <>
+                <strong>{nextCareerObjective.label}</strong>
+                <small>{nextCareerObjective.detail}</small>
+                <div className="home-career-objective-progress"><span style={{ width: objectiveProgress + "%" }}/></div>
+                <small className="home-career-objective-count">{nextCareerObjective.current} / {nextCareerObjective.target} completed</small>
+              </>
+            ) : (
+              <><strong>Your next milestone will appear here.</strong><small>Career progress is based on recorded Matchday appearances and performance.</small></>
+            )}
+          </div>
+          <button type="button" className="secondary-button" onClick={() => onOpenPlayer(currentPlayer)}>Open Career Hub →</button>
+        </section>
+      )}
 
       <section className="home-feature-card">
         <div className="feature-label">⚡ MATCHDAY MOMENT</div>
