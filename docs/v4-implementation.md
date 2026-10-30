@@ -46,7 +46,7 @@ Milestone thresholds are deterministic and are unit-tested in \`tests/v4-career-
 
 ### Ultimate Clubs Headquarters
 
-The HQ is integrated at the top of the existing My Club dashboard. Existing squad, fixture, market, contract, wallet and administrative workflows remain in place.
+The HQ is integrated into the existing My Club dashboard. The horizontal Club tab strip has been replaced by a responsive campus map. The Club Plaza, Clubhouse, Main Stadium, Transfer Office, Academy & Scouting, Honours Hall and Operations Room are selectable buildings wired to the existing Club Hub, My Club, Matches, Market, Players, Reviews and Admin sections. The map supports pointer/touch panning on its background; selecting a building opens its real workflow. The existing squad, fixture, market, contract, wallet and administrative workflows remain in place.
 
 Its visual spaces derive from:
 
@@ -55,7 +55,7 @@ Its visual spaces derive from:
 - The average availability of member OVR snapshots, using the existing all-members-complete rule.
 - Club history records.
 
-The stadium, training centre, academy and honours presentation are visual tiers. They do not spend or mint player credits, do not write to Club budgets, do not modify contract state, and do not alter market or auction behaviour.
+The stadium, training centre, academy and honours presentation remain evidence-based visual tiers. They do not spend or mint player credits, do not write to Club budgets, do not modify contract state, and do not alter market or auction behaviour. Club map destinations are navigation surfaces, not mock actions: every building routes into the matching existing operational UI.
 
 ### GG Arcade
 
@@ -84,7 +84,7 @@ Tactical Lab is a learning/practice simulation, not a match engine. It does not 
 4. **Verified activity only.** Career progress reads server-provided Matchday statistics. Club progress reads approved Club and completed synchronised fixture records.
 5. **No absence penalties.** The new experience does not decay career progress, Club facilities, awards or achievements when a player is inactive.
 6. **No fabricated data.** Unavailable OVR, honours, history or fixture data are shown as unavailable/empty, not inferred.
-7. **Existing product workflows stay intact.** The current Matchday and Clubs navigation and established workflows are retained; V4 adds the new spaces instead of replacing their operational logic.
+7. **Existing product workflows stay intact.** Matchday keeps its five primary tabs. Clubs navigation is presented as a campus map, but every building continues to use the existing Club section handlers and permission-checked APIs rather than introducing replacement business logic.
 
 ## Deliberate first-release scope
 
