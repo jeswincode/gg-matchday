@@ -2475,6 +2475,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             <>
               <ClubHeadquarters
                 club={currentClub}
+                clubs={clubs}
                 completedMatches={completedClubMatches}
                 nextMatch={nextClubMatch}
                 clubOvr={clubOvr}
