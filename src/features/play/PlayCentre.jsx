@@ -23,6 +23,7 @@ const saveBest = (key, score) => {
   } catch { /* Best scores are an optional local convenience. */ }
 };
 const choose = list => list[Math.floor(Math.random() * list.length)];
+const randomUnit = () => Math.random();
 const playerOvr = player => {
   const value = player?.ovrSnapshot?.currentOvr ?? player?.ovrSnapshot?.careerOvr;
   return Number.isFinite(Number(value)) && value !== null ? Number(value) : null;
@@ -76,7 +77,7 @@ function GamePanel({ mode, onModeChange, playerId }) {
     if (!round || round.complete || mode === "dribble") return;
     const target = mode === "penalties" ? round.keepers[round.step] : round.targets[round.step];
     const hit = mode === "penalties"
-      ? penaltyIsGoal({ keeperLane: target, shotLane: lane, power, powerRoll: Math.random() })
+      ? penaltyIsGoal({ keeperLane: target, shotLane: lane, power, powerRoll: randomUnit() })
       : targetIsHit(target, lane);
     const score = round.score + (hit ? 1 : 0);
     const nextStep = round.step + 1;
@@ -99,7 +100,6 @@ function GamePanel({ mode, onModeChange, playerId }) {
   };
 
   const progress = round ? Math.min(100, round.step / (mode === "dribble" ? 8 : 5) * 100) : 0;
-  const currentTarget = round?.targets?.[round.step];
   const currentDribbleMove = round?.sequence?.[dribbleStep];
   const trainingCue = mode === "dribble"
     ? ({ left: "MOVE LEFT", right: "MOVE RIGHT", up: "PUSH FORWARD" }[currentDribbleMove] || "Choose your next touch")
