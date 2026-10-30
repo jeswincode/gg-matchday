@@ -209,8 +209,6 @@ function TacticalLab({ players }) {
   const shapeAdvice = pickedPlayers.length !== capacity
     ? "Your current selection has " + pickedPlayers.length + " players; this shape requires exactly " + capacity + ". Choose the matching 4v4 or 5v5 squad size."
     : "Your squad size matches the selected small-sided shape.";
-  const formationOptions = options.includes(formation) ? options : options[0];
-
   useEffect(() => {
     if (!options.includes(formation)) setFormation(options[0]);
   }, [formation, options]);
@@ -219,7 +217,7 @@ function TacticalLab({ players }) {
     setResult(null);
     setSelectedPlayers(current => current.includes(id)
       ? current.filter(value => value !== id)
-      : current.length >= 5 ? current : [...current, id]);
+      : current.length >= squadSize ? current : [...current, id]);
   };
 
   const runChallenge = () => {
