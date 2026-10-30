@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PlayCentre from "../play/PlayCentre";
 import TrainingCenter from "./TrainingCenter";
 import "./gg-world.css";
@@ -39,11 +39,11 @@ export function GGCompanion({ onOpen }) {
   const [open, setOpen] = useState(false);
   const [dialogue, setDialogue] = useState(0);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const drag = { current: null };
+  const drag = useRef(null);
   const start = event => {
     if (event.button !== undefined && event.button !== 0) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    drag.current = { x: event.clientX, y: event.clientY, offsetX: offset.x, offsetY: offset.y, lastX: event.clientX, lastY: event.clientY, lastAt: performance.now(), moved: false };
+    drag.current = { x: event.clientX, y: event.clientY, offsetX: offset.x, offsetY: offset.y, lastX: event.clientX, lastY: event.clientY, moved: false };
   };
   const move = event => {
     const item = drag.current;
@@ -55,7 +55,7 @@ export function GGCompanion({ onOpen }) {
       setOffset({ x: item.offsetX + dx, y: item.offsetY + dy });
       item.lastX = event.clientX;
       item.lastY = event.clientY;
-      item.lastAt = performance.now();
+
     }
   };
   const end = event => {
@@ -98,7 +98,7 @@ export function GGCompanion({ onOpen }) {
           <button type="button" className="gg-companion-another" onClick={() => setDialogue(value => value + 1)}>Talk to me <b>↻</b></button>
         </div>
       )}
-      <button type="button" className="gg-companion" aria-label="Open GG Scout companion" title="Drag me around, or tap to talk" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { drag.current = null; }}>
+      <button type="button" className="gg-companion" aria-label="Open GG Scout companion" title="Drag me around, or tap to talk" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={() => { drag.current = null; }} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setOpen(value => !value); } }}>
         <span className="gg-companion-halo" aria-hidden="true"/><MascotArt/><i>GG</i>
       </button>
     </div>
