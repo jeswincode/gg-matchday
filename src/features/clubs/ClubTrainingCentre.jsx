@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { api } from "../../lib/api";
+import { api, invalidate } from "../../lib/api";
 import "./club-training-centre.css";
 
 const FOCUS_OPTIONS = [
@@ -45,6 +45,7 @@ export default function ClubTrainingCentre({ club, players = [], playerId, isCap
     setBusyId(id);
     try {
       await action();
+      invalidate();
       await onRefresh?.();
       setNotice("Club training record updated.");
     } catch (requestError) {
