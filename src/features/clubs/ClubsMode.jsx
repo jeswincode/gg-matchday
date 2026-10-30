@@ -3,6 +3,7 @@ import { api } from "../../lib/api";
 import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
 import ClubHeadquarters from "./ClubHeadquarters";
 import ClubWorldMap from "./ClubWorldMap";
+import ClubTrainingCentre from "./ClubTrainingCentre";
 import "./clubs-mode.css";
 
 const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
@@ -200,6 +201,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [clubStats, setClubStats] = useState([]);
   const [clubWallet, setClubWallet] = useState(null);
   const [clubHistory, setClubHistory] = useState([]);
+  const [clubTrainingSessions, setClubTrainingSessions] = useState([]);
   const [playerAttributes, setPlayerAttributes] = useState({});
   const [selectedAnalyticsPlayerId, setSelectedAnalyticsPlayerId] = useState(null);
   const [auctionState, setAuctionState] = useState(null);
@@ -865,14 +867,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   const primaryTabKeys = adminOnlyView
     ? ["adminDashboard", "adminApplications", "adminClubs", "adminMatches"]
-    : ["overview", "myClub", "market", "matches", "players", "reviews", ...(isAdmin ? ["admin"] : [])];
+    : ["overview", "myClub", "clubTraining", "market", "matches", "players", "reviews", ...(isAdmin ? ["admin"] : [])];
   const activePrimaryTabKey = adminOnlyView
     ? activeSection
     : activeSection === "overview"
       ? ultimateSubsection === "matches" ? "matches" : "overview"
-      : activeSection;
+      : activeSection === "myClub" && myClubSubsection === "training"
+        ? "clubTraining"
+        : activeSection;
   const primaryTabLabels = {
-    overview: "Club Hub", myClub: "My Club", market: "Market", matches: "Matches",
+    overview: "Club Hub", myClub: "My Club", clubTraining: "Training Centre", market: "Market", matches: "Matches",
     players: "Players", reviews: "Reviews", admin: "Admin",
     adminDashboard: "Dashboard", adminApplications: "Applications", adminClubs: "Clubs", adminMatches: "Matches",
   };
@@ -890,6 +894,9 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     } else if (key === "myClub") {
       setActiveSection("myClub");
       setMyClubSubsection("squad");
+    } else if (key === "clubTraining") {
+      setActiveSection("myClub");
+      setMyClubSubsection("training");
     } else {
       setActiveSection(key);
     }
@@ -1231,6 +1238,28 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       active = false;
     };
   }, [authUser, activeSection]);
+
+  useEffect(() => {
+    if (!authUser || activeSection !== "myClub" || !currentClub?._id) {
+      setClubTrainingSessions([]);
+      return undefined;
+    }
+    let active = true;
+    api("/clubs/training/" + currentClub._id)
+      .then(data => {
+        if (active) setClubTrainingSessions(Array.isArray(data?.sessions) ? data.sessions : []);
+      })
+      .catch(e => {
+        if (active) setError(e.message || "Club training sessions could not be loaded.");
+      });
+    return () => { active = false; };
+  }, [authUser, activeSection, currentClub?._id]);
+
+  const refreshClubTraining = async () => {
+    if (!currentClub?._id) return;
+    const data = await api("/clubs/training/" + currentClub._id);
+    setClubTrainingSessions(Array.isArray(data?.sessions) ? data.sessions : []);
+  };
 
   useEffect(() => {
     if (!authUser || activeSection !== "myClub" || myClubSubsection !== "squad" || !currentClub?._id) return undefined;
@@ -2384,6 +2413,21 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             </div>
           )}
         </section>
+      ) : activeSection === "myClub" && myClubSubsection === "training" ? (
+        <section className="clubs-section">
+          {currentClub ? (
+            <ClubTrainingCentre
+              club={currentClub}
+              players={players}
+              playerId={currentPlayerId}
+              isCaptain={Boolean(currentClub.captainIds?.some(id => String(id) === String(currentPlayerId)))}
+              sessions={clubTrainingSessions}
+              onRefresh={refreshClubTraining}
+            />
+          ) : (
+            <div className="clubs-empty"><strong>Your Club Training Centre will appear here.</strong><span>Join an approved Club to take part in shared team sessions.</span></div>
+          )}
+        </section>
       ) : activeSection === "myClub" && myClubSubsection === "squad" ? (
         <>
       {authUser && (
@@ -2470,6 +2514,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 completedMatches={completedClubMatches}
                 nextMatch={nextClubMatch}
                 clubOvr={clubOvr}
+                trainingSessions={clubTrainingSessions}
                 history={commandCenter?.recentHistory?.length ? commandCenter.recentHistory : clubHistory}
               />
               <header className="clubs-command-header">
