@@ -284,12 +284,12 @@ test("GG Grounds opens position-aware private training and records a completed s
   await world.getByRole("button", { name: "Enter Training Ground" }).click();
   await expect(page.locator(".gg-training-centre h2")).toHaveText("Training Ground");
   await page.getByRole("button", { name: /Start drill/ }).click();
-  const questions = page.locator(".gg-training-question");
-  await expect(questions).toHaveCount(5);
+  const repCard = page.locator(".gg-training-rep-card");
+  await expect(repCard).toBeVisible();
   for (let index = 0; index < 5; index += 1) {
-    await questions.nth(index).getByRole("button").first().click();
+    await page.locator(".gg-training-choice-grid button").first().click();
+    await page.locator(".gg-training-coach-feedback button").click();
   }
-  await page.getByRole("button", { name: /Finish session/ }).click();
   await expect(page.locator(".gg-training-result")).toBeVisible();
   await expect(page.getByText("PRIVATE TRAINING JOURNAL")).toBeVisible();
   await expect(page.getByText(/Private by default/)).toBeVisible();
