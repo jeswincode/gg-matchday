@@ -148,6 +148,9 @@ test('Matchday keeps exactly five primary tabs while GG Grounds owns Arcade and 
   assert.doesNotMatch(app,/TABS\.PLAY\b/);
   assert.match(app,/Explore Grounds/);
   assert.match(app,/<GGCompanion onOpen=\{openWorld\}/);
+  assert.match(app,/import\("\.\/features\/world\/GGCompanion"\)/);
+  assert.match(world,/from "\.\/GGCompanion"/);
+  assert.doesNotMatch(world,/export function GGCompanion/);
   assert.match(app,/<GGWorld/);
   assert.match(world,/item\.name/);
   assert.match(world, /<PlayCentre key=\{location\}/);
