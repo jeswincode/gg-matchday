@@ -37,6 +37,7 @@ It presents:
 - The next objective, calculated from career record counts.
 - Milestone progression for appearances, goals, assists, clean sheets and wins.
 - Collectible milestone levels, generated from achieved thresholds.
+- A kit locker with Home, Heritage, Golden Season, Golden Boot, Architect and Centurion designs, unlocked automatically from recorded appearances, goals and assists; the selected design is a local display preference.
 - Existing Award records and any Achievement records already stored.
 - Season summaries and a recent-match timeline.
 
@@ -68,7 +69,7 @@ Personal bests are deliberately local to the browser for this first slice. No ar
 
 ### Tactical Lab
 
-Practice challenges cover a high press, low block, counter-attacking threat and midfield overload. Players can create a 4v4 or 5v5 practice squad, choose a matching shape, select an approach and respond to the scouting scenario.
+Practice challenges cover a high press, low block, counter-attacking threat and midfield overload, with a visible opposition shape, selectable 4v4/5v5 formation, player selection, approach and scouting response. Players can create a 4v4 or 5v5 practice squad, choose a matching shape, select an approach and respond to the scouting scenario.
 
 Tactical evaluation is a small pure module in \`src/features/play/play-engine.js\`. OVR contributes only when an existing player OVR snapshot is available; an absent OVR is excluded rather than invented. Scenarios and scoring have unit tests in \`tests/v4-play-centre.test.js\`.
 
