@@ -111,3 +111,7 @@
 @media(max-width:900px){.tactical-builder{grid-template-columns:1fr}.tactical-pitch{min-height:160px}.play-mode-switch{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.play-centre-hero{padding:19px}.play-centre-ball{width:62px;height:62px;flex-basis:62px;font-size:34px}.play-game-header{align-items:start}.play-best{min-width:80px;padding:8px}.play-best strong{font-size:18px}.play-start-row,.play-result,.tactical-opponent{align-items:stretch;flex-direction:column}.play-start-row .play-primary-button,.play-result-actions button{flex:1}.play-result-actions{display:flex}.play-mode-switch{gap:6px}.play-mode-switch button{padding:9px}.tactical-heading{align-items:start}.tactical-scenario-count{font-size:7px}.tactical-approach-options{grid-template-columns:1fr}.tactical-result{grid-template-columns:1fr}.tactical-result-score{border-right:0;border-bottom:1px solid var(--border);padding:0 0 10px}.play-pitch-scene{min-height:175px}}
 @media(prefers-reduced-motion:reduce){.play-primary-button,.play-secondary-button,.play-progress span{transition:none}}
+
+.tactical-size-switch{display:flex;gap:6px;margin:0 0 8px}
+.tactical-size-switch button{padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--muted);font-size:9px;font-weight:900}
+.tactical-size-switch button.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--panel));color:var(--accent)}
