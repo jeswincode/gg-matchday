@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { api, invalidate } from "../../lib/api";
 import "./club-training-centre.css";
 
@@ -34,7 +34,6 @@ export default function ClubTrainingCentre({ club, players = [], playerId, isCap
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const playerById = useMemo(() => new Map(players.map(player => [String(player._id), player])), [players]);
   const completed = sessions.filter(session => session.status === "completed");
   const upcoming = sessions.filter(session => session.status === "scheduled");
   const attendanceCount = completed.reduce((sum, session) => sum + (session.attendees || []).filter(item => item.attendance === "present").length, 0);
