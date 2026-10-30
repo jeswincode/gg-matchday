@@ -19,7 +19,7 @@ const ADMIN_LOCATIONS = [
   { key: "adminMatches", title: "Matches", building: "Fixture Control", icon: "▤", desc: "Club fixture and synchronisation oversight.", x: 50, y: 74, tone: "stadium" },
 ];
 
-export default function ClubWorldMap({ activeLocation = "overview", onNavigate, clubName = "Ultimate Clubs", isAdmin = false, adminOnly = false, incomingMatches = 0, pendingApplications = 0 }) {
+export default function ClubWorldMap({ activeLocation = "overview", onNavigate, clubName = "Ultimate Clubs", adminOnly = false, incomingMatches = 0, pendingApplications = 0 }) {
   const locations = adminOnly ? ADMIN_LOCATIONS : LOCATIONS.filter(item => !item.admin);
   const current = locations.find(item => item.key === activeLocation) || locations[0];
   const counts = { matches: incomingMatches, adminApplications: pendingApplications };
