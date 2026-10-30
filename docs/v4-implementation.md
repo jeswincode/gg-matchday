@@ -39,6 +39,7 @@ It presents:
 - Collectible milestone levels, generated from achieved thresholds.
 - A kit locker with Home, Heritage, Golden Season, Golden Boot, Architect and Centurion designs, unlocked automatically from recorded appearances, goals and assists; the selected design is a local display preference.
 - Existing Award records and any Achievement records already stored.
+- Best rated month, highest-rated match, best goals/assists match, and best teammate from the existing player-performance analytics endpoint.
 - Season summaries and a recent-match timeline.
 
 Milestone thresholds are deterministic and are unit-tested in \`tests/v4-career-progression.test.js\`. They are derived achievements, not wallet rewards or a claim that a new reward ledger exists.
