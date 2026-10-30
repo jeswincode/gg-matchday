@@ -33,10 +33,11 @@ function Facility({ icon, label, tier, progress, note }) {
 export default function ClubHeadquarters({ club, completedMatches = [], nextMatch, clubOvr, history = [] }) {
   const clubId = String(club?._id || "");
   const record = completedMatches.reduce((totals, match) => {
-    const left = number(match.clubAScore);
-    const right = number(match.clubBScore);
-    if (left === right) totals.draws += 1;
-    else if (String(match.winnerClubId || "") === clubId) totals.wins += 1;
+    const isSideA = String(match.clubAId || "") === clubId;
+    const clubScore = number(isSideA ? match.clubAScore : match.clubBScore);
+    const opponentScore = number(isSideA ? match.clubBScore : match.clubAScore);
+    if (clubScore === opponentScore) totals.draws += 1;
+    else if (clubScore > opponentScore) totals.wins += 1;
     else totals.losses += 1;
     return totals;
   }, { wins: 0, draws: 0, losses: 0 });
@@ -116,7 +117,7 @@ export default function ClubHeadquarters({ club, completedMatches = [], nextMatc
         </section>
         <section className="club-hq-history-card club-hq-timeline">
           <div className="club-hq-section-heading"><div><p className="clubs-eyebrow">CLUB CHRONICLE</p><h4>Recent milestones</h4></div><span>{history.length} events</span></div>
-          {history.length ? history.slice(0, 5).map((event, index) => <div className="club-hq-event" key={String(event._id || index)}><span>✦</span><div><strong>{event.title || event.type || "Club milestone"}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleDateString("en-IN") : "Club history"}</small></div></div>) : <div className="club-hq-empty">Official Club milestones will appear here as the Club history grows.</div>}
+          {history.length ? history.slice(0, 5).map((event, index) => <div className="club-hq-event" key={String(event._id || index)}><span>✦</span><div><strong>{event.description || event.eventType || "Club milestone"}</strong><small>{event.occurredAt ? new Date(event.occurredAt).toLocaleDateString("en-IN") : "Club history"}</small></div></div>) : <div className="club-hq-empty">Official Club milestones will appear here as the Club history grows.</div>}
         </section>
       </div>
       <p className="club-hq-footnote">Facility tiers are visual summaries derived from completed, synchronised Club matches, current squad size and available member OVR. They do not create credits, alter bids, affect rewards or change the Club Wallet.</p>
