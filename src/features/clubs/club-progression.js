@@ -22,7 +22,7 @@ export function summarizeClubRecord(clubId, matches = []) {
   return summary;
 }
 
-export function getClubFacilityProgress({ fixtures = 0, completedTrainingSessions = 0, teamOvr = null, memberCount = 0 } = {}) {
+export function getClubFacilityProgress({ fixtures = 0, completedTrainingSessions = 0, memberCount = 0 } = {}) {
   const played = Math.max(0, numeric(fixtures) || 0);
   const completedSessions = Math.max(0, numeric(completedTrainingSessions) || 0);
   const members = Math.max(0, numeric(memberCount) || 0);
