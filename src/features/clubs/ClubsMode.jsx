@@ -2479,7 +2479,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                 completedMatches={completedClubMatches}
                 nextMatch={nextClubMatch}
                 clubOvr={clubOvr}
-                history={commandCenter?.recentHistory || clubHistory}
+                history={commandCenter?.recentHistory?.length ? commandCenter.recentHistory : clubHistory}
               />
               <header className="clubs-command-header">
                 <div className="clubs-command-title">
