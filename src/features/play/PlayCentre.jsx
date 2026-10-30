@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./play-centre.css";
+import { evaluateTacticalPlan, penaltyIsGoal, positionGroup, targetIsHit } from "./play-engine.js";
 
 const MODES = [
   { key: "penalties", name: "Penalty Shootout", tag: "5 kicks" },
@@ -20,25 +21,16 @@ const saveBest = (key, score) => {
   } catch { /* Best scores are an optional local convenience. */ }
 };
 const choose = list => list[Math.floor(Math.random() * list.length)];
-const average = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-const positionGroup = player => {
-  const value = String(player?.position || "").toUpperCase();
-  if (/GK|GOALKEEP/.test(value)) return "GK";
-  if (/CB|LB|RB|LWB|RWB|DEF/.test(value)) return "DEF";
-  if (/CDM|CM|CAM|LM|RM|MID/.test(value)) return "MID";
-  if (/ST|CF|LW|RW|ATT|FORWARD/.test(value)) return "ATT";
-  return "UNK";
-};
 const playerOvr = player => {
   const value = player?.ovrSnapshot?.currentOvr ?? player?.ovrSnapshot?.careerOvr;
   return Number.isFinite(Number(value)) && value !== null ? Number(value) : null;
 };
 
 const SCENARIOS = [
-  { key: "press", opponent: "Aggressive high press", problem: "They close passing lanes quickly and try to win the ball near your goal.", answers: ["Quick combinations and third-man runs", "Hold the ball in your own half", "Dribble into pressure"], correct: 0, clue: "Move the ball quickly and use the space behind the first press." },
-  { key: "block", opponent: "Compact low block", problem: "They defend deep, protect the centre and leave little room between the lines.", answers: ["Force every pass through the middle", "Stretch the pitch and create wide overloads", "Drop every attacker into your own half"], correct: 1, clue: "Stretch the block horizontally before attacking the gaps." },
-  { key: "counter", opponent: "Fast counter-attacking side", problem: "They leave players high and attack quickly when you lose possession.", answers: ["Send everyone forward at once", "Keep rest-defence cover and circulate patiently", "Abandon the midfield"], correct: 1, clue: "Protect the space behind the ball while keeping possession." },
-  { key: "midfield", opponent: "Midfield overload", problem: "They crowd the centre and try to win second balls around the middle.", answers: ["Create wide outlets and switch play", "Keep all players in the centre", "Play short passes into the crowded zone"], correct: 0, clue: "Use width to pull their midfield apart." },
+  { key: "press", opponent: "Aggressive high press", problem: "They close passing lanes quickly and try to win the ball near your goal.", answers: ["Quick combinations and third-man runs", "Hold the ball in your own half", "Dribble into pressure"], correct: 0, clue: "Move the ball quickly and use the space behind the first press.", approachScores: { balanced: 9, aggressive: 10, conservative: 5 } },
+  { key: "block", opponent: "Compact low block", problem: "They defend deep, protect the centre and leave little room between the lines.", answers: ["Force every pass through the middle", "Stretch the pitch and create wide overloads", "Drop every attacker into your own half"], correct: 1, clue: "Stretch the block horizontally before attacking the gaps.", approachScores: { balanced: 10, aggressive: 8, conservative: 6 } },
+  { key: "counter", opponent: "Fast counter-attacking side", problem: "They leave players high and attack quickly when you lose possession.", answers: ["Send everyone forward at once", "Keep rest-defence cover and circulate patiently", "Abandon the midfield"], correct: 1, clue: "Protect the space behind the ball while keeping possession.", approachScores: { balanced: 9, aggressive: 4, conservative: 10 } },
+  { key: "midfield", opponent: "Midfield overload", problem: "They crowd the centre and try to win second balls around the middle.", answers: ["Create wide outlets and switch play", "Keep all players in the centre", "Play short passes into the crowded zone"], correct: 0, clue: "Use width to pull their midfield apart.", approachScores: { balanced: 10, aggressive: 8, conservative: 6 } },
 ];
 const FORMATIONS = {
   four: ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"],
@@ -86,15 +78,9 @@ function GamePanel({ mode, onModeChange }) {
   const takeShot = lane => {
     if (!round || round.complete || mode === "dribble") return;
     const target = mode === "penalties" ? round.keepers[round.step] : round.targets[round.step];
-    let hit = false;
-    if (mode === "penalties") {
-      hit = lane !== target;
-      if (power === "power" && lane === "centre") hit = false;
-    } else if (mode === "crossbar") {
-      hit = lane === target;
-    } else {
-      hit = lane === target;
-    }
+    const hit = mode === "penalties"
+      ? penaltyIsGoal({ keeperLane: target, shotLane: lane, power, powerRoll: Math.random() })
+      : targetIsHit(target, lane);
     const score = round.score + (hit ? 1 : 0);
     const nextStep = round.step + 1;
     setSelectedLane(lane);
@@ -188,24 +174,19 @@ function TacticalLab({ players }) {
   const capacity = squadSize;
   const options = squadSize === 5 ? FORMATIONS.five : FORMATIONS.four;
   const pickedPlayers = useMemo(() => players.filter(player => selectedPlayers.includes(String(player._id))), [players, selectedPlayers]);
-  const groups = pickedPlayers.map(positionGroup);
+  const groups = pickedPlayers.map(player => positionGroup(player.position));
   const ovrValues = pickedPlayers.map(playerOvr).filter(value => value !== null);
-  const avgOvr = average(ovrValues);
-  const roleCoverage = new Set(groups.filter(value => value !== "UNK"));
-  const hasKeeper = groups.includes("GK");
-  const hasDefence = groups.includes("DEF");
-  const hasMidfield = groups.includes("MID");
-  const hasAttack = groups.includes("ATT");
-  const roleScore = Math.min(24, roleCoverage.size * 6);
-  const shapeScore = pickedPlayers.length === capacity ? 15 : Math.max(0, 15 - Math.abs(pickedPlayers.length - capacity) * 5);
-  const ovrScore = avgOvr === null ? null : Math.round(avgOvr / 99 * 20);
-  const tacticalScore = answer === scenario.correct ? 26 : answer === null ? 0 : 8;
-  const approachScore = approach === "balanced" ? 10 : 7;
-  const scoreParts = [roleScore, shapeScore, tacticalScore, approachScore, ovrScore].filter(value => value !== null);
-  const score = scoreParts.reduce((sum, value) => sum + value, 0);
-  const maxScore = scoreParts.length === 4 ? 75 : 95;
+  const planScore = evaluateTacticalPlan({
+    positions: groups,
+    selectedCount: pickedPlayers.length,
+    requiredCount: capacity,
+    answer,
+    correctAnswer: scenario.correct,
+    approachScore: scenario.approachScores[approach] ?? 5,
+    ovrValues,
+  });
   const shapeAdvice = pickedPlayers.length !== capacity
-    ? "Your current selection has " + pickedPlayers.length + " players; this shape requires exactly " + capacity + ". Choose the matching 4v4 or 5v5 squad size.
+    ? "Your current selection has " + pickedPlayers.length + " players; this shape requires exactly " + capacity + ". Choose the matching 4v4 or 5v5 squad size."
     : "Your squad size matches the selected small-sided shape.";
   const formationOptions = options.includes(formation) ? options : options[0];
 
@@ -222,14 +203,11 @@ function TacticalLab({ players }) {
 
   const runChallenge = () => {
     if (pickedPlayers.length < 4) return;
+    if (pickedPlayers.length !== capacity || answer === null) return;
     setResult({
-      score,
-      maxScore,
+      ...planScore,
       tacticalCorrect: answer === scenario.correct,
       explanation: answer === scenario.correct ? scenario.clue : "That response leaves the opponent's main advantage available. " + scenario.clue,
-      roles: { hasKeeper, hasDefence, hasMidfield, hasAttack },
-      shapeAdvice,
-      assessedOvr: avgOvr,
     });
   };
 
@@ -259,12 +237,12 @@ function TacticalLab({ players }) {
           <p className="tactical-shape-advice">{shapeAdvice}</p>
         </section>
         <section className="tactical-builder-panel">
-          <div className="tactical-section-heading"><div><p className="play-eyebrow">02 / SQUAD SELECTION</p><h4>Pick your players</h4></div><span>{pickedPlayers.length} / 5 selected</span></div>
+          <div className="tactical-section-heading"><div><p className="play-eyebrow">02 / SQUAD SELECTION</p><h4>Pick your players</h4></div><span>{pickedPlayers.length} / {capacity} selected</span></div>
           <div className="tactical-player-list">
             {players.map(player => {
               const selected = selectedPlayers.includes(String(player._id));
               const ovr = playerOvr(player);
-              return <button type="button" key={player._id} className={selected ? "selected" : ""} onClick={() => togglePlayer(String(player._id))} disabled={!selected && selectedPlayers.length >= 5}><span className="tactical-player-avatar">{player.profileImage ? <img src={player.profileImage} alt=""/> : player.name.slice(0,1).toUpperCase()}</span><span className="tactical-player-name"><strong>{player.name}</strong><small>{player.position || "Position not set"}</small></span><span className="tactical-player-rating">{ovr ?? "—"}</span><span className="tactical-player-check">{selected ? "✓" : "+"}</span></button>;
+              return <button type="button" key={player._id} className={selected ? "selected" : ""} onClick={() => togglePlayer(String(player._id))} disabled={!selected && selectedPlayers.length >= squadSize}><span className="tactical-player-avatar">{player.profileImage ? <img src={player.profileImage} alt=""/> : player.name.slice(0,1).toUpperCase()}</span><span className="tactical-player-name"><strong>{player.name}</strong><small>{player.position || "Position not set"}</small></span><span className="tactical-player-rating">{ovr ?? "—"}</span><span className="tactical-player-check">{selected ? "✓" : "+"}</span></button>;
             })}
             {!players.length && <div className="play-empty">Player directory is empty.</div>}
           </div>
