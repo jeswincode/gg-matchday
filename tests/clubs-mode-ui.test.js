@@ -10,12 +10,15 @@ test("Clubs mode keeps formation controls, discovery and admin surfaces while us
   assert.match(component, /Ultimate Clubs/);
   assert.match(component, /<ClubWorldMap/);
   assert.match(component, /onNavigate=\{navigatePrimaryTab\}/);
+  assert.match(component, /<ClubTrainingCentre/);
+  assert.match(component, /\.club-world-map, \.clubs-nav/);
   assert.match(component, /Player History/);
   assert.match(map, /data-primary-tab=\{location\.key\}/);
   assert.match(map, /key: "overview"/);
   assert.match(map, /key: "myClub"/);
   assert.match(map, /key: "market"/);
-  assert.match(map, /key: "matches"/);\n  assert.match(map, /key: "clubTraining"/);
+  assert.match(map, /key: "matches"/);
+  assert.match(map, /key: "clubTraining"/);
   assert.match(map, /onClick=\{\(\) => onNavigate\(location\.key\)\}/);
   assert.match(map, /onPointerMove=\{movePan\}/);
   assert.match(map, /Enter selected building/);
