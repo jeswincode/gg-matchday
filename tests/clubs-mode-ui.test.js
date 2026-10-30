@@ -15,7 +15,7 @@ test("Clubs mode keeps formation controls, discovery and admin surfaces while us
   assert.match(map, /key: "overview"/);
   assert.match(map, /key: "myClub"/);
   assert.match(map, /key: "market"/);
-  assert.match(map, /key: "matches"/);
+  assert.match(map, /key: "matches"/);\n  assert.match(map, /key: "clubTraining"/);
   assert.match(map, /onClick=\{\(\) => onNavigate\(location\.key\)\}/);
   assert.match(map, /onPointerMove=\{movePan\}/);
   assert.match(map, /Enter selected building/);
