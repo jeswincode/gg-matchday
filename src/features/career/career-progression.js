@@ -8,22 +8,20 @@ export const CAREER_MILESTONE_RULES = [
   { key: "wins", label: "Team wins", icon: "W", thresholds: [1, 10, 25, 50, 100] },
 ];
 
-const OBJECTIVE_RULES = [
-  { key: "matches", label: "Make your first appearance", target: 1, detail: "Your career starts with a recorded Matchday appearance." },
-  { key: "goals", label: "Score your first career goal", target: 1, detail: "Get your name onto the official GG Matchday scoresheet." },
-  { key: "assists", label: "Record your first assist", target: 1, detail: "Create a goal and add your first career assist." },
-  { key: "matches", label: "Reach 10 appearances", target: 10, detail: "Build consistency and reach double-digit appearances." },
-  { key: "goals", label: "Reach 10 career goals", target: 10, detail: "Move into the double-digit goals club." },
-  { key: "assists", label: "Reach 10 career assists", target: 10, detail: "Become a regular source of chances for your team." },
-  { key: "cleanSheets", label: "Record 10 clean sheets", target: 10, detail: "Help your side keep the opposition scoreless." },
-  { key: "wins", label: "Reach 25 team wins", target: 25, detail: "Make your mark on another milestone in your career." },
-  { key: "matches", label: "Reach 50 appearances", target: 50, detail: "A major career milestone built match by match." },
+const APPEARANCE_OBJECTIVES = [
+  { target: 1, label: "Make your first appearance", detail: "Your career starts with a recorded Matchday appearance." },
+  { target: 10, label: "Reach 10 appearances", detail: "Build consistency and reach double-digit appearances." },
+  { target: 25, label: "Reach 25 appearances", detail: "Your first major career milestone is within reach." },
+  { target: 50, label: "Reach 50 appearances", detail: "A half-century of appearances is a milestone worth keeping." },
+  { target: 100, label: "Reach 100 appearances", detail: "Join the centurion club through recorded Matchday appearances." },
+  { target: 200, label: "Reach 200 appearances", detail: "A long-term career built one match at a time." },
+  { target: 500, label: "Reach 500 appearances", detail: "A remarkable career archive, built on the pitch." },
 ];
 
 export function getNextCareerObjective(stats = {}) {
-  const next = OBJECTIVE_RULES.find(rule => number(stats[rule.key]) < rule.target);
+  const appearances = number(stats.matches);
+  const next = APPEARANCE_OBJECTIVES.find(objective => appearances < objective.target);
   if (!next) {
-    const appearances = number(stats.matches);
     return {
       key: "matches",
       label: "Keep building your legacy",
@@ -32,7 +30,7 @@ export function getNextCareerObjective(stats = {}) {
       detail: "Your next milestone is waiting in the next ten appearances.",
     };
   }
-  return { ...next, current: number(stats[next.key]) };
+  return { key: "matches", ...next, current: appearances };
 }
 
 export function getCareerMilestones(stats = {}) {
