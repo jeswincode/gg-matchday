@@ -110,8 +110,11 @@ export default function ClubHeadquarters({ club, completedMatches = [], nextMatc
         <section className="club-hq-history-card">
           <div className="club-hq-section-heading"><div><p className="clubs-eyebrow">MATCH ARCHIVE</p><h4>Recent Club fixtures</h4></div><span>{honours.length} shown</span></div>
           {honours.length ? honours.map(match => {
-            const won = String(match.winnerClubId || "") === clubId;
-            const draw = number(match.clubAScore) === number(match.clubBScore);
+            const isSideA = String(match.clubAId || "") === clubId;
+            const clubScore = number(isSideA ? match.clubAScore : match.clubBScore);
+            const opponentScore = number(isSideA ? match.clubBScore : match.clubAScore);
+            const draw = clubScore === opponentScore;
+            const won = clubScore > opponentScore;
             return <div className="club-hq-fixture" key={String(match._id)}><span className={"club-hq-fixture-result " + (draw ? "draw" : won ? "win" : "loss")}>{draw ? "D" : won ? "W" : "L"}</span><div><strong>{match.clubAName || "Club A"} vs {match.clubBName || "Club B"}</strong><small>{match.fixtureDate || "Completed fixture"} · {match.status}</small></div><b>{match.clubAScore ?? "—"} - {match.clubBScore ?? "—"}</b></div>;
           }) : <div className="club-hq-empty">Completed and synchronised Club fixtures will build your history here.</div>}
         </section>
