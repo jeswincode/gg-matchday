@@ -84,6 +84,8 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
   await enterGuestMatchday(page);
   const navigation = page.locator(".bottom-nav");
   await expect(navigation).toBeVisible();
+  await expect(navigation.locator("button")).toHaveCount(5);
+  await expect(navigation.getByRole("button", { name: /Play/ })).toHaveCount(0);
   await navigation.getByRole("button", { name: /Players/ }).click();
   await expect(navigation.getByRole("button", { name: /Players/ })).toBeVisible();
   await navigation.getByRole("button", { name: /Calendar/ }).click();
@@ -270,3 +272,43 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   expect(goldPageFitsViewport).toBeTruthy();
 });
 
+
+
+test("GG Grounds opens position-aware private training and records a completed session", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  await page.getByRole("button", { name: "Explore Grounds" }).click();
+  const world = page.getByRole("dialog", { name: "GG Grounds football world" });
+  await expect(world).toBeVisible();
+  await world.getByRole("button", { name: "Enter Training Ground" }).click();
+  await expect(page.locator(".gg-training-centre h2")).toHaveText("Training Ground");
+  await page.getByRole("button", { name: /Start drill/ }).click();
+  const questions = page.locator(".gg-training-question");
+  await expect(questions).toHaveCount(5);
+  for (let index = 0; index < 5; index += 1) {
+    await questions.nth(index).getByRole("button").first().click();
+  }
+  await page.getByRole("button", { name: /Finish session/ }).click();
+  await expect(page.locator(".gg-training-result")).toBeVisible();
+  await expect(page.getByText("PRIVATE TRAINING JOURNAL")).toBeVisible();
+  await expect(page.getByText(/Private by default/)).toBeVisible();
+});
+
+test("GG Grounds preserves the arcade and Tactical Lab game flows inside their map locations", async ({ page }) => {
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  await page.getByRole("button", { name: "Explore Grounds" }).click();
+  const world = page.getByRole("dialog", { name: "GG Grounds football world" });
+  await world.getByRole("button", { name: "Enter Arcade Pavilion" }).click();
+  await expect(page.getByRole("heading", { name: "Penalty Shootout" })).toBeVisible();
+  await page.getByRole("button", { name: /Start challenge/ }).click();
+  await page.getByRole("button", { name: "LEFT" }).click();
+  await expect(page.locator(".play-scoreboard strong")).toContainText("1");
+
+  await page.getByRole("button", { name: /World map/ }).click();
+  await world.getByRole("button", { name: "Enter Tactical Pavilion" }).click();
+  await expect(page.getByRole("heading", { name: "Tactical Challenges" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Tactical Lab" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("button", { name: "Evaluate my game plan" })).toBeDisabled();
+});
