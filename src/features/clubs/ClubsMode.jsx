@@ -1252,8 +1252,12 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   }, [authUser, activeSection, myClubSubsection, currentClub?._id, renewalDraftClubId]);
 
   const clubOvrValues = (currentClub?.memberIds || [])
-    .map(id => Number(playerAttributes[String(id)]?.currentOvr ?? playerAttributes[String(id)]?.ovr))
-    .filter(Number.isFinite);
+    .map(id => {
+      const value = playerAttributes[String(id)]?.currentOvr ?? playerAttributes[String(id)]?.ovr;
+      const ovr = value == null ? null : Number(value);
+      return Number.isFinite(ovr) && ovr >= 1 && ovr <= 99 ? ovr : null;
+    })
+    .filter(value => value !== null);
   const squadHasCompleteOvr =
     Boolean(currentClub?.memberIds?.length) &&
     currentClub.memberIds.length >= 4 &&
