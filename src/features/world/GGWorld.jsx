@@ -149,7 +149,7 @@ export default function GGWorld({ onClose, players = [], player = null, playerId
                   <strong>{item.name}</strong><small>{item.subtitle}</small>
                 </button>
               ))}
-              <div className="gg-world-map-label gg-world-map-label--bottom">DRAG THE MAP · SELECT A BUILDING TO ENTER</div>
+              <div className="gg-world-map-label gg-world-map-label--bottom">SELECT A BUILDING TO ENTER</div>
             </section>
             <aside className="gg-world-map-aside">
               <div className="gg-world-aside-character"><MascotArt/><div><span>YOUR GUIDE</span><strong>GG Scout</strong><small>Here to help you find your next move.</small></div></div>
