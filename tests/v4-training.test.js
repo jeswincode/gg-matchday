@@ -21,8 +21,8 @@ test("defenders receive defensive-shape and passing development", () => {
 });
 
 test("unknown positions get the complete programme instead of an empty plan", () => {
-  assert.equal(drillsForPosition("").length, 5);
-  assert.equal(drillsForPosition("Unspecified").length, 5);
+  assert.equal(drillsForPosition("").length, 6);
+  assert.equal(drillsForPosition("Unspecified").length, 6);
 });
 
 test("training round evaluation reports accurate score and per-rep coaching feedback", () => {
