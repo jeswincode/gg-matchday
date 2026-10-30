@@ -310,7 +310,8 @@ test("GG Grounds preserves the arcade and Tactical Lab game flows inside their m
   await expect(page.getByRole("heading", { name: "Penalty Shootout" })).toBeVisible();
   await page.getByRole("button", { name: /Start challenge/ }).click();
   await page.getByRole("button", { name: "LEFT" }).click();
-  await expect(page.locator(".play-scoreboard strong")).toContainText("1");
+  await expect(page.locator(".play-feedback")).toContainText(/^(GOAL!|SAVED!)/);
+  await expect(page.locator(".play-progress span")).toHaveAttribute("style", /width:\s*20%/);
 
   await page.getByRole("button", { name: /World map/ }).click();
   await world.getByRole("button", { name: "Enter Tactical Pavilion" }).click();
