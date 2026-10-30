@@ -1,4 +1,8 @@
-# GG Matchday V3
+# GG Matchday V4 (development branch)
+
+> This branch is the V4 development line. The default `main` branch remains the V3 production line until V4 is reviewed and merged.
+
+For the current V4 product scope, implementation status, testing boundaries and data-authority rules, see [GG Matchday V4 implementation notes](docs/v4-implementation.md).
 
 GG Matchday is a football-tracking and club-management platform for recording matches, tracking player performance, comparing players, and running a separate community Clubs experience.
 
@@ -56,7 +60,9 @@ Clubs rules such as formation, captain approval, contract boundaries, wallet sep
 | `src/features/calendar/` | Calendar state, match loading and date navigation |
 | `src/features/players/` | Player directory and profile views |
 | `src/features/ratings/` | Rating input configuration and client-side rating utilities |
-| `src/features/clubs/` | Clubs mode, club workflows and player analytics |
+| `src/features/clubs/` | Clubs mode, Club HQ, club workflows and player analytics |
+| `src/features/career/` | Player Career Hub, milestone and objective progression |
+| `src/features/play/` | GG Arcade, Tactical Lab and practice scoring engine |
 | `src/features/admin/` | Administrative screens and access-control UI |
 | `src/components/` | Shared and self-contained UI features |
 | `src/lib/api.js` | API client, authentication headers, request deduplication and short-lived GET caching |
