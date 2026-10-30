@@ -15,6 +15,7 @@ const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
+const PlayCentre = lazy(() => import("./features/play/PlayCentre"));
 import {
   useEffect,
   useMemo,
