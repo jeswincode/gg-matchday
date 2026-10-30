@@ -1,21 +1,7 @@
 import "./club-headquarters.css";
+import { getClubFacilityProgress, summarizeClubRecord } from "./club-progression.js";
 
-const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const shortName = value => String(value || "GG Club").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "GG";
-
-function stadiumTier(fixtures) {
-  if (fixtures >= 30) return { level: 4, name: "Arena", description: "A proven home ground with a long fixture history." };
-  if (fixtures >= 15) return { level: 3, name: "Stadium", description: "The stands have grown with every completed fixture." };
-  if (fixtures >= 5) return { level: 2, name: "Ground", description: "Your Club is building a home-ground identity." };
-  return { level: 1, name: "Training Ground", description: "The first chapter of your home ground starts here." };
-}
-
-function trainingTier(ovr) {
-  if (ovr >= 85) return { level: 4, name: "Elite Centre", description: "The squad's current OVR has reached the elite band." };
-  if (ovr >= 75) return { level: 3, name: "Performance Centre", description: "Your squad is developing into a strong unit." };
-  if (ovr >= 65) return { level: 2, name: "Training Centre", description: "Recorded player performances are shaping the facility." };
-  return { level: 1, name: "Training Base", description: "Build a larger Matchday sample to develop the facility." };
-}
 
 function Facility({ icon, label, tier, progress, note }) {
   return (
@@ -30,31 +16,15 @@ function Facility({ icon, label, tier, progress, note }) {
   );
 }
 
-export default function ClubHeadquarters({ club, completedMatches = [], nextMatch, clubOvr, history = [] }) {
+export default function ClubHeadquarters({ club, clubs = [], completedMatches = [], nextMatch, clubOvr, history = [] }) {
   const clubId = String(club?._id || "");
-  const record = completedMatches.reduce((totals, match) => {
-    const isSideA = String(match.clubAId || "") === clubId;
-    const clubScore = number(isSideA ? match.clubAScore : match.clubBScore);
-    const opponentScore = number(isSideA ? match.clubBScore : match.clubAScore);
-    if (clubScore === opponentScore) totals.draws += 1;
-    else if (clubScore > opponentScore) totals.wins += 1;
-    else totals.losses += 1;
-    return totals;
-  }, { wins: 0, draws: 0, losses: 0 });
+  const record = summarizeClubRecord(clubId, completedMatches);
   const played = completedMatches.length;
-  const ground = stadiumTier(played);
-  const training = trainingTier(number(clubOvr));
   const memberCount = club?.memberIds?.length || 0;
-  const hasFullSquad = memberCount >= 5;
-  const academy = {
-    level: hasFullSquad ? 3 : memberCount >= 4 ? 2 : 1,
-    name: hasFullSquad ? "Full Squad Academy" : memberCount >= 4 ? "Academy Ready" : "Recruitment in progress",
-    description: hasFullSquad ? "All five squad places are occupied." : "A complete four-to-five player squad unlocks the next stage.",
-  };
+  const facilities = getClubFacilityProgress({ fixtures: played, teamOvr: clubOvr, memberCount });
+  const { ground, groundProgress, training, trainingProgress, academy, academyProgress } = facilities;
+  const getClubName = (id, fallback) => clubs.find(item => String(item._id) === String(id))?.name || fallback;
   const honours = [...completedMatches].sort((a, b) => new Date(b.scheduledAt || b.fixtureDate || 0) - new Date(a.scheduledAt || a.fixtureDate || 0)).slice(0, 5);
-  const groundProgress = played >= 30 ? 100 : played >= 15 ? Math.round((played - 15) / 15 * 100) : played >= 5 ? Math.round((played - 5) / 10 * 100) : Math.round(played / 5 * 100);
-  const trainingProgress = clubOvr >= 85 ? 100 : clubOvr >= 75 ? Math.round((clubOvr - 75) / 10 * 100) : clubOvr >= 65 ? Math.round((clubOvr - 65) / 10 * 100) : Math.max(5, Math.round(number(clubOvr) / 65 * 100));
-  const academyProgress = hasFullSquad ? 100 : memberCount >= 4 ? 80 : Math.round(memberCount / 4 * 80);
 
   return (
     <section className="club-hq" aria-label="Ultimate Club headquarters">
@@ -90,7 +60,7 @@ export default function ClubHeadquarters({ club, completedMatches = [], nextMatc
         <div><span>CLUB MATCH RECORD</span><strong>{record.wins}<i>W</i> {record.draws}<i>D</i> {record.losses}<i>L</i></strong></div>
         <div><span>TEAM OVR</span><strong>{clubOvr ?? "—"}</strong><small>{clubOvr == null ? "Waiting for complete player samples" : "Derived from member OVR"}</small></div>
         <div><span>CLUB APPEARANCES</span><strong>{played}</strong><small>Completed synced fixtures</small></div>
-        <div><span>NEXT FIXTURE</span><strong>{nextMatch ? (nextMatch.clubAName || "Club A") + " vs " + (nextMatch.clubBName || "Club B") : "—"}</strong><small>{nextMatch?.fixtureDate || (nextMatch?.scheduledAt ? new Date(nextMatch.scheduledAt).toLocaleDateString("en-IN") : "No accepted fixture")}</small></div>
+        <div><span>NEXT FIXTURE</span><strong>{nextMatch ? (nextMatch.clubAName || getClubName(nextMatch.clubAId, "Club A")) + " vs " + (nextMatch.clubBName || getClubName(nextMatch.clubBId, "Club B")) : "—"}</strong><small>{nextMatch?.fixtureDate || (nextMatch?.scheduledAt ? new Date(nextMatch.scheduledAt).toLocaleDateString("en-IN") : "No accepted fixture")}</small></div>
       </div>
 
       <div className="club-hq-section-heading"><div><p className="clubs-eyebrow">DEVELOPMENT WING</p><h4>Facilities evolve with your Club</h4></div><span>Read-only progression · no wallet spending</span></div>
@@ -115,7 +85,7 @@ export default function ClubHeadquarters({ club, completedMatches = [], nextMatc
             const opponentScore = number(isSideA ? match.clubBScore : match.clubAScore);
             const draw = clubScore === opponentScore;
             const won = clubScore > opponentScore;
-            return <div className="club-hq-fixture" key={String(match._id)}><span className={"club-hq-fixture-result " + (draw ? "draw" : won ? "win" : "loss")}>{draw ? "D" : won ? "W" : "L"}</span><div><strong>{match.clubAName || "Club A"} vs {match.clubBName || "Club B"}</strong><small>{match.fixtureDate || "Completed fixture"} · {match.status}</small></div><b>{match.clubAScore ?? "—"} - {match.clubBScore ?? "—"}</b></div>;
+            return <div className="club-hq-fixture" key={String(match._id)}><span className={"club-hq-fixture-result " + (draw ? "draw" : won ? "win" : "loss")}>{draw ? "D" : won ? "W" : "L"}</span><div><strong>{match.clubAName || getClubName(match.clubAId, "Club A")} vs {match.clubBName || getClubName(match.clubBId, "Club B")}</strong><small>{match.fixtureDate || "Completed fixture"} · {match.status}</small></div><b>{match.clubAScore ?? "—"} - {match.clubBScore ?? "—"}</b></div>;
           }) : <div className="club-hq-empty">Completed and synchronised Club fixtures will build your history here.</div>}
         </section>
         <section className="club-hq-history-card club-hq-timeline">
