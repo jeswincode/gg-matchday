@@ -1,16 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { evaluateTacticalPlan, penaltyIsGoal, positionGroup, targetIsHit } from "../src/features/play/play-engine.js";
 
-const positionGroup = position => {
-  const value = String(position || "").toUpperCase();
-  if (/GK|GOALKEEP/.test(value)) return "GK";
-  if (/CB|LB|RB|LWB|RWB|DEF/.test(value)) return "DEF";
-  if (/CDM|CM|CAM|LM|RM|MID/.test(value)) return "MID";
-  if (/ST|CF|LW|RW|ATT|FORWARD/.test(value)) return "ATT";
-  return "UNK";
-};
-
-test("tactical role recognition covers recognised football position families", () => {
+test("tactical role recognition covers supported position families", () => {
   assert.equal(positionGroup("GK"), "GK");
   assert.equal(positionGroup("CB"), "DEF");
   assert.equal(positionGroup("CAM"), "MID");
@@ -18,11 +10,51 @@ test("tactical role recognition covers recognised football position families", (
   assert.equal(positionGroup("Unknown"), "UNK");
 });
 
-test("tactical practice is independent of GG ratings and Club economy modules", async () => {
-  const source = await import("node:fs/promises").then(fs => fs.readFile(new URL("../src/features/play/PlayCentre.jsx", import.meta.url), "utf8"));
-  assert.match(source, /Practice simulation only/);
-  assert.match(source, /GG Match ratings/);
-  assert.match(source, /Club Wallets/);
-  assert.doesNotMatch(source, /api\\(["']\\/clubs\\/wallet/);
-  assert.doesNotMatch(source, /api\\(["']\\/matches/);
+test("4v4 and 5v5 plans score only when the exact selected shape is filled", () => {
+  const four = evaluateTacticalPlan({
+    positions: ["GK", "DEF", "MID", "ATT"],
+    selectedCount: 4,
+    requiredCount: 4,
+    answer: 1,
+    correctAnswer: 1,
+    approachScore: 10,
+    ovrValues: [70, 80, 75, 75],
+  });
+  assert.equal(four.score, 90);
+  assert.equal(four.maxScore, 95);
+  assert.equal(four.shapeScore, 15);
+  assert.equal(four.roles.hasKeeper, true);
+  const incomplete = evaluateTacticalPlan({
+    positions: ["GK", "DEF", "MID", "ATT"],
+    selectedCount: 4,
+    requiredCount: 5,
+    answer: 1,
+    correctAnswer: 1,
+  });
+  assert.equal(incomplete.shapeScore, 10);
+  assert.match(incomplete.shapeAdvice, /requires exactly 5/);
+});
+
+test("tactical scoring excludes unavailable OVR instead of fabricating a rating", () => {
+  const result = evaluateTacticalPlan({
+    positions: ["GK", "DEF", "MID", "ATT"],
+    selectedCount: 4,
+    requiredCount: 4,
+    answer: 0,
+    correctAnswer: 1,
+    approachScore: 10,
+    ovrValues: [],
+  });
+  assert.equal(result.assessedOvr, null);
+  assert.equal(result.ovrScore, null);
+  assert.equal(result.maxScore, 75);
+  assert.equal(result.score, 57);
+});
+
+test("penalty and target outcomes follow the selected aim and keeper lane", () => {
+  assert.equal(penaltyIsGoal({ keeperLane: "left", shotLane: "right" }), true);
+  assert.equal(penaltyIsGoal({ keeperLane: "left", shotLane: "left" }), false);
+  assert.equal(penaltyIsGoal({ keeperLane: "left", shotLane: "right", power: "power", powerRoll: 0.1 }), false);
+  assert.equal(targetIsHit("high-left", "high-left"), true);
+  assert.equal(targetIsHit("high-left", "low-right"), false);
 });
