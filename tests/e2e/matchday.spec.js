@@ -294,6 +294,13 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Worlds" }).click();
+  await expect(page.locator(".account-user")).toContainText("Playwright viewer");
+  const membershipStateResponse = await page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return response.request().method() === "GET" &&
+      url.pathname.endsWith("/worlds/me");
+  });
+  console.log("VIEWER_WORLD_MEMBERSHIPS", membershipStateResponse.status(), await membershipStateResponse.text());
   await page.getByRole("button", { name: "Preview " + worldName }).click();
   const joinResponsePromise = page.waitForResponse(response => {
     const url = new URL(response.url());
