@@ -55,7 +55,7 @@
 .gg-world-bottom-nav button small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.62rem;font-weight:800}
 .gg-world-bottom-nav button.active{background:#edf0f2;box-shadow:0 2px 10px #ffffff14;color:#24303d}
 .gg-world-bottom-nav button:not(.active):hover{background:#ffffff12;color:#f2e5c5}
-.gg-world-requests-overlay{position:absolute;z-index:28;bottom:0;left:0;width:min(420px,calc(100vw - 28px));max-height:min(55vh,500px);margin:0;overflow:auto}
+.gg-world-requests-overlay{position:absolute;z-index:28;right:0;bottom:0;left:auto;width:min(420px,calc(100vw - 28px));max-height:min(55vh,500px);margin:0;overflow:auto}
 .gg-world-requests-heading{align-items:center}
 .gg-world-inbox-close,.gg-world-modal-close{display:grid;width:2rem;height:2rem;place-items:center;border:1px solid #ffffff20;border-radius:50%;background:#ffffff12;color:#f1eadb;font-size:1.25rem;cursor:pointer}
 .gg-world-inbox-empty{position:absolute;z-index:28;top:84px;left:14px;display:grid;gap:.2rem;padding:.8rem 1rem;border:1px solid rgba(213,186,119,.22);border-radius:.75rem;background:rgba(8,23,29,.9);color:#b8c4b7;font-size:.7rem}
