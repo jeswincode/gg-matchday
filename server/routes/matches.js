@@ -22,7 +22,7 @@ import {
 } from "../middleware/auth.js";
 import {
   requireOptionalWorldMembership,
-  domainWorldFilter,
+  domainWorldFilter, withWorldDataScope,
   requireDomainCapability,
 } from "../middleware/domainWorldContext.js";
 
@@ -32,6 +32,7 @@ import {
 
 const router = express.Router();
 router.use(requireOptionalWorldMembership);
+router.use(withWorldDataScope);
 const worldFilter = req => domainWorldFilter(req);
 
 async function hasLinkedClubMatch(mainMatchId, { settledOnly = false } = {}) {
