@@ -161,6 +161,8 @@ test('World navigation separates public discovery, member entry, and owner map e
   assert.match(page,/onEnterWorld=\{enterWorld\}/);
   assert.match(scene,/permissions\?\.canEditMap/);
   assert.match(scene,/expectedLayoutVersion/);
+  assert.match(scene,/quarterTurn/);
+  assert.match(scene,/rotate\(" \+ rotation \+ "\)/);
   assert.match(routes,/requireActiveWorldMembership/);
   assert.match(routes,/requireWorldCapability\("map:edit"\)/);
 });
