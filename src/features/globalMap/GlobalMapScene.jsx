@@ -187,7 +187,12 @@ export default function GlobalMapScene({
   };
 
   const pointerDown = event => {
-    if (event.target.closest?.(".gg-global-map-kingdom") || event.button !== 0) return;
+    // Child controls own their click/pointer events; the map camera only
+    // captures drags that begin on empty terrain.
+    if (
+      event.button !== 0 ||
+      event.target.closest?.(".gg-global-map-kingdom, .gg-global-map-preview, .gg-global-map-controls, button, a, input, textarea, select, [role='button']")
+    ) return;
     drag.current = {
       id: event.pointerId, x: event.clientX, y: event.clientY,
       cameraX: camera.x, cameraY: camera.y,
