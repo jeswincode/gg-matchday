@@ -270,3 +270,50 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   expect(goldPageFitsViewport).toBeTruthy();
 });
 
+
+
+test("World owner can create a kingdom, review a join request, and approve a member", async ({ page }) => {
+  const worldName = "E2E Global Map League " + Date.now();
+  const ownerPlayerId = "65a000000000000000000001";
+  const applicantPlayerId = "65a000000000000000000002";
+
+  await page.goto("/?e2eRole=editor&e2ePlayerId=" + ownerPlayerId);
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: "Worlds" }).click();
+
+  await page.getByLabel("World name").fill(worldName);
+  await page.getByLabel(/Description/).fill("A browser-tested public football community.");
+  await page.getByRole("button", { name: /Create World/ }).click();
+
+  await expect(page.getByText(worldName + " has been created. You are its owner.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Preview " + worldName })).toBeVisible();
+
+  // A second signed-in account requests access to the newly created public World.
+  await page.goto("/?e2eRole=viewer&e2ePlayerId=" + applicantPlayerId);
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: "Worlds" }).click();
+  await page.getByRole("button", { name: "Preview " + worldName }).click();
+  await page.getByRole("button", { name: "Request membership" }).click();
+  await expect(page.getByText("Your request to join this World has been submitted.")).toBeVisible();
+  await expect(page.getByText("REQUEST PENDING")).toBeVisible();
+
+  // The owner sees only requests for Worlds they administer and approves this one.
+  await page.goto("/?e2eRole=editor&e2ePlayerId=" + ownerPlayerId);
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: "Worlds" }).click();
+  await expect(page.getByRole("heading", { name: "Membership requests" })).toBeVisible();
+  await page.getByRole("button", { name: "Approve Playwright viewer" }).click();
+  await expect(page.getByText("World membership approved.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Membership requests" })).toHaveCount(0);
+
+  // The applicant's next World load reflects the approved membership.
+  await page.goto("/?e2eRole=viewer&e2ePlayerId=" + applicantPlayerId);
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: "Worlds" }).click();
+  await page.getByRole("button", { name: "Preview " + worldName }).click();
+  await expect(page.getByRole("button", { name: "World interior opening soon" })).toBeVisible();
+});
