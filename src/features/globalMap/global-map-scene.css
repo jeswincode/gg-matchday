@@ -1,0 +1,41 @@
+.gg-global-map-shell{color:#f4f0e5;display:flex;flex-direction:column;gap:1rem;width:100%}
+.gg-global-map-header{align-items:center;display:flex;gap:1rem;justify-content:space-between}
+.gg-global-map-eyebrow,.gg-preview-kicker{color:#c5a45b;font-size:.68rem;font-weight:800;letter-spacing:.16em}
+.gg-global-map-header h1{font-size:clamp(1.6rem,4vw,2.35rem);letter-spacing:-.045em;margin:.25rem 0}
+.gg-global-map-header p{color:#abb8b5;font-size:.9rem;margin:0}
+.gg-global-map-count{align-items:flex-end;color:#b7c5bf;display:flex;flex-direction:column;font-size:.72rem;gap:.1rem;text-transform:uppercase}
+.gg-global-map-count strong{color:#f4e4b8;font-size:1.7rem;line-height:1}
+.gg-global-map-viewport{background:#102a36;border:1px solid rgba(222,202,150,.18);border-radius:1.2rem;min-height:440px;overflow:hidden;position:relative;touch-action:pan-y}
+.gg-global-map-svg{display:block;height:min(72vh,720px);min-height:440px;user-select:none;width:100%}
+.gg-global-map-camera{transition:transform .22s ease-out}
+.gg-map-tile{stroke:rgba(17,45,39,.23);stroke-width:.8}
+.gg-map-tile-water{fill:#244c5a;opacity:.62}.gg-map-tile-grass{fill:#506f50}.gg-map-tile-grass-light{fill:#5d7954}.gg-map-tile-forest{fill:#355a43}.gg-map-tile-hill{fill:#788064}
+.gg-map-river{fill:none;stroke:#73a7a6;stroke-linecap:round;stroke-width:15;opacity:.65}
+.gg-map-road{fill:none;stroke:#c5b17c;stroke-dasharray:3 8;stroke-linecap:round;stroke-width:6;opacity:.65}
+.gg-map-decoration{fill:#294b39;opacity:.9;stroke:#182f29;stroke-width:3}
+.gg-global-map-kingdom{cursor:pointer;outline:none;transition:filter .2s ease}
+.gg-global-map-kingdom:hover,.gg-global-map-kingdom:focus-visible,.gg-global-map-kingdom.is-selected{filter:drop-shadow(0 0 12px rgba(236,202,116,.85))}
+.gg-kingdom-shadow{fill:rgba(0,0,0,.36)}.gg-kingdom-base{fill:#8b865c;stroke:#d2bf83;stroke-width:2}
+.gg-kingdom-path{fill:none;stroke:#d8c795;stroke-width:5;stroke-linecap:round}
+.gg-castle-body{fill:#b9ad91;stroke:#594c3b;stroke-width:2}.gg-castle-tower{fill:#c9bea1;stroke:#594c3b;stroke-width:2}
+.gg-castle-door{fill:#574334}.gg-castle-roof{fill:#8a4e3d;stroke:#57372e;stroke-width:2}.gg-castle-main-roof{fill:#c19d52}
+.gg-flagpole{stroke:#e0d1a9;stroke-width:2}.gg-flag{fill:#d0aa56;stroke:#f1d890;stroke-width:1}
+.gg-kingdom-emblem{fill:#1b3030;stroke:#e0c887;stroke-width:1.5}.gg-kingdom-emblem-text{fill:#f8e8be;font-size:8px;font-weight:900}
+.gg-kingdom-label-bg{fill:rgba(17,34,34,.91);stroke:rgba(223,199,137,.55);stroke-width:1}
+.gg-kingdom-label{fill:#fff5dc;font-size:11px;font-weight:800}.gg-kingdom-status{fill:#d9c58d;font-size:7px;font-weight:800;letter-spacing:.1em}
+.gg-kingdom-pulse{fill:#e6c574;stroke:#fff0c7;stroke-width:2}
+.gg-global-map-controls{display:flex;flex-direction:column;gap:.4rem;position:absolute;right:.9rem;top:.9rem}
+.gg-global-map-controls button,.gg-map-close{align-items:center;background:rgba(13,29,31,.92);border:1px solid rgba(223,199,137,.35);border-radius:.7rem;color:#f5e8ca;cursor:pointer;display:inline-flex;font-size:1.2rem;height:2.5rem;justify-content:center;width:2.5rem}
+.gg-global-map-controls button:hover,.gg-map-close:hover{background:#344b43}
+.gg-global-map-hint{background:rgba(13,29,31,.7);border-radius:999px;bottom:.9rem;color:#d8d6c9;font-size:.68rem;left:50%;padding:.45rem .8rem;pointer-events:none;position:absolute;transform:translateX(-50%);white-space:nowrap}
+.gg-global-map-preview{background:rgba(17,33,34,.96);border:1px solid rgba(223,199,137,.45);border-radius:1rem;bottom:1rem;box-shadow:0 18px 50px rgba(0,0,0,.35);max-width:min(320px,calc(100% - 2rem));padding:1.1rem;position:absolute;right:1rem;width:290px}
+.gg-map-close{border-radius:50%;font-size:1.35rem;height:1.8rem;position:absolute;right:.6rem;top:.6rem;width:1.8rem}
+.gg-preview-emblem{align-items:center;background:linear-gradient(145deg,#d5b96f,#8b6b38);border:2px solid #f0d89a;border-radius:.8rem;color:#1b2c2d;display:flex;font-size:1.15rem;font-weight:950;height:3.1rem;justify-content:center;margin:.8rem 0 .55rem;width:3.1rem}
+.gg-global-map-preview h2{color:#fff4d5;font-size:1.3rem;margin:0 0 .3rem}
+.gg-global-map-preview p{color:#b6c1b8;font-size:.78rem;line-height:1.5;margin:0}
+.gg-preview-meta{border-bottom:1px solid rgba(223,199,137,.18);border-top:1px solid rgba(223,199,137,.18);color:#ddc78e;display:flex;font-size:.68rem;justify-content:space-between;margin:.8rem 0;padding:.65rem 0}
+.gg-preview-primary{align-items:center;background:#c6a557;border:0;border-radius:.65rem;color:#1d2b29;cursor:pointer;display:flex;font-size:.8rem;font-weight:900;justify-content:space-between;padding:.75rem .9rem;width:100%}
+.gg-preview-primary:disabled{background:#45564b;color:#d3d4c5;cursor:not-allowed}
+.gg-global-map-preview .gg-preview-note{font-size:.66rem;margin-top:.55rem}
+@media(max-width:680px){.gg-global-map-header{align-items:flex-start}.gg-global-map-viewport{border-radius:.9rem;min-height:560px}.gg-global-map-svg{height:600px;min-height:600px;width:950px;max-width:none;margin-left:-135px}.gg-global-map-preview{bottom:.7rem;left:.7rem;max-width:none;right:.7rem;width:auto}.gg-global-map-hint{bottom:auto;left:50%;top:.8rem}}
+@media(prefers-reduced-motion:reduce){.gg-global-map-camera,.gg-global-map-kingdom{transition:none}}
