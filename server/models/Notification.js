@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -47,5 +48,7 @@ notificationSchema.index(
   { expireAfterSeconds: 0 }
 );
 notificationSchema.index({ worldId: 1, createdAt: -1 });
+
+notificationSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.model("Notification", notificationSchema);
