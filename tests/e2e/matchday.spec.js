@@ -309,11 +309,24 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   await expect(page.getByText("World membership approved.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Membership requests" })).toHaveCount(0);
 
+  // The owner can enter the local map and make a versioned facility edit.
+  await page.getByRole("button", { name: "Preview " + worldName }).click();
+  await page.getByRole("button", { name: "Enter World" }).click();
+  await expect(page.getByRole("heading", { name: worldName })).toBeVisible();
+  await page.getByRole("button", { name: "Select Central Stadium facility" }).click();
+  await page.getByRole("button", { name: "Move east" }).click();
+  await expect(page.getByText("Central Stadium placement saved.")).toBeVisible();
+  await expect(page.getByText("Grid 26, 25 · Rotation 0° · Level 1")).toBeVisible();
+  await page.getByRole("button", { name: "← Global Map" }).click();
+
   // The applicant's next World load reflects the approved membership.
   await page.goto("/?e2eRole=viewer&e2ePlayerId=" + applicantPlayerId);
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Worlds" }).click();
   await page.getByRole("button", { name: "Preview " + worldName }).click();
-  await expect(page.getByRole("button", { name: "World interior opening soon" })).toBeVisible();
+  await page.getByRole("button", { name: "Enter World" }).click();
+  await expect(page.getByRole("heading", { name: worldName })).toBeVisible();
+  await expect(page.getByText("Read-only map access")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Move east" })).toHaveCount(0);
 });
