@@ -140,16 +140,18 @@ test('guest mode keeps an explicit sign-in path after entering the app',()=>{con
 test('admin player video inputs fall back to loaded player video URLs',()=>{const source=read('src/features/admin/AdminPage.jsx');assert.match(source,/videoDrafts\[id\] \?\? player\.backgroundVideoUrl \?\? ""/);});
 
 
-test('mobile navigation supports ordered horizontal tab swipes without wrapping',()=>{
+test('mobile navigation keeps exactly five Matchday destinations and leaves Global Map on Home',()=>{
   const app=read('src/App.jsx');
-  assert.match(app,/const TAB_ORDER = \[\s*TABS\.GLOBAL_MAP,\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*\]/);
-  assert.match(app,/touchStartRef=useRef\(null\)/);
-  assert.match(app,/const threshold=Math\.min\(92, Math\.max\(56, window\.innerWidth\*0\.16\)\)/);
-  assert.match(app,/deltaX<0 \? currentIndex\+1 : currentIndex-1/);
-  assert.match(app,/nextIndex<0 \|\| nextIndex>=TAB_ORDER\.length/);
+  const map=read('src/features/globalMap/GlobalMapPage.jsx');
+  const css=read('src/features/globalMap/immersive-world-map.css');
+  assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*\]/);
+  assert.doesNotMatch(app,/TABS\.GLOBAL_MAP/);
+  assert.match(app,/if \(activeTab === TABS\.HOME\)[\s\S]*?<GlobalMapPage/);
+  assert.match(map,/const items = \[\s*\{ id: "home"[\s\S]*?\{ id: "players"/);
+  assert.match(css,/\.gg-world-bottom-nav\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.gg-world-screen\{[^}]*position:fixed/);
   assert.match(app,/onTouchStart=\{handleAppTouchStart\}/);
   assert.match(app,/onTouchEnd=\{handleAppTouchEnd\}/);
-  assert.match(app,/target\.closest\("\.gg-global-map-viewport, \.gg-world-map-viewport"\)/);
 });
 
 test('entering a World activates app-wide API context and logout clears it',()=>{
@@ -158,6 +160,20 @@ test('entering a World activates app-wide API context and logout clears it',()=>
   assert.match(page,/setApiActiveWorld\(world\.slug\)/);
   assert.match(app,/setApiActiveWorld\(null\)/);
   assert.match(app,/async function logout\(\)/);
+});
+
+test('Global Map open plots are claimable and World creation reserves the selected plot',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const scene=read('src/features/globalMap/GlobalMapScene.jsx');
+  const routes=read('server/routes/worlds.js');
+  const creation=read('server/services/worldCreation.js');
+  assert.match(page,/globalMapSlotIndex: plot\.slotIndex/);
+  assert.match(page,/onClaimPlot=\{claimPlot\}/);
+  assert.match(scene,/availablePlots\.map\(plot =>/);
+  assert.match(scene,/ClaimPlot key=/);
+  assert.match(routes,/availablePlots,/);
+  assert.match(creation,/GLOBAL_MAP_SLOT_TAKEN/);
+  assert.match(creation,/slotIndex: requestedSlotIndex/);
 });
 
 test('World navigation separates public discovery, member entry, and owner map editing',()=>{
