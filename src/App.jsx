@@ -6,7 +6,6 @@ const Clasico = lazy(() => import('./components/Clasico'));
 const MatchHistoryCard = lazy(() => import('./components/ui/MatchHistoryCard'));
 const PlayersDirectory = lazy(() => import('./features/players/PlayersDirectory'));
 const PlayerProfile = lazy(() => import('./features/players/PlayerProfile'));
-const HomePage = lazy(() => import('./features/home/HomePage'));
 const Calendar = lazy(() => import('./features/calendar/Calendar'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const MatchRecordForm = lazy(() => import('./features/matches/MatchRecordForm'));
@@ -40,7 +39,6 @@ const API_URL =
   "http://localhost:5000/api";
 
 const TABS = {
-  GLOBAL_MAP: "worlds",
   HOME: "home",
   RECORD: "record",
   LEADERBOARD: "leaderboard",
@@ -50,7 +48,6 @@ const TABS = {
 };
 
 const TAB_ORDER = [
-  TABS.GLOBAL_MAP,
   TABS.HOME,
   TABS.RECORD,
   TABS.LEADERBOARD,
@@ -2405,6 +2402,26 @@ function App() {
     return <WelcomeScreen onEnter={() => setExperience("app")} />;
   }
 
+  // Home is the full-screen Global Map / current World's local map.
+  // The remaining five destinations stay in the existing Matchday shell.
+  if (activeTab === TABS.HOME) {
+    return (
+      <Suspense fallback={<div className="gg-map-loading">Opening the football universe…</div>}>
+        <GlobalMapPage
+          isSignedIn={isSignedIn}
+          authUser={authUser}
+          backendUser={backendUser}
+          onMessage={setMessage}
+          onSignIn={() => setExperience("entry")}
+          onSignOut={logout}
+          onNavigateTab={setActiveTab}
+          theme={theme}
+          onThemeChange={setTheme}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <Suspense fallback={<div className="loading-panel">Opening Matchday…</div>}>
     <main className="app" onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
@@ -2581,34 +2598,7 @@ function App() {
           HOME
       ===================================================== */}
 
-      {activeTab === TABS.GLOBAL_MAP && (
-        <GlobalMapPage
-          isSignedIn={isSignedIn}
-          onMessage={setMessage}
-          onSignIn={() => setExperience("entry")}
-        />
-      )}
-
-      {activeTab === TABS.HOME && (
-        <HomePage
-          latestMatch={latestMatch}
-          latestTopScorer={latestTopScorer}
-          players={players}
-          matches={matches}
-          overview={overview}
-          totalAllTimeGoals={totalAllTimeGoals}
-          news={news}
-          newsLoading={newsLoading}
-          leaderboard={leaderboard}
-          onHallOfFame={() => setModal('hall')}
-          onPlayer={showPlayer}
-          onLeaderboard={() => setActiveTab(TABS.LEADERBOARD)}
-          onOpenPlayer={(player) => {
-            openPlayerProfile(player);
-            setActiveTab(TABS.PLAYERS);
-          }}
-        />
-      )}
+      {/* Home is rendered as the full-screen Global Map above. */}
 
       {/* =====================================================
           RECORD
@@ -2751,13 +2741,6 @@ function App() {
       ===================================================== */}
 
       <nav className="bottom-nav">
-
-        <NavButton
-          active={activeTab === TABS.GLOBAL_MAP}
-          icon="🌍"
-          label="Worlds"
-          onClick={() => setActiveTab(TABS.GLOBAL_MAP)}
-        />
 
         <NavButton
           active={
