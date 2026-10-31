@@ -6,7 +6,7 @@ import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
-import { requireOptionalWorldMembership, domainWorldFilter, requireDomainCapability } from "../middleware/domainWorldContext.js";
+import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope, requireDomainCapability } from "../middleware/domainWorldContext.js";
 import WorldMembership from "../models/WorldMembership.js";
 import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
 import { resolvePlayerAttributesReadOnly, refreshPlayerAttributes } from "../services/playerAttributes.js";
@@ -14,6 +14,7 @@ import { resolvePlayerAttributesReadOnly, refreshPlayerAttributes } from "../ser
 const router = express.Router();
 const invalidId = id => !mongoose.isValidObjectId(id);
 router.use(requireOptionalWorldMembership);
+router.use(withWorldDataScope);
 const worldFilter = req => domainWorldFilter(req);
 const worldPlayerQuery = (req, id) => ({ _id: id, ...worldFilter(req) });
 
