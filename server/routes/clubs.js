@@ -7,6 +7,7 @@ import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { requireOptionalWorldMembership, withWorldDataScope, requireDomainCapability } from "../middleware/domainWorldContext.js";
 import {
   CLUB_FORMATIONS,
   CLUB_FORMATIONS_4,
@@ -57,6 +58,7 @@ import {
 } from "../services/clubsEconomy.js";
 
 const router = express.Router();
+router.use(requireOptionalWorldMembership, withWorldDataScope);
 
 const FORMATION_ACTIVE_STATUSES = [
   "pendingMutualAgreement",
@@ -79,7 +81,7 @@ function ensureClubsDatabase(res) {
 }
 
 function requireLinkedPlayer(req, res) {
-  const playerId = req.user?.playerProfile;
+  const playerId = req.worldId ? req.membership?.playerProfileId : req.user?.playerProfile;
   if (!playerId) {
     res.status(403).json({ message: "Link your GG player profile before using Clubs." });
     return null;
@@ -1398,7 +1400,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, res) => {
+router.post("/matches/:matchId/settle", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
   const session = await getClubsConnection().startSession();
@@ -1661,7 +1663,7 @@ router.post("/matches/:matchId/bets", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/matches/:matchId/bets/settle", requireAuth, requireAdmin, async (req, res) => {
+router.post("/matches/:matchId/bets/settle", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
   const session = await getClubsConnection().startSession();
@@ -2141,7 +2143,7 @@ async function buildAdminClubSnapshot(club) {
   };
 }
 
-router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
+router.get("/admin/overview", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const [
@@ -2291,7 +2293,7 @@ router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-router.get("/admin/clubs", requireAuth, requireAdmin, async (req, res) => {
+router.get("/admin/clubs", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const clubDocs = await Club.find({})
@@ -2308,7 +2310,7 @@ router.get("/admin/clubs", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-router.get("/admin/matches", requireAuth, requireAdmin, async (req, res) => {
+router.get("/admin/matches", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const matches = await ClubMatch.find({})
@@ -2344,7 +2346,7 @@ async function buildAdminApplicationSnapshot(application) {
   };
 }
 
-router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) => {
+router.get("/admin/applications", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const applications = await ClubFormationApplication.find({
@@ -2365,7 +2367,7 @@ router.get("/admin/applications", requireAuth, requireAdmin, async (req, res) =>
   }
 });
 
-router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (req, res) => {
+router.post("/admin/applications/:id/reject", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid formation application id." });
   try {
@@ -2397,7 +2399,7 @@ router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (
   }
 });
 
-router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async (req, res) => {
+router.post("/admin/applications/:id/approve", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid formation application id." });
   const session = await getClubsConnection().startSession();
@@ -2888,7 +2890,7 @@ function normalizeOperationsFilter(value, allowed, fallback = "") {
   return allowed.includes(normalized) ? normalized : fallback;
 }
 
-router.get("/admin/operations/summary", requireAuth, requireAdmin, async (req, res) => {
+router.get("/admin/operations/summary", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const data = await loadClubOperationsData();
@@ -2918,7 +2920,7 @@ router.get("/admin/operations/summary", requireAuth, requireAdmin, async (req, r
   }
 });
 
-router.get("/admin/operations/queue", requireAuth, requireAdmin, async (req, res) => {
+router.get("/admin/operations/queue", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const limit = boundedPositiveInt(req.query.limit, 25, 100);
   const page = boundedPositiveInt(req.query.page, 1, 100_000);
@@ -2967,7 +2969,7 @@ router.get("/admin/operations/queue", requireAuth, requireAdmin, async (req, res
   }
 });
 
-router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, res) => {
+router.get("/admin/operations/activity", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const limit = boundedPositiveInt(req.query.limit, 20, 50);
   const page = boundedPositiveInt(req.query.page, 1, 100_000);
@@ -3051,7 +3053,7 @@ router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, 
   }
 });
 
-router.post("/admin/operations/sync/:jobId/retry", requireAuth, requireAdmin, async (req, res) => {
+router.post("/admin/operations/sync/:jobId/retry", requireAuth, requireDomainCapability("clubs:manage", requireAdmin), async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.jobId)) return res.status(400).json({ success: false, message: "Invalid sync job id." });
   try {
