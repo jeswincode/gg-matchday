@@ -51,7 +51,6 @@ router.get("/map", asyncRoute(async (req, res) => {
     })
       .select("name slug description branding globalMap")
       .sort({ createdAt: 1, _id: 1 })
-      .limit(500)
       .lean(),
     World.find({
       status: "active",
