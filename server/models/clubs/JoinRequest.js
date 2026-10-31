@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
+import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const joinRequestSchema = new mongoose.Schema(
   {
+    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, index: true },
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     status: { type: String, enum: ["pending", "approved", "rejected", "cancelled"], default: "pending", index: true },
@@ -18,5 +20,7 @@ joinRequestSchema.index(
   { playerId: 1, clubId: 1 },
   { unique: true, partialFilterExpression: { status: "pending" } },
 );
+
+joinRequestSchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("JoinRequest", joinRequestSchema);
