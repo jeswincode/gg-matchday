@@ -7,6 +7,8 @@ import WorldMapFacility from "../models/WorldMapFacility.js";
 export const GLOBAL_MAP_ID = "gg-main-v1";
 export const WORLD_MAP_GRID_WIDTH = 60;
 export const WORLD_MAP_GRID_HEIGHT = 60;
+export const GLOBAL_KINGDOM_COLUMNS = 25;
+export const GLOBAL_KINGDOM_SPACING = 8;
 export const GLOBAL_KINGDOM_SPACING = 8;
 
 export const DEFAULT_WORLD_FACILITIES = Object.freeze([
@@ -57,13 +59,15 @@ async function nextGlobalPosition(session) {
 
   // Logical coordinates are deliberately spaced so isometric castle footprints
   // do not overlap. The frontend derives screen pixels for the current viewport.
-  for (let row = 0; row < 500; row += 1) {
-    for (let column = 0; column < 500; column += 1) {
-      const x = column * GLOBAL_KINGDOM_SPACING;
-      const y = row * GLOBAL_KINGDOM_SPACING;
-      if (!occupied.has(String(x) + ":" + String(y))) {
-        return { mapId: GLOBAL_MAP_ID, x, y };
-      }
+  // Fill a bounded row before advancing, keeping the world grid balanced
+  // instead of growing as one very long diagonal line.
+  for (let index = 0; index < 250000; index += 1) {
+    const column = index % GLOBAL_KINGDOM_COLUMNS;
+    const row = Math.floor(index / GLOBAL_KINGDOM_COLUMNS);
+    const x = column * GLOBAL_KINGDOM_SPACING;
+    const y = row * GLOBAL_KINGDOM_SPACING;
+    if (!occupied.has(String(x) + ":" + String(y))) {
+      return { mapId: GLOBAL_MAP_ID, x, y };
     }
   }
 
