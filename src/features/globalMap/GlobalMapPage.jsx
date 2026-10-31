@@ -523,9 +523,17 @@ export default function GlobalMapPage({
           </section>
 
           <div className="gg-world-global-tools">
-            <button type="button" className="gg-world-found-button" onClick={() => claimPlot(availablePlots[0] || { slotIndex: 0, x: 0, y: 0 })}>
+            <button
+              type="button"
+              className="gg-world-found-button"
+              disabled={availablePlots.length === 0}
+              onClick={() => availablePlots[0] && claimPlot(availablePlots[0])}
+            >
               ＋ Found a World
             </button>
+            {availablePlots.length === 0 && (
+              <span className="gg-world-no-plots">All mapped territory is currently claimed.</span>
+            )}
             {isSignedIn && reviewQueues.length > 0 && (
               <button type="button" className="gg-world-inbox-toggle" onClick={() => setReviewInboxOpen(value => !value)}>
                 Membership requests <span>{reviewQueues.reduce((sum, queue) => sum + queue.requests.length, 0)}</span>
