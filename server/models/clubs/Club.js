@@ -59,7 +59,7 @@ clubSchema.pre("validate", function normalizeNameAndValidateMembership() {
   if (Number(this.committedBalance || 0) > Number(this.balance || 0)) this.invalidate("committedBalance", "Committed balance cannot exceed the Club balance.");
 });
 
-clubSchema.index({ nameNormalized: 1 }, { unique: true });
+clubSchema.index({ worldId: 1, nameNormalized: 1 }, { unique: true, name: "club_world_name_unique" });
 clubSchema.index({ status: 1, createdAt: -1 });
 
 clubSchema.plugin(worldDataScopePlugin);
