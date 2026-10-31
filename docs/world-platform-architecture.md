@@ -113,6 +113,12 @@ Approval/rejection queries always include both the membership ID and resolved Wo
 
 World creation atomically creates the World, its active owner membership, the isometric WorldMapLayout and the standard facility records. This requires a transaction-capable MongoDB deployment (replica set or sharded cluster). Development environments using standalone MongoDB must be configured as a single-node replica set before testing World creation.
 
+## Active World request context
+
+After a member successfully enters a World interior, the client sets that World slug as the active API selector. The selector is sent as `X-World-Slug` on subsequent API requests and is part of GET cache/in-flight request identity. It is stored in browser session storage so a page reload does not silently remove the selected World. Signing out clears the selector.
+
+The header remains untrusted routing context: the backend must resolve the slug to a World and verify active membership and the relevant role/capability for every World-owned read or write. It must never accept a client-provided `worldId` as authorization.
+
 ## World map API contract
 
 The local World map has separate access from public kingdom previews:
