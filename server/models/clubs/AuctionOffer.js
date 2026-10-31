@@ -17,11 +17,11 @@ const auctionOfferSchema = new mongoose.Schema(
   { timestamps: true, collection: "auctionOffers" },
 );
 
-auctionOfferSchema.index({ playerId: 1, createdAt: -1 });
-auctionOfferSchema.index({ playerId: 1, clubId: 1, createdAt: -1 });
+auctionOfferSchema.index({ worldId: 1, playerId: 1, createdAt: -1 });
+auctionOfferSchema.index({ worldId: 1, playerId: 1, clubId: 1, createdAt: -1 });
 auctionOfferSchema.index(
-  { playerId: 1 },
-  { unique: true, partialFilterExpression: { status: { $in: ["chosenByPlayer", "approved"] } } },
+  { worldId: 1, playerId: 1 },
+  { unique: true, partialFilterExpression: { status: { $in: ["chosenByPlayer", "approved"] } }, name: "auction_world_player_active_contract_unique" },
 );
 
 auctionOfferSchema.plugin(worldDataScopePlugin);
