@@ -15,7 +15,7 @@ const clubRenewalDecisionSchema = new mongoose.Schema(
   { timestamps: true, collection: "clubRenewalDecisions" },
 );
 
-clubRenewalDecisionSchema.index({ clubId: 1, boundaryAt: 1 }, { unique: true });
+clubRenewalDecisionSchema.index({ worldId: 1, clubId: 1, boundaryAt: 1 }, { unique: true, name: "club_renewal_world_club_boundary_unique" });
 
 clubRenewalDecisionSchema.plugin(worldDataScopePlugin);
 
