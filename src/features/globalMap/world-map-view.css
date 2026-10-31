@@ -38,3 +38,9 @@
 .gg-world-map-footnote{color:#82948a;font-size:.67rem;margin:0}
 @media(max-width:680px){.gg-world-map-heading{align-items:flex-start}.gg-world-map-viewport{border-radius:.85rem;min-height:520px}.gg-world-map-svg{height:580px;min-height:580px;width:950px;max-width:none;margin-left:-130px}.gg-world-facility-panel{align-items:flex-start;flex-direction:column}.gg-world-facility-editor{justify-content:space-between;width:100%;}}
 @media(prefers-reduced-motion:reduce){.gg-world-facility{transition:none}}
+
+
+.gg-world-open-plot{pointer-events:none;opacity:.68}
+.gg-world-open-plot>path:first-child{fill:rgba(164,174,111,.23);stroke:rgba(222,214,159,.7);stroke-width:1.6;stroke-dasharray:5 5}
+.gg-world-open-plot-inner{fill:rgba(45,79,55,.18);stroke:rgba(222,214,159,.28);stroke-width:1}
+.gg-world-open-plot text{fill:#d8d0a3;font-size:10px;font-weight:900;letter-spacing:.12em;paint-order:stroke;stroke:rgba(9,27,25,.9);stroke-width:3px}
