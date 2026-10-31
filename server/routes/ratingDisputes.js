@@ -4,9 +4,12 @@ import Match from "../models/Match.js";
 import { normalizeMatchScores } from "../services/statistics.js";
 import RatingDispute from "../models/RatingDispute.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { requireOptionalWorldMembership, domainWorldFilter, requireDomainCapability } from "../middleware/domainWorldContext.js";
 import { buildRatingExplanation } from "../services/ratings/explanation.js";
 
 const router = express.Router();
+router.use(requireOptionalWorldMembership);
+const worldFilter = req => domainWorldFilter(req);
 const CATEGORIES = ["match-rating", "defensive-rating", "performance-codes", "match-statistics", "other"];
 const REVIEW_STATUSES = ["reviewing", "correction_required", "resolved_no_change", "rejected"];
 const OPEN_STATUSES = ["pending", "reviewing", "correction_required"];
@@ -74,7 +77,8 @@ router.post("/matches/:matchId/players/:playerId", requireAuth, async (req, res)
   if (!validId(req.params.matchId) || !validId(req.params.playerId)) {
     return res.status(400).json({ message: "Invalid match or player id." });
   }
-  if (!req.user?.playerProfile || String(req.user.playerProfile) !== String(req.params.playerId)) {
+  const ownPlayerProfileId = req.worldId ? req.membership?.playerProfileId : req.user?.playerProfile;
+  if (!ownPlayerProfileId || String(ownPlayerProfileId) !== String(req.params.playerId)) {
     return res.status(403).json({ message: "You may only dispute the rating for your own linked player profile." });
   }
 
@@ -85,7 +89,7 @@ router.post("/matches/:matchId/players/:playerId", requireAuth, async (req, res)
   if (message.length > 1000) return res.status(400).json({ message: "The dispute description must be 1,000 characters or fewer." });
 
   try {
-    const match = await Match.findById(req.params.matchId)
+    const match = await Match.findOne({ _id: req.params.matchId, ...worldFilter(req) })
       .populate("participants.player", "name profileImage")
       .lean();
     if (!match) return res.status(404).json({ message: "Match not found." });
@@ -96,6 +100,7 @@ router.post("/matches/:matchId/players/:playerId", requireAuth, async (req, res)
     const explanation = buildRatingExplanation(match, req.params.playerId);
     if (!explanation) return res.status(404).json({ message: "Rating explanation is unavailable for this player." });
     const existing = await RatingDispute.findOne({
+      ...worldFilter(req),
       submittedBy: req.user._id,
       match: match._id,
       player: req.params.playerId,
@@ -104,6 +109,7 @@ router.post("/matches/:matchId/players/:playerId", requireAuth, async (req, res)
     if (existing) return res.status(409).json({ message: "You already have an open dispute for this player and match.", disputeId: String(existing._id), status: existing.status });
 
     const dispute = await RatingDispute.create({
+      worldId: req.worldId || null,
       submittedBy: req.user._id,
       match: match._id,
       player: req.params.playerId,
@@ -135,7 +141,7 @@ router.post("/matches/:matchId/players/:playerId", requireAuth, async (req, res)
 });
 
 router.get("/me", requireAuth, async (req, res) => {
-  const filter = { submittedBy: req.user._id };
+  const filter = { ...worldFilter(req), submittedBy: req.user._id };
   if (req.query.matchId) {
     if (!validId(req.query.matchId)) return res.status(400).json({ message: "Invalid match id." });
     filter.match = req.query.matchId;
@@ -153,13 +159,13 @@ router.get("/me", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/admin", requireAuth, requireAdmin, async (req, res) => {
+router.get("/admin", requireAuth, requireDomainCapability("world:moderate", requireAdmin), async (req, res) => {
   const status = String(req.query.status || "pending");
   if (!["all", ...OPEN_STATUSES, "correction_required", "resolved_no_change", "rejected"].includes(status)) {
     return res.status(400).json({ message: "Invalid dispute status filter." });
   }
   try {
-    const filter = status === "all" ? {} : { status };
+    const filter = status === "all" ? worldFilter(req) : { ...worldFilter(req), status };
     const limitValue = Number.parseInt(String(req.query.limit || "50"), 10);
     const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.min(limitValue, 100) : 50;
     const disputes = await RatingDispute.find(filter)
@@ -175,7 +181,7 @@ router.get("/admin", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
-router.patch("/admin/:id/review", requireAuth, requireAdmin, async (req, res) => {
+router.patch("/admin/:id/review", requireAuth, requireDomainCapability("world:moderate", requireAdmin), async (req, res) => {
   if (!validId(req.params.id)) return res.status(400).json({ message: "Invalid dispute id." });
   const status = String(req.body?.status || "");
   const note = String(req.body?.note || "").trim();
@@ -186,7 +192,7 @@ router.patch("/admin/:id/review", requireAuth, requireAdmin, async (req, res) =>
   }
 
   try {
-    const current = await RatingDispute.findById(req.params.id);
+    const current = await RatingDispute.findOne({ _id: req.params.id, ...worldFilter(req) });
     if (!current) return res.status(404).json({ message: "Rating dispute not found." });
     if (!current.open || !OPEN_STATUSES.includes(current.status)) {
       return res.status(409).json({ message: "This dispute is already closed and cannot be reviewed again." });
@@ -199,7 +205,7 @@ router.patch("/admin/:id/review", requireAuth, requireAdmin, async (req, res) =>
     }[status];
     const fromStatus = current.status;
     const updated = await RatingDispute.findOneAndUpdate(
-      { _id: current._id, status: fromStatus, open: true },
+      { _id: current._id, ...worldFilter(req), status: fromStatus, open: true },
       {
         $set: {
           status,
@@ -225,7 +231,7 @@ router.patch("/admin/:id/review", requireAuth, requireAdmin, async (req, res) =>
     if (!updated) return res.status(409).json({ message: "This dispute changed while it was being reviewed. Refresh and try again." });
 
     // Intentionally no Match update, recalculation, score correction, or player-stat rebuild here.
-    const populated = await RatingDispute.findById(updated._id)
+    const populated = await RatingDispute.findOne({ _id: updated._id, ...worldFilter(req) })
       .populate("match", "name date teamA teamB")
       .populate("player", "name profileImage")
       .populate("submittedBy", "name email")
