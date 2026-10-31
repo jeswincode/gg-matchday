@@ -22,24 +22,47 @@ function project(column, row) {
   });
 }
 
-function terrain() {
+function terrain(mapPoints = []) {
   const result = [];
-  // A broad procedural landmass sits in an open ocean. World plots use the
-  // same logical coordinates, so kingdoms and claimable land stay aligned.
-  for (let row = -15; row <= 15; row += 1) {
-    for (let column = -20; column <= 20; column += 1) {
+  const coordinates = mapPoints.filter(point =>
+    Number.isFinite(point?.x) && Number.isFinite(point?.y),
+  );
+  const minColumn = coordinates.length ? Math.min(...coordinates.map(point => point.x)) : -16;
+  const maxColumn = coordinates.length ? Math.max(...coordinates.map(point => point.x)) : 16;
+  const minRow = coordinates.length ? Math.min(...coordinates.map(point => point.y)) : -12;
+  const maxRow = coordinates.length ? Math.max(...coordinates.map(point => point.y)) : 12;
+  const spanColumns = maxColumn - minColumn;
+  const spanRows = maxRow - minRow;
+  const step = Math.max(1, Math.ceil((spanColumns + 36) / 68), Math.ceil((spanRows + 28) / 48));
+  const marginColumns = 18 * step;
+  const marginRows = 14 * step;
+  const startColumn = Math.floor((minColumn - marginColumns) / step) * step;
+  const endColumn = Math.ceil((maxColumn + marginColumns) / step) * step;
+  const startRow = Math.floor((minRow - marginRows) / step) * step;
+  const endRow = Math.ceil((maxRow + marginRows) / step) * step;
+  const centerColumn = (minColumn + maxColumn) / 2;
+  const centerRow = (minRow + maxRow) / 2;
+  const halfColumns = Math.max(1, (endColumn - startColumn) / 2);
+  const halfRows = Math.max(1, (endRow - startRow) / 2);
+
+  // Terrain expands with the reserved Global Map coordinates. Tile size
+  // coarsens at distant scales so the browser never draws an unbounded grid.
+  for (let row = startRow; row <= endRow; row += step) {
+    for (let column = startColumn; column <= endColumn; column += step) {
       const center = project(column, row);
-      const hw = TILE_WIDTH / 2;
-      const hh = TILE_HEIGHT / 2;
+      const hw = (TILE_WIDTH * step) / 2;
+      const hh = (TILE_HEIGHT * step) / 2;
       const points = [
         [center.x, center.y - hh],
         [center.x + hw, center.y],
         [center.x, center.y + hh],
         [center.x - hw, center.y],
       ].map(pair => pair.join(",")).join(" ");
-      const edge = Math.abs(column) / 20 + Math.abs(row) / 15;
+      const normalizedColumn = (column - centerColumn) / halfColumns;
+      const normalizedRow = (row - centerRow) / halfRows;
+      const edge = Math.pow(normalizedColumn, 2) + Math.pow(normalizedRow, 2);
       let kind = "grass";
-      if (edge > 1.08) kind = "water";
+      if (edge > 1.04) kind = "water";
       else if ((column * 7 + row * 11) % 17 === 0) kind = "forest";
       else if ((column * 5 + row * 3) % 19 === 0) kind = "hill";
       else if ((column + row) % 4 === 0) kind = "grass-light";
@@ -181,14 +204,15 @@ export default function GlobalMapScene({
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
   const drag = useRef(null);
   const instanceId = useId().replace(/:/g, "");
-  const tiles = useMemo(() => terrain(), []);
+  const mapPoints = [
+    ...worlds.map(world => ({ x: world.globalMap?.x, y: world.globalMap?.y })),
+    ...availablePlots.map(plot => ({ x: plot.x, y: plot.y })),
+  ];
+  const tiles = useMemo(() => terrain(mapPoints), [worlds, availablePlots]);
   const fit = useMemo(() => {
-    const positions = [
-      ...worlds
-        .filter(world => Number.isFinite(world.globalMap?.x) && Number.isFinite(world.globalMap?.y))
-        .map(world => project(world.globalMap.x, world.globalMap.y)),
-      ...availablePlots.map(plot => project(plot.x, plot.y)),
-    ];
+    const positions = mapPoints
+      .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
+      .map(point => project(point.x, point.y));
 
     if (!positions.length) {
       return { centerX: ORIGIN_X, centerY: ORIGIN_Y, scale: 1 };
@@ -211,7 +235,7 @@ export default function GlobalMapScene({
       centerY: (minY + maxY) / 2,
       scale,
     };
-  }, [worlds]);
+  }, [worlds, availablePlots]);
   const activeSelection = worlds.find(world => world.slug === selectedWorldSlug) || selected;
 
   const selectWorld = world => {
