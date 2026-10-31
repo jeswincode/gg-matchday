@@ -2,7 +2,7 @@ name: Validate
 
 on:
   push:
-    branches: [main, refactor/phase2-architecture, GG-Matchday-v3, GG-Matchday-v3-hardening-check, GG-Matchday-v3-club-match-classification]
+    branches: [main, refactor/phase2-architecture, GG-Matchday-v3, GG-Matchday-v3-hardening-check, GG-Matchday-v3-club-match-classification, feature/gg-global-map-tenancy-foundation]
   pull_request:
     branches: [main, GG-Matchday-v3, GG-Matchday-v3-hardening-check, GG-Matchday-v3-club-match-classification]
 
