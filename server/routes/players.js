@@ -78,7 +78,7 @@ router.post("/", requireAuth, requireDomainCapability("football:edit", requireEd
 router.patch("/:id/ovr-attributes", requireAuth, requireDomainCapability("world:manage", requireAdmin), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
-    const player = await Player.findById(req.params.id);
+    const player = await Player.findOne(worldPlayerQuery(req, req.params.id));
     if (!player) return res.status(404).json({ message: "Player not found." });
 
     const parseAttribute = (value, label) => {
@@ -95,7 +95,7 @@ router.patch("/:id/ovr-attributes", requireAuth, requireDomainCapability("world:
     await player.save();
 
     const calculated = await refreshPlayerAttributes(player._id);
-    const updated = await Player.findById(player._id).lean();
+    const updated = await Player.findOne(worldPlayerQuery(req, player._id)).lean();
 
     return res.json({
       player: updated,
@@ -114,7 +114,7 @@ router.patch("/:id/ovr-attributes", requireAuth, requireDomainCapability("world:
 router.patch("/:id/background-video", requireAuth, requireDomainCapability("world:manage", requireAdmin), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
-    const player = await Player.findById(req.params.id);
+    const player = await Player.findOne(worldPlayerQuery(req, req.params.id));
     if (!player) return res.status(404).json({ message: "Player not found." });
     const value = typeof req.body?.backgroundVideoUrl === "string" ? req.body.backgroundVideoUrl.trim() : "";
     if (value && !/^https?:\/\/\S+$/i.test(value)) return res.status(400).json({ message: "Background video must be a valid http(s) URL." });
@@ -130,7 +130,7 @@ router.patch("/:id/background-video", requireAuth, requireDomainCapability("worl
 router.patch("/:id/preferred-positions", requireAuth, requireDomainCapability("football:edit", requireEditor), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
-    const player = await Player.findById(req.params.id);
+    const player = await Player.findOne(worldPlayerQuery(req, req.params.id));
     if (!player) return res.status(404).json({ message: "Player not found." });
     const { preferredPositions } = req.body;
     if (!Array.isArray(preferredPositions)) return res.status(400).json({ message: "Preferred positions must be an array." });
@@ -146,7 +146,7 @@ router.patch("/:id/preferred-positions", requireAuth, requireDomainCapability("f
 router.put("/:id", requireAuth, requireDomainCapability("football:edit", requireEditor), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
-    const player = await Player.findById(req.params.id);
+    const player = await Player.findOne(worldPlayerQuery(req, req.params.id));
     if (!player) return res.status(404).json({ message: "Player not found." });
     const { name, profileImage, height, weight, position, preferredPositions, preferredFoot, jerseyNumber, dateOfBirth, bio } = req.body;
     const previousOvrInputs = JSON.stringify({ position: player.position || "", preferredPositions: player.preferredPositions || [] });
@@ -188,7 +188,7 @@ router.put("/:id", requireAuth, requireDomainCapability("football:edit", require
 router.delete("/:id", requireAuth, requireDomainCapability("football:edit", requireEditor), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
-    const player = await Player.findById(req.params.id);
+    const player = await Player.findOne(worldPlayerQuery(req, req.params.id));
     if (!player) return res.status(404).json({ message: "Player not found." });
     const hasMatchHistory = await Match.exists({ ...worldFilter(req), $or: [{ "participants.player": player._id }, { "events.player": player._id }] });
     const [[legacyLinkedAccount, worldMembershipLink], pendingRequest] = await Promise.all([
