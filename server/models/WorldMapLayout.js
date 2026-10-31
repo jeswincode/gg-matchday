@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
+const integer = value => Number.isInteger(value);
 
 const worldMapLayoutSchema = new Schema({
   worldId: {
     type: Schema.Types.ObjectId,
     ref: "World",
     required: true,
-    unique: true,
   },
   projection: {
     type: String,
@@ -21,10 +21,10 @@ const worldMapLayoutSchema = new Schema({
     default: "woodland",
     required: true,
   },
-  seed: { type: Number, min: 0, max: 2147483647, default: 1 },
-  gridWidth: { type: Number, min: 12, max: 256, default: 60 },
-  gridHeight: { type: Number, min: 12, max: 256, default: 60 },
-  layoutVersion: { type: Number, min: 1, default: 1 },
+  seed: { type: Number, min: 0, max: 2147483647, default: 1, validate: integer },
+  gridWidth: { type: Number, min: 12, max: 256, default: 60, validate: integer },
+  gridHeight: { type: Number, min: 12, max: 256, default: 60, validate: integer },
+  layoutVersion: { type: Number, min: 1, default: 1, validate: integer },
   backgroundAssetId: { type: Schema.Types.ObjectId, ref: "MediaAsset", default: null },
   updatedBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
 }, {
