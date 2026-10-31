@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const chatMessageSchema = new mongoose.Schema(
   {
@@ -41,5 +42,7 @@ chatMessageSchema.index(
   { expireAfterSeconds: 0 }
 );
 chatMessageSchema.index({ worldId: 1, createdAt: -1 });
+
+chatMessageSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.model("ChatMessage", chatMessageSchema);
