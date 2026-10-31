@@ -261,7 +261,7 @@ export default function GlobalMapScene({
         onPointerUp={pointerUp}
         onPointerCancel={pointerUp}
       >
-        <svg className="gg-global-map-svg" viewBox={"0 0 " + WIDTH + " " + HEIGHT} role="group"
+        <svg className="gg-global-map-svg" viewBox={"0 0 " + WIDTH + " " + HEIGHT} preserveAspectRatio="xMidYMid slice" role="group"
           aria-label="Isometric map showing neighbouring public football kingdoms">
           <defs>
             <linearGradient id={waterId} x1="0" y1="0" x2="1" y2="1">
