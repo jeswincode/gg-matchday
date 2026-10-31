@@ -95,6 +95,24 @@ Private media access is authorized by the backend. Do not expose provider creden
 
 Google Drive is an optional user-authorized export/backup destination. It is not the canonical data store and is not required to use GG.
 
+## Initial World API contract
+
+The first World route slice is mounted at `/api/worlds`:
+
+- `GET /map`: public Global Map projection only. It does not include viewer-specific membership state.
+- `GET /:slug`: public World preview.
+- `GET /me`: the authenticated account's own memberships and safe World summaries.
+- `GET /:slug/membership`: the authenticated account's status in that World.
+- `POST /`: create a public World with approval-only joining.
+- `POST /:slug/join-requests`: submit/re-submit a membership request.
+- `GET /:slug/join-requests`: owner/admin pending-request queue.
+- `POST /:slug/join-requests/:membershipId/approve`: approve one pending membership in that World.
+- `POST /:slug/join-requests/:membershipId/reject`: reject one pending membership in that World.
+
+Approval/rejection queries always include both the membership ID and resolved World ID. The public map and World preview never include the viewer's membership state.
+
+World creation atomically creates the World, its active owner membership, the isometric WorldMapLayout and the standard facility records. This requires a transaction-capable MongoDB deployment (replica set or sharded cluster). Development environments using standalone MongoDB must be configured as a single-node replica set before testing World creation.
+
 ## Rollout constraints
 
 1. Build and test World models and authorization additively.
