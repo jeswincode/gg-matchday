@@ -322,7 +322,8 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   const joinData = await joinResponse.json();
   expect(joinData.membership.status).toBe("pending");
   await expect(page.getByText("Your request to join this World has been submitted.")).toBeVisible();
-  await expect(page.getByText("REQUEST PENDING")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Awaiting approval" })).toBeDisabled();
+  await expect(page.getByText("Request pending")).toBeVisible();
 
   // The owner sees only requests for Worlds they administer and approves this one.
   await page.goto("/?e2eRole=editor&e2ePlayerId=" + ownerPlayerId);
