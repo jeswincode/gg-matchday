@@ -244,7 +244,7 @@ router.get("/awards", safe(async (req, res) => {
   const year = Number(req.query.year) || new Date().getUTCFullYear();
   const month = req.query.month ? Number(req.query.month) : undefined;
   const matches = await Match.find({ ...worldFilter(req), ...dateQuery(year, month) }).lean();
-  const players = await Player.find().lean();
+  const players = await Player.find(worldFilter(req)).lean();
   const awards = selectAwards(players, matches, { year, month });
   const winner = awards.find(award => award.type === "player");
   res.json({ winner: winner ? { ...winner, name: winner.playerName, ggRating: winner.value } : null, awards, provisional: true });
@@ -275,7 +275,7 @@ router.get("/player/:id", safe(async (req, res) => {
   const player = await Player.findOne({ _id: req.params.id, ...worldFilter(req) }).lean();
   if (!player) return res.status(404).json({ message: "Player not found." });
   const [players, own] = await Promise.all([
-    Player.find().lean(),
+    Player.find(worldFilter(req)).lean(),
     Match.find({ ...worldFilter(req), "participants.player": player._id }).lean(),
   ]);
   own.sort(matchChronology);
@@ -308,10 +308,10 @@ router.get("/player/:id", safe(async (req, res) => {
 
 router.get('/player/:id/performance', safe(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid player id." });
-  const player = await Player.findById(req.params.id).lean();
+  const player = await Player.findOne({ _id: req.params.id, ...worldFilter(req) }).lean();
   if (!player) return res.status(404).json({ message: "Player not found." });
   const [players, matches, rows] = await Promise.all([
-    Player.find().lean(),
+    Player.find(worldFilter(req)).lean(),
     Match.find({ ...worldFilter(req), "participants.player": player._id }).lean(),
     loadPlayerStatistics([player]),
   ]);
@@ -332,7 +332,7 @@ router.get("/head-to-head/:a/:b", safe(async (req, res) => {
 }));
 
 router.get("/goals", safe(async (req, res) => {
-  const players = await Player.find().lean();
+  const players = await Player.find(worldFilter(req)).lean();
   const rows = (await loadPlayerStatistics(players)).filter(stats => stats.goals > 0)
     .sort((a, b) => b.goals - a.goals || compareByGG(a, b) || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId));
   res.json({ records: rows.map(stats => ({ playerId: stats.playerId, name: stats.name, profileImage: stats.profileImage, goals: stats.goals })) });
@@ -340,8 +340,8 @@ router.get("/goals", safe(async (req, res) => {
 
 router.get("/seasons", safe(async (req, res) => {
   const [players, aggregate, persistedAwards] = await Promise.all([
-    Player.find().lean(),
-    groupMatchYears(),
+    Player.find(worldFilter(req)).lean(),
+    groupMatchYears(worldFilter(req)),
     Award.find({ ...worldFilter(req), month: null }).lean(),
   ]);
   const seasons = [];
@@ -378,7 +378,7 @@ router.get("/seasons", safe(async (req, res) => {
 
 router.get("/clasico", safe(async (req, res) => {
   const [players, matches] = await Promise.all([
-    Player.find().lean(),
+    Player.find(worldFilter(req)).lean(),
     Match.find({ ...worldFilter(req), name: { $regex: /cl[aá]sico|clasico/i } }).lean(),
   ]);
   const clasicoMatches = matches.filter(match => isClasico(match.name));
@@ -399,9 +399,9 @@ router.get("/clasico", safe(async (req, res) => {
 
 router.get("/hall-of-fame", safe(async (req, res) => {
   const [players, awards, years] = await Promise.all([
-    Player.find().lean(),
+    Player.find(worldFilter(req)).lean(),
     Award.find(worldFilter(req)).sort({ year: -1 }).lean(),
-    groupMatchYears(),
+    groupMatchYears(worldFilter(req)),
   ]);
   const rows = await loadPlayerStatistics(players);
   const records = ["goals", "assists", "wins", "cleanSheets", "ggRating"].map(key => ({
