@@ -92,8 +92,12 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
   const selectedFacility = data.facilities.find(item => item.facilityKey === selectedFacilityKey) || null;
 
   const pointerDown = event => {
-    if (event.target.closest?.(".gg-world-facility")) return;
-    if (event.button !== 0) return;
+    // Facilities and viewport controls must receive their own clicks;
+    // camera pointer capture is reserved for empty terrain.
+    if (
+      event.button !== 0 ||
+      event.target.closest?.(".gg-world-facility, .gg-world-map-controls, button, a, input, textarea, select, [role='button']")
+    ) return;
     drag.current = {
       id: event.pointerId,
       x: event.clientX,
