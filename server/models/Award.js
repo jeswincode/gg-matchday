@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 const schema=new mongoose.Schema({
   worldId:{type:mongoose.Schema.Types.ObjectId,ref:"World",default:null,index:true},
   key:{type:String,required:true},
@@ -14,4 +15,6 @@ const schema=new mongoose.Schema({
 schema.index({worldId:1,key:1},{unique:true,name:"award_world_key_unique"});
 schema.index({worldId:1,year:-1,month:1});
 schema.index({worldId:1,player:1,year:-1});
+schema.plugin(worldDataScopePlugin);
+
 export default mongoose.model("Award",schema);
