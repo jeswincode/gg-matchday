@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { gridToScreen } from "./mapProjection.js";
 import {
   GLOBAL_MAP_DEMO_MEMBERSHIP,
