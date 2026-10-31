@@ -227,7 +227,7 @@ function App() {
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
   useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
-  useEffect(()=>{api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey]);
+  useEffect(()=>{if(activeTab===TABS.HOME)return;api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey,activeTab]);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
 
@@ -636,13 +636,16 @@ function App() {
   // INITIAL LOAD
   // =========================================================
 
+  const initialFootballDataLoaded = useRef(false);
   useEffect(() => {
+    if (activeTab === TABS.HOME || initialFootballDataLoaded.current) return;
+    initialFootballDataLoaded.current = true;
     loadPlayers();
     loadMatches();
     loadNews();
     loadLeaderboard("all");
     loadAwards();
-}, []);
+  }, [activeTab]);
 
   // =========================================================
   // LOADERS
@@ -2417,6 +2420,9 @@ function App() {
           onNavigateTab={setActiveTab}
           theme={theme}
           onThemeChange={setTheme}
+          message={message}
+          onClearMessage={() => setMessage("")}
+          onOpenClubs={() => switchProductMode("clubs")}
         />
       </Suspense>
     );
