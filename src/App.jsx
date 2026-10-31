@@ -554,7 +554,10 @@ function App() {
       return () => { active = false; };
     }
 
-    if (!auth) return;
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
 
     let active = true;
 
