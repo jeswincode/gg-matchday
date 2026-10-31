@@ -326,7 +326,7 @@ test("join approval and rejection queries are scoped to the World in the URL", a
     mapId: "gg-main-v1",
     slotIndex: 8,
     x: 8,
-    y: 8,
+    y: -8,
   });
   otherWorld = await World.findOne({ slug: "other-world" });
 
