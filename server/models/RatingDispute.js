@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const historyEntrySchema = new mongoose.Schema({
   actorUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -45,5 +46,7 @@ ratingDisputeSchema.index(
 );
 ratingDisputeSchema.index({ status: 1, createdAt: -1 });
 ratingDisputeSchema.index({ worldId: 1, match: 1, player: 1, createdAt: -1 });
+
+ratingDisputeSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.models.RatingDispute || mongoose.model("RatingDispute", ratingDisputeSchema);
