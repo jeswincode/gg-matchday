@@ -288,6 +288,19 @@ test("World map is member-only and owner edits enforce overlap, bounds and optim
   });
   assert.equal(outOfBounds.status, 400);
   assert.equal(outOfBounds.data.code, "FACILITY_OUT_OF_BOUNDS");
+
+  const rotated = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 2,
+      position: { column: 20, row: 20 },
+      rotation: 90,
+    },
+  });
+  assert.equal(rotated.status, 200, JSON.stringify(rotated.data));
+  assert.equal(rotated.data.facility.rotation, 90);
+  assert.equal(rotated.data.layoutVersion, 3);
 });
 
 test("a global legacy admin role does not grant World membership review access", async () => {
