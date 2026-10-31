@@ -1,5 +1,5 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
-import {api, invalidate} from './lib/api';
+import {api, invalidate, setApiActiveWorld} from './lib/api';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 const LeaderboardView = lazy(() => import('./components/Leaderboard'));
 const Clasico = lazy(() => import('./components/Clasico'));
@@ -974,6 +974,7 @@ function App() {
 
   async function logout() {
     try {
+      setApiActiveWorld(null);
       await signOut(auth);
 
       setBackendUser(null);
