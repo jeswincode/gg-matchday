@@ -272,6 +272,8 @@ export default function GlobalMapPage({
   authUser = null,
   backendUser = null,
   onMessage,
+  message = "",
+  onClearMessage,
   onSignIn,
   onSignOut,
   onNavigateTab,
@@ -442,6 +444,13 @@ export default function GlobalMapPage({
           onOpenClubs={onOpenClubs}
         />
       </header>
+
+      {message && (
+        <div className="gg-world-feedback-toast" role="status">
+          <span>{message}</span>
+          <button type="button" onClick={onClearMessage} aria-label="Dismiss message">×</button>
+        </div>
+      )}
 
       {!enteredWorld ? (
         <>
