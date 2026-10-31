@@ -6,12 +6,12 @@ import {
 } from "./globalMapFixtures.js";
 import "./global-map-scene.css";
 
-const WIDTH = 1200;
-const HEIGHT = 720;
-const TILE_WIDTH = 32;
-const TILE_HEIGHT = 16;
-const ORIGIN_X = 600;
-const ORIGIN_Y = 76;
+const WIDTH = 1800;
+const HEIGHT = 1100;
+const TILE_WIDTH = 48;
+const TILE_HEIGHT = 24;
+const ORIGIN_X = WIDTH / 2;
+const ORIGIN_Y = HEIGHT / 2;
 const CAMERA_CENTER_X = WIDTH / 2;
 const CAMERA_CENTER_Y = HEIGHT / 2;
 
@@ -24,8 +24,10 @@ function project(column, row) {
 
 function terrain() {
   const result = [];
-  for (let row = 0; row < 19; row += 1) {
-    for (let column = 0; column < 23; column += 1) {
+  // A broad procedural landmass sits in an open ocean. World plots use the
+  // same logical coordinates, so kingdoms and claimable land stay aligned.
+  for (let row = -15; row <= 15; row += 1) {
+    for (let column = -20; column <= 20; column += 1) {
       const center = project(column, row);
       const hw = TILE_WIDTH / 2;
       const hh = TILE_HEIGHT / 2;
@@ -35,7 +37,7 @@ function terrain() {
         [center.x, center.y + hh],
         [center.x - hw, center.y],
       ].map(pair => pair.join(",")).join(" ");
-      const edge = Math.abs(column - 11) / 11 + Math.abs(row - 9) / 9;
+      const edge = Math.abs(column) / 20 + Math.abs(row) / 15;
       let kind = "grass";
       if (edge > 1.08) kind = "water";
       else if ((column * 7 + row * 11) % 17 === 0) kind = "forest";
@@ -45,6 +47,32 @@ function terrain() {
     }
   }
   return result;
+}
+
+function ClaimPlot({ plot, onClaim }) {
+  const point = project(plot.x, plot.y);
+  return (
+    <g
+      className="gg-global-map-plot"
+      transform={"translate(" + point.x + " " + point.y + ")"}
+      role="button"
+      tabIndex="0"
+      aria-label={"Claim open land plot " + (plot.slotIndex + 1)}
+      onClick={() => onClaim?.(plot)}
+      onKeyDown={event => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClaim?.(plot);
+        }
+      }}
+    >
+      <path className="gg-map-plot-ground" d="M-37 0 L0 -19 L37 0 L0 19 Z"/>
+      <path className="gg-map-plot-outline" d="M-37 0 L0 -19 L37 0 L0 19 Z"/>
+      <circle className="gg-map-plot-plus-disc" cx="0" cy="-3" r="12"/>
+      <path className="gg-map-plot-plus" d="M-5 -3 H5 M0 -8 V2"/>
+      <text className="gg-map-plot-label" x="0" y="31" textAnchor="middle">CLAIM LAND</text>
+    </g>
+  );
 }
 
 function Kingdom({ world, membership, selected, onSelect }) {
@@ -146,6 +174,8 @@ export default function GlobalMapScene({
   onSelectWorld,
   onEnterWorld,
   onRequestMembership,
+  availablePlots = [],
+  onClaimPlot,
 }) {
   const [selected, setSelected] = useState(null);
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
@@ -153,24 +183,27 @@ export default function GlobalMapScene({
   const instanceId = useId().replace(/:/g, "");
   const tiles = useMemo(() => terrain(), []);
   const fit = useMemo(() => {
-    const positions = worlds
-      .filter(world => Number.isFinite(world.globalMap?.x) && Number.isFinite(world.globalMap?.y))
-      .map(world => project(world.globalMap.x, world.globalMap.y));
+    const positions = [
+      ...worlds
+        .filter(world => Number.isFinite(world.globalMap?.x) && Number.isFinite(world.globalMap?.y))
+        .map(world => project(world.globalMap.x, world.globalMap.y)),
+      ...availablePlots.map(plot => project(plot.x, plot.y)),
+    ];
 
     if (!positions.length) {
-      return { centerX: WIDTH / 2, centerY: 300, scale: 1 };
+      return { centerX: ORIGIN_X, centerY: ORIGIN_Y, scale: 1 };
     }
 
     const minX = Math.min(...positions.map(position => position.x));
     const maxX = Math.max(...positions.map(position => position.x));
     const minY = Math.min(...positions.map(position => position.y));
     const maxY = Math.max(...positions.map(position => position.y));
-    const boundsWidth = Math.max(240, maxX - minX + 240);
-    const boundsHeight = Math.max(260, maxY - minY + 260);
-    const scale = Math.max(0.1, Math.min(
-      1,
-      (WIDTH - 140) / boundsWidth,
-      (HEIGHT - 150) / boundsHeight,
+    const boundsWidth = Math.max(680, maxX - minX + 440);
+    const boundsHeight = Math.max(520, maxY - minY + 360);
+    const scale = Math.max(0.36, Math.min(
+      1.25,
+      (WIDTH - 180) / boundsWidth,
+      (HEIGHT - 180) / boundsHeight,
     ));
 
     return {
@@ -227,7 +260,7 @@ export default function GlobalMapScene({
           <h1>Global Map</h1>
           <p>Discover football kingdoms. Travel between your Worlds.</p>
         </div>
-        <div className="gg-global-map-count"><strong>{worlds.length}</strong><span>public Worlds</span></div>
+        <div className="gg-global-map-count"><strong>{worlds.length}</strong><span>public Worlds</span><small>{availablePlots.length} plots open</small></div>
       </header>
       <div
         className="gg-global-map-viewport"
@@ -252,19 +285,22 @@ export default function GlobalMapScene({
           <circle cx="925" cy="480" r="280" fill={"url(#" + glowId + ")"}/>
           <g className="gg-global-map-camera"
             transform={"translate(" + (CAMERA_CENTER_X + camera.x) + " " + (CAMERA_CENTER_Y + camera.y) + ") scale(" + (camera.zoom * fit.scale) + ") translate(" + (-fit.centerX) + " " + (-fit.centerY) + ")"}>
-            <g transform={"translate(" + (fit.centerX - 600) + " " + (fit.centerY - 300) + ")"}>
+            <g transform={"translate(" + (fit.centerX - ORIGIN_X) + " " + (fit.centerY - ORIGIN_Y) + ")"}>
               {tiles.map(tile => (
                 <polygon key={tile.key} className={"gg-map-tile gg-map-tile-" + tile.kind} points={tile.points}/>
               ))}
-              <path className="gg-map-river" d="M160 260 C300 190 330 370 480 320 S690 170 820 250 S1010 390 1110 300"/>
-              <path className="gg-map-road" d="M250 430 C390 390 410 490 550 440 S790 340 920 420"/>
+              <path className="gg-map-river" d="M120 360 C390 180 460 650 760 430 S1190 210 1500 455 S1640 650 1770 390"/>
+              <path className="gg-map-road" d="M240 760 C490 610 600 850 890 680 S1330 570 1570 770"/>
               <g className="gg-map-decoration">
-                <path d="M220 226 l-15 -26 l30 0 Z M232 233 l-11 -20 l22 0 Z"/>
-                <path d="M960 180 l-17 -30 l34 0 Z M982 191 l-13 -23 l26 0 Z"/>
-                <path d="M430 555 l-16 -27 l32 0 Z M451 561 l-12 -21 l24 0 Z"/>
-                <path d="M1035 545 l-18 -30 l36 0 Z M1057 552 l-13 -23 l26 0 Z"/>
+                <path d="M360 290 l-24 -42 l48 0 Z M394 310 l-17 -31 l34 0 Z"/>
+                <path d="M1420 270 l-28 -48 l56 0 Z M1457 296 l-19 -34 l38 0 Z"/>
+                <path d="M360 810 l-25 -43 l50 0 Z M397 830 l-17 -30 l34 0 Z"/>
+                <path d="M1440 820 l-28 -48 l56 0 Z M1478 842 l-19 -34 l38 0 Z"/>
               </g>
             </g>
+            {availablePlots.map(plot => (
+              <ClaimPlot key={"plot-" + plot.slotIndex} plot={plot} onClaim={onClaimPlot}/>
+            ))}
             {worlds.filter(world => Number.isFinite(world.globalMap?.x) && Number.isFinite(world.globalMap?.y)).map(world => (
               <Kingdom key={world.slug} world={world}
                 membership={membershipStates[world.slug] || "none"}
@@ -277,7 +313,7 @@ export default function GlobalMapScene({
           <button type="button" onClick={() => setCamera(c => ({ ...c, zoom: Math.max(0.5, c.zoom - 0.25) }))} aria-label="Zoom out">−</button>
           <button type="button" onClick={() => setCamera({ x: 0, y: 0, zoom: 1 })} aria-label="Reset map view">⌖</button>
         </div>
-        <div className="gg-global-map-hint">Drag to explore · Select a kingdom to preview</div>
+        <div className="gg-global-map-hint">Drag to explore · Select a kingdom · Claim open land to found a World</div>
         <Preview
           world={activeSelection}
           membership={activeSelection ? membershipStates[activeSelection.slug] || "none" : "none"}
