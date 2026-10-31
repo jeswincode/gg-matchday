@@ -1,15 +1,16 @@
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
+const integer = value => Number.isInteger(value);
 
 const positionSchema = new Schema({
-  column: { type: Number, required: true, min: 0, max: 255, validate: Number.isInteger },
-  row: { type: Number, required: true, min: 0, max: 255, validate: Number.isInteger },
+  column: { type: Number, required: true, min: 0, max: 255, validate: integer },
+  row: { type: Number, required: true, min: 0, max: 255, validate: integer },
 }, { _id: false });
 
 const footprintSchema = new Schema({
-  width: { type: Number, required: true, min: 1, max: 32, default: 1, validate: Number.isInteger },
-  height: { type: Number, required: true, min: 1, max: 32, default: 1, validate: Number.isInteger },
+  width: { type: Number, required: true, min: 1, max: 32, default: 1, validate: integer },
+  height: { type: Number, required: true, min: 1, max: 32, default: 1, validate: integer },
 }, { _id: false });
 
 const worldMapFacilitySchema = new Schema({
@@ -17,7 +18,6 @@ const worldMapFacilitySchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "World",
     required: true,
-    index: true,
   },
   facilityKey: {
     type: String,
@@ -54,7 +54,7 @@ const worldMapFacilitySchema = new Schema({
     enum: [0, 90, 180, 270],
     default: 0,
   },
-  level: { type: Number, min: 1, max: 10, default: 1 },
+  level: { type: Number, min: 1, max: 10, default: 1, validate: integer },
   appearanceKey: { type: String, trim: true, maxlength: 64, default: "default" },
   status: {
     type: String,
