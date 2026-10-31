@@ -215,6 +215,15 @@ export default function GlobalMapScene({
   const activeSelection = worlds.find(world => world.slug === selectedWorldSlug) || selected;
 
   const selectWorld = world => {
+    // Selecting a kingdom the signed-in player already belongs to is the
+    // camera transition into that World. Public/non-member kingdoms open
+    // their preview and approval request flow instead.
+    if (membershipStates[world.slug] === "active" && onEnterWorld) {
+      setSelected(null);
+      onSelectWorld?.(world);
+      onEnterWorld(world);
+      return;
+    }
     setSelected(world);
     onSelectWorld?.(world);
   };
