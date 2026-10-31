@@ -126,7 +126,7 @@ function App() {
 
     if (target.closest('[role="dialog"]')) return true;
     // The Global Map owns its touch gestures for isometric camera panning.
-    if (target.closest(".gg-global-map-viewport")) return true;
+    if (target.closest(".gg-global-map-viewport, .gg-world-map-viewport")) return true;
 
     let current=target;
     while (current && current !== document.body) {
