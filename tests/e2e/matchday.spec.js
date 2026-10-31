@@ -273,22 +273,6 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
 
 
 test("World owner can create a kingdom, review a join request, and approve a member", async ({ page }) => {
-  page.on("request", request => {
-    if (request.url().includes("/worlds")) {
-      console.log("WORLD_BROWSER_REQUEST", request.method(), request.url());
-    }
-  });
-  page.on("requestfailed", request => {
-    if (request.url().includes("/worlds")) {
-      console.log("WORLD_BROWSER_REQUEST_FAILED", request.method(), request.url(), request.failure()?.errorText || "");
-    }
-  });
-  page.on("response", response => {
-    if (response.url().includes("/worlds")) {
-      console.log("WORLD_BROWSER_RESPONSE", response.status(), response.request().method(), response.url());
-    }
-  });
-
   const worldName = "E2E Global Map League " + Date.now();
   const ownerPlayerId = "65a000000000000000000001";
   const applicantPlayerId = "65a000000000000000000002";
@@ -300,7 +284,15 @@ test("World owner can create a kingdom, review a join request, and approve a mem
 
   await page.getByLabel("World name").fill(worldName);
   await page.getByLabel(/Description/).fill("A browser-tested public football community.");
+  const createWorldResponsePromise = page.waitForResponse(response =>
+    response.request().method() === "POST" &&
+    new URL(response.url()).pathname.endsWith("/api/worlds")
+  );
   await page.getByRole("button", { name: /Create World/ }).click();
+  const createWorldResponse = await createWorldResponsePromise;
+  expect(createWorldResponse.status()).toBe(201);
+  const createdWorld = await createWorldResponse.json();
+  const worldSlug = createdWorld.world.slug;
 
   await expect(page.getByText(worldName + " has been created. You are its owner.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Preview " + worldName })).toBeVisible();
@@ -317,21 +309,19 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   });
   await page.getByRole("button", { name: "Worlds" }).click();
   const membershipStateResponse = await membershipStateResponsePromise;
-  console.log("VIEWER_WORLD_MEMBERSHIPS", membershipStateResponse.status(), await membershipStateResponse.text());
+  expect(membershipStateResponse.status()).toBe(200);
   await page.getByRole("button", { name: "Preview " + worldName }).click();
   const joinResponsePromise = page.waitForResponse(response => {
     const url = new URL(response.url());
     return response.request().method() === "POST" &&
-      url.pathname.endsWith("/worlds/" + worldName.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "/join-requests");
-  }, { timeout: 10000 }).catch(() => null);
+      url.pathname.endsWith("/api/worlds/" + worldSlug + "/join-requests");
+  }, { timeout: 10000 });
   await page.getByRole("button", { name: "Request membership" }).click();
   const joinResponse = await joinResponsePromise;
-  if (joinResponse) {
-    console.log("WORLD_JOIN_REQUEST_RESPONSE", joinResponse.status(), await joinResponse.text());
-  } else {
-    console.log("WORLD_JOIN_REQUEST_NO_HTTP_RESPONSE", await page.locator(".account-bar").innerText().catch(() => ""));
-  }
-  await expect(page.getByText(/request to join this World|already awaiting approval|Sign in to request membership/i)).toBeVisible();
+  expect(joinResponse.status()).toBe(202);
+  const joinData = await joinResponse.json();
+  expect(joinData.membership.status).toBe("pending");
+  await expect(page.getByText("Your request to join this World has been submitted.")).toBeVisible();
   await expect(page.getByText("REQUEST PENDING")).toBeVisible();
 
   // The owner sees only requests for Worlds they administer and approves this one.
