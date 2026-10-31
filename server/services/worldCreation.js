@@ -181,6 +181,18 @@ export async function createWorldForUser({
 
       return createdWorld;
     } catch (error) {
+      if (process.env.NODE_ENV !== "production") {
+        const diagnostic = String(error?.message || "Unknown World creation failure")
+          .replace(/mongodb(?:\+srv)?:\/\/\S+/gi, "[redacted-connection]")
+          .replace(/[\r\n]+/g, " ")
+          .slice(0, 240);
+        console.error(JSON.stringify({
+          event: "world_creation_diagnostic",
+          errorName: error?.name || "Error",
+          errorCode: error?.code ?? null,
+          message: diagnostic,
+        }));
+      }
       if (isSlugConflict(error)) {
         throw httpError(409, "WORLD_SLUG_TAKEN", "That World slug is already in use.");
       }
