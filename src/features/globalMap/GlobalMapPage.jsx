@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import GlobalMapScene from "./GlobalMapScene";
+import WorldMapView from "./WorldMapView";
 
 async function fetchWorldData(isSignedIn) {
   const publicResult = await api("/worlds/map");
@@ -183,6 +184,10 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn 
   const [membershipStates, setMembershipStates] = useState({});
   const [reviewQueues, setReviewQueues] = useState([]);
   const [busyRequestId, setBusyRequestId] = useState("");
+  const [enteredWorld, setEnteredWorld] = useState(null);
+  const [enteredMap, setEnteredMap] = useState(null);
+  const [enteringWorld, setEnteringWorld] = useState(false);
+  const [interiorError, setInteriorError] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -274,6 +279,70 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn 
     await loadMap({ silent: true });
   };
 
+  const enterWorld = async world => {
+    if (!isSignedIn) {
+      onSignIn?.();
+      return;
+    }
+
+    setEnteringWorld(true);
+    setInteriorError("");
+    try {
+      const data = await api("/worlds/" + encodeURIComponent(world.slug) + "/map");
+      setEnteredWorld(world);
+      setEnteredMap(data);
+    } catch (error) {
+      setInteriorError(error?.message || "Could not enter this World.");
+    } finally {
+      setEnteringWorld(false);
+    }
+  };
+
+  const refreshEnteredMap = async () => {
+    if (!enteredWorld) return;
+    const data = await api("/worlds/" + encodeURIComponent(enteredWorld.slug) + "/map");
+    setEnteredMap(data);
+  };
+
+  if (enteredWorld) {
+    return (
+      <section className="tab-content gg-world-interior">
+        <header className="gg-world-interior-header">
+          <button
+            type="button"
+            className="gg-world-back-button"
+            onClick={() => {
+              setEnteredWorld(null);
+              setEnteredMap(null);
+              setInteriorError("");
+            }}
+          >
+            ← Global Map
+          </button>
+          <div>
+            <span className="gg-global-map-eyebrow">WELCOME TO YOUR WORLD</span>
+            <h1>{enteredWorld.name}</h1>
+          </div>
+        </header>
+        {enteringWorld && <p className="muted" role="status">Entering your World…</p>}
+        {interiorError && (
+          <div className="global-message" role="alert">
+            <span>{interiorError}</span>
+            <button type="button" onClick={() => enterWorld(enteredWorld)}>Retry</button>
+          </div>
+        )}
+        {enteredMap && (
+          <WorldMapView
+            world={enteredWorld}
+            data={enteredMap}
+            onUpdated={refreshEnteredMap}
+            onMessage={onMessage}
+          />
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="tab-content gg-global-map-page">
       <CreateWorldPanel
@@ -291,6 +360,7 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn 
         worlds={worlds}
         membershipStates={membershipStates}
         onRequestMembership={requestMembership}
+        onEnterWorld={enterWorld}
       />
       {loading && <p className="muted" role="status">Discovering football kingdoms…</p>}
       {!loading && !worlds.length && !loadError && (
