@@ -224,6 +224,11 @@ test("join approval and rejection queries are scoped to the World in the URL", a
     body: { name: "Other World", slug: "other-world" },
   });
   assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.deepEqual(created.data.world.globalMap, {
+    mapId: "gg-main-v1",
+    x: 8,
+    y: 0,
+  });
   otherWorld = await World.findOne({ slug: "other-world" });
 
   const secondRequest = await request("/worlds/other-world/join-requests", {
