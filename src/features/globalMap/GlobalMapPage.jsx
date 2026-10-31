@@ -322,8 +322,33 @@ export default function GlobalMapPage({
   useEffect(() => {
     let cancelled = false;
     fetchWorldData(isSignedIn)
-      .then(result => {
-        if (!cancelled) applyWorldData(result);
+      .then(async result => {
+        if (cancelled) return;
+        applyWorldData(result);
+
+        // Restore the active World when returning to Home after using another
+        // Matchday destination or reloading the tab. The explicit Global Map
+        // action clears this selector and therefore prevents auto-entry.
+        const activeSlug = isSignedIn ? getActiveWorldSlug() : null;
+        if (!activeSlug) return;
+
+        const world = result.worlds.find(item => item.slug === activeSlug);
+        if (!world || result.membershipStates[activeSlug] !== "active") {
+          setApiActiveWorld(null);
+          return;
+        }
+
+        try {
+          const data = await api("/worlds/" + encodeURIComponent(activeSlug) + "/map");
+          if (cancelled) return;
+          setEnteredWorld(world);
+          setEnteredMap(data);
+        } catch {
+          if (!cancelled) {
+            setApiActiveWorld(null);
+            setInteriorError("Could not restore this World. Choose it again from the Global Map.");
+          }
+        }
       })
       .catch(error => {
         if (!cancelled) setLoadError(error?.message || "Could not load the Global Map.");
