@@ -32,7 +32,7 @@ World status:
 - suspended
 - archived
 
-World global-map coordinates are assigned by the platform and are unique within the configured global map.
+World global-map coordinates are assigned and validated by platform map-placement logic. X and Y must be assigned together or both remain unset until placement is reserved.
 
 ## Membership fields
 
@@ -65,6 +65,8 @@ A partial unique index on worldId + playerProfileId prevents two accounts from c
 - left: the account voluntarily left the World.
 
 Only active memberships grant internal World access. Pending, rejected, suspended and left memberships do not.
+
+Every active membership, including the initial owner membership created with a World, must have an activation/approval timestamp. The approver may be null for the initial owner if the World creation transaction itself establishes ownership.
 
 ## Roles
 
