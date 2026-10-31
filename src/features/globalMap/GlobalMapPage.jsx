@@ -498,8 +498,13 @@ export default function GlobalMapPage({
           if (cancelled) return;
           setEnteredWorld(world);
           setEnteredMap(data);
-          const profileResult = await api("/worlds/" + encodeURIComponent(activeSlug) + "/player-profile");
-          if (!cancelled) setPlayerProfile(profileResult?.profile || null);
+          try {
+            const profileResult = await api("/worlds/" + encodeURIComponent(activeSlug) + "/player-profile");
+            if (!cancelled) setPlayerProfile(profileResult?.profile || null);
+          } catch (profileError) {
+            console.warn("World player profile could not be loaded:", profileError?.message || profileError);
+            if (!cancelled) setPlayerProfile(null);
+          }
         } catch {
           if (!cancelled) {
             setApiActiveWorld(null);
@@ -564,12 +569,17 @@ export default function GlobalMapPage({
     setInteriorError("");
     try {
       const data = await api("/worlds/" + encodeURIComponent(world.slug) + "/map");
-      const profileResult = await api("/worlds/" + encodeURIComponent(world.slug) + "/player-profile");
       setApiActiveWorld(world.slug);
       setEnteredWorld(world);
       setEnteredMap(data);
-      setPlayerProfile(profileResult?.profile || null);
+      setPlayerProfile(null);
       setWorldSwitcherOpen(false);
+      try {
+        const profileResult = await api("/worlds/" + encodeURIComponent(world.slug) + "/player-profile");
+        setPlayerProfile(profileResult?.profile || null);
+      } catch (profileError) {
+        console.warn("World player profile could not be loaded:", profileError?.message || profileError);
+      }
     } catch (error) {
       setInteriorError(error?.message || "Could not enter this World.");
     } finally {
