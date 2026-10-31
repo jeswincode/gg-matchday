@@ -30,6 +30,8 @@ const { default: WorldMapLayout } = await import("../server/models/WorldMapLayou
 const { default: WorldMapFacility } = await import("../server/models/WorldMapFacility.js");
 const { default: MediaAsset } = await import("../server/models/MediaAsset.js");
 const { default: Player } = await import("../server/models/Player.js");
+const { default: Match } = await import("../server/models/Match.js");
+const { default: News } = await import("../server/models/News.js");
 
 let database;
 let server;
@@ -38,12 +40,13 @@ let ownerWorld;
 let otherWorld;
 let pendingMembershipId;
 
-async function request(path, { token, method = "GET", body } = {}) {
+async function request(path, { token, method = "GET", body, worldSlug } = {}) {
   const response = await fetch(origin + "/api" + path, {
     method,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(worldSlug ? { "X-World-Slug": worldSlug } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
@@ -65,6 +68,8 @@ before(async () => {
     WorldMapFacility.init(),
     MediaAsset.init(),
     Player.init(),
+    Match.init(),
+    News.init(),
   ]);
 
   server = app.listen(0, "127.0.0.1");
@@ -493,4 +498,108 @@ test("one account can own a separate same-named Player profile in each World", a
   });
   assert.equal(duplicateOwnProfile.status, 409);
   assert.equal(duplicateOwnProfile.data.code, "WORLD_PLAYER_PROFILE_EXISTS");
+});
+
+
+test("Matchday Players, Matches, statistics and News are isolated between two Worlds", async () => {
+  const originalMembership = await WorldMembership.findOne({
+    worldId: ownerWorld._id,
+    userId: (await User.findOne({ firebaseUid: "world-test-owner" }))._id,
+  }).lean();
+  const secondMembership = await WorldMembership.findOne({
+    worldId: otherWorld._id,
+    userId: (await User.findOne({ firebaseUid: "world-test-owner" }))._id,
+  }).lean();
+  assert.ok(originalMembership?.playerProfileId);
+  assert.ok(secondMembership?.playerProfileId);
+
+  const originalPlayer = await Player.findOne({
+    _id: originalMembership.playerProfileId,
+    worldId: ownerWorld._id,
+  });
+  const secondPlayer = await Player.findOne({
+    _id: secondMembership.playerProfileId,
+    worldId: otherWorld._id,
+  });
+  assert.ok(originalPlayer);
+  assert.ok(secondPlayer);
+
+  const [originalMatch] = await Match.create([{
+    worldId: ownerWorld._id,
+    date: new Date("2026-10-02T12:00:00.000Z"),
+    name: "Original GG World Match",
+    teamA: { label: "Blue", score: 0 },
+    teamB: { label: "Gold", score: 0 },
+    participants: [{ player: originalPlayer._id, team: "A", rating: 7.2, ratingSystem: "gg-v3" }],
+    events: [],
+  }]);
+  const [secondMatch] = await Match.create([{
+    worldId: otherWorld._id,
+    date: new Date("2026-10-03T12:00:00.000Z"),
+    name: "Other World Match",
+    teamA: { label: "Red", score: 0 },
+    teamB: { label: "White", score: 0 },
+    participants: [{ player: secondPlayer._id, team: "A", rating: 8.1, ratingSystem: "gg-v3" }],
+    events: [],
+  }]);
+
+  const [originalNews] = await News.create([{
+    worldId: ownerWorld._id,
+    match: originalMatch._id,
+    headline: "Original GG only headline",
+    summary: "Only Original GG members should see this.",
+  }]);
+  const [secondNews] = await News.create([{
+    worldId: otherWorld._id,
+    match: secondMatch._id,
+    headline: "Other World only headline",
+    summary: "Only the other World members should see this.",
+  }]);
+
+  const originalPlayers = await request("/players", { token: "owner", worldSlug: "original-gg" });
+  const secondPlayers = await request("/players", { token: "owner", worldSlug: "other-world" });
+  assert.equal(originalPlayers.status, 200);
+  assert.equal(secondPlayers.status, 200);
+  assert.ok(originalPlayers.data.some(item => String(item._id) === String(originalPlayer._id)));
+  assert.ok(!originalPlayers.data.some(item => String(item._id) === String(secondPlayer._id)));
+  assert.ok(secondPlayers.data.some(item => String(item._id) === String(secondPlayer._id)));
+  assert.ok(!secondPlayers.data.some(item => String(item._id) === String(originalPlayer._id)));
+
+  const originalMatches = await request("/matches", { token: "owner", worldSlug: "original-gg" });
+  const secondMatches = await request("/matches", { token: "owner", worldSlug: "other-world" });
+  assert.ok(originalMatches.data.some(item => String(item._id) === String(originalMatch._id)));
+  assert.ok(!originalMatches.data.some(item => String(item._id) === String(secondMatch._id)));
+  assert.ok(secondMatches.data.some(item => String(item._id) === String(secondMatch._id)));
+  assert.ok(!secondMatches.data.some(item => String(item._id) === String(originalMatch._id)));
+
+  const crossWorldMatchDetail = await request("/matches/" + String(secondMatch._id), {
+    token: "owner",
+    worldSlug: "original-gg",
+  });
+  assert.equal(crossWorldMatchDetail.status, 404);
+
+  const originalOverview = await request("/stats/overview", { token: "owner", worldSlug: "original-gg" });
+  const secondOverview = await request("/stats/overview", { token: "owner", worldSlug: "other-world" });
+  assert.equal(originalOverview.data.matches, 1);
+  assert.equal(secondOverview.data.matches, 1);
+  assert.equal(originalOverview.data.players, 1);
+  assert.equal(secondOverview.data.players, 1);
+
+  const originalFeed = await request("/news", { token: "owner", worldSlug: "original-gg" });
+  const secondFeed = await request("/news", { token: "owner", worldSlug: "other-world" });
+  assert.ok(originalFeed.data.some(item => String(item._id) === String(originalNews._id)));
+  assert.ok(!originalFeed.data.some(item => String(item._id) === String(secondNews._id)));
+  assert.ok(secondFeed.data.some(item => String(item._id) === String(secondNews._id)));
+  assert.ok(!secondFeed.data.some(item => String(item._id) === String(originalNews._id)));
+
+  const crossWorldNews = await request("/news/" + String(secondNews._id), {
+    token: "owner",
+    worldSlug: "original-gg",
+  });
+  assert.equal(crossWorldNews.status, 404);
+
+  const legacyView = await request("/matches");
+  assert.ok(!legacyView.data.some(item =>
+    [String(originalMatch._id), String(secondMatch._id)].includes(String(item._id)),
+  ));
 });
