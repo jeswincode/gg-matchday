@@ -42,18 +42,30 @@ function asyncRoute(handler) {
 // Public map projection. Viewer membership state is deliberately not included;
 // clients load that separately from /me or /:slug/membership.
 router.get("/map", asyncRoute(async (req, res) => {
-  const worlds = await World.find({
-    visibility: "public",
-    status: "active",
-    "globalMap.x": { $type: "number" },
-    "globalMap.y": { $type: "number" },
-  })
-    .select("name slug description branding globalMap")
-    .sort({ createdAt: 1, _id: 1 })
-    .limit(500)
-    .lean();
+  const [worlds, occupiedWorlds] = await Promise.all([
+    World.find({
+      visibility: "public",
+      status: "active",
+      "globalMap.x": { $type: "number" },
+      "globalMap.y": { $type: "number" },
+    })
+      .select("name slug description branding globalMap")
+      .sort({ createdAt: 1, _id: 1 })
+      .limit(500)
+      .lean(),
+    World.find({
+      status: "active",
+      "globalMap.mapId": "gg-main-v1",
+      "globalMap.x": { $type: "number" },
+      "globalMap.y": { $type: "number" },
+    })
+      .select("globalMap.x globalMap.y")
+      .lean(),
+  ]);
 
-  const availablePlots = availableGlobalMapSlots(worlds, 16);
+  // Plot availability considers every active World even though the public
+  // directory projection is capped for payload size.
+  const availablePlots = availableGlobalMapSlots(occupiedWorlds, 16);
   if (!worlds.length) return res.json({ worlds: [], availablePlots });
 
   const worldIds = worlds.map(world => world._id);
