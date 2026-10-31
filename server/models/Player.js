@@ -148,7 +148,7 @@ playerSchema.pre("validate", function normalizeWorldPlayerName() {
   if (typeof this.name === "string") {
     this.nameNormalized = this.name
       .normalize("NFKD")
-      .replace(/[\\u0300-\\u036f]/g, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .trim()
       .toLocaleLowerCase("en");
   }
