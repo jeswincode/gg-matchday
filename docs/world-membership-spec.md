@@ -112,6 +112,23 @@ Never trust a user-supplied role, membership status, playerProfileId or worldId.
 
 Public discovery and join-request creation are explicit global/public routes. Internal World APIs require active membership.
 
+## Implemented API flow
+
+The initial route contract is:
+- `GET /api/worlds/map`
+- `GET /api/worlds/:slug`
+- `GET /api/worlds/me`
+- `GET /api/worlds/:slug/membership`
+- `POST /api/worlds`
+- `POST /api/worlds/:slug/join-requests`
+- `GET /api/worlds/:slug/join-requests`
+- `POST /api/worlds/:slug/join-requests/:membershipId/approve`
+- `POST /api/worlds/:slug/join-requests/:membershipId/reject`
+
+The Global Map projection intentionally excludes viewer-specific membership fields. The signed-in user's membership state is obtained through their own membership endpoints.
+
+Membership decisions use a compare-and-set style filter containing the request ID, resolved World ID and pending status. A request from another World cannot be approved/rejected by changing its ID in the URL.
+
 ## Account lifecycle
 
 Leaving or suspending a World must not delete the global account, Player history or World records. Deletion/anonymisation policies will be designed separately and must respect match and financial audit history.
