@@ -118,6 +118,78 @@ router.get("/me", requireAuth, asyncRoute(async (req, res) => {
   });
 }));
 
+// Link an existing World-specific Player profile to the signed-in account.
+// Profile ownership is recorded on WorldMembership, never inferred from a
+// globally unique player name or the legacy User.playerProfile field.
+router.post(
+  "/:slug/player-profile",
+  requireAuth,
+  resolveWorldContext,
+  requireActiveWorldMembership,
+  asyncRoute(async (req, res) => {
+    const playerId = String(req.body?.playerId || "");
+    if (!mongoose.isValidObjectId(playerId)) {
+      return res.status(400).json({
+        message: "Choose a valid player profile.",
+        code: "WORLD_PLAYER_PROFILE_INVALID",
+      });
+    }
+
+    const Player = (await import("../models/Player.js")).default;
+    const player = await Player.findOne({
+      _id: playerId,
+      worldId: req.worldId,
+    }).select("_id name profileImage position").lean();
+
+    if (!player) {
+      return res.status(404).json({
+        message: "That player profile does not belong to this World.",
+        code: "WORLD_PLAYER_PROFILE_NOT_FOUND",
+      });
+    }
+
+    const collision = await WorldMembership.exists({
+      worldId: req.worldId,
+      playerProfileId: player._id,
+      userId: { $ne: req.user._id },
+    });
+    if (collision) {
+      return res.status(409).json({
+        message: "That player profile is already linked to another account.",
+        code: "WORLD_PLAYER_PROFILE_ALREADY_LINKED",
+      });
+    }
+
+    const membership = await WorldMembership.findOneAndUpdate(
+      {
+        _id: req.membership._id,
+        worldId: req.worldId,
+        userId: req.user._id,
+        status: "active",
+      },
+      { $set: { playerProfileId: player._id } },
+      { new: true, runValidators: true },
+    );
+
+    if (!membership) {
+      return res.status(409).json({
+        message: "Your World membership changed. Refresh and try again.",
+        code: "WORLD_MEMBERSHIP_CONFLICT",
+      });
+    }
+
+    return res.json({
+      message: "Player profile linked to this World.",
+      profile: player,
+      membership: {
+        role: membership.role,
+        status: membership.status,
+        playerProfileId: membership.playerProfileId,
+      },
+    });
+  }),
+);
+
 // Create a public World. Its owner membership, isometric layout and standard
 // facilities are created in one MongoDB transaction.
 router.post("/", requireAuth, asyncRoute(async (req, res) => {
