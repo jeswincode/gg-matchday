@@ -22,7 +22,7 @@ const LOCAL_OPEN_PLOTS = Object.freeze([
 ]);
 
 const FACILITY_PRESENTATION = {
-  central_stadium: { label: "Central Stadium", icon: "⚽",
+  central_stadium: { label: "Central Stadium", icon: "⚽" },
   club_district: { label: "Club District", icon: "🏟️" },
   construction_grounds: { label: "Construction Grounds", icon: "🏗️" },
   captains_arena: { label: "Captains' Arena", icon: "👑" },
