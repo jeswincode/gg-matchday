@@ -26,6 +26,10 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signOut,
 } from "firebase/auth";
 
@@ -969,6 +973,79 @@ function App() {
           ? "Sign-in cancelled."
           : `${finalError?.code || "auth-error"}: ${finalError?.message || "Google sign-in failed."}`,
       );
+    }
+  }
+
+  function authErrorMessage(error) {
+    const messages = {
+      "auth/invalid-email": "Enter a valid email address.",
+      "auth/user-not-found": "No account was found with that email.",
+      "auth/wrong-password": "The password is incorrect.",
+      "auth/invalid-credential": "The email or password is incorrect.",
+      "auth/email-already-in-use": "An account already exists with this email. Try signing in.",
+      "auth/weak-password": "Choose a stronger password with at least 6 characters.",
+      "auth/too-many-requests": "Too many attempts. Wait a moment and try again.",
+      "auth/network-request-failed": "A network error interrupted sign-in. Check your connection.",
+      "auth/operation-not-allowed": "Email and password sign-in is not enabled in the Firebase project yet.",
+    };
+    return messages[error?.code] || "Authentication could not be completed. Please try again.";
+  }
+
+  async function signInWithEmail(email, password) {
+    if (!auth) {
+      setMessage("Sign-in is not configured for this environment yet.");
+      return false;
+    }
+    try {
+      setMessage("");
+      setAuthLoading(true);
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
+    } catch (error) {
+      console.error("Email sign-in error:", error);
+      setAuthLoading(false);
+      setMessage(authErrorMessage(error));
+      return false;
+    }
+  }
+
+  async function createEmailAccount(email, password) {
+    if (!auth) {
+      setMessage("Sign-in is not configured for this environment yet.");
+      return false;
+    }
+    try {
+      setMessage("");
+      setAuthLoading(true);
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      try {
+        await sendEmailVerification(credential.user);
+        setMessage("Your GG account is ready. Check your inbox to verify your email address.");
+      } catch (verificationError) {
+        console.warn("Email verification could not be sent:", verificationError);
+        setMessage("Your GG account is ready. You can request an email verification link from your account settings later.");
+      }
+      return true;
+    } catch (error) {
+      console.error("Email account creation error:", error);
+      setAuthLoading(false);
+      setMessage(authErrorMessage(error));
+      return false;
+    }
+  }
+
+  async function resetEmailPassword(email) {
+    if (!auth) {
+      setMessage("Sign-in is not configured for this environment yet.");
+      return false;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (error) {
+      console.error("Password reset request error:", error);
+      setMessage(authErrorMessage(error));
+      return false;
     }
   }
 
@@ -2398,7 +2475,17 @@ function App() {
   }
 
   if (activeExperience === "entry") {
-    return <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} message={message} />;
+    return (
+      <LoginDashboard
+        onSignIn={signIn}
+        onEmailSignIn={signInWithEmail}
+        onCreateAccount={createEmailAccount}
+        onPasswordReset={resetEmailPassword}
+        onGuest={enterGuestMode}
+        busy={authLoading}
+        message={message}
+      />
+    );
   }
 
   if (activeExperience === "welcome") {
