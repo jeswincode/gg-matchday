@@ -22,7 +22,7 @@ const clubPlayerStatsSchema = new mongoose.Schema(
   { timestamps: true, collection: "clubPlayerStats" },
 );
 
-clubPlayerStatsSchema.index({ clubId: 1, playerId: 1 }, { unique: true });
+clubPlayerStatsSchema.index({ worldId: 1, clubId: 1, playerId: 1 }, { unique: true, name: "club_player_stats_world_club_player_unique" });
 
 clubPlayerStatsSchema.plugin(worldDataScopePlugin);
 
