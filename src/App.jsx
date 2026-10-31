@@ -2584,6 +2584,7 @@ function App() {
         <GlobalMapPage
           isSignedIn={isSignedIn}
           onMessage={setMessage}
+          onSignIn={() => setExperience("entry")}
         />
       )}
 
