@@ -1,5 +1,5 @@
 import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
-import { requireOptionalWorldMembership, domainWorldFilter, requireDomainCapability } from "../middleware/domainWorldContext.js";
+import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope, requireDomainCapability } from "../middleware/domainWorldContext.js";
 import { limitAI } from "../services/editorial.js";
 import express from "express";
 import mongoose from "mongoose";
@@ -10,6 +10,7 @@ import { normalizeGoalMilestoneHeadline } from "../services/matchNews.js";
 
 const router = express.Router();
 router.use(requireOptionalWorldMembership);
+router.use(withWorldDataScope);
 const worldFilter = req => domainWorldFilter(req);
 const invalidId = value => !mongoose.isValidObjectId(value);
 const populateNews = query => query
