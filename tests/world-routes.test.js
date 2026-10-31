@@ -212,6 +212,84 @@ test("only an owner/admin in the same World can approve a pending join request",
   assert.equal(ownerMe.data.worlds[0].membership.status, "active");
 });
 
+
+
+test("World map is member-only and owner edits enforce overlap, bounds and optimistic versioning", async () => {
+  const unauthenticated = await request("/worlds/original-gg/map");
+  assert.equal(unauthenticated.status, 401);
+
+  const ownerMap = await request("/worlds/original-gg/map", { token: "owner" });
+  assert.equal(ownerMap.status, 200, JSON.stringify(ownerMap.data));
+  assert.equal(ownerMap.data.facilities.length, 8);
+  assert.equal(ownerMap.data.permissions.canEditMap, true);
+  assert.equal(ownerMap.data.layout.layoutVersion, 1);
+
+  const memberMap = await request("/worlds/original-gg/map", { token: "viewer" });
+  assert.equal(memberMap.status, 200);
+  assert.equal(memberMap.data.permissions.canEditMap, false);
+
+  const memberEdit = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "viewer",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 1,
+      position: { column: 20, row: 20 },
+      rotation: 0,
+    },
+  });
+  assert.equal(memberEdit.status, 403);
+  assert.equal(memberEdit.data.code, "WORLD_CAPABILITY_REQUIRED");
+
+  const moved = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 1,
+      position: { column: 20, row: 20 },
+      rotation: 0,
+    },
+  });
+  assert.equal(moved.status, 200, JSON.stringify(moved.data));
+  assert.deepEqual(moved.data.facility.position, { column: 20, row: 20 });
+  assert.equal(moved.data.layoutVersion, 2);
+
+  const overlap = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 2,
+      position: { column: 37, row: 10 },
+      rotation: 0,
+    },
+  });
+  assert.equal(overlap.status, 409);
+  assert.equal(overlap.data.code, "WORLD_MAP_FACILITY_OVERLAP");
+
+  const stale = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 1,
+      position: { column: 21, row: 20 },
+      rotation: 0,
+    },
+  });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.data.code, "WORLD_MAP_VERSION_CONFLICT");
+
+  const outOfBounds = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 2,
+      position: { column: 59, row: 59 },
+      rotation: 0,
+    },
+  });
+  assert.equal(outOfBounds.status, 400);
+  assert.equal(outOfBounds.data.code, "FACILITY_OUT_OF_BOUNDS");
+});
+
 test("a global legacy admin role does not grant World membership review access", async () => {
   const withoutMembership = await request("/worlds/original-gg/join-requests", { token: "admin" });
   assert.equal(withoutMembership.status, 403);
