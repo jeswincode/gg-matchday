@@ -6,6 +6,7 @@ async function fetchWorldData(isSignedIn) {
   const publicResult = await api("/worlds/map");
   const worlds = Array.isArray(publicResult?.worlds) ? publicResult.worlds : [];
   let membershipStates = {};
+  let reviewQueues = [];
 
   if (isSignedIn) {
     const ownResult = await api("/worlds/me");
@@ -15,9 +16,25 @@ async function fetchWorldData(isSignedIn) {
       const status = item?.membership?.status;
       if (item?.slug && status) membershipStates[item.slug] = status;
     }
+
+    const reviewableWorlds = ownWorlds.filter(item =>
+      item?.membership?.status === "active" &&
+      ["owner", "admin"].includes(item?.membership?.role),
+    );
+    const queues = await Promise.allSettled(reviewableWorlds.map(async world => {
+      const result = await api("/worlds/" + encodeURIComponent(world.slug) + "/join-requests");
+      return {
+        slug: world.slug,
+        name: world.name,
+        requests: Array.isArray(result?.requests) ? result.requests : [],
+      };
+    }));
+    reviewQueues = queues
+      .filter(item => item.status === "fulfilled" && item.value.requests.length > 0)
+      .map(item => item.value);
   }
 
-  return { worlds, membershipStates };
+  return { worlds, membershipStates, reviewQueues };
 }
 
 function CreateWorldPanel({ isSignedIn, onSignIn, onCreated, onMessage }) {
@@ -99,21 +116,89 @@ function CreateWorldPanel({ isSignedIn, onSignIn, onCreated, onMessage }) {
   );
 }
 
+function JoinRequestInbox({ queues, onDecide, busyId }) {
+  if (!queues.length) return null;
+
+  return (
+    <section className="gg-world-requests" aria-labelledby="gg-world-requests-title">
+      <div className="gg-world-requests-heading">
+        <div>
+          <span className="gg-world-create-eyebrow">WORLD ADMINISTRATION</span>
+          <h2 id="gg-world-requests-title">Membership requests</h2>
+        </div>
+        <span className="gg-world-request-count">
+          {queues.reduce((total, queue) => total + queue.requests.length, 0)} awaiting review
+        </span>
+      </div>
+      {queues.map(queue => (
+        <div className="gg-world-request-group" key={queue.slug}>
+          <h3>{queue.name}</h3>
+          {queue.requests.map(request => {
+            const busy = busyId === request.id;
+            const applicantName = request.user?.name || "GG member";
+            return (
+              <article className="gg-world-request-item" key={request.id}>
+                <div className="gg-world-request-person">
+                  {request.user?.profileImage ? (
+                    <img src={request.user.profileImage} alt="" />
+                  ) : (
+                    <span aria-hidden="true">{applicantName.charAt(0).toUpperCase()}</span>
+                  )}
+                  <div>
+                    <strong>{applicantName}</strong>
+                    <small>Requested to join {queue.name}</small>
+                  </div>
+                </div>
+                <div className="gg-world-request-actions">
+                  <button
+                    type="button"
+                    className="gg-world-approve"
+                    disabled={busy}
+                    aria-label={"Approve " + applicantName}
+                    onClick={() => onDecide(queue.slug, request.id, "approve")}
+                  >
+                    {busy ? "Saving…" : "Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    className="gg-world-reject"
+                    disabled={busy}
+                    aria-label={"Reject " + applicantName}
+                    onClick={() => onDecide(queue.slug, request.id, "reject")}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn }) {
   const [worlds, setWorlds] = useState([]);
   const [membershipStates, setMembershipStates] = useState({});
+  const [reviewQueues, setReviewQueues] = useState([]);
+  const [busyRequestId, setBusyRequestId] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
+
+  const applyWorldData = result => {
+    setWorlds(result.worlds);
+    setMembershipStates(result.membershipStates);
+    setReviewQueues(result.reviewQueues);
+    setLoadError("");
+  };
 
   const loadMap = useCallback(async ({ silent = false } = {}) => {
     if (silent) setRefreshing(true);
 
     try {
-      const result = await fetchWorldData(isSignedIn);
-      setWorlds(result.worlds);
-      setMembershipStates(result.membershipStates);
-      setLoadError("");
+      applyWorldData(await fetchWorldData(isSignedIn));
     } catch (error) {
       setLoadError(error?.message || "Could not load the Global Map.");
     } finally {
@@ -127,14 +212,10 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn 
 
     fetchWorldData(isSignedIn)
       .then(result => {
-        if (cancelled) return;
-        setWorlds(result.worlds);
-        setMembershipStates(result.membershipStates);
-        setLoadError("");
+        if (!cancelled) applyWorldData(result);
       })
       .catch(error => {
-        if (cancelled) return;
-        setLoadError(error?.message || "Could not load the Global Map.");
+        if (!cancelled) setLoadError(error?.message || "Could not load the Global Map.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -168,6 +249,23 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn 
     }
   };
 
+  const decideJoinRequest = async (worldSlug, membershipId, decision) => {
+    setBusyRequestId(membershipId);
+    try {
+      const result = await api(
+        "/worlds/" + encodeURIComponent(worldSlug) +
+        "/join-requests/" + encodeURIComponent(membershipId) + "/" + decision,
+        { method: "POST", body: {} },
+      );
+      onMessage?.(result?.message || "Membership request updated.");
+      await loadMap({ silent: true });
+    } catch (error) {
+      onMessage?.(error?.message || "Could not update this membership request.");
+    } finally {
+      setBusyRequestId("");
+    }
+  };
+
   const handleWorldCreated = async result => {
     const slug = result?.world?.slug;
     if (slug) {
@@ -183,6 +281,11 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn 
         onSignIn={onSignIn}
         onCreated={handleWorldCreated}
         onMessage={onMessage}
+      />
+      <JoinRequestInbox
+        queues={reviewQueues}
+        busyId={busyRequestId}
+        onDecide={decideJoinRequest}
       />
       <GlobalMapScene
         worlds={worlds}
