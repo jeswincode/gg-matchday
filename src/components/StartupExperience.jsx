@@ -42,7 +42,43 @@ export function StartupScreen({authLoading,onComplete}){
   </main>;
 }
 
-export function LoginDashboard({onSignIn,onGuest,busy,message}){
+export function LoginDashboard({
+  onSignIn,
+  onEmailSignIn,
+  onCreateAccount,
+  onPasswordReset,
+  onGuest,
+  busy,
+  message,
+}) {
+  const [mode, setMode] = useState("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [formMessage, setFormMessage] = useState("");
+
+  const createAccount = mode === "create";
+
+  async function submit(event) {
+    event.preventDefault();
+    setFormMessage("");
+    if (!email.trim() || !password) return;
+    if (password.length < 6) {
+      setFormMessage("Use a password with at least 6 characters.");
+      return;
+    }
+    await (createAccount ? onCreateAccount : onEmailSignIn)?.(email.trim(), password);
+  }
+
+  async function resetPassword() {
+    setFormMessage("");
+    if (!email.trim()) {
+      setFormMessage("Enter your email address first, then choose Forgot password.");
+      return;
+    }
+    const result = await onPasswordReset?.(email.trim());
+    if (result !== false) setFormMessage("Password reset instructions have been sent if the account exists.");
+  }
+
   return <main className="gg-entry-screen">
     <section className="gg-entry-shell">
       <div className="gg-entry-visual" aria-hidden="true">
@@ -53,24 +89,80 @@ export function LoginDashboard({onSignIn,onGuest,busy,message}){
       </div>
 
       <div className="gg-entry-copy">
-        <p className="gg-refined-eyebrow">WELCOME TO GG MATCHDAY</p>
+        <p className="gg-refined-eyebrow">THE FOOTBALL UNIVERSE</p>
         <h1>Your football journey starts here.</h1>
-        <p>Track matches, build your record, compare players, and see where your game takes you.</p>
+        <p>One GG account. Multiple football Worlds. Your own player identity and football history in every community you join.</p>
       </div>
 
-      {message&&<div className="gg-entry-error" role="alert">{message}</div>}
+      {(message || formMessage) && (
+        <div className="gg-entry-error" role="alert">{formMessage || message}</div>
+      )}
 
+      <div className="gg-entry-auth-mode" role="tablist" aria-label="Account access">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!createAccount}
+          className={!createAccount ? "active" : ""}
+          onClick={() => { setMode("signin"); setFormMessage(""); }}
+        >Sign in</button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={createAccount}
+          className={createAccount ? "active" : ""}
+          onClick={() => { setMode("create"); setFormMessage(""); }}
+        >Create account</button>
+      </div>
+
+      <form className="gg-entry-email-form" onSubmit={submit}>
+        <label>
+          Email address
+          <input
+            type="email"
+            name="email"
+            autoComplete="email"
+            value={email}
+            onChange={event => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+        <label>
+          Password
+          <input
+            type="password"
+            name="password"
+            autoComplete={createAccount ? "new-password" : "current-password"}
+            value={password}
+            onChange={event => setPassword(event.target.value)}
+            placeholder="At least 6 characters"
+            minLength={6}
+            required
+          />
+        </label>
+        {!createAccount && (
+          <button type="button" className="gg-entry-forgot" onClick={resetPassword} disabled={busy}>
+            Forgot password?
+          </button>
+        )}
+        <button type="submit" className="gg-entry-email-submit" disabled={busy || !email.trim() || password.length < 6}>
+          {busy ? "Please wait…" : createAccount ? "Create your GG account" : "Sign in with email"}
+        </button>
+      </form>
+
+      <div className="gg-entry-divider"><span>OR</span></div>
       <div className="gg-entry-actions">
         <button type="button" className="gg-entry-google" onClick={onSignIn} disabled={busy}>
           <span className="gg-google-g" aria-hidden="true">G</span>
           {busy ? "Opening Google…" : "Continue with Google"}
         </button>
         <button type="button" className="gg-entry-guest" onClick={onGuest} disabled={busy}>
-          Explore as Guest
+          Explore the Global Map as Guest
         </button>
       </div>
 
-      <p className="gg-entry-note">Guest mode is read-only. Sign in to access your Matchday account.</p>
+      <p className="gg-entry-note">Guests can explore public Worlds. Sign in to request membership, create a World and build your player profile.</p>
     </section>
   </main>;
 }
