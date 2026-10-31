@@ -67,14 +67,30 @@ export function slugFromWorldName(value) {
     .replace(/-+$/g, "");
 }
 
-async function nextGlobalPosition(session) {
+export function availableGlobalMapSlots(existingWorlds = [], limit = 16) {
+  const occupied = new Set(
+    existingWorlds
+      .filter(world => Number.isFinite(world?.globalMap?.x) && Number.isFinite(world?.globalMap?.y))
+      .map(world => String(world.globalMap.x) + ":" + String(world.globalMap.y)),
+  );
+  const slots = [];
+  for (let index = 0; index < 250000 && slots.length < limit; index += 1) {
+    const position = globalPositionAt(index);
+    if (!occupied.has(String(position.x) + ":" + String(position.y))) {
+      slots.push({ slotIndex: index, ...position });
+    }
+  }
+  return slots;
+}
+
+async function nextGlobalPosition(session, requestedSlotIndex = null) {
   const existing = await World.find({
     status: "active",
     "globalMap.mapId": GLOBAL_MAP_ID,
     "globalMap.x": { $type: "number" },
     "globalMap.y": { $type: "number" },
   })
-    .select("globalMap.x globalMap.y")
+    .select("globalMap.slotIndex globalMap.x globalMap.y")
     .session(session)
     .lean();
 
@@ -82,14 +98,20 @@ async function nextGlobalPosition(session) {
     existing.map(world => String(world.globalMap.x) + ":" + String(world.globalMap.y)),
   );
 
-  // Logical coordinates grow as a deterministic square spiral. This keeps
-  // successive kingdoms close together and the map footprint roughly balanced.
-  for (let index = 0; index < 250000; index += 1) {
-    const position = globalPositionAt(index);
-    if (!occupied.has(String(position.x) + ":" + String(position.y))) {
-      return { mapId: GLOBAL_MAP_ID, ...position };
+  if (requestedSlotIndex !== null) {
+    if (!Number.isSafeInteger(requestedSlotIndex) || requestedSlotIndex < 0 || requestedSlotIndex >= 250000) {
+      throw httpError(400, "GLOBAL_MAP_SLOT_INVALID", "Choose a valid available plot on the Global Map.");
     }
+    const requestedPosition = globalPositionAt(requestedSlotIndex);
+    if (occupied.has(String(requestedPosition.x) + ":" + String(requestedPosition.y))) {
+      throw httpError(409, "GLOBAL_MAP_SLOT_TAKEN", "That plot has already been claimed. Choose another open plot.");
+    }
+    return { mapId: GLOBAL_MAP_ID, slotIndex: requestedSlotIndex, ...requestedPosition };
   }
+
+  // System-created Worlds use the first available position on the same spiral.
+  const free = availableGlobalMapSlots(existing, 1)[0];
+  if (free) return { mapId: GLOBAL_MAP_ID, ...free };
 
   throw httpError(503, "GLOBAL_MAP_FULL", "GG could not allocate a Global Map position.");
 }
@@ -121,6 +143,7 @@ export async function createWorldForUser({
   name,
   slug,
   description = "",
+  globalMapSlotIndex = null,
 }) {
   if (!user?._id) throw httpError(401, "AUTHENTICATION_REQUIRED", "Authentication required.");
 
@@ -144,7 +167,7 @@ export async function createWorldForUser({
     let createdWorld = null;
     try {
       await session.withTransaction(async () => {
-        const globalMap = await nextGlobalPosition(session);
+        const globalMap = await nextGlobalPosition(session, globalMapSlotIndex);
         const [world] = await World.create([{
           name: normalizedName,
           slug: normalizedSlug,
@@ -219,6 +242,9 @@ export async function createWorldForUser({
       }
       if (isSlugConflict(error)) {
         throw httpError(409, "WORLD_SLUG_TAKEN", "That World slug is already in use.");
+      }
+      if (isGlobalMapPositionConflict(error) && globalMapSlotIndex !== null) {
+        throw httpError(409, "GLOBAL_MAP_SLOT_TAKEN", "That plot has already been claimed. Choose another open plot.");
       }
       if (isGlobalMapPositionConflict(error) && attempt < 2) continue;
       if (
