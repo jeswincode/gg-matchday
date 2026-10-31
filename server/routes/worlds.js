@@ -10,7 +10,10 @@ import {
   requireWorldCapability,
 } from "../middleware/worldPermissions.js";
 import { getWorldMapSnapshot, moveWorldMapFacility } from "../services/worldMapLayout.js";
-import { createWorldForUser } from "../services/worldCreation.js";
+import {
+  availableGlobalMapSlots,
+  createWorldForUser,
+} from "../services/worldCreation.js";
 
 const router = express.Router();
 
@@ -25,6 +28,7 @@ function safeWorld(world, memberCount = 0) {
     memberCount,
     globalMap: {
       mapId: world.globalMap?.mapId || "gg-main-v1",
+      slotIndex: Number.isSafeInteger(world.globalMap?.slotIndex) ? world.globalMap.slotIndex : null,
       x: world.globalMap?.x,
       y: world.globalMap?.y,
     },
@@ -49,7 +53,8 @@ router.get("/map", asyncRoute(async (req, res) => {
     .limit(500)
     .lean();
 
-  if (!worlds.length) return res.json({ worlds: [] });
+  const availablePlots = availableGlobalMapSlots(worlds, 16);
+  if (!worlds.length) return res.json({ worlds: [], availablePlots });
 
   const worldIds = worlds.map(world => world._id);
   const counts = await WorldMembership.aggregate([
@@ -60,6 +65,7 @@ router.get("/map", asyncRoute(async (req, res) => {
 
   return res.json({
     worlds: worlds.map(world => safeWorld(world, countByWorld.get(String(world._id)) || 0)),
+    availablePlots,
   });
 }));
 
@@ -104,7 +110,7 @@ router.get("/me", requireAuth, asyncRoute(async (req, res) => {
 // Create a public World. Its owner membership, isometric layout and standard
 // facilities are created in one MongoDB transaction.
 router.post("/", requireAuth, asyncRoute(async (req, res) => {
-  const allowed = new Set(["name", "slug", "description"]);
+  const allowed = new Set(["name", "slug", "description", "globalMapSlotIndex"]);
   const unexpected = Object.keys(req.body || {}).filter(key => !allowed.has(key));
   if (unexpected.length) {
     return res.status(400).json({
@@ -119,6 +125,7 @@ router.post("/", requireAuth, asyncRoute(async (req, res) => {
     name: req.body?.name,
     slug: req.body?.slug,
     description: req.body?.description,
+    globalMapSlotIndex: req.body?.globalMapSlotIndex ?? null,
   });
 
   return res.status(201).json({
