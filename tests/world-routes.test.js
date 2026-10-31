@@ -95,6 +95,7 @@ test("World creation atomically creates owner membership, map layout and standar
   assert.equal(result.status, 201, JSON.stringify(result.data));
   assert.equal(result.data.world.slug, "original-gg");
   assert.equal(result.data.world.globalMap.mapId, "gg-main-v1");
+  assert.equal(result.data.world.globalMap.slotIndex, 0);
   assert.equal(result.data.membership.role, "owner");
   assert.equal(result.data.membership.status, "active");
 
@@ -137,6 +138,8 @@ test("public Global Map and World preview expose World info but not viewer membe
   assert.equal(map.data.worlds.length, 1);
   assert.equal(map.data.worlds[0].slug, "original-gg");
   assert.equal(map.data.worlds[0].memberCount, 1);
+  assert.equal(map.data.availablePlots.length, 16);
+  assert.equal(map.data.availablePlots[0].slotIndex, 1);
   assert.equal(Object.hasOwn(map.data.worlds[0], "membership"), false);
   assert.equal(Object.hasOwn(map.data.worlds[0], "ownerUserId"), false);
 
@@ -312,15 +315,33 @@ test("join approval and rejection queries are scoped to the World in the URL", a
   const created = await request("/worlds", {
     token: "other",
     method: "POST",
-    body: { name: "Other World", slug: "other-world" },
+    body: {
+      name: "Other World",
+      slug: "other-world",
+      globalMapSlotIndex: 8,
+    },
   });
   assert.equal(created.status, 201, JSON.stringify(created.data));
   assert.deepEqual(created.data.world.globalMap, {
     mapId: "gg-main-v1",
+    slotIndex: 8,
     x: 8,
-    y: 0,
+    y: 8,
   });
   otherWorld = await World.findOne({ slug: "other-world" });
+
+  const duplicatePlot = await request("/worlds", {
+    token: "member-two",
+    method: "POST",
+    body: {
+      name: "Plot Collision World",
+      slug: "plot-collision-world",
+      globalMapSlotIndex: 8,
+    },
+  });
+  assert.equal(duplicatePlot.status, 409);
+  assert.equal(duplicatePlot.data.code, "GLOBAL_MAP_SLOT_TAKEN");
+  assert.equal(await World.countDocuments({ slug: "plot-collision-world" }), 0);
 
   const secondRequest = await request("/worlds/other-world/join-requests", {
     token: "member-two",
