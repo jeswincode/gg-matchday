@@ -3,10 +3,11 @@ import mongoose from "mongoose";
 import Match from "../models/Match.js";
 import { normalizeMatchScores } from "../services/statistics.js";
 import { buildRatingExplanation } from "../services/ratings/explanation.js";
-import { requireOptionalWorldMembership, domainWorldFilter } from "../middleware/domainWorldContext.js";
+import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope } from "../middleware/domainWorldContext.js";
 
 const router = express.Router();
 router.use(requireOptionalWorldMembership);
+router.use(withWorldDataScope);
 const worldFilter = req => domainWorldFilter(req);
 
 router.get("/matches/:matchId/players/:playerId", async (req, res) => {
