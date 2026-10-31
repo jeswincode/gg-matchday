@@ -24,8 +24,11 @@ import {
 } from "../services/statistics.js";
 import { classifyPlayerStyles } from "../services/playerStyles.js";
 import { loadPlayerStatistics } from "../services/persistedStatistics.js";
+import { requireOptionalWorldMembership, domainWorldFilter } from "../middleware/domainWorldContext.js";
 
 const router = express.Router();
+router.use(requireOptionalWorldMembership);
+const worldFilter = req => domainWorldFilter(req);
 const round = value => Number(Number(value).toFixed(2));
 const safe = fn => async (req, res) => {
   try {
@@ -59,7 +62,8 @@ const positionMatches = (stats, position) => {
   })[position] || /.*/;
   return pattern.test([stats.position, ...(stats.preferredPositions || [])].join(" ").toUpperCase());
 };
-const groupMatchYears = () => Match.aggregate([
+const groupMatchYears = (filter = { worldId: null }) => Match.aggregate([
+  { $match: filter },
   { $group: {
     _id: { $year: "$date" },
     matches: { $sum: 1 },
@@ -98,9 +102,10 @@ const annualAwardsFromSnapshots = (rows, year) => {
 
 router.get("/overview", safe(async (req, res) => {
   const [players, matches, totals] = await Promise.all([
-    Player.countDocuments(),
-    Match.countDocuments(),
+    Player.countDocuments(worldFilter(req)),
+    Match.countDocuments(worldFilter(req)),
     Match.aggregate([
+      { $match: worldFilter(req) },
       {
         $project: {
           storedScoreTotal: {
@@ -203,7 +208,7 @@ router.get("/overview", safe(async (req, res) => {
 }));
 
 router.get("/leaderboard", safe(async (req, res) => {
-  const players = await Player.find().lean();
+  const players = await Player.find(worldFilter(req)).lean();
   const clasico = req.query.clasico === "true";
   const requestedYear = req.query.year ? Number(req.query.year) : null;
   const month = req.query.month ? Number(req.query.month) : null;
@@ -212,7 +217,7 @@ router.get("/leaderboard", safe(async (req, res) => {
   if (clasico || month !== null) {
     const year = requestedYear || new Date().getUTCFullYear();
     const filter = dateQuery(year, month);
-    let matches = await Match.find(filter).lean();
+    let matches = await Match.find({ ...worldFilter(req), ...filter }).lean();
     if (clasico) matches = matches.filter(match => isClasico(match.name));
     rows = buildStatistics(players, matches, { minimumMatches: clasico ? 3 : 5 });
   } else {
@@ -238,7 +243,7 @@ router.get("/leaderboard", safe(async (req, res) => {
 router.get("/awards", safe(async (req, res) => {
   const year = Number(req.query.year) || new Date().getUTCFullYear();
   const month = req.query.month ? Number(req.query.month) : undefined;
-  const matches = await Match.find(dateQuery(year, month)).lean();
+  const matches = await Match.find({ ...worldFilter(req), ...dateQuery(year, month) }).lean();
   const players = await Player.find().lean();
   const awards = selectAwards(players, matches, { year, month });
   const winner = awards.find(award => award.type === "player");
@@ -249,15 +254,15 @@ router.get("/award-history", safe(async (req, res) => {
   const year = req.query.year ? Number(req.query.year) : new Date().getUTCFullYear();
   dateQuery(year);
   const [awards, years] = await Promise.all([
-    Award.find({ year }).sort({ month: 1, type: 1 }).lean(),
-    groupMatchYears(),
+    Award.find({ ...worldFilter(req), year }).sort({ month: 1, type: 1 }).lean(),
+    groupMatchYears(worldFilter(req)),
   ]);
   res.json({ awards, years: years.map(item => item._id) });
 }));
 
 router.get("/calendar", safe(async (req, res) => {
   const year = req.query.year ? Number(req.query.year) : new Date().getUTCFullYear();
-  const matches = await Match.find(dateQuery(year, req.query.month))
+  const matches = await Match.find({ ...worldFilter(req), ...dateQuery(year, req.query.month) })
     .populate("participants.player", "name profileImage")
     .populate("events.player", "name")
     .sort({ date: 1 })
@@ -267,11 +272,11 @@ router.get("/calendar", safe(async (req, res) => {
 
 router.get("/player/:id", safe(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid player id." });
-  const player = await Player.findById(req.params.id).lean();
+  const player = await Player.findOne({ _id: req.params.id, ...worldFilter(req) }).lean();
   if (!player) return res.status(404).json({ message: "Player not found." });
   const [players, own] = await Promise.all([
     Player.find().lean(),
-    Match.find({ "participants.player": player._id }).lean(),
+    Match.find({ ...worldFilter(req), "participants.player": player._id }).lean(),
   ]);
   own.sort(matchChronology);
   const [allStats, stats] = await Promise.all([
@@ -290,8 +295,8 @@ router.get("/player/:id", safe(async (req, res) => {
     ...(await loadPlayerStatistics([player], { year }))[0],
   })));
   const [awards, achievements] = await Promise.all([
-    Award.find({ player: player._id }).sort({ year: -1 }).lean(),
-    Achievement.find({ player: player._id }).lean(),
+    Award.find({ ...worldFilter(req), player: player._id }).sort({ year: -1 }).lean(),
+    Achievement.find({ ...worldFilter(req), player: player._id }).lean(),
   ]);
   const matchHistory = req.query.historyLimit === "all" ? own : own.slice(0, 20);
   const clasico = buildStatistics([player], own.filter(match => isClasico(match.name)), { minimumMatches: 3 })[0];
@@ -307,7 +312,7 @@ router.get('/player/:id/performance', safe(async (req, res) => {
   if (!player) return res.status(404).json({ message: "Player not found." });
   const [players, matches, rows] = await Promise.all([
     Player.find().lean(),
-    Match.find({ "participants.player": player._id }).lean(),
+    Match.find({ ...worldFilter(req), "participants.player": player._id }).lean(),
     loadPlayerStatistics([player]),
   ]);
   res.json({ player, stats: rows[0], analytics: buildPlayerPerformanceAnalytics(players, matches, req.params.id) });
@@ -318,8 +323,8 @@ router.get("/head-to-head/:a/:b", safe(async (req, res) => {
     return res.status(400).json({ message: "Invalid player id." });
   }
   const [players, matches] = await Promise.all([
-    Player.find({ _id: { $in: [req.params.a, req.params.b] } }).lean(),
-    Match.find({ "participants.player": { $all: [req.params.a, req.params.b] } }).lean(),
+    Player.find({ ...worldFilter(req), _id: { $in: [req.params.a, req.params.b] } }).lean(),
+    Match.find({ ...worldFilter(req), "participants.player": { $all: [req.params.a, req.params.b] } }).lean(),
   ]);
   const result = buildHeadToHead(players, matches, req.params.a, req.params.b);
   if (!result) return res.status(404).json({ message: "Both players must exist and be different players." });
@@ -337,7 +342,7 @@ router.get("/seasons", safe(async (req, res) => {
   const [players, aggregate, persistedAwards] = await Promise.all([
     Player.find().lean(),
     groupMatchYears(),
-    Award.find({ month: null }).lean(),
+    Award.find({ ...worldFilter(req), month: null }).lean(),
   ]);
   const seasons = [];
   const currentYear = new Date().getUTCFullYear();
@@ -345,7 +350,7 @@ router.get("/seasons", safe(async (req, res) => {
     const year = Number(yearData._id);
     const rows = await loadPlayerStatistics(players, { year });
     const [clasicoMatches,] = await Promise.all([
-      Match.find({ ...dateQuery(year), name: { $regex: /cl[aá]sico|clasico/i } }).lean(),
+      Match.find({ ...worldFilter(req), ...dateQuery(year), name: { $regex: /cl[aá]sico|clasico/i } }).lean(),
     ]);
     const clasicoAwards = selectAwards(players, clasicoMatches.filter(match => isClasico(match.name)), { year })
       .filter(award => award.type === "clasico");
@@ -374,7 +379,7 @@ router.get("/seasons", safe(async (req, res) => {
 router.get("/clasico", safe(async (req, res) => {
   const [players, matches] = await Promise.all([
     Player.find().lean(),
-    Match.find({ name: { $regex: /cl[aá]sico|clasico/i } }).lean(),
+    Match.find({ ...worldFilter(req), name: { $regex: /cl[aá]sico|clasico/i } }).lean(),
   ]);
   const clasicoMatches = matches.filter(match => isClasico(match.name));
   const statistics = buildStatistics(players, clasicoMatches, { minimumMatches: 3 });
@@ -395,7 +400,7 @@ router.get("/clasico", safe(async (req, res) => {
 router.get("/hall-of-fame", safe(async (req, res) => {
   const [players, awards, years] = await Promise.all([
     Player.find().lean(),
-    Award.find().sort({ year: -1 }).lean(),
+    Award.find(worldFilter(req)).sort({ year: -1 }).lean(),
     groupMatchYears(),
   ]);
   const rows = await loadPlayerStatistics(players);
