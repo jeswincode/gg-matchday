@@ -6,23 +6,28 @@ import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
+import { requireOptionalWorldMembership, domainWorldFilter, requireDomainCapability } from "../middleware/domainWorldContext.js";
+import WorldMembership from "../models/WorldMembership.js";
 import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
 import { resolvePlayerAttributesReadOnly, refreshPlayerAttributes } from "../services/playerAttributes.js";
 
 const router = express.Router();
 const invalidId = id => !mongoose.isValidObjectId(id);
+router.use(requireOptionalWorldMembership);
+const worldFilter = req => domainWorldFilter(req);
+const worldPlayerQuery = (req, id) => ({ _id: id, ...worldFilter(req) });
 
 router.get("/", async (req, res) => {
-  try { const players = await Player.find().sort({ name: 1 }); res.json(players); }
+  try { const players = await Player.find(worldFilter(req)).sort({ name: 1 }); res.json(players); }
   catch (error) { console.error("Error fetching players:", error); res.status(500).json({ message: "Failed to fetch players." }); }
 });
 
 router.get("/:id/attributes", async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
-    const player = await Player.findById(req.params.id).lean();
+    const player = await Player.findOne(worldPlayerQuery(req, req.params.id)).lean();
     if (!player) return res.status(404).json({ message: "Player not found." });
-    const matches = await Match.find({ "participants.player": player._id })
+    const matches = await Match.find({ ...worldFilter(req), "participants.player": player._id })
       .sort({ date: 1, createdAt: 1 })
       .select("_id date updatedAt createdAt participants events teamA teamB")
       .lean();
@@ -52,25 +57,25 @@ router.get("/:id/attributes", async (req, res) => {
 router.get("/:id", async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
-    const player = await Player.findById(req.params.id);
+    const player = await Player.findOne(worldPlayerQuery(req, req.params.id));
     if (!player) return res.status(404).json({ message: "Player not found." });
     res.json(player);
   } catch (error) { console.error("Error fetching player:", error); res.status(500).json({ message: "Failed to fetch player." }); }
 });
 
-router.post("/", requireAuth, requireEditor, async (req, res) => {
+router.post("/", requireAuth, requireDomainCapability("football:edit", requireEditor), async (req, res) => {
   try {
     const { name } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ message: "Player name is required." });
     const cleanName = name.trim();
-    const existingPlayer = await Player.findOne({ name: cleanName });
+    const existingPlayer = await Player.findOne({ ...worldFilter(req), nameNormalized: cleanName.normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").trim().toLocaleLowerCase("en") });
     if (existingPlayer) return res.status(409).json({ message: "Player already exists." });
-    const player = await Player.create({ name: cleanName });
+    const player = await Player.create({ name: cleanName, worldId: req.worldId || null });
     res.status(201).json(player);
   } catch (error) { console.error("Error creating player:", error); res.status(500).json({ message: "Failed to create player." }); }
 });
 
-router.patch("/:id/ovr-attributes", requireAuth, requireAdmin, async (req, res) => {
+router.patch("/:id/ovr-attributes", requireAuth, requireDomainCapability("world:manage", requireAdmin), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
     const player = await Player.findById(req.params.id);
@@ -106,7 +111,7 @@ router.patch("/:id/ovr-attributes", requireAuth, requireAdmin, async (req, res) 
   }
 });
 
-router.patch("/:id/background-video", requireAuth, requireAdmin, async (req, res) => {
+router.patch("/:id/background-video", requireAuth, requireDomainCapability("world:manage", requireAdmin), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
     const player = await Player.findById(req.params.id);
@@ -122,7 +127,7 @@ router.patch("/:id/background-video", requireAuth, requireAdmin, async (req, res
   }
 });
 
-router.patch("/:id/preferred-positions", requireAuth, requireEditor, async (req, res) => {
+router.patch("/:id/preferred-positions", requireAuth, requireDomainCapability("football:edit", requireEditor), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
     const player = await Player.findById(req.params.id);
@@ -138,7 +143,7 @@ router.patch("/:id/preferred-positions", requireAuth, requireEditor, async (req,
   } catch (error) { console.error("Error updating preferred positions:", error); res.status(500).json({ message: "Failed to update preferred positions." }); }
 });
 
-router.put("/:id", requireAuth, requireEditor, async (req, res) => {
+router.put("/:id", requireAuth, requireDomainCapability("football:edit", requireEditor), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
     const player = await Player.findById(req.params.id);
@@ -147,7 +152,7 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
     const previousOvrInputs = JSON.stringify({ position: player.position || "", preferredPositions: player.preferredPositions || [] });
     if (!name || !name.trim()) return res.status(400).json({ message: "Player name is required." });
     const cleanName = name.trim();
-    const duplicate = await Player.findOne({ name: cleanName, _id: { $ne: req.params.id } });
+    const duplicate = await Player.findOne({ ...worldFilter(req), nameNormalized: cleanName.normalize("NFKD").replace(/[\\u0300-\\u036f]/g, "").trim().toLocaleLowerCase("en"), _id: { $ne: req.params.id } });
     if (duplicate) return res.status(409).json({ message: "Another player already has this name." });
     player.name = cleanName;
     player.profileImage = typeof profileImage === "string" ? profileImage.trim() : "";
@@ -180,13 +185,20 @@ router.put("/:id", requireAuth, requireEditor, async (req, res) => {
   }
 });
 
-router.delete("/:id", requireAuth, requireEditor, async (req, res) => {
+router.delete("/:id", requireAuth, requireDomainCapability("football:edit", requireEditor), async (req, res) => {
   if (invalidId(req.params.id)) return res.status(400).json({ message: "Invalid resource id." });
   try {
     const player = await Player.findById(req.params.id);
     if (!player) return res.status(404).json({ message: "Player not found." });
-    const hasMatchHistory = await Match.exists({ $or: [{ "participants.player": player._id }, { "events.player": player._id }] });
-    const [linkedAccount, pendingRequest] = await Promise.all([User.exists({ playerProfile: player._id }), ProfileChangeRequest.exists({ player: player._id, status: "pending" })]);
+    const hasMatchHistory = await Match.exists({ ...worldFilter(req), $or: [{ "participants.player": player._id }, { "events.player": player._id }] });
+    const [[legacyLinkedAccount, worldMembershipLink], pendingRequest] = await Promise.all([
+      Promise.all([
+        User.exists({ playerProfile: player._id }),
+        WorldMembership.exists({ worldId: req.worldId || null, playerProfileId: player._id }),
+      ]),
+      ProfileChangeRequest.exists({ player: player._id, status: "pending" }),
+    ]);
+    const linkedAccount = Boolean(legacyLinkedAccount || worldMembershipLink);
     if (linkedAccount) return res.status(409).json({ message: "This player is linked to a user account and cannot be deleted. Unlink the account first." });
     if (pendingRequest) return res.status(409).json({ message: "This player has a pending profile request and cannot be deleted." });
     if (hasMatchHistory) return res.status(409).json({ message: "This player has match history and cannot be deleted. Keep the profile instead." });
@@ -230,7 +242,7 @@ router.delete("/:id", requireAuth, requireEditor, async (req, res) => {
       }
     }
 
-    await Player.findByIdAndDelete(req.params.id);
+    await Player.findOneAndDelete(worldPlayerQuery(req, req.params.id));
     res.json({ message: "Player deleted.", player });
   } catch (error) { console.error("Error deleting player:", error); res.status(500).json({ message: "Failed to delete player." }); }
 });
