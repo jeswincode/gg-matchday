@@ -66,6 +66,19 @@ Every edit is validated server-side against map bounds, overlap rules and role c
 
 Consider adding optimistic concurrency using layoutVersion so simultaneous editors cannot silently overwrite one another.
 
+## API and editing contract
+
+- `GET /api/worlds/:slug/map`: active members only; returns the layout and World-scoped facilities.
+- `PATCH /api/worlds/:slug/map/facilities/:facilityKey`: requires the `map:edit` capability (owner/admin).
+- Updates require `expectedLayoutVersion`, a complete integer `position`, and optionally a valid rotation and appearance key.
+- The server checks the actual layout dimensions and rotated footprint.
+- A placement is rejected if it leaves the map or intersects any other facility footprint.
+- Facility metadata and the map version are updated within one MongoDB transaction.
+- A stale layout version returns a conflict and requires the client to refresh before retrying.
+
+The local map is a presentation of authoritative WorldMapLayout and WorldMapFacility records. It is never permissioned by hiding controls alone; the backend enforces the same role capability for every write.
+
+
 ## Data separation
 
 WorldMapLayout and WorldMapFacility live in the Core database.
