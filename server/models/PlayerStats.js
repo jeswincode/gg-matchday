@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const playerStatsSchema = new mongoose.Schema({
   worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
@@ -10,5 +11,7 @@ const playerStatsSchema = new mongoose.Schema({
 
 playerStatsSchema.index({ worldId: 1, playerId: 1 }, { unique: true, name: "player_stats_world_player_unique" });
 playerStatsSchema.index({ worldId: 1, "stats.ggRating": -1, playerId: 1 });
+
+playerStatsSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.model("PlayerStats", playerStatsSchema);
