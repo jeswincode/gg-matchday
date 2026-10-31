@@ -288,7 +288,7 @@ router.post(
 
         const normalizedName = name
           .normalize("NFKD")
-          .replace(/[\\u0300-\\u036f]/g, "")
+          .replace(/[\u0300-\u036f]/g, "")
           .trim()
           .toLocaleLowerCase("en");
 
