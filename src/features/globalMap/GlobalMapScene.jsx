@@ -215,6 +215,13 @@ export default function GlobalMapScene({
   const [selected, setSelected] = useState(null);
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
   const drag = useRef(null);
+  const transitionTimer = useRef(null);
+
+  useEffect(() => () => {
+    if (transitionTimer.current !== null) {
+      window.clearTimeout(transitionTimer.current);
+    }
+  }, []);
   const instanceId = useId().replace(/:/g, "");
   const mapPoints = [
     ...worlds.map(world => ({ x: world.globalMap?.x, y: world.globalMap?.y })),
@@ -271,7 +278,18 @@ export default function GlobalMapScene({
         y: -(position.y - fit.centerY) * targetScale,
       });
       onSelectWorld?.(world);
-      window.setTimeout(() => onEnterWorld(world), 460);
+      if (transitionTimer.current !== null) {
+        window.clearTimeout(transitionTimer.current);
+      }
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+      if (reducedMotion) {
+        onEnterWorld(world);
+      } else {
+        transitionTimer.current = window.setTimeout(() => {
+          transitionTimer.current = null;
+          onEnterWorld(world);
+        }, 460);
+      }
       return;
     }
     setSelected(world);
