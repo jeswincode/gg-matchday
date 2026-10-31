@@ -18,11 +18,11 @@ const contractSchema = new mongoose.Schema(
 );
 
 contractSchema.index(
-  { playerId: 1 },
-  { unique: true, partialFilterExpression: { status: "active" } },
+  { worldId: 1, playerId: 1 },
+  { unique: true, partialFilterExpression: { status: "active" }, name: "active_contract_world_player_unique" }, 
 );
 contractSchema.index(
-  { clubId: 1, playerId: 1, status: 1 },
+  { worldId: 1, clubId: 1, playerId: 1, status: 1 },
 );
 
 contractSchema.plugin(worldDataScopePlugin);
