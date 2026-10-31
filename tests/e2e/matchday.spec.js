@@ -273,6 +273,22 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
 
 
 test("World owner can create a kingdom, review a join request, and approve a member", async ({ page }) => {
+  page.on("request", request => {
+    if (request.url().includes("/worlds")) {
+      console.log("WORLD_BROWSER_REQUEST", request.method(), request.url());
+    }
+  });
+  page.on("requestfailed", request => {
+    if (request.url().includes("/worlds")) {
+      console.log("WORLD_BROWSER_REQUEST_FAILED", request.method(), request.url(), request.failure()?.errorText || "");
+    }
+  });
+  page.on("response", response => {
+    if (response.url().includes("/worlds")) {
+      console.log("WORLD_BROWSER_RESPONSE", response.status(), response.request().method(), response.url());
+    }
+  });
+
   const worldName = "E2E Global Map League " + Date.now();
   const ownerPlayerId = "65a000000000000000000001";
   const applicantPlayerId = "65a000000000000000000002";
