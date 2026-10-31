@@ -17,8 +17,8 @@ const playerReviewSchema = new mongoose.Schema(
 );
 
 playerReviewSchema.index(
-  { reviewerPlayerId: 1, reviewedPlayerId: 1, relationship: 1 },
-  { unique: true },
+  { worldId: 1, reviewerPlayerId: 1, reviewedPlayerId: 1, relationship: 1 },
+  { unique: true, name: "player_review_world_unique" },
 );
 
 playerReviewSchema.pre("validate", function preventSelfReview() {
