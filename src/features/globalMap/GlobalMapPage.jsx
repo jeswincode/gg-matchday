@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../../lib/api";
+import { api, setApiActiveWorld } from "../../lib/api";
 import GlobalMapScene from "./GlobalMapScene";
 import WorldMapView from "./WorldMapView";
 
@@ -289,6 +289,9 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn 
     setInteriorError("");
     try {
       const data = await api("/worlds/" + encodeURIComponent(world.slug) + "/map");
+      // The selected World becomes the context for all subsequent Matchday,
+      // Clubs and other World-scoped API calls in the main application shell.
+      setApiActiveWorld(world.slug);
       setEnteredWorld(world);
       setEnteredMap(data);
     } catch (error) {
