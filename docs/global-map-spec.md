@@ -88,6 +88,20 @@ Do not load full match histories, training logs, chat history or financial data 
 - On mobile, preserve large tap targets and prevent accidental page scroll while panning.
 - Do not make map interaction the only route to football records.
 
+## Global placement and overview camera
+
+New kingdom positions are reserved on a deterministic square spiral with fixed logical spacing. This avoids the map growing as a single long row and gives nearby kingdoms nearby sectors. Coordinates remain logical grid values, not screen pixels.
+
+The Global Map renderer derives an overview camera from the current public kingdom bounds. It fits the available kingdoms into the viewport, while pan and zoom remain client-side camera state. The map is not limited to the first small demo terrain grid; newly allocated kingdoms remain addressable as the platform grows.
+
+## World entry and local facilities
+
+An active member enters through `GET /api/worlds/:slug/map`. The endpoint requires authentication and active membership and returns the World map layout, facility placements and a role-derived `canEditMap` permission.
+
+Owners/admins can update a facility through `PATCH /api/worlds/:slug/map/facilities/:facilityKey`. The update includes the expected layout version. The server validates the World capability, integer position, footprint bounds, rotation and overlap with every other facility, and commits the facility change plus layout-version increment in one MongoDB transaction.
+
+A member can view the local map but cannot edit facilities. A public visitor or pending member cannot fetch the interior map.
+
 ## Public API boundary
 
 The initial public projection is served by `GET /api/worlds/map`. It returns public World identity, description, emblem asset reference, accent colour, active member count and logical Global Map coordinates.
