@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const newsSchema = new mongoose.Schema(
   {
@@ -73,6 +74,8 @@ const newsSchema = new mongoose.Schema(
 newsSchema.index({ worldId: 1, createdAt: -1 });
 
 newsSchema.index({ worldId: 1, match: 1 });
+
+newsSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.model(
   "News",
