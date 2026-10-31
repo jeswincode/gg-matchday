@@ -169,3 +169,150 @@
     width: 100%;
   }
 }
+
+
+.gg-world-requests {
+  background: rgba(15, 28, 29, .94);
+  border: 1px solid rgba(208, 180, 112, .22);
+  border-radius: 1rem;
+  color: #f4f0e5;
+  margin: 0 0 1.1rem;
+  padding: 1rem 1.1rem;
+}
+
+.gg-world-requests-heading {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: .7rem;
+}
+
+.gg-world-requests-heading h2 {
+  color: #f5ecd4;
+  font-size: 1.1rem;
+  margin: .2rem 0 0;
+}
+
+.gg-world-request-count {
+  color: #d9bf7a;
+  font-size: .7rem;
+  font-weight: 800;
+}
+
+.gg-world-request-group + .gg-world-request-group {
+  border-top: 1px solid rgba(215, 194, 146, .15);
+  margin-top: .8rem;
+  padding-top: .8rem;
+}
+
+.gg-world-request-group h3 {
+  color: #c7d0c4;
+  font-size: .78rem;
+  margin: 0 0 .55rem;
+}
+
+.gg-world-request-item {
+  align-items: center;
+  background: rgba(255, 255, 255, .025);
+  border-radius: .7rem;
+  display: flex;
+  gap: .7rem;
+  justify-content: space-between;
+  padding: .65rem;
+}
+
+.gg-world-request-item + .gg-world-request-item {
+  margin-top: .4rem;
+}
+
+.gg-world-request-person {
+  align-items: center;
+  display: flex;
+  gap: .6rem;
+  min-width: 0;
+}
+
+.gg-world-request-person img,
+.gg-world-request-person > span {
+  align-items: center;
+  background: #42564a;
+  border: 1px solid rgba(223, 199, 137, .3);
+  border-radius: 50%;
+  color: #f2dfad;
+  display: flex;
+  flex: 0 0 2.2rem;
+  font-size: .8rem;
+  font-weight: 850;
+  height: 2.2rem;
+  justify-content: center;
+  object-fit: cover;
+  width: 2.2rem;
+}
+
+.gg-world-request-person div {
+  display: grid;
+  gap: .15rem;
+  min-width: 0;
+}
+
+.gg-world-request-person strong {
+  color: #f1ead7;
+  font-size: .78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gg-world-request-person small {
+  color: #91a197;
+  font-size: .65rem;
+}
+
+.gg-world-request-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: .35rem;
+}
+
+.gg-world-request-actions button {
+  border: 1px solid transparent;
+  border-radius: .5rem;
+  cursor: pointer;
+  font-size: .68rem;
+  font-weight: 850;
+  min-height: 2rem;
+  padding: .4rem .65rem;
+}
+
+.gg-world-approve {
+  background: #c6a557;
+  color: #1b2b25;
+}
+
+.gg-world-reject {
+  background: rgba(120, 57, 48, .25);
+  border-color: rgba(192, 112, 94, .3) !important;
+  color: #edc0b4;
+}
+
+.gg-world-request-actions button:disabled {
+  cursor: wait;
+  opacity: .5;
+}
+
+@media(max-width:600px) {
+  .gg-world-request-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .gg-world-request-actions {
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .gg-world-request-actions button {
+    flex: 1;
+  }
+}
