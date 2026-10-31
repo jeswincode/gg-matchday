@@ -180,6 +180,39 @@ test('Global Map does not submit a synthetic plot when all available plots are c
   assert.match(page,/All mapped territory is currently claimed/);
 });
 
+test('GG sign-in supports Google, email/password, account creation and password reset',()=>{
+  const login=read('src/components/StartupExperience.jsx');
+  const app=read('src/App.jsx');
+  const firebase=read('src/firebase.js');
+  assert.match(login,/Continue with Google/);
+  assert.match(login,/onEmailSignIn/);
+  assert.match(login,/onCreateAccount/);
+  assert.match(login,/onPasswordReset/);
+  assert.match(login,/Create your GG account/);
+  assert.match(login,/Forgot password\?/);
+  assert.match(app,/signInWithEmailAndPassword/);
+  assert.match(app,/createUserWithEmailAndPassword/);
+  assert.match(app,/sendEmailVerification/);
+  assert.match(app,/sendPasswordResetEmail/);
+  assert.match(firebase,/getAuth\(initializeApp\(firebaseConfig\)\)/);
+});
+
+test('World account switcher lists memberships and local entry supports one Player profile per World',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const routes=read('server/routes/worlds.js');
+  const player=read('server/models/Player.js');
+  assert.match(page,/function WorldSwitcher/);
+  assert.match(page,/Your Worlds/);
+  assert.match(page,/onSelect=\{enterWorld\}/);
+  assert.match(page,/function PlayerProfileModal/);
+  assert.match(page,/\/player-profiles/);
+  assert.match(routes,/router\.post\([\s\S]*?\/\:slug\/player-profiles/);
+  assert.match(routes,/worldId: req\.worldId/);
+  assert.match(routes,/playerProfileId = created\._id/);
+  assert.match(player,/player_world_name_unique/);
+  assert.match(player,/worldId: 1, nameNormalized: 1/);
+});
+
 test('each World map keeps undeveloped plots visible for future facilities and Clubs',()=>{
   const view=read('src/features/globalMap/WorldMapView.jsx');
   const css=read('src/features/globalMap/world-map-view.css');
