@@ -162,6 +162,16 @@ test('entering a World activates app-wide API context and logout clears it',()=>
   assert.match(app,/async function logout\(\)/);
 });
 
+test('each World map keeps undeveloped plots visible for future facilities and Clubs',()=>{
+  const view=read('src/features/globalMap/WorldMapView.jsx');
+  const css=read('src/features/globalMap/world-map-view.css');
+  assert.match(view,/LOCAL_OPEN_PLOTS/);
+  assert.match(view,/function LocalOpenPlot/);
+  assert.match(view,/const openPlots = LOCAL_OPEN_PLOTS\.filter/);
+  assert.match(view,/openPlots\.map\(plot/);
+  assert.match(css,/\.gg-world-open-plot/);
+});
+
 test('Global Map open plots are claimable and World creation reserves the selected plot',()=>{
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
   const scene=read('src/features/globalMap/GlobalMapScene.jsx');
