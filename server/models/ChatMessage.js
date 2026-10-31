@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const chatMessageSchema = new mongoose.Schema(
   {
+    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     name: {
       type: String,
       required: true,
@@ -39,6 +40,6 @@ chatMessageSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 }
 );
-chatMessageSchema.index({ createdAt: -1 });
+chatMessageSchema.index({ worldId: 1, createdAt: -1 });
 
 export default mongoose.model("ChatMessage", chatMessageSchema);
