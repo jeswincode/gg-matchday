@@ -3,9 +3,15 @@ import mongoose from "mongoose";
 
 import World from "../models/World.js";
 import WorldMembership from "../models/WorldMembership.js";
+import WorldMapLayout from "../models/WorldMapLayout.js";
+import WorldMapFacility from "../models/WorldMapFacility.js";
 import { requireAuth } from "../middleware/auth.js";
 import { resolveWorldContext } from "../middleware/worldContext.js";
-import { requireWorldCapability } from "../middleware/worldPermissions.js";
+import {
+  requireActiveWorldMembership,
+  requireWorldCapability,
+} from "../middleware/worldPermissions.js";
+import { getWorldMapSnapshot, moveWorldMapFacility } from "../services/worldMapLayout.js";
 import { createWorldForUser } from "../services/worldCreation.js";
 
 const router = express.Router();
@@ -126,6 +132,55 @@ router.post("/", requireAuth, asyncRoute(async (req, res) => {
     },
   });
 }));
+
+// Internal World map. The preview is public, but local facilities are visible
+// only to an approved member of that World.
+router.get(
+  "/:slug/map",
+  requireAuth,
+  resolveWorldContext,
+  requireActiveWorldMembership,
+  asyncRoute(async (req, res) => {
+    const snapshot = await getWorldMapSnapshot(req.worldId);
+    const role = req.membership.role;
+    return res.json({
+      world: safeWorld(req.world),
+      ...snapshot,
+      permissions: {
+        canEditMap: ["owner", "admin"].includes(role),
+      },
+    });
+  }),
+);
+
+router.patch(
+  "/:slug/map/facilities/:facilityKey",
+  requireAuth,
+  resolveWorldContext,
+  requireWorldCapability("map:edit"),
+  asyncRoute(async (req, res) => {
+    const allowed = new Set(["expectedLayoutVersion", "position", "rotation", "appearanceKey"]);
+    const unexpected = Object.keys(req.body || {}).filter(key => !allowed.has(key));
+    if (unexpected.length) {
+      return res.status(400).json({
+        message: "Map facility update contains unsupported fields.",
+        code: "WORLD_MAP_UPDATE_FIELDS_INVALID",
+        requestId: req.requestId || null,
+      });
+    }
+
+    const result = await moveWorldMapFacility({
+      worldId: req.worldId,
+      userId: req.user._id,
+      facilityKey: req.params.facilityKey,
+      expectedLayoutVersion: req.body?.expectedLayoutVersion,
+      position: req.body?.position,
+      rotation: req.body?.rotation,
+      appearanceKey: req.body?.appearanceKey,
+    });
+    return res.json(result);
+  }),
+);
 
 // Public World preview. Do not include membership status in this response.
 router.get("/:slug", resolveWorldContext, asyncRoute(async (req, res) => {
