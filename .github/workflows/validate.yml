@@ -16,12 +16,12 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Audit dependency advisories
-        run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm test
       - run: npm run build
       - run: npm run check:bundle
+      - name: Audit dependency advisories
+        run: npm audit --audit-level=high
       - run: node --check server/server.js
       - run: node --check server/routes/profileSecurity.js
       - run: node --check server/routes/profileRequests.js
