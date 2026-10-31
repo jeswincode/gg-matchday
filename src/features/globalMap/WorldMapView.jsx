@@ -206,6 +206,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
         <svg
           className="gg-world-map-svg"
           viewBox={"0 0 " + VIEW_WIDTH + " " + VIEW_HEIGHT}
+          preserveAspectRatio="xMidYMid slice"
           role="group"
           aria-label="Isometric World facilities map"
         >
