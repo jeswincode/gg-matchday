@@ -22,6 +22,33 @@ export const DEFAULT_WORLD_FACILITIES = Object.freeze([
   { facilityKey: "administration", type: "administration", column: 39, row: 41, width: 7, height: 6 },
 ]);
 
+export function globalPositionAt(index, spacing = GLOBAL_KINGDOM_SPACING) {
+  if (!Number.isSafeInteger(index) || index < 0) {
+    throw new TypeError("Global position index must be a non-negative integer.");
+  }
+  if (!Number.isSafeInteger(spacing) || spacing < 1) {
+    throw new TypeError("Global position spacing must be a positive integer.");
+  }
+
+  let x = 0;
+  let y = 0;
+  let dx = 0;
+  let dy = -1;
+
+  for (let step = 0; step <= index; step += 1) {
+    if (x === y || (x < 0 && x === -y) || (x > 0 && x === 1 - y)) {
+      [dx, dy] = [-dy, dx];
+    }
+    if (step === index) {
+      return { x: x * spacing, y: y * spacing };
+    }
+    x += dx;
+    y += dy;
+  }
+
+  throw new RangeError("Could not calculate Global Map position.");
+}
+
 function httpError(status, code, message) {
   const error = new Error(message);
   error.status = status;
@@ -57,17 +84,12 @@ async function nextGlobalPosition(session) {
     existing.map(world => String(world.globalMap.x) + ":" + String(world.globalMap.y)),
   );
 
-  // Logical coordinates are deliberately spaced so isometric castle footprints
-  // do not overlap. The frontend derives screen pixels for the current viewport.
-  // Fill a bounded row before advancing, keeping the world grid balanced
-  // instead of growing as one very long diagonal line.
+  // Logical coordinates grow as a deterministic square spiral. This keeps
+  // successive kingdoms close together and the map footprint roughly balanced.
   for (let index = 0; index < 250000; index += 1) {
-    const column = index % GLOBAL_KINGDOM_COLUMNS;
-    const row = Math.floor(index / GLOBAL_KINGDOM_COLUMNS);
-    const x = column * GLOBAL_KINGDOM_SPACING;
-    const y = row * GLOBAL_KINGDOM_SPACING;
-    if (!occupied.has(String(x) + ":" + String(y))) {
-      return { mapId: GLOBAL_MAP_ID, x, y };
+    const position = globalPositionAt(index);
+    if (!occupied.has(String(position.x) + ":" + String(position.y))) {
+      return { mapId: GLOBAL_MAP_ID, ...position };
     }
   }
 
