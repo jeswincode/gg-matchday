@@ -3,8 +3,6 @@ import mongoose from "mongoose";
 
 import World from "../models/World.js";
 import WorldMembership from "../models/WorldMembership.js";
-import WorldMapLayout from "../models/WorldMapLayout.js";
-import WorldMapFacility from "../models/WorldMapFacility.js";
 import { requireAuth } from "../middleware/auth.js";
 import { resolveWorldContext } from "../middleware/worldContext.js";
 import {
