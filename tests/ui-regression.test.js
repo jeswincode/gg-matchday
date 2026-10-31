@@ -149,6 +149,7 @@ test('mobile navigation supports ordered horizontal tab swipes without wrapping'
   assert.match(app,/nextIndex<0 \|\| nextIndex>=TAB_ORDER\.length/);
   assert.match(app,/onTouchStart=\{handleAppTouchStart\}/);
   assert.match(app,/onTouchEnd=\{handleAppTouchEnd\}/);
+  assert.match(app,/target\.closest\("\.gg-global-map-viewport"\)/);
 });
 
 test('mobile calendar hides hover match popovers while preserving day details',()=>{
