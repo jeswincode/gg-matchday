@@ -40,8 +40,8 @@ const clubMatchSchema = new mongoose.Schema(
   { timestamps: true, collection: "clubMatches", optimisticConcurrency: true },
 );
 
-clubMatchSchema.index({ clubAId: 1, clubBId: 1, scheduledAt: 1 });
-clubMatchSchema.index({ fixtureDate: 1 }, {
+clubMatchSchema.index({ worldId: 1, clubAId: 1, clubBId: 1, scheduledAt: 1 });
+clubMatchSchema.index({ worldId: 1, fixtureDate: 1 }, {
   unique: true,
   partialFilterExpression: {
     fixtureDate: { $type: "string" },
