@@ -108,15 +108,21 @@ The initial public projection is served by `GET /api/worlds/map`. It returns pub
 
 Viewer-specific membership state is not embedded in that response. The client obtains its own memberships through `GET /api/worlds/me` or a particular World membership endpoint. The renderer must never infer access from the presence of a kingdom or from its public preview.
 
-New Worlds are created through `POST /api/worlds`. Creation allocates a platform-controlled Global Map position and creates the World, owner membership, local map layout and standard facilities in one MongoDB transaction.
+New Worlds are created through `POST /api/worlds`. The public map response includes a bounded set of currently unclaimed `availablePlots`, each with a stable `slotIndex` and logical coordinates. The user selects a plot and submits its `globalMapSlotIndex`; the server re-checks occupancy inside the World-creation transaction and reserves that exact location. A concurrent claim of the same plot returns `409 GLOBAL_MAP_SLOT_TAKEN` without leaving partial World records.
 
-## Initial prototype scope
+The map is the full-screen Home experience, not a sixth navigation destination. Matchday retains five destinations: Home, Record, Leaderboard, Calendar and Players. Home shows the Global Map when no local World map is open. Selecting a public kingdom shows its public preview; only an active member can enter and trigger the zoom transition into its full-screen World map. Non-members can request approval but cannot fetch the local map.
 
-- A fixed seeded map with fixture kingdom data.
-- Isometric tile projection and inverse hit testing.
-- Pan/zoom camera boundary.
-- Selectable kingdom markers/buildings.
-- Public preview panel contract.
-- A stubbed entry transition.
+A World creator is automatically its owner and enters the new local map after the selected plot is reserved. The local map is full-screen and presents the World’s own facilities and map layout. The bottom navigation remains the same five Matchday destinations.
 
-The prototype must not connect to production World data until World access middleware is ready.
+## Implemented Global Map experience
+
+- Public kingdom directory loaded from `GET /api/worlds/map`.
+- Server-generated open plot list and exact transactional plot claims.
+- Viewer-specific membership states loaded separately from `GET /api/worlds/me`.
+- Selectable kingdom buildings with public preview and approval-based membership request.
+- Full-screen global map with pan/zoom and a five-destination navigation bar.
+- Full-screen local World map with an animated zoom-in transition.
+- Owner/admin facility move and rotation controls; member read-only access.
+- Reduced-motion handling and separate loading, empty and retry states.
+
+The Global Map and membership flow are connected to live World API records. The broader Player/Match/Clubs tenant isolation and Original GG production data migration remain separate rollout requirements.
