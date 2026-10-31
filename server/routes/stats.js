@@ -24,10 +24,11 @@ import {
 } from "../services/statistics.js";
 import { classifyPlayerStyles } from "../services/playerStyles.js";
 import { loadPlayerStatistics } from "../services/persistedStatistics.js";
-import { requireOptionalWorldMembership, domainWorldFilter } from "../middleware/domainWorldContext.js";
+import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope } from "../middleware/domainWorldContext.js";
 
 const router = express.Router();
 router.use(requireOptionalWorldMembership);
+router.use(withWorldDataScope);
 const worldFilter = req => domainWorldFilter(req);
 const round = value => Number(Number(value).toFixed(2));
 const safe = fn => async (req, res) => {
