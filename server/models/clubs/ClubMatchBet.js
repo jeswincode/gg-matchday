@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
+import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const clubMatchBetSchema = new mongoose.Schema(
   {
+    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     clubMatchId: { type: mongoose.Schema.Types.ObjectId, ref: "ClubMatch", required: true, index: true },
     playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, index: true },
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
@@ -16,5 +18,7 @@ const clubMatchBetSchema = new mongoose.Schema(
 );
 
 clubMatchBetSchema.index({ clubMatchId: 1, playerId: 1 }, { unique: true });
+
+clubMatchBetSchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("ClubMatchBet", clubMatchBetSchema);
