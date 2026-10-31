@@ -307,7 +307,10 @@ test("World owner can claim land, approve a member, and enter the local map", as
   await expect(page.getByText("Central Stadium placement saved.")).toBeVisible();
   await expect(page.getByText("Grid 26, 25 · Rotation 0° · Level 1")).toBeVisible();
   await page.getByRole("button", { name: "← Global Map" }).click();
+  // An owner selects their kingdom and goes straight into its map.
   await page.getByRole("button", { name: "Preview " + worldName }).click();
+  await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
+  await page.getByRole("button", { name: "← Global Map" }).click();
 
   // A second account requests membership from the public kingdom preview.
   await page.goto("/?e2eRole=viewer&e2ePlayerId=" + applicantPlayerId);
@@ -335,7 +338,6 @@ test("World owner can claim land, approve a member, and enter the local map", as
   await page.getByRole("button", { name: "Approve Playwright viewer" }).click();
   await expect(page.getByText("World membership approved.")).toBeVisible();
   await page.getByRole("button", { name: "Preview " + worldName }).click();
-  await page.getByRole("button", { name: "Enter World" }).click();
   await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
 
   // The approved member enters the same World with read-only map permissions.
@@ -343,7 +345,6 @@ test("World owner can claim land, approve a member, and enter the local map", as
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Preview " + worldName }).click();
-  await page.getByRole("button", { name: "Enter World" }).click();
   await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
   await expect(page.getByText("Read-only map access")).toBeVisible();
   await expect(page.getByRole("button", { name: "Move east" })).toHaveCount(0);
