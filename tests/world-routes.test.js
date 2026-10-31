@@ -7,7 +7,7 @@ process.env.ADMIN_EMAIL = "admin@example.invalid";
 process.env.GEMINI_API_KEY = "";
 process.env.CHAT_ENABLED = "false";
 
-const allowedTokens = new Set(["owner", "other", "viewer", "admin", "member-two"]);
+const allowedTokens = new Set(["owner", "other", "viewer", "admin", "member-two", "member-three"]);
 mock.module("../server/config/firebaseAdmin.js", {
   defaultExport: () => ({
     verifyIdToken: async token => {
@@ -29,6 +29,7 @@ const { default: WorldMembership } = await import("../server/models/WorldMembers
 const { default: WorldMapLayout } = await import("../server/models/WorldMapLayout.js");
 const { default: WorldMapFacility } = await import("../server/models/WorldMapFacility.js");
 const { default: MediaAsset } = await import("../server/models/MediaAsset.js");
+const { default: Player } = await import("../server/models/Player.js");
 
 let database;
 let server;
@@ -63,6 +64,7 @@ before(async () => {
     WorldMapLayout.init(),
     WorldMapFacility.init(),
     MediaAsset.init(),
+    Player.init(),
   ]);
 
   server = app.listen(0, "127.0.0.1");
@@ -394,4 +396,101 @@ test("join route refuses entry when membership has been suspended", async () => 
   });
   assert.equal(rejoin.status, 403);
   assert.equal(rejoin.data.code, "WORLD_MEMBERSHIP_SUSPENDED");
+});
+
+
+test("one account can own a separate same-named Player profile in each World", async () => {
+  const originalProfile = await request("/worlds/original-gg/player-profiles", {
+    token: "owner",
+    method: "POST",
+    body: {
+      name: "Jeswin",
+      position: "Midfielder",
+      preferredFoot: "Right",
+      bio: "Original GG player identity.",
+    },
+  });
+  assert.equal(originalProfile.status, 201, JSON.stringify(originalProfile.data));
+  const originalPlayerId = originalProfile.data.profile.id;
+
+  const otherOwnerProfile = await request("/worlds/other-world/player-profiles", {
+    token: "other",
+    method: "POST",
+    body: { name: "Jeswin", position: "Attacker" },
+  });
+  assert.equal(otherOwnerProfile.status, 201, JSON.stringify(otherOwnerProfile.data));
+
+  // The same account asks to join a second World, then creates an independent
+  // profile with the same display name after that World approves the request.
+  const joinSecondWorld = await request("/worlds/other-world/join-requests", {
+    token: "owner",
+    method: "POST",
+  });
+  assert.equal(joinSecondWorld.status, 202);
+  const reviewQueue = await request("/worlds/other-world/join-requests", { token: "other" });
+  assert.equal(reviewQueue.status, 200);
+  const ownerRequest = reviewQueue.data.requests.find(item => item.user?.name === "World Test owner");
+  assert.ok(ownerRequest);
+
+  const approved = await request("/worlds/other-world/join-requests/" + ownerRequest.id + "/approve", {
+    token: "other",
+    method: "POST",
+  });
+  assert.equal(approved.status, 200);
+
+  const secondProfile = await request("/worlds/other-world/player-profiles", {
+    token: "owner",
+    method: "POST",
+    body: {
+      name: "Jeswin",
+      position: "Goalkeeper",
+      preferredFoot: "Left",
+      bio: "A different World, a different football identity.",
+    },
+  });
+  assert.equal(secondProfile.status, 201, JSON.stringify(secondProfile.data));
+  const secondPlayerId = secondProfile.data.profile.id;
+  assert.notEqual(secondPlayerId, originalPlayerId);
+
+  const originalLinked = await request("/worlds/original-gg/player-profile", { token: "owner" });
+  const secondLinked = await request("/worlds/other-world/player-profile", { token: "owner" });
+  assert.equal(originalLinked.data.profile.name, "Jeswin");
+  assert.equal(secondLinked.data.profile.name, "Jeswin");
+  assert.notEqual(String(originalLinked.data.profile._id), String(secondLinked.data.profile._id));
+
+  const originalPlayer = await Player.findById(originalPlayerId).lean();
+  const secondPlayer = await Player.findById(secondPlayerId).lean();
+  assert.equal(String(originalPlayer.worldId), String(ownerWorld._id));
+  assert.equal(String(secondPlayer.worldId), String(otherWorld._id));
+
+  // A second member cannot take the same display name inside Original GG.
+  const thirdJoin = await request("/worlds/original-gg/join-requests", {
+    token: "member-three",
+    method: "POST",
+  });
+  assert.equal(thirdJoin.status, 202);
+  const originalQueue = await request("/worlds/original-gg/join-requests", { token: "owner" });
+  const thirdRequest = originalQueue.data.requests.find(item => item.user?.name === "World Test member-three");
+  assert.ok(thirdRequest);
+  const thirdApproved = await request("/worlds/original-gg/join-requests/" + thirdRequest.id + "/approve", {
+    token: "owner",
+    method: "POST",
+  });
+  assert.equal(thirdApproved.status, 200);
+
+  const duplicateName = await request("/worlds/original-gg/player-profiles", {
+    token: "member-three",
+    method: "POST",
+    body: { name: "Jeswin" },
+  });
+  assert.equal(duplicateName.status, 409);
+  assert.equal(duplicateName.data.code, "WORLD_PLAYER_NAME_TAKEN");
+
+  const duplicateOwnProfile = await request("/worlds/original-gg/player-profiles", {
+    token: "owner",
+    method: "POST",
+    body: { name: "Jeswin Two" },
+  });
+  assert.equal(duplicateOwnProfile.status, 409);
+  assert.equal(duplicateOwnProfile.data.code, "WORLD_PLAYER_PROFILE_EXISTS");
 });
