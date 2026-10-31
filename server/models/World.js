@@ -10,6 +10,16 @@ const globalMapSchema = new Schema({
     maxlength: 64,
     default: "gg-main-v1",
   },
+  slotIndex: {
+    type: Number,
+    min: 0,
+    max: 249999,
+    default: null,
+    validate: {
+      validator: value => value === null || Number.isSafeInteger(value),
+      message: "Global map slot index must be a non-negative integer.",
+    },
+  },
   x: {
     type: Number,
     min: -100000,
