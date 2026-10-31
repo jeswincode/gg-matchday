@@ -239,13 +239,21 @@ export default function GlobalMapScene({
   const activeSelection = worlds.find(world => world.slug === selectedWorldSlug) || selected;
 
   const selectWorld = world => {
-    // Selecting a kingdom the signed-in player already belongs to is the
-    // camera transition into that World. Public/non-member kingdoms open
-    // their preview and approval request flow instead.
+    // Public/non-member kingdoms open their preview and approval request flow.
+    // An active member gets a short camera flight toward their kingdom before
+    // the app swaps to the full-screen local World map.
     if (membershipStates[world.slug] === "active" && onEnterWorld) {
-      setSelected(null);
+      const position = project(world.globalMap.x, world.globalMap.y);
+      const targetZoom = Math.min(6, Math.max(camera.zoom, 3.4 / Math.max(fit.scale, 0.1)));
+      const targetScale = targetZoom * fit.scale;
+      setSelected(world);
+      setCamera({
+        zoom: targetZoom,
+        x: -(position.x - fit.centerX) * targetScale,
+        y: -(position.y - fit.centerY) * targetScale,
+      });
       onSelectWorld?.(world);
-      onEnterWorld(world);
+      window.setTimeout(() => onEnterWorld(world), 460);
       return;
     }
     setSelected(world);
@@ -342,7 +350,7 @@ export default function GlobalMapScene({
         <Preview
           world={activeSelection}
           membership={activeSelection ? membershipStates[activeSelection.slug] || "none" : "none"}
-          onEnter={onEnterWorld}
+          onEnter={selectWorld}
           onRequestMembership={onRequestMembership}
           onClose={() => {
             setSelected(null);
