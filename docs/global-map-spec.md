@@ -88,6 +88,14 @@ Do not load full match histories, training logs, chat history or financial data 
 - On mobile, preserve large tap targets and prevent accidental page scroll while panning.
 - Do not make map interaction the only route to football records.
 
+## Public API boundary
+
+The initial public projection is served by `GET /api/worlds/map`. It returns public World identity, description, emblem asset reference, accent colour, active member count and logical Global Map coordinates.
+
+Viewer-specific membership state is not embedded in that response. The client obtains its own memberships through `GET /api/worlds/me` or a particular World membership endpoint. The renderer must never infer access from the presence of a kingdom or from its public preview.
+
+New Worlds are created through `POST /api/worlds`. Creation allocates a platform-controlled Global Map position and creates the World, owner membership, local map layout and standard facilities in one MongoDB transaction.
+
 ## Initial prototype scope
 
 - A fixed seeded map with fixture kingdom data.
