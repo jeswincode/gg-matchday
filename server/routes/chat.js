@@ -1,7 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { requireAuth } from '../middleware/auth.js';
-import { requireOptionalWorldMembership, domainWorldFilter } from '../middleware/domainWorldContext.js';
+import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope } from '../middleware/domainWorldContext.js';
 import User from '../models/User.js';
 import ChatMessage from '../models/ChatMessage.js';
 import { chatMonth, messageText } from '../services/validation.js';
@@ -12,6 +12,7 @@ const lifetime = 5 * 24 * 60 * 60 * 1000;
 const monthlyLimit = 3;
 
 router.use(requireOptionalWorldMembership);
+router.use(withWorldDataScope);
 router.use(requireAuth);
 const worldFilter = req => domainWorldFilter(req);
 const worldStreamKey = req => req.worldId ? String(req.worldId) : "legacy";
