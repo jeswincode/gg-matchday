@@ -3,8 +3,11 @@ import WorldMembership from "../models/WorldMembership.js";
 import { isValidWorldSlug, normalizeWorldSlug } from "../services/worldAccess.js";
 
 function worldSlugFromRequest(req) {
+  // Path-based World routes use their :slug parameter. Existing World-scoped
+  // domain routes use X-World-Slug. A client cannot select a membership role
+  // or World ID through either mechanism.
   return normalizeWorldSlug(
-    req.get?.("x-world-slug") || req.headers?.["x-world-slug"] || "",
+    req.params?.slug || req.get?.("x-world-slug") || req.headers?.["x-world-slug"] || "",
   );
 }
 
