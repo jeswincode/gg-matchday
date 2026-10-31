@@ -30,12 +30,16 @@ const userSchema =
         default: "",
       },
 
+      // Legacy single-World link. WorldMembership.playerProfileId becomes
+      // authoritative after the account/profile migration is completed.
       playerProfile: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Player",
         default: null,
       },
 
+      // Legacy group-wide role, retained for old routes during migration.
+      // New World-scoped permissions use WorldMembership.role instead.
       role: {
         type: String,
         enum: [
@@ -44,6 +48,15 @@ const userSchema =
           "admin",
         ],
         default: "viewer",
+      },
+
+      // GG platform-level authority is distinct from legacy User.role and
+      // WorldMembership.role. Grants must use an audited platform-admin
+      // process, never World creation or membership approval.
+      platformRole: {
+        type: String,
+        enum: ["user", "platform_admin"],
+        default: "user",
       },
 
       accessRequest: {

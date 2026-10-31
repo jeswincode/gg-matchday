@@ -1,4 +1,5 @@
 import {auth} from '../firebase';
+import { getActiveWorldSlug, setActiveWorldSlug, worldContextHeaders } from './worldContext.js';
 
 const VITE_ENV = import.meta.env || {};
 export const API_URL = VITE_ENV.VITE_API_URL || 'http://localhost:5000/api';
@@ -79,18 +80,39 @@ export function invalidate() {
   window.dispatchEvent(new Event('gg-data-changed'));
 }
 
+export function setApiActiveWorld(slug) {
+  const normalized = setActiveWorldSlug(slug);
+  invalidate();
+  return normalized;
+}
+
 export async function authenticatedFetch(url, options = {}) {
+  const worldHeaders = worldContextHeaders();
   if (VITE_ENV.VITE_E2E_TEST_AUTH_SECRET) {
-    return fetch(url, { ...options, headers: { ...(options.headers || {}), ...e2eAuthHeaders() } });
+    return fetch(url, {
+      ...options,
+      headers: { ...(options.headers || {}), ...e2eAuthHeaders(), ...worldHeaders },
+    });
   }
   if (!auth?.currentUser) throw new Error('Authentication required.');
   const token = await auth.currentUser.getIdToken();
-  return fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...worldHeaders,
+      Authorization: 'Bearer ' + token,
+    },
+  });
 }
 
 export async function api(path, { method = 'GET', body, signal, ...options } = {}) {
   const normalizedMethod = String(method || 'GET').toUpperCase();
-  const key = `${auth?.currentUser?.uid || 'public'}:${path}`;
+  const activeWorldSlug = getActiveWorldSlug();
+  // The World selector is part of the cache and in-flight request identity.
+  // A response from one World can never satisfy the same path in another.
+  const key = (auth?.currentUser?.uid || 'public') + ':' +
+    (activeWorldSlug || 'global') + ':' + path;
   const hit = cache.get(key);
   if (normalizedMethod === 'GET' && !signal && hit && hit.until > Date.now()) return hit.data;
   if (normalizedMethod === 'GET' && !signal && pending.has(key)) return pending.get(key);
@@ -99,14 +121,15 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
     const token = await auth?.currentUser?.getIdToken();
     let response;
     try {
-      response = await fetch(`${API_URL}${path}`, {
+      response = await fetch(API_URL + path, {
         ...options,
         method: normalizedMethod,
         signal,
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
           ...e2eAuthHeaders(),
+          ...worldContextHeaders(activeWorldSlug),
         },
         ...(body !== undefined ? { body: typeof body === 'string' ? body : JSON.stringify(body) } : {}),
       });
@@ -130,7 +153,7 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
       let message = genericServerMessages.has(serverMessage)
         ? genericMessageForStatus(response.status)
         : serverMessage;
-      if (response.status >= 500 && requestId) message += ` Reference ID: ${requestId}`;
+      if (response.status >= 500 && requestId) message += ' Reference ID: ' + requestId;
       const error = new ApiError(message, {
         status: response.status,
         method: normalizedMethod,
