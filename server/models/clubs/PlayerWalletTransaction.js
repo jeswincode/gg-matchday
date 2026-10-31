@@ -32,8 +32,8 @@ const playerWalletTransactionSchema = new mongoose.Schema(
   { timestamps: true, collection: "playerWalletTransactions" },
 );
 
-playerWalletTransactionSchema.index({ playerId: 1, createdAt: -1 });
-playerWalletTransactionSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
+playerWalletTransactionSchema.index({ worldId: 1, playerId: 1, createdAt: -1 });
+playerWalletTransactionSchema.index({ worldId: 1, idempotencyKey: 1 }, { unique: true, sparse: true, name: "player_wallet_tx_world_idempotency_unique" });
 
 playerWalletTransactionSchema.plugin(worldDataScopePlugin);
 
