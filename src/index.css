@@ -2143,8 +2143,8 @@ textarea:focus {
 
   grid-template-columns:
     repeat(
-      5,
-      1fr
+      6,
+      minmax(0, 1fr)
     );
 
   gap: 5px;
