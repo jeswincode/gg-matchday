@@ -15,6 +15,7 @@ function safeWorld(world, memberCount = 0) {
     slug: world.slug,
     name: world.name,
     description: world.description || "",
+    emblem: String(world.name || "GG").trim().slice(0, 2).toUpperCase(),
     emblemAssetId: world.branding?.emblemAssetId || null,
     accentColor: world.branding?.accentColor || "#c5a45b",
     memberCount,

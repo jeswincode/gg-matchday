@@ -104,24 +104,31 @@ function Preview({ world, membership, onEnter, onRequestMembership, onClose }) {
         <span>{Number(world.memberCount || 0).toLocaleString()} members</span>
         <span>{active ? "Member" : pending ? "Request pending" : "Public World"}</span>
       </div>
-      {active ? (
-        <button className="gg-preview-primary" type="button" onClick={() => onEnter?.(world)}>
+      {active && onEnter ? (
+        <button className="gg-preview-primary" type="button" onClick={() => onEnter(world)}>
           Enter World <span aria-hidden="true">↗</span>
+        </button>
+      ) : active ? (
+        <button className="gg-preview-primary" type="button" disabled>
+          World interior opening soon
         </button>
       ) : (
         <button
           className="gg-preview-primary"
           type="button"
-          disabled={pending || !onRequestMembership}
+          disabled={pending}
           onClick={() => onRequestMembership?.(world)}
         >
           {pending ? "Awaiting approval" : "Request membership"}
         </button>
       )}
       <p className="gg-preview-note">
-        {active ? "Your membership is active." : pending
-          ? "The owner has not approved your request yet."
-          : "Membership approval is required to enter."}
+        {active ? (onEnter
+          ? "Your membership is active."
+          : "Your membership is active. World facilities are being connected.")
+          : pending
+            ? "The owner has not approved your request yet."
+            : "Membership approval is required to enter."}
       </p>
     </aside>
   );

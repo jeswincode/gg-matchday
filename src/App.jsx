@@ -39,6 +39,7 @@ const API_URL =
   "http://localhost:5000/api";
 
 const TABS = {
+  GLOBAL_MAP: "worlds",
   HOME: "home",
   RECORD: "record",
   LEADERBOARD: "leaderboard",
@@ -48,6 +49,7 @@ const TABS = {
 };
 
 const TAB_ORDER = [
+  TABS.GLOBAL_MAP,
   TABS.HOME,
   TABS.RECORD,
   TABS.LEADERBOARD,
@@ -2575,6 +2577,13 @@ function App() {
           HOME
       ===================================================== */}
 
+      {activeTab === TABS.GLOBAL_MAP && (
+        <GlobalMapPage
+          isSignedIn={isSignedIn}
+          onMessage={setMessage}
+        />
+      )}
+
       {activeTab === TABS.HOME && (
         <HomePage
           latestMatch={latestMatch}
@@ -2737,6 +2746,13 @@ function App() {
       ===================================================== */}
 
       <nav className="bottom-nav">
+
+        <NavButton
+          active={activeTab === TABS.GLOBAL_MAP}
+          icon="🌍"
+          label="Worlds"
+          onClick={() => setActiveTab(TABS.GLOBAL_MAP)}
+        />
 
         <NavButton
           active={
