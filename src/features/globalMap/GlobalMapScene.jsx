@@ -27,10 +27,22 @@ function terrain(mapPoints = []) {
   const coordinates = mapPoints.filter(point =>
     Number.isFinite(point?.x) && Number.isFinite(point?.y),
   );
-  const minColumn = coordinates.length ? Math.min(...coordinates.map(point => point.x)) : -16;
-  const maxColumn = coordinates.length ? Math.max(...coordinates.map(point => point.x)) : 16;
-  const minRow = coordinates.length ? Math.min(...coordinates.map(point => point.y)) : -12;
-  const maxRow = coordinates.length ? Math.max(...coordinates.map(point => point.y)) : 12;
+  let minColumn = -16;
+  let maxColumn = 16;
+  let minRow = -12;
+  let maxRow = 12;
+  if (coordinates.length) {
+    minColumn = Infinity;
+    maxColumn = -Infinity;
+    minRow = Infinity;
+    maxRow = -Infinity;
+    for (const point of coordinates) {
+      minColumn = Math.min(minColumn, point.x);
+      maxColumn = Math.max(maxColumn, point.x);
+      minRow = Math.min(minRow, point.y);
+      maxRow = Math.max(maxRow, point.y);
+    }
+  }
   const spanColumns = maxColumn - minColumn;
   const spanRows = maxRow - minRow;
   const step = Math.max(1, Math.ceil((spanColumns + 36) / 68), Math.ceil((spanRows + 28) / 48));
@@ -218,10 +230,16 @@ export default function GlobalMapScene({
       return { centerX: ORIGIN_X, centerY: ORIGIN_Y, scale: 1 };
     }
 
-    const minX = Math.min(...positions.map(position => position.x));
-    const maxX = Math.max(...positions.map(position => position.x));
-    const minY = Math.min(...positions.map(position => position.y));
-    const maxY = Math.max(...positions.map(position => position.y));
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const position of positions) {
+      minX = Math.min(minX, position.x);
+      maxX = Math.max(maxX, position.x);
+      minY = Math.min(minY, position.y);
+      maxY = Math.max(maxY, position.y);
+    }
     const boundsWidth = Math.max(680, maxX - minX + 440);
     const boundsHeight = Math.max(520, maxY - minY + 360);
     const scale = Math.max(0.36, Math.min(
