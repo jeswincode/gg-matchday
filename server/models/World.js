@@ -76,7 +76,6 @@ const worldSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "User",
     required: true,
-    index: true,
   },
   visibility: {
     type: String,
@@ -127,5 +126,13 @@ worldSchema.index(
     },
   },
 );
+
+worldSchema.pre("validate", function validateGlobalMapPosition() {
+  const x = this.globalMap?.x;
+  const y = this.globalMap?.y;
+  if ((x === null) !== (y === null)) {
+    this.invalidate("globalMap", "Global map X and Y coordinates must be assigned together.");
+  }
+});
 
 export default mongoose.models.World || mongoose.model("World", worldSchema);
