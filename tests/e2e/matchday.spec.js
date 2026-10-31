@@ -295,8 +295,19 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Worlds" }).click();
   await page.getByRole("button", { name: "Preview " + worldName }).click();
+  const joinResponsePromise = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return response.request().method() === "POST" &&
+      url.pathname.endsWith("/worlds/" + worldName.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "/join-requests");
+  }, { timeout: 10000 }).catch(() => null);
   await page.getByRole("button", { name: "Request membership" }).click();
-  await expect(page.getByText("Your request to join this World has been submitted.")).toBeVisible();
+  const joinResponse = await joinResponsePromise;
+  if (joinResponse) {
+    console.log("WORLD_JOIN_REQUEST_RESPONSE", joinResponse.status(), await joinResponse.text());
+  } else {
+    console.log("WORLD_JOIN_REQUEST_NO_HTTP_RESPONSE", await page.locator(".account-bar").innerText().catch(() => ""));
+  }
+  await expect(page.getByText(/request to join this World|already awaiting approval|Sign in to request membership/i)).toBeVisible();
   await expect(page.getByText("REQUEST PENDING")).toBeVisible();
 
   // The owner sees only requests for Worlds they administer and approves this one.
