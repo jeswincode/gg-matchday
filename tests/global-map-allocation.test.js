@@ -24,6 +24,21 @@ test("Global Map kingdoms are reserved in a deterministic square spiral", () => 
   assert.equal(new Set(positions.map(position => position.x + ":" + position.y)).size, positions.length);
 });
 
+test("square-spiral positions remain exact beyond the initial kingdom cluster", () => {
+  assert.deepEqual(globalPositionAt(24), {
+    x: 2 * GLOBAL_KINGDOM_SPACING,
+    y: -2 * GLOBAL_KINGDOM_SPACING,
+  });
+  assert.deepEqual(globalPositionAt(25), {
+    x: 3 * GLOBAL_KINGDOM_SPACING,
+    y: -2 * GLOBAL_KINGDOM_SPACING,
+  });
+  assert.deepEqual(globalPositionAt(48), {
+    x: 3 * GLOBAL_KINGDOM_SPACING,
+    y: -3 * GLOBAL_KINGDOM_SPACING,
+  });
+});
+
 test("Global Map position allocator rejects invalid indexes and spacing", () => {
   assert.throws(() => globalPositionAt(-1), /non-negative integer/);
   assert.throws(() => globalPositionAt(1.5), /non-negative integer/);
