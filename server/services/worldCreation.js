@@ -7,7 +7,6 @@ import WorldMapFacility from "../models/WorldMapFacility.js";
 export const GLOBAL_MAP_ID = "gg-main-v1";
 export const WORLD_MAP_GRID_WIDTH = 60;
 export const WORLD_MAP_GRID_HEIGHT = 60;
-export const GLOBAL_KINGDOM_COLUMNS = 25;
 export const GLOBAL_KINGDOM_SPACING = 8;
 export const GLOBAL_KINGDOM_SPACING = 8;
 
