@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isAllowedCorsOrigin } from "../server/config/corsPolicy.js";
+import { createCorsOptions, isAllowedCorsOrigin } from "../server/config/corsPolicy.js";
 
 test("production CORS allowlists only the canonical frontend origin", () => {
   assert.equal(isAllowedCorsOrigin("https://gg-matchday.vercel.app", "production"), true);
@@ -15,8 +15,13 @@ test("development CORS explicitly permits supported local frontend origins", () 
   assert.equal(isAllowedCorsOrigin("https://untrusted.example", "development"), false);
 });
 
-
 test("production CORS does not consider a missing Origin allowlisted", () => {
   assert.equal(isAllowedCorsOrigin("", "production"), false);
   assert.equal(isAllowedCorsOrigin(undefined, "production"), false);
+});
+
+test("World context header is available in both production and development CORS policies", () => {
+  assert.ok(createCorsOptions("production").allowedHeaders.includes("X-World-Slug"));
+  assert.ok(createCorsOptions("development").allowedHeaders.includes("X-World-Slug"));
+  assert.ok(!createCorsOptions("production").allowedHeaders.includes("X-E2E-Test-Token"));
 });
