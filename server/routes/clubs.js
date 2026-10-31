@@ -80,8 +80,18 @@ function ensureClubsDatabase(res) {
   return true;
 }
 
+function requestPlayerId(req) {
+  return req.worldId ? req.membership?.playerProfileId || null : req.user?.playerProfile || null;
+}
+
+function isClubWorldAdmin(req) {
+  return req.worldId
+    ? ["owner", "admin"].includes(req.membership?.role)
+    : req.user?.role === "admin";
+}
+
 function requireLinkedPlayer(req, res) {
-  const playerId = req.worldId ? req.membership?.playerProfileId : req.user?.playerProfile;
+  const playerId = requestPlayerId(req);
   if (!playerId) {
     res.status(403).json({ message: "Link your GG player profile before using Clubs." });
     return null;
@@ -974,8 +984,8 @@ router.get("/auction/eligible-players", async (req, res) => {
 router.get("/auction/offers/:playerId", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.playerId)) return res.status(400).json({ message: "Invalid player id." });
-  const signedInPlayerId = req.user?.playerProfile ? String(req.user.playerProfile) : "";
-  if (signedInPlayerId !== String(req.params.playerId) && req.user?.role !== "admin") {
+  const signedInPlayerId = requestPlayerId(req) ? String(requestPlayerId(req)) : "";
+  if (signedInPlayerId !== String(req.params.playerId) && !isClubWorldAdmin(req)) {
     return res.status(403).json({ message: "Auction offers are private to the player receiving them." });
   }
   const offers = await AuctionOffer.find({ playerId: req.params.playerId, status: { $in: ["active", "chosenByPlayer", "approved"] } }).sort({ amount: -1, createdAt: 1 }).lean();
@@ -991,7 +1001,7 @@ router.post("/auction/offers", requireAuth, async (req, res) => {
   try {
     let offer;
     await session.withTransaction(async () => {
-      const state = await getUserClubCaptainState(req.user.playerProfile, clubId);
+      const state = await getUserClubCaptainState(requestPlayerId(req), clubId);
       if (!state?.isCaptain) throw new Error("Only a club captain can make a signing offer.");
       if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("Your club already has five players.");
       if (state.club.memberIds.some(id => String(id) === String(playerId))) throw new Error("That player is already in your club.");
