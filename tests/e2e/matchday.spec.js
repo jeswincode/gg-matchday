@@ -341,6 +341,9 @@ test("World owner can claim land, approve a member, and enter the local map", as
   await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
 
   // The approved member enters the same World with read-only map permissions.
+  // The test harness swaps identities through URL parameters rather than a real
+  // sign-out, so clear the owner's session World before simulating the member.
+  await page.evaluate(() => sessionStorage.removeItem("gg.activeWorldSlug"));
   await page.goto("/?e2eRole=viewer&e2ePlayerId=" + applicantPlayerId);
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
