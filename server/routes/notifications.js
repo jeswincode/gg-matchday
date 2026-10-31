@@ -1,12 +1,13 @@
 import express from "express";
 import mongoose from "mongoose";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
-import { requireOptionalWorldMembership, domainWorldFilter, requireDomainCapability } from "../middleware/domainWorldContext.js";
+import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope, requireDomainCapability } from "../middleware/domainWorldContext.js";
 import Notification from "../models/Notification.js";
 
 const router = express.Router();
 const lifetime = 5 * 24 * 60 * 60 * 1000;
 router.use(requireOptionalWorldMembership);
+router.use(withWorldDataScope);
 router.use(requireAuth);
 const worldFilter = req => domainWorldFilter(req);
 function serialize(notification,userId){const id=String(userId);return{id:String(notification._id),title:notification.title,message:notification.message,authorName:notification.authorName,createdAt:new Date(notification.createdAt).getTime(),expiresAt:new Date(notification.expiresAt).getTime(),read:(notification.readBy||[]).some(value=>String(value)===id)};}
