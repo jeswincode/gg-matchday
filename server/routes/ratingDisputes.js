@@ -4,11 +4,12 @@ import Match from "../models/Match.js";
 import { normalizeMatchScores } from "../services/statistics.js";
 import RatingDispute from "../models/RatingDispute.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
-import { requireOptionalWorldMembership, domainWorldFilter, requireDomainCapability } from "../middleware/domainWorldContext.js";
+import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope, requireDomainCapability } from "../middleware/domainWorldContext.js";
 import { buildRatingExplanation } from "../services/ratings/explanation.js";
 
 const router = express.Router();
 router.use(requireOptionalWorldMembership);
+router.use(withWorldDataScope);
 const worldFilter = req => domainWorldFilter(req);
 const CATEGORIES = ["match-rating", "defensive-rating", "performance-codes", "match-statistics", "other"];
 const REVIEW_STATUSES = ["reviewing", "correction_required", "resolved_no_change", "rejected"];
