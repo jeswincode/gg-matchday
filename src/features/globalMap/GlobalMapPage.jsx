@@ -11,26 +11,24 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage }) {
 
   const loadMap = useCallback(async ({ silent = false } = {}) => {
     if (silent) setRefreshing(true);
-    else setLoading(true);
-    setLoadError("");
 
     try {
       const publicResult = await api("/worlds/map");
       const publicWorlds = Array.isArray(publicResult?.worlds) ? publicResult.worlds : [];
-      setWorlds(publicWorlds);
+      let states = {};
 
       if (isSignedIn) {
         const ownResult = await api("/worlds/me");
         const ownWorlds = Array.isArray(ownResult?.worlds) ? ownResult.worlds : [];
-        const states = {};
         for (const item of ownWorlds) {
           const status = item?.membership?.status;
           if (item?.slug && status) states[item.slug] = status;
         }
-        setMembershipStates(states);
-      } else {
-        setMembershipStates({});
       }
+
+      setWorlds(publicWorlds);
+      setMembershipStates(states);
+      setLoadError("");
     } catch (error) {
       setLoadError(error?.message || "Could not load the Global Map.");
     } finally {
