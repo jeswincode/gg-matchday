@@ -28,23 +28,32 @@ export function globalPositionAt(index, spacing = GLOBAL_KINGDOM_SPACING) {
     throw new TypeError("Global position spacing must be a positive integer.");
   }
 
-  let x = 0;
-  let y = 0;
-  let dx = 0;
-  let dy = -1;
+  if (index === 0) return { x: 0, y: 0 };
 
-  for (let step = 0; step <= index; step += 1) {
-    if (x === y || (x < 0 && x === -y) || (x > 0 && x === 1 - y)) {
-      [dx, dy] = [-dy, dx];
-    }
-    if (step === index) {
-      return { x: x * spacing, y: y * spacing };
-    }
-    x += dx;
-    y += dy;
+  // Direct square-spiral coordinate calculation. This stays O(1) even for
+  // distant plots, which matters when calculating the next open land sector.
+  const ring = Math.ceil((Math.sqrt(index + 1) - 1) / 2);
+  const firstIndex = (2 * ring - 1) ** 2;
+  const offset = index - firstIndex;
+  const sideLength = 2 * ring;
+
+  let x;
+  let y;
+  if (offset < sideLength) {
+    x = ring;
+    y = -ring + 1 + offset;
+  } else if (offset < sideLength * 2) {
+    y = ring;
+    x = ring - (offset - sideLength + 1);
+  } else if (offset < sideLength * 3) {
+    x = -ring;
+    y = ring - (offset - sideLength * 2 + 1);
+  } else {
+    y = -ring;
+    x = -ring + (offset - sideLength * 3 + 1);
   }
 
-  throw new RangeError("Could not calculate Global Map position.");
+  return { x: x * spacing, y: y * spacing };
 }
 
 function httpError(status, code, message) {
