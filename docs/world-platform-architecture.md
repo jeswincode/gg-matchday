@@ -99,7 +99,7 @@ Google Drive is an optional user-authorized export/backup destination. It is not
 
 The first World route slice is mounted at `/api/worlds`:
 
-- `GET /map`: public Global Map projection only. It does not include viewer-specific membership state.
+- `GET /map`: public Global Map projection plus a bounded list of available plot coordinates. It does not include viewer-specific membership state.
 - `GET /:slug`: public World preview.
 - `GET /me`: the authenticated account's own memberships and safe World summaries.
 - `GET /:slug/membership`: the authenticated account's status in that World.
