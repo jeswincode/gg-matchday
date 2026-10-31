@@ -2,13 +2,24 @@ import mongoose from "mongoose";
 
 const playerSchema = new mongoose.Schema(
   {
+    worldId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "World",
+      default: null,
+      index: true,
+    },
+    nameNormalized: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: "",
+    },
     preferredPositions: { type: [String], default: [] },
     clasicoSide: { type: String, enum: ["", "Messi", "Ronaldo"], default: "" },
     name: {
       type: String,
       required: true,
       trim: true,
-      unique: true,
     },
 
     profileImage: {
@@ -122,5 +133,25 @@ const playerSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+playerSchema.index(
+  { worldId: 1, nameNormalized: 1 },
+  {
+    unique: true,
+    name: "player_world_name_unique",
+    partialFilterExpression: { worldId: { $type: "objectId" } },
+  },
+);
+playerSchema.index({ worldId: 1, name: 1 }, { name: "player_world_directory" });
+
+playerSchema.pre("validate", function normalizeWorldPlayerName() {
+  if (typeof this.name === "string") {
+    this.nameNormalized = this.name
+      .normalize("NFKD")
+      .replace(/[\\u0300-\\u036f]/g, "")
+      .trim()
+      .toLocaleLowerCase("en");
+  }
+});
 
 export default mongoose.model("Player", playerSchema);
