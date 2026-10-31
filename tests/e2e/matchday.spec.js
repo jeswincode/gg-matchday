@@ -272,7 +272,7 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
 
 
 
-test("World owner can create a kingdom, review a join request, and approve a member", async ({ page }) => {
+test("World owner can claim land, approve a member, and enter the local map", async ({ page }) => {
   const worldName = "E2E Global Map League " + Date.now();
   const ownerPlayerId = "65a000000000000000000001";
   const applicantPlayerId = "65a000000000000000000002";
@@ -280,36 +280,39 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   await page.goto("/?e2eRole=editor&e2ePlayerId=" + ownerPlayerId);
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  await page.getByRole("button", { name: "Worlds" }).click();
 
+  // Home is the full-screen Global Map. Claim an advertised empty plot.
+  await expect(page.getByRole("heading", { name: "Every World starts somewhere." })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("button")).toHaveCount(5);
+  await page.getByRole("button", { name: "Found a World" }).click();
   await page.getByLabel("World name").fill(worldName);
   await page.getByLabel(/Description/).fill("A browser-tested public football community.");
   const createWorldResponsePromise = page.waitForResponse(response =>
     response.request().method() === "POST" &&
     new URL(response.url()).pathname.endsWith("/api/worlds")
   );
-  await page.getByRole("button", { name: /Create World/ }).click();
+  await page.getByRole("button", { name: "Claim land and create World" }).click();
   const createWorldResponse = await createWorldResponsePromise;
   expect(createWorldResponse.status()).toBe(201);
   const createdWorld = await createWorldResponse.json();
   const worldSlug = createdWorld.world.slug;
+  expect(Number.isSafeInteger(createdWorld.world.globalMap.slotIndex)).toBe(true);
+  await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Select Central Stadium facility" })).toBeVisible();
 
-  await expect(page.getByText(worldName + " has been created. You are its owner.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Preview " + worldName })).toBeVisible();
+  // Owner can edit the local map. The five main destinations remain available.
+  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("button")).toHaveCount(5);
+  await page.getByRole("button", { name: "Select Central Stadium facility" }).click();
+  await page.getByRole("button", { name: "Move east" }).click();
+  await expect(page.getByText("Central Stadium placement saved.")).toBeVisible();
+  await expect(page.getByText("Grid 26, 25 · Rotation 0° · Level 1")).toBeVisible();
+  await page.getByRole("button", { name: "← Global Map" }).click();
+  await page.getByRole("button", { name: "Preview " + worldName }).click();
 
-  // A second signed-in account requests access to the newly created public World.
+  // A second account requests membership from the public kingdom preview.
   await page.goto("/?e2eRole=viewer&e2ePlayerId=" + applicantPlayerId);
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  await expect(page.locator(".account-user")).toContainText("Playwright viewer");
-  const membershipStateResponsePromise = page.waitForResponse(response => {
-    const url = new URL(response.url());
-    return response.request().method() === "GET" &&
-      url.pathname.endsWith("/worlds/me");
-  });
-  await page.getByRole("button", { name: "Worlds" }).click();
-  const membershipStateResponse = await membershipStateResponsePromise;
-  expect(membershipStateResponse.status()).toBe(200);
   await page.getByRole("button", { name: "Preview " + worldName }).click();
   const joinResponsePromise = page.waitForResponse(response => {
     const url = new URL(response.url());
@@ -321,37 +324,28 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   expect(joinResponse.status()).toBe(202);
   const joinData = await joinResponse.json();
   expect(joinData.membership.status).toBe("pending");
-  await expect(page.getByText("Your request to join this World has been submitted.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Awaiting approval" })).toBeDisabled();
 
-  // The owner sees only requests for Worlds they administer and approves this one.
+  // Owner approves through their administration inbox.
   await page.goto("/?e2eRole=editor&e2ePlayerId=" + ownerPlayerId);
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  await page.getByRole("button", { name: "Worlds" }).click();
+  await page.getByRole("button", { name: /Membership requests/ }).click();
   await expect(page.getByRole("heading", { name: "Membership requests" })).toBeVisible();
   await page.getByRole("button", { name: "Approve Playwright viewer" }).click();
   await expect(page.getByText("World membership approved.")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Membership requests" })).toHaveCount(0);
-
-  // The owner can enter the local map and make a versioned facility edit.
   await page.getByRole("button", { name: "Preview " + worldName }).click();
   await page.getByRole("button", { name: "Enter World" }).click();
   await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
-  await page.getByRole("button", { name: "Select Central Stadium facility" }).click();
-  await page.getByRole("button", { name: "Move east" }).click();
-  await expect(page.getByText("Central Stadium placement saved.")).toBeVisible();
-  await expect(page.getByText("Grid 26, 25 · Rotation 0° · Level 1")).toBeVisible();
-  await page.getByRole("button", { name: "← Global Map" }).click();
 
-  // The applicant's next World load reflects the approved membership.
+  // The approved member enters the same World with read-only map permissions.
   await page.goto("/?e2eRole=viewer&e2ePlayerId=" + applicantPlayerId);
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  await page.getByRole("button", { name: "Worlds" }).click();
   await page.getByRole("button", { name: "Preview " + worldName }).click();
   await page.getByRole("button", { name: "Enter World" }).click();
   await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
   await expect(page.getByText("Read-only map access")).toBeVisible();
   await expect(page.getByRole("button", { name: "Move east" })).toHaveCount(0);
 });
+
