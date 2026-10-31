@@ -135,7 +135,7 @@ export async function createWorldForUser({
             clubsEnabled: true,
             trainingEnabled: true,
           },
-        }], { session });
+        }], { session, ordered: true });
 
         const now = new Date();
         await WorldMembership.create([{
@@ -146,7 +146,7 @@ export async function createWorldForUser({
           requestedAt: now,
           approvedAt: now,
           approvedBy: null,
-        }], { session });
+        }], { session, ordered: true });
 
         await WorldMapLayout.create([{
           worldId: world._id,
@@ -157,7 +157,7 @@ export async function createWorldForUser({
           gridHeight: WORLD_MAP_GRID_HEIGHT,
           layoutVersion: 1,
           updatedBy: user._id,
-        }], { session });
+        }], { session, ordered: true });
 
         await WorldMapFacility.create(
           DEFAULT_WORLD_FACILITIES.map(facility => ({
@@ -173,7 +173,7 @@ export async function createWorldForUser({
             placementManagedBy: "system",
             updatedBy: user._id,
           })),
-          { session },
+          { session, ordered: true },
         );
 
         createdWorld = world;
