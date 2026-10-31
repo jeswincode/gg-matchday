@@ -20,7 +20,86 @@ async function fetchWorldData(isSignedIn) {
   return { worlds, membershipStates };
 }
 
-export default function GlobalMapPage({ isSignedIn = false, onMessage }) {
+function CreateWorldPanel({ isSignedIn, onSignIn, onCreated, onMessage }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const submit = async event => {
+    event.preventDefault();
+    const normalizedName = name.trim();
+    if (normalizedName.length < 2) {
+      onMessage?.("Give your World a name with at least two characters.");
+      return;
+    }
+    if (!isSignedIn) {
+      onSignIn?.();
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const result = await api("/worlds", {
+        method: "POST",
+        body: { name: normalizedName, description: description.trim() },
+      });
+      setName("");
+      setDescription("");
+      onCreated?.(result);
+      onMessage?.(result?.world?.name
+        ? result.world.name + " has been created. You are its owner."
+        : "Your World has been created.");
+    } catch (error) {
+      onMessage?.(error?.message || "Could not create this World.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <section className="gg-world-create-panel" aria-labelledby="gg-world-create-title">
+      <div className="gg-world-create-copy">
+        <span className="gg-world-create-eyebrow">START A COMMUNITY</span>
+        <h2 id="gg-world-create-title">Build your own football World</h2>
+        <p>Create a public kingdom, invite players and shape its map. New members join after owner/admin approval.</p>
+      </div>
+      {isSignedIn ? (
+        <form className="gg-world-create-form" onSubmit={submit}>
+          <label>
+            World name
+            <input
+              value={name}
+              onChange={event => setName(event.target.value)}
+              maxLength={80}
+              minLength={2}
+              placeholder="e.g. Bengaluru Sunday League"
+              required
+            />
+          </label>
+          <label>
+            Description <span className="gg-world-optional">(optional)</span>
+            <textarea
+              value={description}
+              onChange={event => setDescription(event.target.value)}
+              maxLength={1000}
+              rows={2}
+              placeholder="What makes your football community different?"
+            />
+          </label>
+          <button type="submit" className="gg-world-create-button" disabled={creating || name.trim().length < 2}>
+            {creating ? "Creating your World…" : "＋ Create World"}
+          </button>
+        </form>
+      ) : (
+        <button type="button" className="gg-world-create-button" onClick={onSignIn}>
+          Sign in to create a World
+        </button>
+      )}
+    </section>
+  );
+}
+
+export default function GlobalMapPage({ isSignedIn = false, onMessage, onSignIn }) {
   const [worlds, setWorlds] = useState([]);
   const [membershipStates, setMembershipStates] = useState({});
   const [loading, setLoading] = useState(true);
@@ -69,6 +148,7 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage }) {
   const requestMembership = async world => {
     if (!isSignedIn) {
       onMessage?.("Sign in to request membership in " + world.name + ".");
+      onSignIn?.();
       return;
     }
 
@@ -88,8 +168,22 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage }) {
     }
   };
 
+  const handleWorldCreated = async result => {
+    const slug = result?.world?.slug;
+    if (slug) {
+      setMembershipStates(current => ({ ...current, [slug]: "active" }));
+    }
+    await loadMap({ silent: true });
+  };
+
   return (
     <section className="tab-content gg-global-map-page">
+      <CreateWorldPanel
+        isSignedIn={isSignedIn}
+        onSignIn={onSignIn}
+        onCreated={handleWorldCreated}
+        onMessage={onMessage}
+      />
       <GlobalMapScene
         worlds={worlds}
         membershipStates={membershipStates}
