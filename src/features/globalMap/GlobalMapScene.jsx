@@ -254,14 +254,6 @@ export default function GlobalMapScene({
 
   return (
     <section className="gg-global-map-shell" aria-label="GG Global Map">
-      <header className="gg-global-map-header">
-        <div>
-          <div className="gg-global-map-eyebrow">THE FOOTBALL UNIVERSE</div>
-          <h1>Global Map</h1>
-          <p>Discover football kingdoms. Travel between your Worlds.</p>
-        </div>
-        <div className="gg-global-map-count"><strong>{worlds.length}</strong><span>public Worlds</span><small>{availablePlots.length} plots open</small></div>
-      </header>
       <div
         className="gg-global-map-viewport"
         onPointerDown={pointerDown}
