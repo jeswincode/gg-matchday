@@ -5,10 +5,7 @@ import World from "../models/World.js";
 import WorldMembership from "../models/WorldMembership.js";
 import { requireAuth } from "../middleware/auth.js";
 import { resolveWorldContext } from "../middleware/worldContext.js";
-import {
-  requireActiveWorldMembership,
-  requireWorldCapability,
-} from "../middleware/worldPermissions.js";
+import { requireWorldCapability } from "../middleware/worldPermissions.js";
 import { createWorldForUser } from "../services/worldCreation.js";
 
 const router = express.Router();
