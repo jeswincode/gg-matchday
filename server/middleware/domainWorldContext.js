@@ -1,4 +1,5 @@
 import { requireAuth } from "./auth.js";
+import { runWithWorldDataScope } from "../services/worldDataScope.js";
 import { resolveWorldContext } from "./worldContext.js";
 import { requireActiveWorldMembership, requireWorldCapability } from "./worldPermissions.js";
 
@@ -38,4 +39,8 @@ export function requireDomainCapability(capability, legacyMiddleware) {
     if (req.worldId) return worldGuard(req, res, next);
     return legacyMiddleware(req, res, next);
   };
+}
+
+export function withWorldDataScope(req, res, next) {
+  return runWithWorldDataScope(req.worldId || null, next);
 }
