@@ -47,9 +47,13 @@ function facilityTitle(facility) {
 }
 
 function FacilityBuilding({ facility, selected, onSelect }) {
+  const rotation = facility.rotation || 0;
+  const quarterTurn = rotation === 90 || rotation === 270;
+  const footprintWidth = quarterTurn ? facility.footprint.height : facility.footprint.width;
+  const footprintHeight = quarterTurn ? facility.footprint.width : facility.footprint.height;
   const center = project(
-    facility.position.column + facility.footprint.width / 2,
-    facility.position.row + facility.footprint.height / 2,
+    facility.position.column + footprintWidth / 2,
+    facility.position.row + footprintHeight / 2,
   );
   const presentation = FACILITY_PRESENTATION[facility.type] || { icon: "🏛️" };
   const scale = facility.level > 1 ? 1 + Math.min(facility.level - 1, 5) * 0.035 : 1;
@@ -57,7 +61,7 @@ function FacilityBuilding({ facility, selected, onSelect }) {
   return (
     <g
       className={"gg-world-facility" + (selected ? " is-selected" : "")}
-      transform={"translate(" + center.x + " " + center.y + ") scale(" + scale + ")"}
+      transform={"translate(" + center.x + " " + center.y + ") rotate(" + rotation + ") scale(" + scale + ")"}
       role="button"
       tabIndex="0"
       aria-label={"Select " + facilityTitle(facility) + " facility"}
@@ -74,8 +78,10 @@ function FacilityBuilding({ facility, selected, onSelect }) {
       <rect className="gg-world-facility-body" x="-27" y="-48" width="54" height="62" rx="5"/>
       <path className="gg-world-facility-roof" d="M-34 -47 L0 -70 L34 -47 Z"/>
       <text className="gg-world-facility-icon" x="0" y="-12" textAnchor="middle">{presentation.icon}</text>
-      <rect className="gg-world-facility-label-bg" x="-76" y="43" width="152" height="27" rx="13.5"/>
-      <text className="gg-world-facility-label" x="0" y="61" textAnchor="middle">{facilityTitle(facility)}</text>
+      <g transform={"rotate(" + (-rotation) + ")"}>
+        <rect className="gg-world-facility-label-bg" x="-76" y="43" width="152" height="27" rx="13.5"/>
+        <text className="gg-world-facility-label" x="0" y="61" textAnchor="middle">{facilityTitle(facility)}</text>
+      </g>
     </g>
   );
 }
