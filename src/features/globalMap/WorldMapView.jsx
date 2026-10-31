@@ -9,8 +9,20 @@ const TILE_HEIGHT = 16;
 const ORIGIN_X = VIEW_WIDTH / 2;
 const ORIGIN_Y = 60;
 
+const LOCAL_OPEN_PLOTS = Object.freeze([
+  { column: 3, row: 3 },
+  { column: 15, row: 3 },
+  { column: 49, row: 3 },
+  { column: 3, row: 16 },
+  { column: 50, row: 18 },
+  { column: 14, row: 34 },
+  { column: 50, row: 34 },
+  { column: 14, row: 50 },
+  { column: 51, row: 51 },
+]);
+
 const FACILITY_PRESENTATION = {
-  central_stadium: { label: "Central Stadium", icon: "⚽" },
+  central_stadium: { label: "Central Stadium", icon: "⚽",
   club_district: { label: "Club District", icon: "🏟️" },
   construction_grounds: { label: "Construction Grounds", icon: "🏗️" },
   captains_arena: { label: "Captains' Arena", icon: "👑" },
@@ -44,6 +56,21 @@ function mapGridPaths(width, height) {
 
 function facilityTitle(facility) {
   return FACILITY_PRESENTATION[facility.type]?.label || facility.facilityKey;
+}
+
+function LocalOpenPlot({ plot }) {
+  const center = project(plot.column + 3, plot.row + 2.5);
+  return (
+    <g
+      className="gg-world-open-plot"
+      transform={"translate(" + center.x + " " + center.y + ")"}
+      aria-hidden="true"
+    >
+      <path d="M-72 0 L0 -36 L72 0 L0 36 Z"/>
+      <path className="gg-world-open-plot-inner" d="M-55 0 L0 -27 L55 0 L0 27 Z"/>
+      <text x="0" y="5" textAnchor="middle">OPEN LAND</text>
+    </g>
+  );
 }
 
 function FacilityBuilding({ facility, selected, onSelect }) {
@@ -96,6 +123,22 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
   const height = data.layout.gridHeight;
   const gridPath = useMemo(() => mapGridPaths(width, height), [width, height]);
   const selectedFacility = data.facilities.find(item => item.facilityKey === selectedFacilityKey) || null;
+  const openPlots = LOCAL_OPEN_PLOTS.filter(plot => {
+    const plotBounds = { left: plot.column, top: plot.row, right: plot.column + 6, bottom: plot.row + 5 };
+    return !data.facilities.some(facility => {
+      const quarterTurn = [90, 270].includes(facility.rotation || 0);
+      const width = quarterTurn ? facility.footprint.height : facility.footprint.width;
+      const height = quarterTurn ? facility.footprint.width : facility.footprint.height;
+      const bounds = {
+        left: facility.position.column,
+        top: facility.position.row,
+        right: facility.position.column + width,
+        bottom: facility.position.row + height,
+      };
+      return plotBounds.left < bounds.right && plotBounds.right > bounds.left &&
+        plotBounds.top < bounds.bottom && plotBounds.bottom > bounds.top;
+    });
+  });
 
   const pointerDown = event => {
     // Facilities and viewport controls must receive their own clicks;
@@ -232,6 +275,9 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
             />
             <path className="gg-world-map-grid" d={gridPath}/>
             <path className="gg-world-map-road" d="M380 470 C600 360 740 580 930 470 S1280 340 1510 540"/>
+            {openPlots.map(plot => (
+              <LocalOpenPlot key={plot.column + "-" + plot.row} plot={plot}/>
+            ))}
             {data.facilities.map(facility => (
               <FacilityBuilding
                 key={facility.facilityKey}
