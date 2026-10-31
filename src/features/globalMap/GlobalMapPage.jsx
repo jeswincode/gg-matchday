@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, setApiActiveWorld } from "../../lib/api";
+import { api, getActiveWorldSlug, setApiActiveWorld } from "../../lib/api";
 import GlobalMapScene from "./GlobalMapScene";
 import WorldMapView from "./WorldMapView";
 import "./immersive-world-map.css";
@@ -241,7 +241,7 @@ function WorldBottomNavigation({ onNavigateTab }) {
   );
 }
 
-function AccountChip({ authUser, backendUser, isSignedIn, onSignIn, onSignOut, theme, onThemeChange, onOpenClubs }) {
+function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, onSignIn, onSignOut, onNavigateAdmin, theme, onThemeChange, onOpenClubs }) {
   return (
     <div className="gg-world-account-hud">
       <button type="button" className="gg-world-clubs-link" onClick={onOpenClubs}>Clubs</button>
@@ -258,6 +258,7 @@ function AccountChip({ authUser, backendUser, isSignedIn, onSignIn, onSignOut, t
               <small>{backendUser?.role || "member"}</small>
             </div>
           </div>
+          {isAdmin && <button type="button" className="gg-world-admin-link" onClick={onNavigateAdmin}>Admin</button>}
           <button type="button" className="gg-world-signout" onClick={onSignOut}>Sign out</button>
         </>
       ) : (
@@ -271,6 +272,7 @@ export default function GlobalMapPage({
   isSignedIn = false,
   authUser = null,
   backendUser = null,
+  isAdmin = false,
   onMessage,
   message = "",
   onClearMessage,
@@ -418,6 +420,7 @@ export default function GlobalMapPage({
   };
 
   const goToGlobalMap = () => {
+    setApiActiveWorld(null);
     setEnteredWorld(null);
     setEnteredMap(null);
     setInteriorError("");
@@ -437,6 +440,8 @@ export default function GlobalMapPage({
           authUser={authUser}
           backendUser={backendUser}
           isSignedIn={isSignedIn}
+          isAdmin={isAdmin}
+          onNavigateAdmin={() => onNavigateTab?.("admin")}
           onSignIn={onSignIn}
           onSignOut={onSignOut}
           theme={theme}
