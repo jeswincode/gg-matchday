@@ -149,7 +149,20 @@ test('mobile navigation supports ordered horizontal tab swipes without wrapping'
   assert.match(app,/nextIndex<0 \|\| nextIndex>=TAB_ORDER\.length/);
   assert.match(app,/onTouchStart=\{handleAppTouchStart\}/);
   assert.match(app,/onTouchEnd=\{handleAppTouchEnd\}/);
-  assert.match(app,/target\.closest\("\.gg-global-map-viewport"\)/);
+  assert.match(app,/target\.closest\("\.gg-global-map-viewport, \.gg-world-map-viewport"\)/);
+});
+
+test('World navigation separates public discovery, member entry, and owner map editing',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const scene=read('src/features/globalMap/WorldMapView.jsx');
+  const routes=read('server/routes/worlds.js');
+  assert.match(page,/api\("\/worlds\/map"\)/);
+  assert.match(page,/\/map"\)/);
+  assert.match(page,/onEnterWorld=\{enterWorld\}/);
+  assert.match(scene,/permissions\?\.canEditMap/);
+  assert.match(scene,/expectedLayoutVersion/);
+  assert.match(routes,/requireActiveWorldMembership/);
+  assert.match(routes,/requireWorldCapability\("map:edit"\)/);
 });
 
 test('mobile calendar hides hover match popovers while preserving day details',()=>{
