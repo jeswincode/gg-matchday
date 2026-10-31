@@ -152,6 +152,14 @@ test('mobile navigation supports ordered horizontal tab swipes without wrapping'
   assert.match(app,/target\.closest\("\.gg-global-map-viewport, \.gg-world-map-viewport"\)/);
 });
 
+test('entering a World activates app-wide API context and logout clears it',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const app=read('src/App.jsx');
+  assert.match(page,/setApiActiveWorld\(world\.slug\)/);
+  assert.match(app,/setApiActiveWorld\(null\)/);
+  assert.match(app,/async function logout\(\)/);
+});
+
 test('World navigation separates public discovery, member entry, and owner map editing',()=>{
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
   const scene=read('src/features/globalMap/WorldMapView.jsx');
