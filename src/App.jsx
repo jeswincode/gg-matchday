@@ -1,5 +1,6 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
 import {api, invalidate, setApiActiveWorld} from './lib/api';
+import {getActiveWorldSlug, worldContextHeaders} from './lib/worldContext.js';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 const LeaderboardView = lazy(() => import('./components/Leaderboard'));
 const Clasico = lazy(() => import('./components/Clasico'));
@@ -94,6 +95,7 @@ function App() {
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
   const [refreshKey,setRefreshKey]=useState(0);
+  const [activeWorldSlug,setActiveWorldSlug]=useState(()=>getActiveWorldSlug());
   const [overview,setOverview]=useState(null);
   const [archivePage,setArchivePage]=useState(1);
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
@@ -230,7 +232,14 @@ function App() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
-  useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
+  useEffect(()=>{
+    const changed=()=>{
+      setActiveWorldSlug(getActiveWorldSlug());
+      setRefreshKey(n=>n+1);
+    };
+    window.addEventListener('gg-data-changed',changed);
+    return()=>window.removeEventListener('gg-data-changed',changed);
+  },[]);
   useEffect(()=>{if(activeTab===TABS.HOME)return;api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey,activeTab]);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
@@ -664,7 +673,8 @@ function App() {
 
       const response =
         await fetch(
-          `${API_URL}/players`
+          `${API_URL}/players`,
+          { headers: worldContextHeaders() }
         );
 
       if (!response.ok) {
@@ -697,7 +707,8 @@ function App() {
 
       const response =
         await fetch(
-          `${API_URL}/matches?page=${page}&limit=50`
+          `${API_URL}/matches?page=${page}&limit=50`,
+          { headers: worldContextHeaders() }
         );
 
       if (!response.ok) {
@@ -736,7 +747,8 @@ function App() {
 
       const response =
         await fetch(
-          `${API_URL}/news?limit=12`
+          `${API_URL}/news?limit=12`,
+          { headers: worldContextHeaders() }
         );
 
       if (!response.ok) {
@@ -791,7 +803,7 @@ function App() {
       }
 
       const response =
-        await fetch(url);
+        await fetch(url, { headers: worldContextHeaders() });
 
       if (!response.ok) {
         throw new Error(
@@ -833,10 +845,12 @@ function App() {
         monthResponse,
       ] = await Promise.all([
         fetch(
-          `${API_URL}/stats/awards?year=${year}`
+          `${API_URL}/stats/awards?year=${year}`,
+          { headers: worldContextHeaders() }
         ),
         fetch(
-          `${API_URL}/stats/awards?year=${year}&month=${month}`
+          `${API_URL}/stats/awards?year=${year}&month=${month}`,
+          { headers: worldContextHeaders() }
         ),
       ]);
 
@@ -891,6 +905,7 @@ function App() {
         ...options,
         headers: {
           ...(options.headers || {}),
+          ...worldContextHeaders(),
           "X-E2E-Test-Token": import.meta.env.VITE_E2E_TEST_AUTH_SECRET,
           "X-E2E-Test-Role": role,
           ...(playerId ? { "X-E2E-Test-Player-Id": playerId } : {}),
@@ -917,6 +932,7 @@ function App() {
         headers: {
           ...(options.headers ||
             {}),
+          ...worldContextHeaders(),
 
           Authorization:
             `Bearer ${token}`,
@@ -2497,6 +2513,26 @@ function App() {
 
   // Home is the full-screen Global Map / current World's local map.
   // The remaining five destinations stay in the existing Matchday shell.
+  if (activeTab !== TABS.HOME && !activeWorldSlug) {
+    return (
+      <main className="gg-world-required-screen">
+        <div className="gg-world-required-card">
+          <span className="gg-refined-eyebrow">CHOOSE YOUR FOOTBALL WORLD</span>
+          <h1>Your Matchday starts inside a World.</h1>
+          <p>GG keeps players, matches, ratings, Clubs and community activity separate for every World. Choose one before opening these sections.</p>
+          <button type="button" onClick={() => setActiveTab(TABS.HOME)}>Explore the Global Map</button>
+          <nav className="gg-world-required-nav" aria-label="Main navigation">
+            <button type="button" className="active" onClick={() => setActiveTab(TABS.HOME)}>🌍 <span>Home</span></button>
+            <button type="button" onClick={() => setActiveTab(TABS.RECORD)}>＋ <span>Record</span></button>
+            <button type="button" onClick={() => setActiveTab(TABS.LEADERBOARD)}>🏆 <span>Leaderboard</span></button>
+            <button type="button" onClick={() => setActiveTab(TABS.CALENDAR)}>📅 <span>Calendar</span></button>
+            <button type="button" onClick={() => setActiveTab(TABS.PLAYERS)}>👥 <span>Players</span></button>
+          </nav>
+        </div>
+      </main>
+    );
+  }
+
   if (activeTab === TABS.HOME) {
     return (
       <Suspense fallback={<div className="gg-map-loading">Opening the football universe…</div>}>
