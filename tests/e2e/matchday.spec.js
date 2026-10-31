@@ -337,7 +337,7 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   // The owner can enter the local map and make a versioned facility edit.
   await page.getByRole("button", { name: "Preview " + worldName }).click();
   await page.getByRole("button", { name: "Enter World" }).click();
-  await expect(page.getByRole("heading", { name: worldName })).toBeVisible();
+  await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
   await page.getByRole("button", { name: "Select Central Stadium facility" }).click();
   await page.getByRole("button", { name: "Move east" }).click();
   await expect(page.getByText("Central Stadium placement saved.")).toBeVisible();
@@ -351,7 +351,7 @@ test("World owner can create a kingdom, review a join request, and approve a mem
   await page.getByRole("button", { name: "Worlds" }).click();
   await page.getByRole("button", { name: "Preview " + worldName }).click();
   await page.getByRole("button", { name: "Enter World" }).click();
-  await expect(page.getByRole("heading", { name: worldName })).toBeVisible();
+  await expect(page.locator("h1").filter({ hasText: worldName })).toBeVisible();
   await expect(page.getByText("Read-only map access")).toBeVisible();
   await expect(page.getByRole("button", { name: "Move east" })).toHaveCount(0);
 });
