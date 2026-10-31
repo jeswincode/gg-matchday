@@ -2,6 +2,24 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import GlobalMapScene from "./GlobalMapScene";
 
+async function fetchWorldData(isSignedIn) {
+  const publicResult = await api("/worlds/map");
+  const worlds = Array.isArray(publicResult?.worlds) ? publicResult.worlds : [];
+  let membershipStates = {};
+
+  if (isSignedIn) {
+    const ownResult = await api("/worlds/me");
+    const ownWorlds = Array.isArray(ownResult?.worlds) ? ownResult.worlds : [];
+    membershipStates = {};
+    for (const item of ownWorlds) {
+      const status = item?.membership?.status;
+      if (item?.slug && status) membershipStates[item.slug] = status;
+    }
+  }
+
+  return { worlds, membershipStates };
+}
+
 export default function GlobalMapPage({ isSignedIn = false, onMessage }) {
   const [worlds, setWorlds] = useState([]);
   const [membershipStates, setMembershipStates] = useState({});
@@ -13,21 +31,9 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage }) {
     if (silent) setRefreshing(true);
 
     try {
-      const publicResult = await api("/worlds/map");
-      const publicWorlds = Array.isArray(publicResult?.worlds) ? publicResult.worlds : [];
-      let states = {};
-
-      if (isSignedIn) {
-        const ownResult = await api("/worlds/me");
-        const ownWorlds = Array.isArray(ownResult?.worlds) ? ownResult.worlds : [];
-        for (const item of ownWorlds) {
-          const status = item?.membership?.status;
-          if (item?.slug && status) states[item.slug] = status;
-        }
-      }
-
-      setWorlds(publicWorlds);
-      setMembershipStates(states);
+      const result = await fetchWorldData(isSignedIn);
+      setWorlds(result.worlds);
+      setMembershipStates(result.membershipStates);
       setLoadError("");
     } catch (error) {
       setLoadError(error?.message || "Could not load the Global Map.");
@@ -38,8 +44,27 @@ export default function GlobalMapPage({ isSignedIn = false, onMessage }) {
   }, [isSignedIn]);
 
   useEffect(() => {
-    loadMap();
-  }, [loadMap]);
+    let cancelled = false;
+
+    fetchWorldData(isSignedIn)
+      .then(result => {
+        if (cancelled) return;
+        setWorlds(result.worlds);
+        setMembershipStates(result.membershipStates);
+        setLoadError("");
+      })
+      .catch(error => {
+        if (cancelled) return;
+        setLoadError(error?.message || "Could not load the Global Map.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignedIn]);
 
   const requestMembership = async world => {
     if (!isSignedIn) {
