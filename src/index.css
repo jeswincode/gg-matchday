@@ -2143,7 +2143,7 @@ textarea:focus {
 
   grid-template-columns:
     repeat(
-      6,
+      5,
       minmax(0, 1fr)
     );
 
