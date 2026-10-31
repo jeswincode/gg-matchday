@@ -17,7 +17,7 @@ const clubMatchBetSchema = new mongoose.Schema(
   { timestamps: true, collection: "clubMatchBets" },
 );
 
-clubMatchBetSchema.index({ clubMatchId: 1, playerId: 1 }, { unique: true });
+clubMatchBetSchema.index({ worldId: 1, clubMatchId: 1, playerId: 1 }, { unique: true, name: "club_match_bet_world_match_player_unique" });
 
 clubMatchBetSchema.plugin(worldDataScopePlugin);
 
