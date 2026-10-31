@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
+import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const clubWalletTransactionSchema = new mongoose.Schema(
   {
+    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     type: {
       type: String,
@@ -30,5 +32,7 @@ const clubWalletTransactionSchema = new mongoose.Schema(
 
 clubWalletTransactionSchema.index({ clubId: 1, createdAt: -1 });
 clubWalletTransactionSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
+
+clubWalletTransactionSchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("ClubWalletTransaction", clubWalletTransactionSchema);
