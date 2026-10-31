@@ -7,13 +7,11 @@ const worldMembershipSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "World",
     required: true,
-    index: true,
   },
   userId: {
     type: Schema.Types.ObjectId,
     ref: "User",
     required: true,
-    index: true,
   },
   role: {
     type: String,
@@ -69,10 +67,10 @@ worldMembershipSchema.index(
 );
 
 worldMembershipSchema.pre("validate", function validateMembershipState() {
-  if (this.status === "active" && this.role === "member" && this.approvedAt === null) {
-    // Imported legacy memberships may have no review timestamp. The migration
-    // records an explicit approvedAt value; runtime activation must do likewise.
-    this.invalidate("approvedAt", "An active member requires an approval timestamp.");
+  if (this.status === "active" && !this.approvedAt) {
+    // Initial World owners also receive an activation timestamp at creation.
+    // This avoids active memberships that cannot be audited.
+    this.invalidate("approvedAt", "An active membership requires an approval or activation timestamp.");
   }
   if (this.status === "pending" && this.role !== "member" && this.role !== "viewer") {
     this.invalidate("role", "A pending membership cannot have an elevated World role.");
