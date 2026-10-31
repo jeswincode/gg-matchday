@@ -54,16 +54,26 @@ test("World rejects invalid slugs and non-approved visibility/join policies", as
   assert.ok(visibilityError.errors.visibility);
 });
 
-test("World global map coordinates must be integer tile positions", async () => {
-  const world = new World({
+test("World global map coordinates must be integer tile positions and assigned together", async () => {
+  const fractional = new World({
     name: "Map Test",
     slug: "map-test",
     ownerUserId: objectId(),
     globalMap: { x: 1.5, y: 2 },
   });
-  const error = await validationError(world);
-  assert.ok(error instanceof mongoose.Error.ValidationError);
-  assert.ok(error.errors["globalMap.x"]);
+  const fractionalError = await validationError(fractional);
+  assert.ok(fractionalError instanceof mongoose.Error.ValidationError);
+  assert.ok(fractionalError.errors["globalMap.x"]);
+
+  const partial = new World({
+    name: "Partial Map",
+    slug: "partial-map",
+    ownerUserId: objectId(),
+    globalMap: { x: 4, y: null },
+  });
+  const partialError = await validationError(partial);
+  assert.ok(partialError instanceof mongoose.Error.ValidationError);
+  assert.ok(partialError.errors.globalMap);
 });
 
 test("WorldMembership defaults to a pending member without a linked Player", async () => {
@@ -78,15 +88,27 @@ test("WorldMembership defaults to a pending member without a linked Player", asy
   assert.equal(await validationError(membership), null);
 });
 
-test("active regular membership requires an approval timestamp", async () => {
-  const membership = new WorldMembership({
+test("every active membership, including an initial owner, requires an activation timestamp", async () => {
+  for (const role of ["owner", "admin", "editor", "member", "viewer"]) {
+    const membership = new WorldMembership({
+      worldId: objectId(),
+      userId: objectId(),
+      role,
+      status: "active",
+    });
+    const error = await validationError(membership);
+    assert.ok(error instanceof mongoose.Error.ValidationError);
+    assert.ok(error.errors.approvedAt);
+  }
+
+  const activatedOwner = new WorldMembership({
     worldId: objectId(),
     userId: objectId(),
+    role: "owner",
     status: "active",
+    approvedAt: new Date(),
   });
-  const error = await validationError(membership);
-  assert.ok(error instanceof mongoose.Error.ValidationError);
-  assert.ok(error.errors.approvedAt);
+  assert.equal(await validationError(activatedOwner), null);
 });
 
 test("pending membership cannot carry an elevated role", async () => {
@@ -129,6 +151,14 @@ test("WorldMapLayout defaults to isometric projection and validates dimensions",
   });
   const error = await validationError(invalid);
   assert.ok(error instanceof mongoose.Error.ValidationError);
+
+  const fractionalGrid = new WorldMapLayout({
+    worldId: objectId(),
+    gridWidth: 60.5,
+  });
+  const fractionalError = await validationError(fractionalGrid);
+  assert.ok(fractionalError instanceof mongoose.Error.ValidationError);
+  assert.ok(fractionalError.errors.gridWidth);
 });
 
 test("WorldMapFacility validates tile positions, rotations and map bounds", async () => {
