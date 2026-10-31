@@ -113,6 +113,16 @@ Approval/rejection queries always include both the membership ID and resolved Wo
 
 World creation atomically creates the World, its active owner membership, the isometric WorldMapLayout and the standard facility records. This requires a transaction-capable MongoDB deployment (replica set or sharded cluster). Development environments using standalone MongoDB must be configured as a single-node replica set before testing World creation.
 
+## World map API contract
+
+The local World map has separate access from public kingdom previews:
+
+- `GET /api/worlds/:slug/map`: authenticated active members only.
+- `PATCH /api/worlds/:slug/map/facilities/:facilityKey`: owner/admin map-edit capability only; optimistic layout version and transactional overlap/bounds checks.
+
+The frontend may display read-only map access for regular members, but backend authorization remains authoritative. Moving/rotating a facility never changes canonical Club, match, wallet or roster records.
+
+
 ## Rollout constraints
 
 1. Build and test World models and authorization additively.
