@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const playerSchema = new mongoose.Schema(
   {
@@ -153,5 +154,7 @@ playerSchema.pre("validate", function normalizeWorldPlayerName() {
       .toLocaleLowerCase("en");
   }
 });
+
+playerSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.model("Player", playerSchema);
