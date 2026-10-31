@@ -1,6 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { gridToScreen } from "./mapProjection.js";
-import { GLOBAL_MAP_DEMO_WORLDS } from "./globalMapFixtures.js";
+import {
+  GLOBAL_MAP_DEMO_MEMBERSHIP,
+  GLOBAL_MAP_DEMO_WORLDS,
+} from "./globalMapFixtures.js";
 import "./global-map-scene.css";
 
 const WIDTH = 1200;
@@ -9,6 +12,8 @@ const TILE_WIDTH = 64;
 const TILE_HEIGHT = 34;
 const ORIGIN_X = 600;
 const ORIGIN_Y = 76;
+const CAMERA_CENTER_X = WIDTH / 2;
+const CAMERA_CENTER_Y = HEIGHT / 2;
 
 function project(column, row) {
   return gridToScreen({
@@ -42,10 +47,10 @@ function terrain() {
   return result;
 }
 
-function Kingdom({ world, selected, onSelect }) {
+function Kingdom({ world, membership, selected, onSelect }) {
   const position = project(world.globalMap.x, world.globalMap.y);
-  const status = world.membership === "active" ? "YOUR WORLD"
-    : world.membership === "pending" ? "REQUEST PENDING" : "PUBLIC KINGDOM";
+  const status = membership === "active" ? "YOUR WORLD"
+    : membership === "pending" ? "REQUEST PENDING" : "PUBLIC KINGDOM";
 
   return (
     <g
@@ -83,10 +88,10 @@ function Kingdom({ world, selected, onSelect }) {
   );
 }
 
-function Preview({ world, onEnter, onClose }) {
+function Preview({ world, membership, onEnter, onRequestMembership, onClose }) {
   if (!world) return null;
-  const active = world.membership === "active";
-  const pending = world.membership === "pending";
+  const active = membership === "active";
+  const pending = membership === "pending";
 
   return (
     <aside className="gg-global-map-preview" aria-label={world.name + " preview"}>
@@ -104,7 +109,12 @@ function Preview({ world, onEnter, onClose }) {
           Enter World <span aria-hidden="true">↗</span>
         </button>
       ) : (
-        <button className="gg-preview-primary" type="button" disabled>
+        <button
+          className="gg-preview-primary"
+          type="button"
+          disabled={pending || !onRequestMembership}
+          onClick={() => onRequestMembership?.(world)}
+        >
           {pending ? "Awaiting approval" : "Request membership"}
         </button>
       )}
@@ -119,17 +129,21 @@ function Preview({ world, onEnter, onClose }) {
 
 /**
  * Map renderer prototype. worlds must be a public-projection DTO.
- * The enter callback must still be verified by the backend.
+ * membershipStates is viewer-specific and must come from a separate membership response.
+ * The enter and request callbacks must still be verified by the backend.
  */
 export default function GlobalMapScene({
   worlds = GLOBAL_MAP_DEMO_WORLDS,
+  membershipStates = GLOBAL_MAP_DEMO_MEMBERSHIP,
   selectedWorldSlug = null,
   onSelectWorld,
   onEnterWorld,
+  onRequestMembership,
 }) {
   const [selected, setSelected] = useState(null);
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
   const drag = useRef(null);
+  const instanceId = useId().replace(/:/g, "");
   const tiles = useMemo(() => terrain(), []);
   const activeSelection = worlds.find(world => world.slug === selectedWorldSlug) || selected;
 
@@ -163,6 +177,9 @@ export default function GlobalMapScene({
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
+  const waterId = "gg-world-water-" + instanceId;
+  const glowId = "gg-world-glow-" + instanceId;
+
   return (
     <section className="gg-global-map-shell" aria-label="GG Global Map">
       <header className="gg-global-map-header">
@@ -180,22 +197,22 @@ export default function GlobalMapScene({
         onPointerUp={pointerUp}
         onPointerCancel={pointerUp}
       >
-        <svg className="gg-global-map-svg" viewBox={"0 0 " + WIDTH + " " + HEIGHT} role="img"
+        <svg className="gg-global-map-svg" viewBox={"0 0 " + WIDTH + " " + HEIGHT} role="group"
           aria-label="Isometric map showing neighbouring public football kingdoms">
           <defs>
-            <linearGradient id="gg-world-water" x1="0" y1="0" x2="1" y2="1">
+            <linearGradient id={waterId} x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stopColor="#203c4b"/><stop offset="100%" stopColor="#102a36"/>
             </linearGradient>
-            <radialGradient id="gg-world-glow">
+            <radialGradient id={glowId}>
               <stop offset="0%" stopColor="#d3b46a" stopOpacity=".18"/>
               <stop offset="100%" stopColor="#d3b46a" stopOpacity="0"/>
             </radialGradient>
           </defs>
-          <rect width={WIDTH} height={HEIGHT} fill="url(#gg-world-water)"/>
-          <circle cx="290" cy="220" r="250" fill="url(#gg-world-glow)"/>
-          <circle cx="925" cy="480" r="280" fill="url(#gg-world-glow)"/>
+          <rect width={WIDTH} height={HEIGHT} fill={"url(#" + waterId + ")"}/>
+          <circle cx="290" cy="220" r="250" fill={"url(#" + glowId + ")"}/>
+          <circle cx="925" cy="480" r="280" fill={"url(#" + glowId + ")"}/>
           <g className="gg-global-map-camera"
-            transform={"translate(" + camera.x + " " + camera.y + ") translate(" + ORIGIN_X + " " + ORIGIN_Y + ") scale(" + camera.zoom + ") translate(" + (-ORIGIN_X) + " " + (-ORIGIN_Y) + ")"}>
+            transform={"translate(" + camera.x + " " + camera.y + ") translate(" + CAMERA_CENTER_X + " " + CAMERA_CENTER_Y + ") scale(" + camera.zoom + ") translate(" + (-CAMERA_CENTER_X) + " " + (-CAMERA_CENTER_Y) + ")"}>
             {tiles.map(tile => (
               <polygon key={tile.key} className={"gg-map-tile gg-map-tile-" + tile.kind} points={tile.points}/>
             ))}
@@ -209,6 +226,7 @@ export default function GlobalMapScene({
             </g>
             {worlds.map(world => (
               <Kingdom key={world.slug} world={world}
+                membership={membershipStates[world.slug] || "none"}
                 selected={activeSelection?.slug === world.slug} onSelect={selectWorld}/>
             ))}
           </g>
@@ -219,10 +237,16 @@ export default function GlobalMapScene({
           <button type="button" onClick={() => setCamera({ x: 0, y: 0, zoom: 1 })} aria-label="Reset map view">⌖</button>
         </div>
         <div className="gg-global-map-hint">Drag to explore · Select a kingdom to preview</div>
-        <Preview world={activeSelection} onEnter={onEnterWorld} onClose={() => {
-          setSelected(null);
-          onSelectWorld?.(null);
-        }}/>
+        <Preview
+          world={activeSelection}
+          membership={activeSelection ? membershipStates[activeSelection.slug] || "none" : "none"}
+          onEnter={onEnterWorld}
+          onRequestMembership={onRequestMembership}
+          onClose={() => {
+            setSelected(null);
+            onSelectWorld?.(null);
+          }}
+        />
       </div>
     </section>
   );
