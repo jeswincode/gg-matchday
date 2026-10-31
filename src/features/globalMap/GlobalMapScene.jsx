@@ -8,8 +8,8 @@ import "./global-map-scene.css";
 
 const WIDTH = 1200;
 const HEIGHT = 720;
-const TILE_WIDTH = 64;
-const TILE_HEIGHT = 34;
+const TILE_WIDTH = 32;
+const TILE_HEIGHT = 16;
 const ORIGIN_X = 600;
 const ORIGIN_Y = 76;
 const CAMERA_CENTER_X = WIDTH / 2;
@@ -55,7 +55,7 @@ function Kingdom({ world, membership, selected, onSelect }) {
   return (
     <g
       className={"gg-global-map-kingdom" + (selected ? " is-selected" : "")}
-      transform={"translate(" + position.x + " " + (position.y - 22) + ")"}
+      transform={"translate(" + position.x + " " + (position.y - 22) + ") scale(.75)"}
       role="button"
       tabIndex="0"
       aria-label={"Preview " + world.name}
@@ -152,6 +152,33 @@ export default function GlobalMapScene({
   const drag = useRef(null);
   const instanceId = useId().replace(/:/g, "");
   const tiles = useMemo(() => terrain(), []);
+  const fit = useMemo(() => {
+    const positions = worlds
+      .filter(world => Number.isFinite(world.globalMap?.x) && Number.isFinite(world.globalMap?.y))
+      .map(world => project(world.globalMap.x, world.globalMap.y));
+
+    if (!positions.length) {
+      return { centerX: WIDTH / 2, centerY: 300, scale: 1 };
+    }
+
+    const minX = Math.min(...positions.map(position => position.x));
+    const maxX = Math.max(...positions.map(position => position.x));
+    const minY = Math.min(...positions.map(position => position.y));
+    const maxY = Math.max(...positions.map(position => position.y));
+    const boundsWidth = Math.max(240, maxX - minX + 240);
+    const boundsHeight = Math.max(260, maxY - minY + 260);
+    const scale = Math.max(0.1, Math.min(
+      1,
+      (WIDTH - 140) / boundsWidth,
+      (HEIGHT - 150) / boundsHeight,
+    ));
+
+    return {
+      centerX: (minX + maxX) / 2,
+      centerY: (minY + maxY) / 2,
+      scale,
+    };
+  }, [worlds]);
   const activeSelection = worlds.find(world => world.slug === selectedWorldSlug) || selected;
 
   const selectWorld = world => {
@@ -219,19 +246,21 @@ export default function GlobalMapScene({
           <circle cx="290" cy="220" r="250" fill={"url(#" + glowId + ")"}/>
           <circle cx="925" cy="480" r="280" fill={"url(#" + glowId + ")"}/>
           <g className="gg-global-map-camera"
-            transform={"translate(" + camera.x + " " + camera.y + ") translate(" + CAMERA_CENTER_X + " " + CAMERA_CENTER_Y + ") scale(" + camera.zoom + ") translate(" + (-CAMERA_CENTER_X) + " " + (-CAMERA_CENTER_Y) + ")"}>
-            {tiles.map(tile => (
-              <polygon key={tile.key} className={"gg-map-tile gg-map-tile-" + tile.kind} points={tile.points}/>
-            ))}
-            <path className="gg-map-river" d="M160 260 C300 190 330 370 480 320 S690 170 820 250 S1010 390 1110 300"/>
-            <path className="gg-map-road" d="M250 430 C390 390 410 490 550 440 S790 340 920 420"/>
-            <g className="gg-map-decoration">
-              <path d="M220 226 l-15 -26 l30 0 Z M232 233 l-11 -20 l22 0 Z"/>
-              <path d="M960 180 l-17 -30 l34 0 Z M982 191 l-13 -23 l26 0 Z"/>
-              <path d="M430 555 l-16 -27 l32 0 Z M451 561 l-12 -21 l24 0 Z"/>
-              <path d="M1035 545 l-18 -30 l36 0 Z M1057 552 l-13 -23 l26 0 Z"/>
+            transform={"translate(" + (CAMERA_CENTER_X + camera.x) + " " + (CAMERA_CENTER_Y + camera.y) + ") scale(" + (camera.zoom * fit.scale) + ") translate(" + (-fit.centerX) + " " + (-fit.centerY) + ")"}>
+            <g transform={"translate(" + (fit.centerX - 600) + " " + (fit.centerY - 300) + ")"}>
+              {tiles.map(tile => (
+                <polygon key={tile.key} className={"gg-map-tile gg-map-tile-" + tile.kind} points={tile.points}/>
+              ))}
+              <path className="gg-map-river" d="M160 260 C300 190 330 370 480 320 S690 170 820 250 S1010 390 1110 300"/>
+              <path className="gg-map-road" d="M250 430 C390 390 410 490 550 440 S790 340 920 420"/>
+              <g className="gg-map-decoration">
+                <path d="M220 226 l-15 -26 l30 0 Z M232 233 l-11 -20 l22 0 Z"/>
+                <path d="M960 180 l-17 -30 l34 0 Z M982 191 l-13 -23 l26 0 Z"/>
+                <path d="M430 555 l-16 -27 l32 0 Z M451 561 l-12 -21 l24 0 Z"/>
+                <path d="M1035 545 l-18 -30 l36 0 Z M1057 552 l-13 -23 l26 0 Z"/>
+              </g>
             </g>
-            {worlds.map(world => (
+            {worlds.filter(world => Number.isFinite(world.globalMap?.x) && Number.isFinite(world.globalMap?.y)).map(world => (
               <Kingdom key={world.slug} world={world}
                 membership={membershipStates[world.slug] || "none"}
                 selected={activeSelection?.slug === world.slug} onSelect={selectWorld}/>
@@ -239,8 +268,8 @@ export default function GlobalMapScene({
           </g>
         </svg>
         <div className="gg-global-map-controls" aria-label="Map controls">
-          <button type="button" onClick={() => setCamera(c => ({ ...c, zoom: Math.min(1.7, c.zoom + 0.1) }))} aria-label="Zoom in">+</button>
-          <button type="button" onClick={() => setCamera(c => ({ ...c, zoom: Math.max(0.7, c.zoom - 0.1) }))} aria-label="Zoom out">−</button>
+          <button type="button" onClick={() => setCamera(c => ({ ...c, zoom: Math.min(6, c.zoom + 0.25) }))} aria-label="Zoom in">+</button>
+          <button type="button" onClick={() => setCamera(c => ({ ...c, zoom: Math.max(0.5, c.zoom - 0.25) }))} aria-label="Zoom out">−</button>
           <button type="button" onClick={() => setCamera({ x: 0, y: 0, zoom: 1 })} aria-label="Reset map view">⌖</button>
         </div>
         <div className="gg-global-map-hint">Drag to explore · Select a kingdom to preview</div>
