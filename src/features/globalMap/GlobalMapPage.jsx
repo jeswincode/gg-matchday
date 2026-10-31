@@ -9,11 +9,13 @@ async function fetchWorldData(isSignedIn) {
   const worlds = Array.isArray(publicResult?.worlds) ? publicResult.worlds : [];
   const availablePlots = Array.isArray(publicResult?.availablePlots) ? publicResult.availablePlots : [];
   let membershipStates = {};
+  let myWorlds = [];
   let reviewQueues = [];
 
   if (isSignedIn) {
     const ownResult = await api("/worlds/me");
     const ownWorlds = Array.isArray(ownResult?.worlds) ? ownResult.worlds : [];
+    myWorlds = ownWorlds;
     membershipStates = {};
     for (const item of ownWorlds) {
       const status = item?.membership?.status;
@@ -37,7 +39,7 @@ async function fetchWorldData(isSignedIn) {
       .map(item => item.value);
   }
 
-  return { worlds, availablePlots, membershipStates, reviewQueues };
+  return { worlds, availablePlots, membershipStates, myWorlds, reviewQueues };
 }
 
 function CreateWorldModal({ isOpen, plot, isSignedIn, onSignIn, onClose, onCreated, onMessage }) {
@@ -214,6 +216,153 @@ function JoinRequestInbox({ queues, onDecide, busyId, onClose }) {
   );
 }
 
+function WorldSwitcher({ worlds, currentWorld, onSelect, isOpen, onToggle, disabled = false }) {
+  const activeCount = worlds.filter(item => item.membership?.status === "active").length;
+  return (
+    <div className="gg-world-switcher">
+      <button
+        type="button"
+        className="gg-world-switcher-trigger"
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
+        onClick={onToggle}
+        disabled={disabled}
+      >
+        <span className="gg-world-switcher-icon">⌘</span>
+        <span>
+          <strong>{currentWorld?.name || "My Worlds"}</strong>
+          <small>{activeCount} active · {worlds.length - activeCount} awaiting / other</small>
+        </span>
+        <span className="gg-world-switcher-chevron">{isOpen ? "⌃" : "⌄"}</span>
+      </button>
+      {isOpen && (
+        <section className="gg-world-switcher-panel" role="dialog" aria-label="Your football Worlds">
+          <div className="gg-world-switcher-heading">
+            <div>
+              <span className="gg-world-create-eyebrow">YOUR ACCOUNT</span>
+              <h2>Your Worlds</h2>
+            </div>
+            <button type="button" onClick={onToggle} aria-label="Close Worlds list">×</button>
+          </div>
+          {!worlds.length ? (
+            <div className="gg-world-switcher-empty">
+              <strong>Your football journey is waiting.</strong>
+              <p>Join a public World or claim land to create your own community.</p>
+            </div>
+          ) : (
+            <div className="gg-world-switcher-list">
+              {worlds.map(item => {
+                const active = item.membership?.status === "active";
+                const pending = item.membership?.status === "pending";
+                const current = currentWorld?.slug === item.slug;
+                return (
+                  <article className={"gg-world-switcher-item" + (current ? " is-current" : "")} key={item.slug}>
+                    <span className="gg-world-switcher-emblem">{item.emblem || "GG"}</span>
+                    <div className="gg-world-switcher-info">
+                      <strong>{item.name}</strong>
+                      <small>{item.membership?.role || "member"} · {item.membership?.playerProfileId ? "Player profile linked" : "Player profile not set up"}</small>
+                    </div>
+                    <span className={"gg-world-membership-status " + (active ? "is-active" : pending ? "is-pending" : "")}>
+                      {active ? "Active" : pending ? "Pending" : item.membership?.status || "Unavailable"}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={!active || current}
+                      onClick={() => onSelect?.(item)}
+                    >
+                      {current ? "Here" : active ? "Enter" : "Waiting"}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+          <p className="gg-world-switcher-footnote">Each World has its own player profile, matches, ratings, Clubs and community.</p>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function PlayerProfileModal({ open, world, onClose, onCreate, busy, existingProfile }) {
+  const [name, setName] = useState("");
+  const [position, setPosition] = useState("");
+  const [preferredFoot, setPreferredFoot] = useState("");
+  const [bio, setBio] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setPosition("");
+      setPreferredFoot("");
+      setBio("");
+    }
+  }, [open]);
+
+  if (!open || !world) return null;
+
+  return (
+    <div className="gg-world-modal-backdrop" role="presentation" onMouseDown={event => {
+      if (event.target === event.currentTarget && !busy) onClose?.();
+    }}>
+      <section className="gg-world-create-modal gg-world-player-profile-modal" role="dialog" aria-modal="true" aria-labelledby="gg-world-player-profile-title">
+        <button type="button" className="gg-world-modal-close" onClick={onClose} disabled={busy} aria-label="Close player profile setup">×</button>
+        <div className="gg-world-modal-art">
+          <span className="gg-world-modal-castle">⚽</span>
+          <span className="gg-world-modal-land">{world.name.toUpperCase()} · PLAYER IDENTITY</span>
+        </div>
+        <div className="gg-world-modal-copy">
+          <span className="gg-world-create-eyebrow">YOUR PLACE IN THIS WORLD</span>
+          <h2 id="gg-world-player-profile-title">{existingProfile ? "Your World Player" : "Create your player profile"}</h2>
+          <p>This profile belongs only to {world.name}. Your other Worlds keep their own player identity and football record.</p>
+        </div>
+        {existingProfile ? (
+          <div className="gg-world-profile-summary">
+            <strong>{existingProfile.name}</strong>
+            <span>{existingProfile.position || "Position not set"} · {existingProfile.preferredFoot || "Preferred foot not set"}</span>
+          </div>
+        ) : (
+          <form className="gg-world-create-form" onSubmit={event => {
+            event.preventDefault();
+            onCreate?.({ name, position, preferredFoot, bio });
+          }}>
+            <label>
+              Player name
+              <input autoFocus value={name} onChange={event => setName(event.target.value)} minLength={2} maxLength={60} placeholder="Your name on the pitch" required/>
+            </label>
+            <label>
+              Primary position
+              <select value={position} onChange={event => setPosition(event.target.value)}>
+                <option value="">Choose later</option>
+                <option value="Goalkeeper">Goalkeeper</option>
+                <option value="Defender">Defender</option>
+                <option value="Midfielder">Midfielder</option>
+                <option value="Attacker">Attacker</option>
+              </select>
+            </label>
+            <label>
+              Preferred foot
+              <select value={preferredFoot} onChange={event => setPreferredFoot(event.target.value)}>
+                <option value="">Choose later</option>
+                <option value="Left">Left</option>
+                <option value="Right">Right</option>
+                <option value="Both">Both</option>
+              </select>
+            </label>
+            <label>
+              Short bio <span className="gg-world-optional">(optional)</span>
+              <textarea rows={2} maxLength={500} value={bio} onChange={event => setBio(event.target.value)} placeholder="Tell this World a little about your game"/>
+            </label>
+            <button className="gg-world-create-button" type="submit" disabled={busy || name.trim().length < 2}>
+              {busy ? "Creating your player…" : "Create player profile"}
+            </button>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function WorldBottomNavigation({ onNavigateTab }) {
   const items = [
     { id: "home", icon: "🌍", label: "Home" },
@@ -284,12 +433,17 @@ export default function GlobalMapPage({
   onThemeChange,
 }) {
   const [worlds, setWorlds] = useState([]);
+  const [myWorlds, setMyWorlds] = useState([]);
   const [availablePlots, setAvailablePlots] = useState([]);
   const [membershipStates, setMembershipStates] = useState({});
   const [reviewQueues, setReviewQueues] = useState([]);
   const [busyRequestId, setBusyRequestId] = useState("");
   const [enteredWorld, setEnteredWorld] = useState(null);
   const [enteredMap, setEnteredMap] = useState(null);
+  const [playerProfile, setPlayerProfile] = useState(null);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileCreating, setProfileCreating] = useState(false);
+  const [worldSwitcherOpen, setWorldSwitcherOpen] = useState(false);
   const [selectedPlot, setSelectedPlot] = useState(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [reviewInboxOpen, setReviewInboxOpen] = useState(false);
@@ -303,6 +457,7 @@ export default function GlobalMapPage({
     setWorlds(result.worlds);
     setAvailablePlots(result.availablePlots);
     setMembershipStates(result.membershipStates);
+    setMyWorlds(result.myWorlds || []);
     setReviewQueues(result.reviewQueues);
     setLoadError("");
   };
@@ -343,6 +498,8 @@ export default function GlobalMapPage({
           if (cancelled) return;
           setEnteredWorld(world);
           setEnteredMap(data);
+          const profileResult = await api("/worlds/" + encodeURIComponent(activeSlug) + "/player-profile");
+          if (!cancelled) setPlayerProfile(profileResult?.profile || null);
         } catch {
           if (!cancelled) {
             setApiActiveWorld(null);
@@ -407,13 +564,35 @@ export default function GlobalMapPage({
     setInteriorError("");
     try {
       const data = await api("/worlds/" + encodeURIComponent(world.slug) + "/map");
+      const profileResult = await api("/worlds/" + encodeURIComponent(world.slug) + "/player-profile");
       setApiActiveWorld(world.slug);
       setEnteredWorld(world);
       setEnteredMap(data);
+      setPlayerProfile(profileResult?.profile || null);
+      setWorldSwitcherOpen(false);
     } catch (error) {
       setInteriorError(error?.message || "Could not enter this World.");
     } finally {
       setEnteringWorld(false);
+    }
+  };
+
+  const createPlayerProfile = async profileData => {
+    if (!enteredWorld) return;
+    setProfileCreating(true);
+    try {
+      const result = await api("/worlds/" + encodeURIComponent(enteredWorld.slug) + "/player-profiles", {
+        method: "POST",
+        body: profileData,
+      });
+      setPlayerProfile(result.profile || null);
+      setProfileModalOpen(false);
+      onMessage?.(result.message || "Your player profile has been created.");
+      await loadMap({ silent: true });
+    } catch (error) {
+      onMessage?.(error?.message || "Could not create your player profile.");
+    } finally {
+      setProfileCreating(false);
     }
   };
 
@@ -448,6 +627,8 @@ export default function GlobalMapPage({
     setApiActiveWorld(null);
     setEnteredWorld(null);
     setEnteredMap(null);
+    setPlayerProfile(null);
+    setProfileModalOpen(false);
     setInteriorError("");
   };
 
@@ -474,6 +655,17 @@ export default function GlobalMapPage({
           onOpenClubs={onOpenClubs}
         />
       </header>
+      {isSignedIn && (
+        <div className="gg-world-switcher-position">
+          <WorldSwitcher
+            worlds={myWorlds}
+            currentWorld={enteredWorld}
+            isOpen={worldSwitcherOpen}
+            onToggle={() => setWorldSwitcherOpen(value => !value)}
+            onSelect={enterWorld}
+          />
+        </div>
+      )}
 
       {message && (
         <div className="gg-world-feedback-toast" role="status">
@@ -561,6 +753,22 @@ export default function GlobalMapPage({
             </div>
             <span className="gg-world-interior-role">{enteredMap?.permissions?.canEditMap ? "OWNER / ADMIN" : "MEMBER"}</span>
           </header>
+          {!playerProfile && (
+            <section className="gg-world-profile-setup-banner">
+              <div>
+                <strong>Set up your player identity in {enteredWorld.name}</strong>
+                <span>Your player profile and football statistics are separate in every World.</span>
+              </div>
+              <button type="button" onClick={() => setProfileModalOpen(true)}>Create player profile</button>
+            </section>
+          )}
+          {playerProfile && (
+            <div className="gg-world-player-chip">
+              <span>{playerProfile.name}</span>
+              <small>{playerProfile.position || "Player"} · this World</small>
+              <button type="button" onClick={() => setProfileModalOpen(true)}>View profile</button>
+            </div>
+          )}
           {enteringWorld && <p className="muted" role="status">Entering your World…</p>}
           {interiorError && (
             <div className="gg-world-map-error" role="alert">
@@ -582,6 +790,15 @@ export default function GlobalMapPage({
       )}
 
       <WorldBottomNavigation onNavigateTab={onNavigateTab} />
+
+      <PlayerProfileModal
+        open={profileModalOpen}
+        world={enteredWorld}
+        existingProfile={playerProfile}
+        busy={profileCreating}
+        onClose={() => setProfileModalOpen(false)}
+        onCreate={createPlayerProfile}
+      />
 
       <CreateWorldModal
         isOpen={createModalOpen}
