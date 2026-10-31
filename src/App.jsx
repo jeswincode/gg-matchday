@@ -2420,6 +2420,7 @@ function App() {
           onNavigateTab={setActiveTab}
           theme={theme}
           onThemeChange={setTheme}
+          isAdmin={isAdmin}
           message={message}
           onClearMessage={() => setMessage("")}
           onOpenClubs={() => switchProductMode("clubs")}
