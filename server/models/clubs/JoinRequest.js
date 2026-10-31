@@ -15,10 +15,10 @@ const joinRequestSchema = new mongoose.Schema(
   { timestamps: true, collection: "joinRequests" },
 );
 
-joinRequestSchema.index({ playerId: 1, clubId: 1, status: 1 });
+joinRequestSchema.index({ worldId: 1, playerId: 1, clubId: 1, status: 1 });
 joinRequestSchema.index(
-  { playerId: 1, clubId: 1 },
-  { unique: true, partialFilterExpression: { status: "pending" } },
+  { worldId: 1, playerId: 1, clubId: 1 },
+  { unique: true, partialFilterExpression: { status: "pending" }, name: "pending_join_world_player_club_unique" },
 );
 
 joinRequestSchema.plugin(worldDataScopePlugin);
