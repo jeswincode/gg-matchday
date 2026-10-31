@@ -162,6 +162,24 @@ test('entering a World activates app-wide API context and logout clears it',()=>
   assert.match(app,/async function logout\(\)/);
 });
 
+test('immersive Home restores an active World and preserves admin access',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const app=read('src/App.jsx');
+  assert.match(page,/getActiveWorldSlug\(\)/);
+  assert.match(page,/result\.membershipStates\[activeSlug\] !== "active"/);
+  assert.match(page,/setEnteredWorld\(world\)/);
+  assert.match(page,/setApiActiveWorld\(null\)/);
+  assert.match(page,/isAdmin && <button[^>]*gg-world-admin-link/);
+  assert.match(app,/onNavigateAdmin=\{\(\) => onNavigateTab\?\.\("admin"\)\}/);
+});
+
+test('Global Map does not submit a synthetic plot when all available plots are claimed',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  assert.match(page,/disabled=\{availablePlots\.length === 0\}/);
+  assert.match(page,/onClick=\{\(\) => availablePlots\[0\] && claimPlot\(availablePlots\[0\]\)\}/);
+  assert.match(page,/All mapped territory is currently claimed/);
+});
+
 test('each World map keeps undeveloped plots visible for future facilities and Clubs',()=>{
   const view=read('src/features/globalMap/WorldMapView.jsx');
   const css=read('src/features/globalMap/world-map-view.css');
