@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import World from "../models/World.js";
 import WorldMembership from "../models/WorldMembership.js";
+import Player from "../models/Player.js";
 import { requireAuth } from "../middleware/auth.js";
 import { resolveWorldContext } from "../middleware/worldContext.js";
 import {
@@ -135,7 +136,6 @@ router.post(
       });
     }
 
-    const Player = (await import("../models/Player.js")).default;
     const player = await Player.findOne({
       _id: playerId,
       worldId: req.worldId,
@@ -185,6 +185,164 @@ router.post(
         role: membership.role,
         status: membership.status,
         playerProfileId: membership.playerProfileId,
+      },
+    });
+  }),
+);
+
+// A signed-in member has one independent Player profile per World.
+// Creating the profile and linking it to the membership is atomic, so a failed
+// membership update cannot leave an orphan profile behind.
+router.get(
+  "/:slug/player-profile",
+  requireAuth,
+  resolveWorldContext,
+  requireActiveWorldMembership,
+  asyncRoute(async (req, res) => {
+    const playerId = req.membership.playerProfileId;
+    if (!playerId) return res.json({ profile: null, needsProfile: true });
+
+    const profile = await Player.findOne({
+      _id: playerId,
+      worldId: req.worldId,
+    })
+      .select("_id name profileImage position preferredPositions preferredFoot jerseyNumber bio ovrSnapshot")
+      .lean();
+
+    if (!profile) {
+      return res.json({
+        profile: null,
+        needsProfile: true,
+        legacyLinkNeedsMigration: true,
+      });
+    }
+
+    return res.json({ profile, needsProfile: false });
+  }),
+);
+
+router.post(
+  "/:slug/player-profiles",
+  requireAuth,
+  resolveWorldContext,
+  requireActiveWorldMembership,
+  asyncRoute(async (req, res) => {
+    const allowed = new Set(["name", "position", "preferredFoot", "bio"]);
+    const unexpected = Object.keys(req.body || {}).filter(key => !allowed.has(key));
+    if (unexpected.length) {
+      return res.status(400).json({
+        message: "Player profile contains unsupported fields.",
+        code: "WORLD_PLAYER_PROFILE_FIELDS_INVALID",
+      });
+    }
+
+    if (req.membership.playerProfileId) {
+      return res.status(409).json({
+        message: "You already have a player profile in this World.",
+        code: "WORLD_PLAYER_PROFILE_EXISTS",
+      });
+    }
+
+    const name = String(req.body?.name || "").trim();
+    if (name.length < 2 || name.length > 60) {
+      return res.status(400).json({
+        message: "Player name must contain between 2 and 60 characters.",
+        code: "WORLD_PLAYER_NAME_INVALID",
+      });
+    }
+
+    const position = String(req.body?.position || "").trim();
+    const preferredFoot = String(req.body?.preferredFoot || "");
+    const bio = String(req.body?.bio || "").trim();
+    if (!["", "Left", "Right", "Both"].includes(preferredFoot)) {
+      return res.status(400).json({
+        message: "Choose a valid preferred foot.",
+        code: "WORLD_PLAYER_FOOT_INVALID",
+      });
+    }
+    if (bio.length > 500) {
+      return res.status(400).json({
+        message: "Player bio cannot exceed 500 characters.",
+        code: "WORLD_PLAYER_BIO_INVALID",
+      });
+    }
+
+    const session = await mongoose.startSession();
+    let profile;
+    try {
+      await session.withTransaction(async () => {
+        const currentMembership = await WorldMembership.findOne({
+          _id: req.membership._id,
+          worldId: req.worldId,
+          userId: req.user._id,
+          status: "active",
+          playerProfileId: null,
+        }).session(session);
+
+        if (!currentMembership) {
+          const error = new Error("A player profile is already linked to this World membership.");
+          error.status = 409;
+          error.code = "WORLD_PLAYER_PROFILE_EXISTS";
+          throw error;
+        }
+
+        const normalizedName = name
+          .normalize("NFKD")
+          .replace(/[\\u0300-\\u036f]/g, "")
+          .trim()
+          .toLocaleLowerCase("en");
+
+        const duplicate = await Player.findOne({
+          worldId: req.worldId,
+          nameNormalized: normalizedName,
+        }).session(session).select("_id");
+
+        if (duplicate) {
+          const error = new Error("A player with that name already exists in this World.");
+          error.status = 409;
+          error.code = "WORLD_PLAYER_NAME_TAKEN";
+          throw error;
+        }
+
+        const [created] = await Player.create([{
+          worldId: req.worldId,
+          name,
+          nameNormalized: normalizedName,
+          position,
+          preferredFoot,
+          bio,
+        }], { session });
+
+        currentMembership.playerProfileId = created._id;
+        await currentMembership.save({ session });
+        profile = created;
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        return res.status(409).json({
+          message: "A player with that name already exists in this World.",
+          code: "WORLD_PLAYER_NAME_TAKEN",
+        });
+      }
+      if (error?.status) {
+        return res.status(error.status).json({
+          message: error.message,
+          code: error.code,
+        });
+      }
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+
+    return res.status(201).json({
+      message: "Your player profile has been created in this World.",
+      profile: {
+        id: String(profile._id),
+        name: profile.name,
+        position: profile.position,
+        preferredFoot: profile.preferredFoot,
+        bio: profile.bio,
       },
     });
   }),
