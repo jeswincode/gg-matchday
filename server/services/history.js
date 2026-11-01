@@ -6,6 +6,7 @@ import { buildStatistics, milestoneRules, selectAwards, calendarParts, MATCHDAY_
 
 let pending;
 let boundaryTimer;
+let retryTimer;
 const RETRY_DELAY_MS = 5 * 60 * 1000;
 
 export function syncHistory(now = new Date()) {
@@ -63,11 +64,13 @@ export function syncHistory(now = new Date()) {
 async function executeBoundary(run) {
   try {
     await run(new Date());
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = null;
     armNextBoundary(new Date(), run);
   } catch (error) {
     console.error("Monthly award finalization failed; retrying:", error.message);
-    boundaryTimer = setTimeout(() => executeBoundary(run), RETRY_DELAY_MS);
-    boundaryTimer.unref?.();
+    retryTimer = setTimeout(() => executeBoundary(run), RETRY_DELAY_MS);
+    retryTimer.unref?.();
   }
 }
 
@@ -92,12 +95,16 @@ function armNextBoundary(now = new Date(), run = syncHistory) {
 export function startHistoryScheduler({ run = syncHistory, now = () => new Date() } = {}) {
   // Startup catch-up covers downtime/redeployments across a month boundary.
   Promise.resolve(run(now())).catch(error => {
-    console.error("Historical recognition startup catch-up failed:", error.message);
+    console.error("Historical recognition startup catch-up failed; retrying:", error.message);
+    retryTimer = setTimeout(() => executeBoundary(run), RETRY_DELAY_MS);
+    retryTimer.unref?.();
   });
   armNextBoundary(now(), run);
   return () => {
     if (boundaryTimer) clearTimeout(boundaryTimer);
+    if (retryTimer) clearTimeout(retryTimer);
     boundaryTimer = null;
+    retryTimer = null;
   };
 }
 
