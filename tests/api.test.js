@@ -132,6 +132,36 @@ test('GG audit detects stored rating inconsistencies without rewriting them',asy
   assert.equal(stored.participants[0].rating,7.2);
 });
 
+test('monthly awards finalize at midnight IST, appear in player profiles, and remain duplicate-safe', async () => {
+  await Match.create([1, 2, 3].map((day, index) => ({
+    ...payload(),
+    date: new Date(Date.UTC(2026, 9, day, 12)),
+    name: `October IST award fixture ${index + 1}`,
+    teamA: { label: 'A', score: 1 },
+    teamB: { label: 'B', score: 0 },
+    participants: [
+      { player: p1._id, team: 'A', rating: 8.5, defensivePerformance: 8 },
+      { player: p2._id, team: 'B', rating: 6.5, defensivePerformance: 6 },
+    ],
+    events: [{ player: p1._id, type: 'goal' }],
+  })));
+
+  await syncHistory(new Date('2026-10-31T18:29:59.000Z'));
+  assert.equal(await Award.countDocuments({ year: 2026, month: 10, type: { $in: ['player', 'offensive', 'defensive'] } }), 0);
+
+  await syncHistory(new Date('2026-10-31T18:30:00.000Z'));
+  const finalized = await Award.find({ year: 2026, month: 10, type: { $in: ['player', 'offensive', 'defensive'] } }).lean();
+  assert.deepEqual(finalized.map(award => award.type).sort(), ['defensive', 'offensive', 'player']);
+  assert.ok(finalized.every(award => String(award.player) === String(p1._id)));
+
+  const profile = await request(`/stats/player/${p1._id}`);
+  assert.equal(profile.status, 200, JSON.stringify(profile.data));
+  assert.deepEqual(profile.data.awards.filter(award => award.year === 2026 && award.month === 10).map(award => award.type).sort(), ['defensive', 'offensive', 'player']);
+
+  await syncHistory(new Date('2026-11-01T00:05:00.000Z'));
+  assert.equal(await Award.countDocuments({ year: 2026, month: 10, type: { $in: ['player', 'offensive', 'defensive'] } }), 3);
+});
+
 test('closed-period awards and career achievements remain immutable across subsequent corrections',async()=>{for(let i=0;i<9;i++)await Match.create({...payload(),date:new Date('2025-06-01'),teamA:{label:'A',score:1},teamB:{label:'B',score:0}});await syncHistory();const original=await Award.findOne({key:'player:2025:0'}).lean();assert.ok(original);await Match.updateMany({date:{$lt:new Date('2026-01-01')}},{$set:{'participants.0.rating':0,'participants.1.rating':10}});await syncHistory();const kept=await Award.findOne({key:'player:2025:0'}).lean();assert.equal(String(kept.player),String(original.player));assert.ok(await Achievement.exists({player:p1._id,key:'goals:10'}));});
 test('concurrent first sign-ins for one Firebase UID safely reuse the created user',async()=>{
   const results=await Promise.all(Array.from({length:12},()=>request('/auth/me',{token:'racer'})));
