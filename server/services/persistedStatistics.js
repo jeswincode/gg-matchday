@@ -3,7 +3,7 @@ import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import PlayerStats from "../models/PlayerStats.js";
 import SeasonStats from "../models/SeasonStats.js";
-import { buildStatistics, dateQuery, id } from "./statistics.js";
+import { buildStatistics, dateQuery, id, calendarParts } from "./statistics.js";
 
 const MATCH_FIELDS = "_id date createdAt updatedAt teamA teamB participants events";
 const PLAYER_BATCH_SIZE = 20;
@@ -53,7 +53,7 @@ async function rebuildPlayer(player, history) {
 
   const byYear = new Map();
   for (const match of matches) {
-    const year = new Date(match.date).getUTCFullYear();
+    const year = calendarParts(match.date).year;
     if (!Number.isInteger(year) || year < 2000 || year > 2100) continue;
     if (!byYear.has(year)) byYear.set(year, []);
     byYear.get(year).push(match);
