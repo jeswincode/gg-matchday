@@ -9,7 +9,7 @@ let boundaryTimer;
 const RETRY_DELAY_MS = 5 * 60 * 1000;
 
 export function syncHistory(now = new Date()) {
-  if (pending) return pending;
+  if (pending) return pending.then(() => syncHistory(now));
   pending = (async () => {
     const [players, matches] = await Promise.all([Player.find().lean(), Match.find().lean()]);
     const ops = [];
@@ -60,26 +60,31 @@ export function syncHistory(now = new Date()) {
   return pending;
 }
 
+async function executeBoundary(run) {
+  try {
+    await run(new Date());
+    armNextBoundary(new Date(), run);
+  } catch (error) {
+    console.error("Monthly award finalization failed; retrying:", error.message);
+    boundaryTimer = setTimeout(() => executeBoundary(run), RETRY_DELAY_MS);
+    boundaryTimer.unref?.();
+  }
+}
+
 function armNextBoundary(now = new Date(), run = syncHistory) {
   if (boundaryTimer) clearTimeout(boundaryTimer);
   const boundary = nextCalendarMonthBoundary(now);
-  const delay = Math.max(0, boundary.getTime() - now.getTime());
-  boundaryTimer = setTimeout(async () => {
-    try {
-      await run(new Date());
-      armNextBoundary(new Date(), run);
-    } catch (error) {
-      console.error("Monthly award finalization failed; retrying:", error.message);
-      boundaryTimer = setTimeout(() => {
-        run(new Date())
-          .then(() => armNextBoundary(new Date(), run))
-          .catch(retryError => {
-            console.error("Monthly award finalization retry failed:", retryError.message);
-            armNextBoundary(new Date(), run);
-          });
-      }, RETRY_DELAY_MS);
-      boundaryTimer.unref?.();
+  // Node timers are capped at ~24.8 days. Wake at most daily while the
+  // boundary is distant, then arm the final timeout for the exact IST midnight.
+  const remaining = Math.max(0, boundary.getTime() - now.getTime());
+  const delay = Math.min(remaining, 24 * 60 * 60 * 1000);
+  boundaryTimer = setTimeout(() => {
+    const current = new Date();
+    if (current.getTime() < boundary.getTime()) {
+      armNextBoundary(current, run);
+      return;
     }
+    void executeBoundary(run);
   }, delay);
   boundaryTimer.unref?.();
 }
