@@ -258,7 +258,7 @@ router.get("/award-history", safe(async (req, res) => {
 }));
 
 router.get("/calendar", safe(async (req, res) => {
-  const year = req.query.year ? Number(req.query.year) : new Date().getUTCFullYear();
+  const year = req.query.year ? Number(req.query.year) : calendarParts().year;
   const matches = await Match.find(dateQuery(year, req.query.month))
     .populate("participants.player", "name profileImage")
     .populate("events.player", "name")
