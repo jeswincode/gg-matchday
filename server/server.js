@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import app from './app.js';
-import {scheduleHistory} from './services/history.js';
+import {startHistoryScheduler} from './services/history.js';
 import {connectClubsDatabase,disconnectClubsDatabase} from './config/clubsDatabase.js';
 import {startClubSyncWorker} from './services/clubsSync.js';
 import {startClubsMaintenanceWorker} from './services/clubsMaintenance.js';
@@ -21,8 +21,7 @@ async function startServer(){
       console.warn('Clubs MongoDB unavailable; core Matchday will continue without Clubs:', clubsError.message);
     }
 
-    scheduleHistory();
-    setInterval(scheduleHistory,86400000).unref();
+    startHistoryScheduler();
 
     startClubSyncWorker();
     startClubsMaintenanceWorker();
