@@ -24,6 +24,7 @@ import {
 } from "../services/statistics.js";
 import { classifyPlayerStyles } from "../services/playerStyles.js";
 import { loadPlayerStatistics } from "../services/persistedStatistics.js";
+import { calendarParts, MATCHDAY_TIME_ZONE } from "../services/statistics.js";
 
 const router = express.Router();
 const round = value => Number(Number(value).toFixed(2));
@@ -61,7 +62,7 @@ const positionMatches = (stats, position) => {
 };
 const groupMatchYears = () => Match.aggregate([
   { $group: {
-    _id: { $year: "$date" },
+    _id: { $year: { date: "$date", timezone: MATCHDAY_TIME_ZONE } },
     matches: { $sum: 1 },
     goals: { $sum: { $add: [
       { $ifNull: ["$teamA.score", 0] },
@@ -210,7 +211,7 @@ router.get("/leaderboard", safe(async (req, res) => {
   let rows;
 
   if (clasico || month !== null) {
-    const year = requestedYear || new Date().getUTCFullYear();
+    const year = requestedYear || calendarParts().year;
     const filter = dateQuery(year, month);
     let matches = await Match.find(filter).lean();
     if (clasico) matches = matches.filter(match => isClasico(match.name));
@@ -236,7 +237,7 @@ router.get("/leaderboard", safe(async (req, res) => {
 }));
 
 router.get("/awards", safe(async (req, res) => {
-  const year = Number(req.query.year) || new Date().getUTCFullYear();
+  const year = Number(req.query.year) || calendarParts().year;
   const month = req.query.month ? Number(req.query.month) : undefined;
   const matches = await Match.find(dateQuery(year, month)).lean();
   const players = await Player.find().lean();
@@ -246,7 +247,7 @@ router.get("/awards", safe(async (req, res) => {
 }));
 
 router.get("/award-history", safe(async (req, res) => {
-  const year = req.query.year ? Number(req.query.year) : new Date().getUTCFullYear();
+  const year = req.query.year ? Number(req.query.year) : calendarParts().year;
   dateQuery(year);
   const [awards, years] = await Promise.all([
     Award.find({ year }).sort({ month: 1, type: 1 }).lean(),
@@ -284,7 +285,7 @@ router.get("/player/:id", safe(async (req, res) => {
   currentStats.recent = own.slice(0, 5).map(match => ({
     matchId: id(match), date: match.date, result: resultForPlayer(match, id(player)),
   }));
-  const years = [...new Set(own.map(match => new Date(match.date).getUTCFullYear()))].sort((a, b) => b - a);
+  const years = [...new Set(own.map(match => calendarParts(match.date).year))].sort((a, b) => b - a);
   const seasons = await Promise.all(years.map(async year => ({
     year,
     ...(await loadPlayerStatistics([player], { year }))[0],
@@ -340,7 +341,7 @@ router.get("/seasons", safe(async (req, res) => {
     Award.find({ month: null }).lean(),
   ]);
   const seasons = [];
-  const currentYear = new Date().getUTCFullYear();
+  const currentYear = calendarParts().year;
   for (const yearData of aggregate) {
     const year = Number(yearData._id);
     const rows = await loadPlayerStatistics(players, { year });
