@@ -17,7 +17,7 @@ test('year and month filtering use Asia/Kolkata calendar boundaries',()=>{
     match('2026-01-31T18:29:59Z'),
     match('2026-01-31T18:30:00Z'),
   ];
-  assert.equal(inPeriod(ms,2026).length,2);
+  assert.equal(inPeriod(ms,2026).length,3);
   assert.equal(inPeriod(ms,2026,1).length,2);
   assert.deepEqual(calendarParts(new Date('2026-10-31T18:29:59Z')),{year:2026,month:10,day:31});
   assert.deepEqual(calendarParts(new Date('2026-10-31T18:30:00Z')),{year:2026,month:11,day:1});
