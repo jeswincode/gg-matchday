@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildStatistics,isClasico,inPeriod,selectAwards,hasRating,hasDefensivePerformance,sortMostWins,sortGoldenBoot,sortPlaymaker,getMatchScores} from '../server/services/statistics.js';
+import {buildStatistics,isClasico,inPeriod,selectAwards,hasRating,hasDefensivePerformance,sortMostWins,sortGoldenBoot,sortPlaymaker,getMatchScores,dateQuery,calendarParts,nextCalendarMonthBoundary} from '../server/services/statistics.js';
 import {prepareMatch,validatePreferences,messageText,chatMonth} from '../server/services/validation.js';
 const players=[{_id:'a',name:'A',position:'ST'},{_id:'b',name:'B',position:'GK'},{_id:'c',name:'C'}];
 const match=(date='2026-01-01',rating=8,defensivePerformance=8)=>({_id:date,name:'Sunday',date,teamA:{score:1},teamB:{score:0},participants:[{player:'a',team:'A',rating,defensivePerformance},{player:'b',team:'B',rating:6,defensivePerformance:6}],events:[{player:'a',type:'goal'},{player:'a',type:'assist'}]});
@@ -10,7 +10,21 @@ test('defensive score zero is valid and missing legacy defensive data stays dist
 test('offensive and defensive ratings are absolute and do not depend on the player cohort',()=>{const base=Array.from({length:5},(_,i)=>match(`2026-05-0${i+1}`,8,8));const single=buildStatistics(players,base).find(s=>s.playerId==='a');const extraPlayers=[...players,{_id:'d',name:'D',position:'ST'}];const extraMatches=[...base,...Array.from({length:5},(_,i)=>{const m=match(`2026-06-0${i+1}`,9,2);return {...m,participants:m.participants.map(p=>p.player==='a'?{...p,player:'d'}:p),events:[{player:'d',type:'goal'},{player:'d',type:'assist'}]};})];const withExtra=buildStatistics(extraPlayers,extraMatches).find(s=>s.playerId==='a');assert.equal(withExtra.offensiveRating,single.offensiveRating);assert.equal(withExtra.defensiveRating,single.defensiveRating);});
 test('unrated legacy data and zero match ratings remain distinct',()=>{const rows=buildStatistics(players,Array.from({length:5},()=>match('2026-07-01',null,8)));assert.equal(rows.find(s=>s.playerId==='a').averageRating,null);assert.equal(rows.find(s=>s.playerId==='a').ggRating,null);assert.equal(hasRating(0),true);assert.equal(hasRating(null),false);assert.equal(hasRating('8'),false);assert.equal(hasRating(11),false);});
 test('draws are neutral, both sides receive zero-zero clean sheets and form uses results',()=>{const m=match();m.teamA.score=0;m.events=[];const a=buildStatistics(players,[m],{minimumMatches:1})[0];assert.equal(a.draws,1);assert.equal(a.resultScore,5);assert.equal(a.cleanSheets,1);assert.equal(a.form,50);});
-test('year and month filtering are UTC, calendar year is season',()=>{const ms=[match('2025-12-31T23:59:59Z'),match('2026-01-01T00:00:00Z'),match('2026-02-01T00:00:00Z')];assert.equal(inPeriod(ms,2026).length,2);assert.equal(inPeriod(ms,2026,1).length,1);assert.throws(()=>inPeriod(ms,2026,13));});
+test('year and month filtering use Asia/Kolkata calendar boundaries',()=>{
+  const ms=[
+    match('2025-12-31T18:29:59Z'),
+    match('2025-12-31T18:30:00Z'),
+    match('2026-01-31T18:29:59Z'),
+    match('2026-01-31T18:30:00Z'),
+  ];
+  assert.equal(inPeriod(ms,2026).length,2);
+  assert.equal(inPeriod(ms,2026,1).length,2);
+  assert.deepEqual(calendarParts(new Date('2026-10-31T18:29:59Z')),{year:2026,month:10,day:31});
+  assert.deepEqual(calendarParts(new Date('2026-10-31T18:30:00Z')),{year:2026,month:11,day:1});
+  assert.equal(dateQuery(2026,11).date.$gte.toISOString(),'2026-10-31T18:30:00.000Z');
+  assert.equal(nextCalendarMonthBoundary(new Date('2026-10-31T18:00:00Z')).toISOString(),'2026-10-31T18:30:00.000Z');
+  assert.throws(()=>inPeriod(ms,2026,13));
+});
 test('eligibility differs for month, annual and El Clasico',()=>{const ms=Array.from({length:3},()=>match());assert.equal(buildStatistics(players,ms)[0].ggRating,null);assert.equal(selectAwards(players,ms,{year:2026,month:1}).find(a=>a.type==='player').player,'a');assert.equal(selectAwards(players,ms,{year:2026}).find(a=>a.type==='player'),undefined);assert.equal(buildStatistics(players,ms,{minimumMatches:3})[0].eligible,true);});
 test('El Clasico matching ignores accent, case and extra whitespace',()=>{for(const name of ['El Clásico','EL CLASICO','el clásico','  El   Clasico  '])assert.equal(isClasico(name),true);assert.equal(isClasico('Sunday Football'),false);});
 test('new matches use GG performance codes; legacy nulls remain editable without fabrication',()=>{const m=match();m.participants=m.participants.map(p=>({...p,performanceCodes:[]}));prepareMatch(m);assert.equal(m.teamA.score,1);assert.equal(m.participants[0].rating,null);assert.equal(m.participants[0].ratingSystem,'gg-v3');const missingCodes=match();assert.throws(()=>prepareMatch(missingCodes),/performance codes/);const old=match('2026-01-01',null,null);assert.doesNotThrow(()=>prepareMatch({...old,teamA:{score:99}},old));assert.throws(()=>prepareMatch(match('2026-02-30')),/date/);});
