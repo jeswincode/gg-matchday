@@ -811,10 +811,10 @@ function App() {
         new Date();
 
       const year =
-        now.getFullYear();
+        Number(new Intl.DateTimeFormat("en", { timeZone: "Asia/Kolkata", year: "numeric" }).format(now));
 
       const month =
-        now.getMonth() + 1;
+        Number(new Intl.DateTimeFormat("en", { timeZone: "Asia/Kolkata", month: "numeric" }).format(now));
 
       const [
         yearResponse,
