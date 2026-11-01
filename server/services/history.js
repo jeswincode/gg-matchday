@@ -1,21 +1,104 @@
-import Player from '../models/Player.js';
-import Match from '../models/Match.js';
-import Award from '../models/Award.js';
-import Achievement from '../models/Achievement.js';
-import {buildStatistics,milestoneRules,selectAwards} from './statistics.js';
+import Player from "../models/Player.js";
+import Match from "../models/Match.js";
+import Award from "../models/Award.js";
+import Achievement from "../models/Achievement.js";
+import { buildStatistics, milestoneRules, selectAwards, calendarParts, MATCHDAY_TIME_ZONE, nextCalendarMonthBoundary } from "./statistics.js";
+
 let pending;
-export function syncHistory(){
- if(pending)return pending;
- pending=(async()=>{
- const [players,matches]=await Promise.all([Player.find().lean(),Match.find().lean()]);
- const ops=[];
- for(const s of buildStatistics(players,matches)) for(const [key,levels] of Object.entries(milestoneRules)) for(const threshold of levels) if(s[key]>=threshold)ops.push({updateOne:{filter:{player:s.playerId,key:`${key}:${threshold}`},update:{$setOnInsert:{player:s.playerId,key:`${key}:${threshold}`,label:`${threshold} ${key==='cleanSheets'?'clean sheets':key}`}},upsert:true}});
- if(ops.length)await Achievement.bulkWrite(ops,{ordered:false});
- const now=new Date(),currentYear=now.getUTCFullYear(),currentMonth=now.getUTCMonth()+1,periods=new Map();
- // Monthly awards become permanent only after the calendar month has ended.
- await Award.deleteMany({year:currentYear,month:currentMonth,type:{$in:['player','offensive','defensive']}});
- for(const m of matches){const d=new Date(m.date),y=d.getUTCFullYear(),mo=d.getUTCMonth()+1;if(y<currentYear)periods.set(`${y}`,{year:y});if(y<currentYear||(y===currentYear&&mo<currentMonth))periods.set(`${y}-${mo}`,{year:y,month:mo});}
- for(const period of periods.values())for(const a of selectAwards(players,matches,period))await Award.updateOne({key:`${a.type}:${a.year}:${a.month||0}`},{$setOnInsert:{...a,key:`${a.type}:${a.year}:${a.month||0}`}},{upsert:true});
- })().finally(()=>{pending=null;});return pending;
+let boundaryTimer;
+const RETRY_DELAY_MS = 5 * 60 * 1000;
+
+export function syncHistory(now = new Date()) {
+  if (pending) return pending;
+  pending = (async () => {
+    const [players, matches] = await Promise.all([Player.find().lean(), Match.find().lean()]);
+    const ops = [];
+    for (const stats of buildStatistics(players, matches)) {
+      for (const [key, levels] of Object.entries(milestoneRules)) {
+        for (const threshold of levels) {
+          if (stats[key] >= threshold) {
+            ops.push({
+              updateOne: {
+                filter: { player: stats.playerId, key: `${key}:${threshold}` },
+                update: { $setOnInsert: { player: stats.playerId, key: `${key}:${threshold}`, label: `${threshold} ${key === "cleanSheets" ? "clean sheets" : key}` } },
+                upsert: true,
+              },
+            });
+          }
+        }
+      }
+    }
+    if (ops.length) await Achievement.bulkWrite(ops, { ordered: false });
+
+    const current = calendarParts(now);
+    const periods = new Map();
+
+    // Only completed IST calendar months are finalized. Current-month awards
+    // remain provisional and are never deleted or overwritten by this worker.
+    for (const match of matches) {
+      const period = calendarParts(match.date);
+      if (period.year < current.year) {
+        periods.set(`year:${period.year}`, { year: period.year });
+      }
+      if (period.year < current.year || (period.year === current.year && period.month < current.month)) {
+        periods.set(`month:${period.year}:${period.month}`, { year: period.year, month: period.month });
+      }
+    }
+
+    for (const period of periods.values()) {
+      for (const award of selectAwards(players, matches, period)) {
+        const key = `${award.type}:${award.year}:${award.month || 0}`;
+        await Award.updateOne(
+          { key },
+          { $setOnInsert: { ...award, key } },
+          { upsert: true },
+        );
+      }
+    }
+    return { achievements: ops.length, finalizedPeriods: periods.size, timeZone: MATCHDAY_TIME_ZONE };
+  })().finally(() => { pending = null; });
+  return pending;
 }
-export function scheduleHistory(){syncHistory().catch(()=>console.error('Historical recognition could not be refreshed.'));}
+
+function armNextBoundary(now = new Date(), run = syncHistory) {
+  if (boundaryTimer) clearTimeout(boundaryTimer);
+  const boundary = nextCalendarMonthBoundary(now);
+  const delay = Math.max(0, boundary.getTime() - now.getTime());
+  boundaryTimer = setTimeout(async () => {
+    try {
+      await run(new Date());
+      armNextBoundary(new Date(), run);
+    } catch (error) {
+      console.error("Monthly award finalization failed; retrying:", error.message);
+      boundaryTimer = setTimeout(() => {
+        run(new Date())
+          .then(() => armNextBoundary(new Date(), run))
+          .catch(retryError => {
+            console.error("Monthly award finalization retry failed:", retryError.message);
+            armNextBoundary(new Date(), run);
+          });
+      }, RETRY_DELAY_MS);
+      boundaryTimer.unref?.();
+    }
+  }, delay);
+  boundaryTimer.unref?.();
+}
+
+export function startHistoryScheduler({ run = syncHistory, now = () => new Date() } = {}) {
+  // Startup catch-up covers downtime/redeployments across a month boundary.
+  Promise.resolve(run(now())).catch(error => {
+    console.error("Historical recognition startup catch-up failed:", error.message);
+  });
+  armNextBoundary(now(), run);
+  return () => {
+    if (boundaryTimer) clearTimeout(boundaryTimer);
+    boundaryTimer = null;
+  };
+}
+
+export function scheduleHistory() {
+  return syncHistory().catch(error => {
+    console.error("Historical recognition could not be refreshed:", error.message);
+    throw error;
+  });
+}
