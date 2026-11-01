@@ -12,8 +12,58 @@ export const sortGoldenBoot = (a,b) => b.goals-a.goals || compareByGG(a,b) || b.
 export const sortPlaymaker = (a,b) => b.assists-a.assists || compareByGG(a,b) || b.goals-a.goals || a.name.localeCompare(b.name) || a.playerId.localeCompare(b.playerId);
 export function getMatchScores(match){const participants=Array.isArray(match?.participants)?match.participants:[],events=Array.isArray(match?.events)?match.events:[],hasGoalEvents=events.some(event=>event?.type==='goal'),hasOwnGoals=participants.some(participant=>Number(participant.ownGoals||0)>0);if(!hasGoalEvents&&!hasOwnGoals)return {teamA:Number(match?.teamA?.score||0),teamB:Number(match?.teamB?.score||0)};const side=new Map(participants.map(p=>[id(p.player),p.team]));const normalA=events.filter(e=>e?.type==='goal'&&side.get(id(e.player))==='A').length;const normalB=events.filter(e=>e?.type==='goal'&&side.get(id(e.player))==='B').length;const ownA=participants.reduce((n,p)=>n+(p.team==='A'?Math.max(0,Number(p.ownGoals||0)):0),0);const ownB=participants.reduce((n,p)=>n+(p.team==='B'?Math.max(0,Number(p.ownGoals||0)):0),0);return {teamA:normalA+ownB,teamB:normalB+ownA};}
 export function normalizeMatchScores(match){const hasGoalEvents=Array.isArray(match?.events)&&match.events.some(event=>event?.type==='goal');const hasOwnGoals=Array.isArray(match?.participants)&&match.participants.some(participant=>Number(participant.ownGoals||0)>0);if(!hasGoalEvents&&!hasOwnGoals)return match;const scores=getMatchScores(match);if(match?.teamA)match.teamA.score=scores.teamA;if(match?.teamB)match.teamB.score=scores.teamB;return match;}
-export function dateQuery(year,month) { if (!year) return {}; year=Number(year); month=month == null ? null : Number(month); if (!Number.isInteger(year)||year<2000||year>2100||(month!==null&&(!Number.isInteger(month)||month<1||month>12))) throw new Error("Choose a valid year and month."); return {date:{$gte:new Date(Date.UTC(year,month ? month-1 : 0,1)),$lt:new Date(Date.UTC(month ? year : year+1,month || 0,1))}}; }
-export function inPeriod(matches,year,month) { const q=dateQuery(year,month).date; return q ? matches.filter(m=>new Date(m.date)>=q.$gte&&new Date(m.date)<q.$lt) : matches; }
+export const MATCHDAY_TIME_ZONE = "Asia/Kolkata";
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+export function calendarParts(value = new Date()) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) throw new Error("Choose a valid calendar date.");
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: MATCHDAY_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day),
+  };
+}
+
+export function nextCalendarMonthBoundary(value = new Date()) {
+  const { year, month } = calendarParts(value);
+  // Asia/Kolkata is UTC+05:30. The first instant of the next local month
+  // is therefore 18:30 UTC on the preceding calendar day.
+  return new Date(Date.UTC(year, month, 1) - IST_OFFSET_MS);
+}
+
+export function dateQuery(year, month) {
+  if (!year) return {};
+  year = Number(year);
+  month = month == null ? null : Number(month);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100 ||
+      (month !== null && (!Number.isInteger(month) || month < 1 || month > 12))) {
+    throw new Error("Choose a valid year and month.");
+  }
+  const startMonthIndex = month === null ? 0 : month - 1;
+  const endYear = month === null ? year + 1 : year;
+  const endMonthIndex = month === null ? 0 : month;
+  return {
+    date: {
+      $gte: new Date(Date.UTC(year, startMonthIndex, 1) - IST_OFFSET_MS),
+      $lt: new Date(Date.UTC(endYear, endMonthIndex, 1) - IST_OFFSET_MS),
+    },
+  };
+}
+
+export function inPeriod(matches, year, month) {
+  const query = dateQuery(year, month).date;
+  return query
+    ? matches.filter(match => new Date(match.date) >= query.$gte && new Date(match.date) < query.$lt)
+    : matches;
+}
 const matchChronology = (a,b) => new Date(b.date)-new Date(a.date) || new Date(b.createdAt || 0)-new Date(a.createdAt || 0) || id(b).localeCompare(id(a));
 export function buildStatistics(players,matches,{minimumMatches=5}={}) { const stats=new Map(players.map(p=>[id(p),{playerId:id(p),name:p.name,profileImage:p.profileImage,position:p.position,preferredPositions:p.preferredPositions||[],clasicoSide:p.clasicoSide||"",matches:0,wins:0,draws:0,losses:0,goals:0,assists:0,ownGoals:0,cleanSheets:0,ratedMatches:0,ratingTotal:0,ratingValues:[],defensiveRatedMatches:0,defensivePerformanceTotal:0,defensiveCleanSheets:0,defensiveOwnGoals:0,recent:[]} ])); for(const original of [...matches].sort(matchChronology)) { const scores=getMatchScores(original); for(const part of original.participants||[]) { const s=stats.get(id(part.player)); if(!s) continue; const own=Number(part.team==='A'?scores.teamA:scores.teamB),against=Number(part.team==='A'?scores.teamB:scores.teamA); const result=own>against?'W':own===against?'D':'L'; s.matches++; s[result==='W'?'wins':result==='D'?'draws':'losses']++; if(against===0)s.cleanSheets++; const ownGoals=Number(part.ownGoals||0); s.ownGoals+=Number.isFinite(ownGoals)&&ownGoals>0?ownGoals:0; const effectiveRating=effectiveMatchRating(part);if(effectiveRating!==null){s.ratedMatches++;s.ratingTotal+=effectiveRating;s.ratingValues.push(effectiveRating);} if(hasDefensivePerformance(part.defensivePerformance)){s.defensiveRatedMatches++;s.defensivePerformanceTotal+=part.defensivePerformance;s.defensiveCleanSheets+=against===0?1:0;s.defensiveOwnGoals+=Number.isFinite(ownGoals)&&ownGoals>0?ownGoals:0;} if(s.recent.length<5)s.recent.push({matchId:id(original),date:original.date,result}); } for(const e of original.events||[]){const s=stats.get(id(e.player));if(s&&['goal','assist'].includes(e.type))s[e.type==='goal'?'goals':'assists']++;} } const rows=[...stats.values()]; for(const s of rows){s.goalContributions=s.goals+s.assists;s.winRate=s.matches?s.wins/s.matches:0;s.lossRate=s.matches?s.losses/s.matches:0;s.cleanSheetRate=s.matches?s.cleanSheets/s.matches:0;s.averageRating=s.ratedMatches?s.ratingTotal/s.ratedMatches:null;s.performanceRating=s.averageRating;s.resultScore=calculateResultScore({matches:s.matches,winRate:s.winRate,lossRate:s.lossRate});s.goalRate=s.matches?s.goals/s.matches:0;s.assistRate=s.matches?s.assists/s.matches:0;s.contributionRate=s.matches?s.goalContributions/s.matches:0;s.offensiveRaw=calculateOffensiveRating({goalRate:s.goalRate,assistRate:s.assistRate});s.defensivePerformanceAverage=s.defensiveRatedMatches?s.defensivePerformanceTotal/s.defensiveRatedMatches:null;s.defensiveCleanSheetRate=s.defensiveRatedMatches?s.defensiveCleanSheets/s.defensiveRatedMatches:0;s.defensiveCleanSheetScore=s.defensiveCleanSheetRate*10;s.defensiveOwnGoalRate=s.defensiveRatedMatches?s.defensiveOwnGoals/s.defensiveRatedMatches:0;s.defensiveOwnGoalScore=s.defensiveRatedMatches?Math.max(0,Math.min(10,10*(1-s.defensiveOwnGoalRate))):null;s.defensiveRaw=calculateDefensiveRating({defensivePerformanceAverage:s.defensivePerformanceAverage,defensiveCleanSheetRate:s.defensiveCleanSheetRate,defensiveOwnGoalRate:s.defensiveOwnGoalRate});s.eligible=s.matches>=minimumMatches;s.defensiveEligible=s.defensiveRatedMatches>=MINIMUM_DEFENSIVE_MATCHES;s.offensiveRating=s.eligible?s.offensiveRaw:null;s.defensiveRating=s.defensiveEligible?s.defensiveRaw:null;s.form=s.recent.length?Math.round(100*s.recent.reduce((n,r)=>n+(r.result==='W'?1:r.result==='D'?.5:0),0)/s.recent.length):null;const mean=s.averageRating;const variance=s.ratingValues.length>1&&mean!==null?s.ratingValues.reduce((n,v)=>n+(v-mean)**2,0)/s.ratingValues.length:0;s.ratingConsistency=s.ratingValues.length>=5?Math.max(0,Math.min(100,100-(Math.sqrt(variance)/5)*100)):null;delete s.ratingTotal;delete s.ratingValues;} for(const s of rows){s.ggEligible=s.eligible&&s.defensiveEligible&&s.averageRating!==null;s.ggRating=s.ggEligible?calculateGGRating({averageRating:s.averageRating,offensiveRating:s.offensiveRating,defensiveRating:s.defensiveRating,resultScore:s.resultScore}):null;s.minimumMatches=minimumMatches;s.minimumDefensiveMatches=MINIMUM_DEFENSIVE_MATCHES;} return rows.sort(sortOverall).map((s,i)=>({...s,rank:s.ggRating===null?null:i+1})); }
 export const milestoneRules={goals:[1,10,25,50,100,150,200],assists:[1,10,25,50,100],matches:[10,25,50,100,200,500],cleanSheets:[1,10,25,50,100]};
