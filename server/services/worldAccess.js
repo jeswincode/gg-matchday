@@ -74,6 +74,7 @@ export function isPlatformAdministrator(user, firebaseUser, configuredAdminEmail
     user?.platformRole === "platform_admin" &&
     user?.firebaseUid &&
     firebaseUser?.uid &&
+    firebaseUser?.testOnly !== true &&
     String(user.firebaseUid) === String(firebaseUser.uid) &&
     currentEmail === persistedEmail &&
     isVerifiedConfiguredAdminEmail(currentEmail, firebaseUser?.email_verified, configuredAdminEmail)
