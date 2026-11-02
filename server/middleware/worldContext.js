@@ -81,9 +81,14 @@ export async function resolveWorldContext(req, res, next) {
     // The non-production, secret-gated E2E identity runs against legacy
     // null-world fixtures. It cannot run in production and never selects a
     // real World tenant; production accounts always receive the canonical ID.
-    req.worldId = req.firebaseUser?.testOnly === true && process.env.NODE_ENV !== "production"
-      ? null
-      : world._id;
+    const isolatedTestIdentity = req.firebaseUser?.testOnly === true &&
+      process.env.NODE_ENV !== "production";
+    const isWorldRoute = req.baseUrl === "/api/worlds" ||
+      String(req.originalUrl || "").startsWith("/api/worlds/");
+    // Legacy HMAC browser/API fixtures stay in their null-world namespace.
+    // World discovery and local-map routes still use the canonical World ID
+    // so the invitation-only map can be exercised in a real browser.
+    req.worldId = isolatedTestIdentity && !isWorldRoute ? null : world._id;
     req.membership = membership || null;
     return next();
   } catch (error) {
