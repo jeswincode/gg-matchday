@@ -469,9 +469,6 @@ export default function GlobalMapPage({
           onOpenClubs={membershipStates[worlds[0]?.slug] === "active" ? onOpenClubs : null}
         />
       </header>
-      {isSignedIn && (
-        
-      )}
 
       {message && (
         <div className="gg-world-feedback-toast" role="status">
