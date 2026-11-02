@@ -60,11 +60,6 @@ const TAB_ORDER = [
   TABS.PLAYERS,
 ];
 
-function toNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
-}
-
 function sameId(a, b) {
   return String(a) === String(b);
 }
@@ -2382,51 +2377,6 @@ function App() {
   const latestMatch =
     matches[0] ||
     null;
-
-  const latestGoals =
-    latestMatch?.events?.filter(
-      (event) =>
-        event.type ===
-        "goal"
-    ) || [];
-
-  const latestScorers =
-    Object.values(
-      latestGoals.reduce(
-        (
-          result,
-          event
-        ) => {
-          const id =
-            String(
-              event.player?._id ||
-                event.player
-            );
-
-          if (
-            !result[id]
-          ) {
-            result[id] = {
-              name:
-                event.player?.name ||
-                "Player",
-              goals:
-                0,
-            };
-          }
-
-          result[id].goals +=
-            1;
-
-          return result;
-        },
-        {}
-      )
-    ).sort(
-      (a, b) =>
-        b.goals -
-        a.goals
-    );
 
   // =========================================================
   // RENDER
