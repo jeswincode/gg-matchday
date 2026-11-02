@@ -1,22 +1,24 @@
 import { requireAuth } from "./auth.js";
 import { runWithWorldDataScope } from "../services/worldDataScope.js";
 import { resolveWorldContext } from "./worldContext.js";
+import { getPrimaryWorldSlug } from "../services/primaryWorld.js";
 import { requireActiveWorldMembership, requireWorldCapability } from "./worldPermissions.js";
 
 /**
- * Legacy records have no worldId until the Original GG migration is approved.
- * A request with an explicit World selector must prove active membership.
- * Without a selector, domain queries must filter to null/missing worldId only.
+ * Matchday and Clubs APIs always operate in the one canonical World. An absent
+ * header defaults to that World; it never opts into unscoped legacy records.
  */
 export function requireOptionalWorldMembership(req, res, next) {
-  const slug = String(req.get?.("x-world-slug") || req.headers?.["x-world-slug"] || "").trim();
-  if (!slug) {
-    req.world = null;
-    req.worldId = null;
-    req.membership = null;
-    return next();
-  }
+  if (req.worldId && req.world && req.membership) return next();
 
+  const selected = String(
+    req.get?.("x-world-slug") ||
+    req.headers?.["x-world-slug"] ||
+    getPrimaryWorldSlug()
+  ).trim().toLowerCase();
+
+  req.headers = req.headers || {};
+  req.headers["x-world-slug"] = selected;
   return requireAuth(req, res, () =>
     resolveWorldContext(req, res, () =>
       requireActiveWorldMembership(req, res, next),
@@ -25,22 +27,20 @@ export function requireOptionalWorldMembership(req, res, next) {
 }
 
 export function domainWorldFilter(req) {
-  return { worldId: req.worldId || null };
+  return { worldId: req.worldId };
 }
 
-/**
- * In a selected World, WorldMembership capabilities decide authority.
- * Unscoped legacy requests retain the existing global editor/admin policy
- * until the Original GG role migration is completed.
- */
-export function requireDomainCapability(capability, legacyMiddleware) {
-  const worldGuard = requireWorldCapability(capability);
-  return (req, res, next) => {
-    if (req.worldId) return worldGuard(req, res, next);
-    return legacyMiddleware(req, res, next);
-  };
+export function requireDomainCapability(capability) {
+  return requireWorldCapability(capability);
 }
 
 export function withWorldDataScope(req, res, next) {
-  return runWithWorldDataScope(req.worldId || null, next);
+  if (!req.worldId || !req.world) {
+    return res.status(403).json({
+      message: "A canonical GG World context is required.",
+      code: "WORLD_CONTEXT_REQUIRED",
+      requestId: req.requestId || null,
+    });
+  }
+  return runWithWorldDataScope(req.worldId, next);
 }
