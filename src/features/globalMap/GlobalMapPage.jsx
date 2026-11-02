@@ -129,10 +129,10 @@ function WorldBottomNavigation({ onNavigateTab }) {
   );
 }
 
-function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, onSignIn, onSignOut, onNavigateAdmin, theme, onThemeChange, onOpenClubs }) {
+function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, onSignIn, onSignOut, onNavigateAdmin, onManageAccess, theme, onThemeChange, onOpenClubs }) {
   return (
     <div className="gg-world-account-hud">
-      <button type="button" className="gg-world-clubs-link" onClick={onOpenClubs}>Clubs</button>
+      {onOpenClubs && <button type="button" className="gg-world-clubs-link" onClick={onOpenClubs}>Clubs</button>}
       <div className="gg-world-theme-switch" aria-label="Theme">
         <button type="button" aria-pressed={theme === "dark"} onClick={() => onThemeChange?.("dark")}>Dark</button>
         <button type="button" aria-pressed={theme === "golden"} onClick={() => onThemeChange?.("golden")}>Gold</button>
@@ -147,11 +147,134 @@ function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, onSignIn, onS
             </div>
           </div>
           {isAdmin && <button type="button" className="gg-world-admin-link" onClick={onNavigateAdmin}>Admin</button>}
+          {isAdmin && <button type="button" className="gg-world-admin-link" onClick={onManageAccess}>Manage access</button>}
           <button type="button" className="gg-world-signout" onClick={onSignOut}>Sign out</button>
         </>
       ) : (
         <button type="button" className="gg-world-signin" onClick={onSignIn}>Sign in</button>
       )}
+    </div>
+  );
+}
+
+function WorldAccessManager({ open, onClose, onMessage }) {
+  const [grants, setGrants] = useState([]);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("member");
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState("");
+  const [error, setError] = useState("");
+
+  const loadGrants = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await api("/worlds/admin/access");
+      setGrants(Array.isArray(result?.grants) ? result.grants : []);
+    } catch (loadError) {
+      setError(loadError?.message || "Could not load linked Gmail accounts.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) loadGrants();
+  }, [open, loadGrants]);
+
+  if (!open) return null;
+
+  const invite = async event => {
+    event.preventDefault();
+    setBusyId("invite");
+    setError("");
+    try {
+      const result = await api("/worlds/admin/access", {
+        method: "POST",
+        body: { email: email.trim(), role },
+      });
+      setEmail("");
+      onMessage?.(result?.message || "Gmail invitation created.");
+      await loadGrants();
+    } catch (inviteError) {
+      setError(inviteError?.message || "Could not create this invitation.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const revoke = async grant => {
+    if (!window.confirm("Revoke GG World access for " + grant.email + "?")) return;
+    setBusyId(grant.id);
+    setError("");
+    try {
+      const result = await api("/worlds/admin/access/" + encodeURIComponent(grant.id), {
+        method: "DELETE",
+      });
+      onMessage?.(result?.message || "World access revoked.");
+      await loadGrants();
+    } catch (revokeError) {
+      setError(revokeError?.message || "Could not revoke this invitation.");
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  return (
+    <div className="gg-world-modal-backdrop gg-world-access-backdrop" role="presentation" onMouseDown={event => {
+      if (event.target === event.currentTarget && !busyId) onClose?.();
+    }}>
+      <section className="gg-world-create-modal gg-world-access-modal" role="dialog" aria-modal="true" aria-labelledby="gg-world-access-title">
+        <button type="button" className="gg-world-modal-close" onClick={onClose} disabled={Boolean(busyId)} aria-label="Close access manager">×</button>
+        <div className="gg-world-modal-copy">
+          <span className="gg-world-create-eyebrow">GG PLATFORM ADMINISTRATION</span>
+          <h2 id="gg-world-access-title">Football World access</h2>
+          <p>Only Gmail addresses linked here can enter the shared football World. Access activates after Firebase verifies the exact account.</p>
+        </div>
+        <form className="gg-world-create-form gg-world-access-form" onSubmit={invite}>
+          <label>
+            Gmail address
+            <input type="email" value={email} onChange={event => setEmail(event.target.value)} maxLength={254} placeholder="player@gmail.com" required/>
+          </label>
+          <label>
+            World role
+            <select value={role} onChange={event => setRole(event.target.value)}>
+              <option value="member">Member</option>
+              <option value="editor">Editor</option>
+            </select>
+          </label>
+          <button className="gg-world-create-button" type="submit" disabled={busyId === "invite" || !email.trim()}>
+            {busyId === "invite" ? "Linking Gmail…" : "Link Gmail account"}
+          </button>
+        </form>
+        {error && <p className="gg-world-access-error" role="alert">{error}</p>}
+        <div className="gg-world-access-list-heading">
+          <strong>Linked accounts and invitations</strong>
+          <button type="button" onClick={loadGrants} disabled={loading || Boolean(busyId)}>Refresh</button>
+        </div>
+        {loading ? (
+          <p className="gg-world-access-empty" role="status">Loading access records…</p>
+        ) : grants.length === 0 ? (
+          <p className="gg-world-access-empty">No Gmail accounts have been linked yet.</p>
+        ) : (
+          <div className="gg-world-access-list">
+            {grants.map(grant => (
+              <article className="gg-world-access-item" key={grant.id}>
+                <div className="gg-world-access-person">
+                  <strong>{grant.email}</strong>
+                  <small>{grant.role} · {grant.user?.name || (grant.status === "invited" ? "Awaiting verified sign-in" : "No account linked")}</small>
+                </div>
+                <span className={"gg-world-access-status is-" + grant.status}>{grant.status}</span>
+                {grant.status !== "revoked" && (
+                  <button type="button" className="gg-world-access-revoke" onClick={() => revoke(grant)} disabled={Boolean(busyId)}>
+                    {busyId === grant.id ? "Revoking…" : "Revoke"}
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
@@ -172,20 +295,13 @@ export default function GlobalMapPage({
   onThemeChange,
 }) {
   const [worlds, setWorlds] = useState([]);
-  const [myWorlds, setMyWorlds] = useState([]);
-  const [availablePlots, setAvailablePlots] = useState([]);
   const [membershipStates, setMembershipStates] = useState({});
-  const [reviewQueues, setReviewQueues] = useState([]);
-  const [busyRequestId, setBusyRequestId] = useState("");
   const [enteredWorld, setEnteredWorld] = useState(null);
   const [enteredMap, setEnteredMap] = useState(null);
   const [playerProfile, setPlayerProfile] = useState(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileCreating, setProfileCreating] = useState(false);
-  const [worldSwitcherOpen, setWorldSwitcherOpen] = useState(false);
-  const [selectedPlot, setSelectedPlot] = useState(null);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [reviewInboxOpen, setReviewInboxOpen] = useState(false);
+  const [accessManagerOpen, setAccessManagerOpen] = useState(false);
   const [enteringWorld, setEnteringWorld] = useState(false);
   const [interiorError, setInteriorError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -193,11 +309,8 @@ export default function GlobalMapPage({
   const [loadError, setLoadError] = useState("");
 
   const applyWorldData = result => {
-    setWorlds(result.worlds);
-    setAvailablePlots(result.availablePlots);
-    setMembershipStates(result.membershipStates);
-    setMyWorlds(result.myWorlds || []);
-    setReviewQueues(result.reviewQueues);
+    setWorlds(Array.isArray(result.worlds) ? result.worlds.slice(0, 1) : []);
+    setMembershipStates(result.membershipStates || {});
     setLoadError("");
   };
 
@@ -206,7 +319,7 @@ export default function GlobalMapPage({
     try {
       applyWorldData(await fetchWorldData(isSignedIn));
     } catch (error) {
-      setLoadError(error?.message || "Could not load the Global Map.");
+      setLoadError(error?.message || "Could not load the GG Global Map.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -220,9 +333,8 @@ export default function GlobalMapPage({
         if (cancelled) return;
         applyWorldData(result);
 
-        // Restore the active World when returning to Home after using another
-        // Matchday destination or reloading the tab. The explicit Global Map
-        // action clears this selector and therefore prevents auto-entry.
+        // Restore the one shared World after returning from Matchday pages.
+        // The server revalidates the current Gmail grant on this request.
         const activeSlug = isSignedIn ? getActiveWorldSlug() : null;
         if (!activeSlug) return;
 
@@ -247,7 +359,7 @@ export default function GlobalMapPage({
         } catch {
           if (!cancelled) {
             setApiActiveWorld(null);
-            setInteriorError("Could not restore this World. Choose it again from the Global Map.");
+            setInteriorError("Could not restore the GG football World. Select it again from the Global Map.");
           }
         }
       })
@@ -260,50 +372,24 @@ export default function GlobalMapPage({
     return () => { cancelled = true; };
   }, [isSignedIn]);
 
-  const requestMembership = async world => {
-    if (!isSignedIn) {
-      onMessage?.("Sign in to request membership in " + world.name + ".");
-      onSignIn?.();
-      return;
-    }
-    try {
-      const result = await api("/worlds/" + encodeURIComponent(world.slug) + "/join-requests", {
-        method: "POST",
-        body: {},
-      });
-      setMembershipStates(current => ({
-        ...current,
-        [world.slug]: result?.membership?.status || current[world.slug] || "pending",
-      }));
-      onMessage?.(result?.message || "Membership request submitted.");
-      await loadMap({ silent: true });
-    } catch (error) {
-      onMessage?.(error?.message || "Could not submit the membership request.");
-    }
-  };
-
-  const decideJoinRequest = async (worldSlug, membershipId, decision) => {
-    setBusyRequestId(membershipId);
-    try {
-      const result = await api(
-        "/worlds/" + encodeURIComponent(worldSlug) +
-        "/join-requests/" + encodeURIComponent(membershipId) + "/" + decision,
-        { method: "POST", body: {} },
-      );
-      onMessage?.(result?.message || "Membership request updated.");
-      await loadMap({ silent: true });
-    } catch (error) {
-      onMessage?.(error?.message || "Could not update this membership request.");
-    } finally {
-      setBusyRequestId("");
-    }
-  };
-
   const enterWorld = async world => {
     if (!isSignedIn) {
+      onMessage?.("Sign in with the Gmail address linked by the GG administrator.");
       onSignIn?.();
       return;
     }
+
+    const accessStatus = membershipStates[world.slug] || "none";
+    if (accessStatus !== "active") {
+      const messageText = accessStatus === "invited"
+        ? "This Gmail invitation has not activated. Sign in again with the exact invited Gmail account."
+        : accessStatus === "revoked"
+          ? "Access to the GG football World has been revoked. Contact the platform administrator."
+          : "This Gmail account has not been linked by the GG platform administrator.";
+      onMessage?.(messageText);
+      return;
+    }
+
     setEnteringWorld(true);
     setInteriorError("");
     try {
@@ -312,7 +398,6 @@ export default function GlobalMapPage({
       setEnteredWorld(world);
       setEnteredMap(data);
       setPlayerProfile(null);
-      setWorldSwitcherOpen(false);
       try {
         const profileResult = await api("/worlds/" + encodeURIComponent(world.slug) + "/player-profile");
         setPlayerProfile(profileResult?.profile || null);
@@ -351,27 +436,6 @@ export default function GlobalMapPage({
     setEnteredMap(data);
   };
 
-  const claimPlot = plot => {
-    if (!isSignedIn) {
-      setSelectedPlot(plot);
-      onSignIn?.();
-      return;
-    }
-    setSelectedPlot(plot);
-    setCreateModalOpen(true);
-  };
-
-  const handleWorldCreated = async result => {
-    const createdWorld = result?.world;
-    if (createdWorld?.slug) {
-      setMembershipStates(current => ({ ...current, [createdWorld.slug]: "active" }));
-      await loadMap({ silent: true });
-      await enterWorld(createdWorld);
-    } else {
-      await loadMap({ silent: true });
-    }
-  };
-
   const goToGlobalMap = () => {
     setApiActiveWorld(null);
     setEnteredWorld(null);
@@ -397,23 +461,16 @@ export default function GlobalMapPage({
           isSignedIn={isSignedIn}
           isAdmin={isAdmin}
           onNavigateAdmin={() => onNavigateTab?.("admin")}
+          onManageAccess={() => setAccessManagerOpen(true)}
           onSignIn={onSignIn}
           onSignOut={onSignOut}
           theme={theme}
           onThemeChange={onThemeChange}
-          onOpenClubs={onOpenClubs}
+          onOpenClubs={membershipStates[worlds[0]?.slug] === "active" ? onOpenClubs : null}
         />
       </header>
       {isSignedIn && (
-        <div className="gg-world-switcher-position">
-          <WorldSwitcher
-            worlds={myWorlds}
-            currentWorld={enteredWorld}
-            isOpen={worldSwitcherOpen}
-            onToggle={() => setWorldSwitcherOpen(value => !value)}
-            onSelect={enterWorld}
-          />
-        </div>
+        
       )}
 
       {message && (
@@ -427,14 +484,14 @@ export default function GlobalMapPage({
         <>
           <div className="gg-world-map-title">
             <div>
-              <span className="gg-world-create-eyebrow">THE FOOTBALL UNIVERSE</span>
-              <h1>Every World starts somewhere.</h1>
-              <p>Explore existing football communities or claim untouched territory to found your own.</p>
+              <span className="gg-world-create-eyebrow">THE GG FOOTBALL UNIVERSE</span>
+              <h1>One World. One shared football home.</h1>
+              <p>The Original GG football World, with its stadium, Clubs and training grounds. Entry is reserved for Gmail accounts linked by the platform administrator.</p>
             </div>
             <div className="gg-world-global-stats">
-              <strong>{worlds.length}</strong>
-              <span>WORLD{worlds.length === 1 ? "" : "S"}</span>
-              <small>{availablePlots.length} open plots</small>
+              <strong>{worlds.length ? "01" : "—"}</strong>
+              <span>SHARED WORLD</span>
+              <small>Administrator-linked access</small>
             </div>
           </div>
 
@@ -442,17 +499,14 @@ export default function GlobalMapPage({
             <GlobalMapScene
               worlds={worlds}
               membershipStates={membershipStates}
-              availablePlots={availablePlots}
-              onClaimPlot={claimPlot}
-              onRequestMembership={requestMembership}
               onEnterWorld={enterWorld}
             />
             {loading && <div className="gg-world-map-toast" role="status">Charting the football universe…</div>}
             {refreshing && <div className="gg-world-map-toast gg-world-map-toast-refresh" role="status">Updating territories…</div>}
             {!loading && !worlds.length && !loadError && (
               <div className="gg-world-empty-hint">
-                <strong>The first kingdom is waiting to be founded.</strong>
-                <span>Choose any highlighted open plot to claim your land.</span>
+                <strong>The GG football World is not available yet.</strong>
+                <span>Ask the platform administrator to verify the primary World configuration.</span>
               </div>
             )}
             {loadError && (
@@ -463,32 +517,14 @@ export default function GlobalMapPage({
             )}
           </section>
 
-          <div className="gg-world-global-tools">
-            <button
-              type="button"
-              className="gg-world-found-button"
-              disabled={availablePlots.length === 0}
-              onClick={() => availablePlots[0] && claimPlot(availablePlots[0])}
-            >
-              ＋ Found a World
-            </button>
-            {availablePlots.length === 0 && (
-              <span className="gg-world-no-plots">All mapped territory is currently claimed.</span>
-            )}
-            {isSignedIn && reviewQueues.length > 0 && (
-              <button type="button" className="gg-world-inbox-toggle" onClick={() => setReviewInboxOpen(value => !value)}>
-                Membership requests <span>{reviewQueues.reduce((sum, queue) => sum + queue.requests.length, 0)}</span>
-              </button>
-            )}
-            {reviewInboxOpen && (
-              <JoinRequestInbox
-                queues={reviewQueues}
-                busyId={busyRequestId}
-                onDecide={decideJoinRequest}
-                onClose={() => setReviewInboxOpen(false)}
-              />
-            )}
-          </div>
+          {isSignedIn && worlds[0] && membershipStates[worlds[0].slug] !== "active" && (
+            <div className="gg-world-access-hint" role="status">
+              <strong>Private football World</strong>
+              <span>{membershipStates[worlds[0].slug] === "invited"
+                ? "Sign in with the exact Gmail address linked by the administrator."
+                : "Only administrator-linked Gmail accounts can enter the facilities and training grounds."}</span>
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -502,7 +538,7 @@ export default function GlobalMapPage({
             </div>
             <span className="gg-world-interior-role">{enteredMap?.permissions?.canEditMap ? "OWNER / ADMIN" : "MEMBER"}</span>
           </header>
-          {!playerProfile && (
+          {!playerProfile && !isAdmin && (
             <section className="gg-world-profile-setup-banner">
               <div>
                 <strong>Set up your player identity in {enteredWorld.name}</strong>
@@ -541,7 +577,7 @@ export default function GlobalMapPage({
       <WorldBottomNavigation onNavigateTab={onNavigateTab} />
 
       <PlayerProfileModal
-        open={profileModalOpen}
+        open={!isAdmin && profileModalOpen}
         world={enteredWorld}
         existingProfile={playerProfile}
         busy={profileCreating}
@@ -549,13 +585,9 @@ export default function GlobalMapPage({
         onCreate={createPlayerProfile}
       />
 
-      <CreateWorldModal
-        isOpen={createModalOpen}
-        plot={selectedPlot}
-        isSignedIn={isSignedIn}
-        onSignIn={onSignIn}
-        onClose={() => setCreateModalOpen(false)}
-        onCreated={handleWorldCreated}
+      <WorldAccessManager
+        open={isAdmin && accessManagerOpen}
+        onClose={() => setAccessManagerOpen(false)}
         onMessage={onMessage}
       />
     </main>
