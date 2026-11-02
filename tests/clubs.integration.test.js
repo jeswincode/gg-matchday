@@ -44,10 +44,11 @@ let auctionClub = null;
 let formedClub = null;
 let formationApplicationId = null;
 
-async function request(path, { role = "viewer", playerId = null, token = TEST_SECRET, method = "GET", body = undefined } = {}) {
+async function request(path, { role = "viewer", worldRole = role === "admin" ? "owner" : role === "editor" ? "editor" : "member", playerId = null, token = TEST_SECRET, method = "GET", body = undefined } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token !== null) headers["X-E2E-Test-Token"] = token;
   if (role) headers["X-E2E-Test-Role"] = role;
+  if (worldRole) headers["X-E2E-Test-World-Role"] = worldRole;
   if (playerId) headers["X-E2E-Test-Player-Id"] = String(playerId);
   const response = await fetch(`${origin}/api${path}`, {
     method,
