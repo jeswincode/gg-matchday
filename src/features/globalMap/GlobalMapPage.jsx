@@ -29,15 +29,6 @@ function PlayerProfileModal({ open, world, onClose, onCreate, busy, existingProf
   const [preferredFoot, setPreferredFoot] = useState("");
   const [bio, setBio] = useState("");
 
-  useEffect(() => {
-    if (!open) {
-      setName("");
-      setPosition("");
-      setPreferredFoot("");
-      setBio("");
-    }
-  }, [open]);
-
   if (!open || !world) return null;
 
   return (
@@ -161,15 +152,14 @@ function WorldAccessManager({ open, onClose, onMessage }) {
   const [grants, setGrants] = useState([]);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
 
   const loadGrants = useCallback(async () => {
-    setLoading(true);
-    setError("");
     try {
       const result = await api("/worlds/admin/access");
+      setError("");
       setGrants(Array.isArray(result?.grants) ? result.grants : []);
     } catch (loadError) {
       setError(loadError?.message || "Could not load linked Gmail accounts.");
@@ -574,6 +564,7 @@ export default function GlobalMapPage({
       <WorldBottomNavigation onNavigateTab={onNavigateTab} />
 
       <PlayerProfileModal
+        key={profileModalOpen ? "profile-open-" + (enteredWorld?.slug || "world") : "profile-closed"}
         open={!isAdmin && profileModalOpen}
         world={enteredWorld}
         existingProfile={playerProfile}
