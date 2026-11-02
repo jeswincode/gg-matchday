@@ -44,7 +44,7 @@ function PlayerProfileModal({ open, world, onClose, onCreate, busy, existingProf
         <div className="gg-world-modal-copy">
           <span className="gg-world-create-eyebrow">YOUR PLACE IN THIS WORLD</span>
           <h2 id="gg-world-player-profile-title">{existingProfile ? "Your World Player" : "Create your player profile"}</h2>
-          <p>This profile belongs only to {world.name}. Your other Worlds keep their own player identity and football record.</p>
+          <p>This profile belongs only to {world.name}. Your player identity and football record belong to this shared football World.</p>
         </div>
         {existingProfile ? (
           <div className="gg-world-profile-summary">
@@ -120,7 +120,7 @@ function WorldBottomNavigation({ onNavigateTab }) {
   );
 }
 
-function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, onSignIn, onSignOut, onNavigateAdmin, onManageAccess, theme, onThemeChange, onOpenClubs }) {
+function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, worldRole, onSignIn, onSignOut, onNavigateAdmin, onManageAccess, theme, onThemeChange, onOpenClubs }) {
   return (
     <div className="gg-world-account-hud">
       {onOpenClubs && <button type="button" className="gg-world-clubs-link" onClick={onOpenClubs}>Clubs</button>}
@@ -134,7 +134,7 @@ function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, onSignIn, onS
             {authUser?.photoURL ? <img src={authUser.photoURL} alt="" /> : <span>{String(authUser?.displayName || authUser?.email || "U").charAt(0).toUpperCase()}</span>}
             <div>
               <strong>{authUser?.displayName || backendUser?.name || "GG member"}</strong>
-              <small>{backendUser?.role || "member"}</small>
+              <small>{worldRole || backendUser?.role || "member"}</small>
             </div>
           </div>
           {isAdmin && <button type="button" className="gg-world-admin-link" onClick={onNavigateAdmin}>Admin</button>}
@@ -256,6 +256,7 @@ export default function GlobalMapPage({
   authUser = null,
   backendUser = null,
   isAdmin = false,
+  onWorldMembershipChange = null,
   onMessage,
   message = "",
   onClearMessage,
@@ -268,6 +269,7 @@ export default function GlobalMapPage({
 }) {
   const [worlds, setWorlds] = useState([]);
   const [membershipStates, setMembershipStates] = useState({});
+  const [worldMembership, setWorldMembershipLocal] = useState(null);
   const [enteredWorld, setEnteredWorld] = useState(null);
   const [enteredMap, setEnteredMap] = useState(null);
   const [playerProfile, setPlayerProfile] = useState(null);
@@ -286,6 +288,9 @@ export default function GlobalMapPage({
   const applyWorldData = result => {
     setWorlds(Array.isArray(result.worlds) ? result.worlds.slice(0, 1) : []);
     setMembershipStates(result.membershipStates || {});
+    const membership = result.myWorld?.membership || null;
+    setWorldMembershipLocal(membership);
+    onWorldMembershipChange?.(membership);
     setLoadError("");
   };
 
@@ -299,7 +304,7 @@ export default function GlobalMapPage({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isSignedIn]);
+  }, [isSignedIn, onWorldMembershipChange]);
 
   const refreshAccessGrants = useCallback(async () => {
     setAccessLoading(true);
@@ -363,7 +368,7 @@ export default function GlobalMapPage({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [isSignedIn]);
+  }, [isSignedIn, onWorldMembershipChange]);
 
   const enterWorld = async world => {
     if (!isSignedIn) {
@@ -453,6 +458,7 @@ export default function GlobalMapPage({
           backendUser={backendUser}
           isSignedIn={isSignedIn}
           isAdmin={isAdmin}
+          worldRole={worldMembership?.role}
           onNavigateAdmin={() => onNavigateTab?.("admin")}
           onManageAccess={openAccessManager}
           onSignIn={onSignIn}
