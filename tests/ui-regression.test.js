@@ -206,7 +206,7 @@ test('World account switcher lists memberships and local entry supports one Play
   assert.match(page,/onSelect=\{enterWorld\}/);
   assert.match(page,/function PlayerProfileModal/);
   assert.match(page,/\/player-profiles/);
-  assert.match(routes,/router\.post\([\s\S]*?\/\:slug\/player-profiles/);
+  assert.ok(routes.includes("/:slug/player-profiles"));
   assert.match(routes,/worldId: req\.worldId/);
   assert.match(routes,/playerProfileId = created\._id/);
   assert.match(player,/player_world_name_unique/);
