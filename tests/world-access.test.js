@@ -73,6 +73,9 @@ test("platform administrator requires the configured verified Firebase identity 
   assert.equal(isPlatformAdministrator(user, { uid: "other-uid", email: "admin@gmail.com", email_verified: true }), false);
   assert.equal(isPlatformAdministrator(user, { uid: "firebase-admin", email: "wrong@gmail.com", email_verified: true }), false);
   assert.equal(isPlatformAdministrator(user, { uid: "firebase-admin", email: "admin@gmail.com", email_verified: true }), true);
+  assert.equal(isPlatformAdministrator(user, {
+    uid: "firebase-admin", email: "admin@gmail.com", email_verified: true, testOnly: true,
+  }), false);
 });
 
 test("resolveWorldContext normalizes slug and attaches World plus membership", async () => {
