@@ -177,9 +177,9 @@ test('Global Map always projects one kingdom and never exposes claimable World p
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
   const scene=read('src/features/globalMap/GlobalMapScene.jsx');
   const routes=read('server/routes/worlds.js');
-  assert.match(page,/slice\\(0, 1\\)/);
-  assert.doesNotMatch(page,/availablePlots|claimPlot|globalMapSlotIndex|createModalOpen/);
-  assert.doesNotMatch(scene,/availablePlots|ClaimPlot|onClaimPlot/);
+  assert.ok(page.includes("slice(0, 1)"));
+  assert.ok(!["availablePlots","claimPlot","globalMapSlotIndex","createModalOpen"].some(value => page.includes(value)));
+  assert.ok(!["availablePlots","ClaimPlot","onClaimPlot"].some(value => scene.includes(value)));
   assert.match(routes,/worlds: \\[safeWorld\\(world\\)\\]/);
   assert.match(routes,/availablePlots: \\[\\]/);
 });
@@ -207,7 +207,7 @@ test('single-World entry is grant-gated and preserves one player identity inside
   const player=read('server/models/Player.js');
   assert.match(page,/slice\\(0, 1\\)/);
   assert.doesNotMatch(page,/function WorldSwitcher|Your Worlds/);
-  assert.match(page,/accessStatus !== "active"/);
+  assert.ok(page.includes('accessStatus !== "active"'));
   assert.match(page,/function PlayerProfileModal/);
   assert.match(page,/\\/player-profiles/);
   assert.ok(routes.includes("/:slug/player-profiles"));
@@ -238,7 +238,7 @@ test('Global Map administrator links and revokes Gmail access instead of creatin
   assert.match(routes,/router\\.delete\\("\\/admin\\/access\\/:grantId"/);
   assert.match(routes,/SINGLE_WORLD_ONLY/);
   assert.match(routes,/WORLD_INVITATION_REQUIRED/);
-  assert.doesNotMatch(page,/globalMapSlotIndex|onClaimPlot|claimPlot/);
+  assert.ok(!["globalMapSlotIndex","onClaimPlot","claimPlot"].some(value => page.includes(value)));
 });
 
 test('World navigation separates public discovery, member entry, and owner map editing',()=>{
