@@ -7,12 +7,14 @@ const clubsUri = String(process.env.CLUBS_MONGODB_URI || "").trim();
 const coreCollections = [
   "worldMemberships", "worldMapLayouts", "worldMapFacilities", "players", "matches",
   "playerStats", "seasonStats", "news", "awards", "achievements", "notifications",
-  "chatmessages", "votes", "profilechangerequests", "ratingDisputes", "mediaassets", "clubSyncJobs",
+  "chatmessages", "votes", "profilechangerequests", "ratingDisputes", "mediaAssets",
+  "worldAccessGrants",
 ];
 const clubsCollections = [
   "clubs", "clubMatches", "clubContracts", "clubHistory", "clubWalletTransactions",
   "playerWallets", "playerWalletTransactions", "auctionOffers", "joinRequests",
   "playerReviews", "clubFormationApplications", "clubRenewalDecisions", "clubMatchBets",
+  "clubAdminAuditEvents", "clubPlayerStats", "clubSyncJobs",
 ];
 
 if (!coreUri || !primarySlug) {
