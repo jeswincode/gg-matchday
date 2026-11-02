@@ -234,8 +234,8 @@ test('Global Map administrator links and revokes Gmail access instead of creatin
   assert.ok(page.includes('api("/worlds/admin/access")'));
   assert.match(page,/method: "POST"/);
   assert.match(page,/method: "DELETE"/);
-  assert.match(routes,/router\\.post\\("\\/admin\\/access"/);
-  assert.match(routes,/router\\.delete\\("\\/admin\\/access\\/:grantId"/);
+  assert.ok(routes.includes('router.post("/admin/access"'));
+  assert.ok(routes.includes('router.delete("/admin/access/:grantId"'));
   assert.match(routes,/SINGLE_WORLD_ONLY/);
   assert.match(routes,/WORLD_INVITATION_REQUIRED/);
   assert.ok(!["globalMapSlotIndex","onClaimPlot","claimPlot"].some(value => page.includes(value)));
