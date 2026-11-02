@@ -28,6 +28,7 @@ import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
 import ratingExplanationRoutes from "./routes/ratingExplanations.js";
 import ratingDisputeRoutes from "./routes/ratingDisputes.js";
 import { observeRequestMiddleware } from "./services/requestHealth.js";
+import { requirePrimaryWorldAccess } from "./middleware/primaryWorldAccess.js";
 
 dotenv.config();
 
@@ -57,6 +58,20 @@ app.use((req, res, next) => {
 app.use(observeRequestMiddleware);
 app.use(cors(createCorsOptions()));
 app.use(express.json({limit:"64kb"}));
+
+// Default-deny private football-domain APIs at a shared boundary. World
+// discovery/self-status/admin endpoints enforce their own route policies;
+// auth, weather and health remain separately guarded/public.
+app.use("/api", (req, res, next) => {
+  const path = req.path || "/";
+  if (
+    path === "/health" ||
+    path === "/auth" || path.startsWith("/auth/") ||
+    path === "/worlds" || path.startsWith("/worlds/") ||
+    path === "/weather" || path.startsWith("/weather/")
+  ) return next();
+  return requirePrimaryWorldAccess(req, res, next);
+});
 app.use("/api/chat", chatRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/notifications", notificationRoutes);
