@@ -270,12 +270,15 @@ function App() {
   const [
     authLoading,
     setAuthLoading,
-  ] = useState(
-    Boolean(auth) || Boolean(
-      import.meta.env.VITE_E2E_TEST_AUTH_SECRET &&
-      new URLSearchParams(window.location.search).get("e2eRole") !== "guest",
-    ),
-  );
+  ] = useState(() => {
+    const hasE2EAuth = Boolean(import.meta.env.VITE_E2E_TEST_AUTH_SECRET);
+    const e2eRole = new URLSearchParams(window.location.search).get("e2eRole") ||
+      import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
+    // Explicit HMAC guest mode must bypass Firebase session restoration,
+    // even when the CI environment also has Firebase configuration.
+    if (hasE2EAuth) return e2eRole !== "guest";
+    return Boolean(auth);
+  });
 
   const [
     message,
