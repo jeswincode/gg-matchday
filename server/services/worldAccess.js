@@ -1,3 +1,5 @@
+import { isVerifiedConfiguredAdminEmail } from "./adminIdentityPolicy.js";
+
 export const WORLD_ROLE_CAPABILITIES = Object.freeze({
   owner: Object.freeze([
     "world:read",
@@ -65,8 +67,15 @@ export function isActiveWorldMembership(membership) {
   return Boolean(membership && membership.status === "active");
 }
 
-export function isPlatformAdministrator(user) {
-  // Platform authority is deliberately distinct from legacy User.role and
-  // WorldMembership.role. The platformRole field is introduced separately.
-  return Boolean(user && user.platformRole === "platform_admin");
+export function isPlatformAdministrator(user, firebaseUser, configuredAdminEmail = process.env.ADMIN_EMAIL) {
+  const currentEmail = String(firebaseUser?.email || "").trim().toLowerCase();
+  const persistedEmail = String(user?.email || "").trim().toLowerCase();
+  return Boolean(
+    user?.platformRole === "platform_admin" &&
+    user?.firebaseUid &&
+    firebaseUser?.uid &&
+    String(user.firebaseUid) === String(firebaseUser.uid) &&
+    currentEmail === persistedEmail &&
+    isVerifiedConfiguredAdminEmail(currentEmail, firebaseUser?.email_verified, configuredAdminEmail)
+  );
 }
