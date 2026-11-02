@@ -39,21 +39,29 @@ export async function resolveWorldContext(req, res, next) {
       const role = req.user.role === "admin" ? "owner" : req.user.role === "editor" ? "editor" : "viewer";
       membership = { worldId: world._id, userId: req.user._id, role, status: "active" };
     } else if (req.user?._id && isPlatformAdministrator(req.user, req.firebaseUser)) {
-      membership = await WorldMembership.findOneAndUpdate(
-        { worldId: world._id, userId: req.user._id },
-        {
-          $set: {
-            role: "owner",
-            status: "active",
-            approvedAt: new Date(),
-            approvedBy: null,
-            rejectedAt: null,
-            rejectedBy: null,
-            decisionNote: "",
+      membership = await WorldMembership.findOne({
+        worldId: world._id,
+        userId: req.user._id,
+      });
+      // Preserve the original activation timestamp and avoid a write on every
+      // API request. Repair/ensure the admin owner membership only when needed.
+      if (!membership || membership.status !== "active" || membership.role !== "owner") {
+        membership = await WorldMembership.findOneAndUpdate(
+          { worldId: world._id, userId: req.user._id },
+          {
+            $set: {
+              role: "owner",
+              status: "active",
+              approvedAt: membership?.approvedAt || new Date(),
+              approvedBy: null,
+              rejectedAt: null,
+              rejectedBy: null,
+              decisionNote: "",
+            },
           },
-        },
-        { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
-      );
+          { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
+        );
+      }
     } else if (req.user?._id) {
       membership = await WorldMembership.findOne({
         worldId: world._id,
