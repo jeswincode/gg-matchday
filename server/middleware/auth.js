@@ -25,7 +25,7 @@ export async function requireAuth(
       const secret = String(process.env.E2E_TEST_AUTH_SECRET || "");
       const expected = Buffer.from(secret);
       const supplied = Buffer.from(testToken);
-      const matches = process.env.NODE_ENV !== "production" && secret.length > 0 &&
+      const matches = process.env.NODE_ENV === "test" && secret.length > 0 &&
         expected.length === supplied.length && timingSafeEqual(expected, supplied);
       if (!matches) {
         return res.status(401).json({ message: "Invalid test authentication token." });
