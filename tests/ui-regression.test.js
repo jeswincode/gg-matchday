@@ -164,7 +164,6 @@ test('entering a World activates app-wide API context and logout clears it',()=>
 
 test('immersive Home restores an active World and preserves admin access',()=>{
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
-  const app=read('src/App.jsx');
   assert.match(page,/getActiveWorldSlug\(\)/);
   assert.match(page,/result\.membershipStates\[activeSlug\] !== "active"/);
   assert.match(page,/setEnteredWorld\(world\)/);
