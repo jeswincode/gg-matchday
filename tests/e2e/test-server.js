@@ -3,7 +3,8 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 process.env.NODE_ENV = "test";
 process.env.E2E_TEST_AUTH_SECRET ||= "gg-matchday-e2e-only-secret";
-process.env.ADMIN_EMAIL = "admin@example.invalid";
+process.env.ADMIN_EMAIL = "admin@gmail.com";
+process.env.GG_PRIMARY_WORLD_SLUG = "original-gg";
 process.env.GEMINI_API_KEY = "";
 process.env.CHAT_ENABLED = "false";
 
