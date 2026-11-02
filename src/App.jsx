@@ -296,10 +296,7 @@ function App() {
     setMatches,
   ] = useState([]);
 
-  const [
-    news,
-    setNews,
-  ] = useState([]);
+  const [, setNews] = useState([]);
 
   const [
     leaderboard,
@@ -316,10 +313,7 @@ function App() {
     setLoadingMatches,
   ] = useState(true);
 
-  const [
-    newsLoading,
-    setNewsLoading,
-  ] = useState(true);
+  const [, setNewsLoading] = useState(true);
 
   const [
     ,
@@ -563,10 +557,7 @@ function App() {
       return () => { active = false; };
     }
 
-    if (!auth) {
-      setAuthLoading(false);
-      return;
-    }
+    if (!auth) return;
 
     let active = true;
 
@@ -2435,26 +2426,6 @@ function App() {
       (a, b) =>
         b.goals -
         a.goals
-    );
-
-  const latestTopScorer =
-    latestScorers[0] ||
-    null;
-
-  const totalAllTimeGoals =
-    matches.reduce(
-      (
-        total,
-        match
-      ) =>
-        total +
-        toNumber(
-          match.teamA?.score
-        ) +
-        toNumber(
-          match.teamB?.score
-        ),
-      0
     );
 
   // =========================================================
