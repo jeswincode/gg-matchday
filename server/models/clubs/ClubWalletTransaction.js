@@ -31,8 +31,9 @@ const clubWalletTransactionSchema = new mongoose.Schema(
 );
 
 clubWalletTransactionSchema.index({ worldId: 1, clubId: 1, createdAt: -1 });
-clubWalletTransactionSchema.index({ worldId: 1, idempotencyKey: 1 }, { unique: true, sparse: true, name: "club_wallet_world_idempotency_unique" });
-
-clubWalletTransactionSchema.plugin(worldDataScopePlugin);
-
-export default getClubsConnection().model("ClubWalletTransaction", clubWalletTransactionSchema);
+clubWalletTransactionSchema.index(
+  { worldId: 1, idempotencyKey: 1 },
+  {
+    unique: true,
+    name: "club_wallet_world_idempotency_unique",
+    partialFilterExpres¶»§q«^

@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import { requireAuth } from "../middleware/auth.js";
-import { requireOptionalWorldMembership, withWorldDataScope, requireWorldCapability } from "../middleware/domainWorldContext.js";
+import { requireOptionalWorldMembership, withWorldDataScope } from "../middleware/domainWorldContext.js";
 import Club from "../models/clubs/Club.js";
 import ClubContract from "../models/clubs/ClubContract.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
@@ -27,63 +27,4 @@ router.get("/player/:playerId/history", requireAuth, async (req, res) => {
   const isAdmin = req.worldId ? ["owner", "admin"].includes(req.membership?.role) : req.user?.role === "admin";
 
   if (!isSelf && !isAdmin) {
-    return res.status(403).json({ message: "Player Club history can only be viewed for your own profile." });
-  }
-
-  try {
-    const contracts = await ClubContract.find({ playerId: req.params.playerId })
-      .sort({ startAt: 1, endAt: 1 })
-      .lean();
-
-    const clubIds = [...new Set(contracts.map(contract => String(contract.clubId)))];
-
-    const [clubs, history, walletTransactions] = await Promise.all([
-      clubIds.length ? Club.find({ _id: { $in: clubIds } }).lean() : [],
-      ClubHistory.find({ playerId: req.params.playerId }).sort({ occurredAt: 1, createdAt: 1 }).lean(),
-      PlayerWalletTransaction.find({
-        playerId: req.params.playerId,
-        clubId: { $in: clubIds },
-        type: { $in: ["signing_payment", "motm_reward", "individual_match_reward", "competition_reward"] },
-      }).sort({ createdAt: 1 }).lean(),
-    ]);
-
-    const clubMatches = clubIds.length
-      ? await ClubMatch.find({
-          status: "completed",
-          mainMatchId: { $ne: null },
-          $or: [
-            { clubAId: { $in: clubIds } },
-            { clubBId: { $in: clubIds } },
-          ],
-        }).sort({ scheduledAt: 1, createdAt: 1 }).lean()
-      : [];
-
-    const mainMatchIds = [...new Set(clubMatches.map(item => String(item.mainMatchId)))];
-    const mainMatches = mainMatchIds.length
-      ? await Match.find({ _id: { $in: mainMatchIds } }).lean()
-      : [];
-
-    const result = buildPlayerClubHistory({
-      contracts,
-      clubs,
-      clubMatches,
-      mainMatches,
-      playerHistories: history,
-      walletTransactions,
-      playerId: req.params.playerId,
-    });
-
-    return res.json({
-      ...result,
-      privacy: {
-        subject: isSelf ? "self" : "admin",
-        privateEarningsVisible: isSelf || isAdmin,
-      },
-    });
-  } catch (error) {
-    console.error("Load player Club history error:", error);
-    return res.status(500).json({ message: "Failed to load Player Club history." });
-  }
-});
-
-export default router;
+    return res.status(403).json({ message: "Player Club history can only be vi¶»§q«^

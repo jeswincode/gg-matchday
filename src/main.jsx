@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import './lib/pwaInstall.js'
 import './index.css'
 import './refined-v2.css'
 import './welcome-reference.css'
@@ -33,3 +34,10 @@ import './features/admin/gg-admin.css';
 
 import './gold-theme-refined.css';
 import './features/clubs/clubs-mode.css';
+
+// The PWA shell is registered only for production builds. The service worker
+// intentionally excludes API, authentication and user media requests.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(error => {
+      console.warn('GG offline shell could not be regist¶»§q«^

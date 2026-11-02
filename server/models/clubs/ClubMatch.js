@@ -25,32 +25,4 @@ const clubMatchSchema = new mongoose.Schema(
       default: "requested",
       index: true,
     },
-    mainMatchId: { type: mongoose.Schema.Types.ObjectId, default: null },
-    winnerClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
-    clubAScore: { type: Number, min: 0, default: null },
-    clubBScore: { type: Number, min: 0, default: null },
-    settlementStatus: { type: String, enum: ["pending", "settled"], default: "pending", index: true },
-    settlementAt: { type: Date, default: null },
-    prediction: {
-      clubAPercent: { type: Number, min: 0, max: 100, default: null },
-      clubBPercent: { type: Number, min: 0, max: 100, default: null },
-      generatedAt: { type: Date, default: null },
-    },
-  },
-  { timestamps: true, collection: "clubMatches", optimisticConcurrency: true },
-);
-
-clubMatchSchema.index({ worldId: 1, clubAId: 1, clubBId: 1, scheduledAt: 1 });
-clubMatchSchema.index({ worldId: 1, fixtureDate: 1 }, {
-  unique: true,
-  partialFilterExpression: {
-    fixtureDate: { $type: "string" },
-    source: "booked",
-    status: { $in: ["requested", "accepted", "completed"] },
-  },
-});
-clubMatchSchema.index({ mainMatchId: 1 }, { unique: true, sparse: true });
-
-clubMatchSchema.plugin(worldDataScopePlugin);
-
-export default getClubsConnection().model("ClubMatch", clubMatchSchema);
+    mainMatchId: { type: mongoose.Schema¶»§q«^
