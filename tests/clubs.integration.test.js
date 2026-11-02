@@ -83,6 +83,18 @@ before(async () => {
     name: `Club Integration Player ${index + 1}`,
     position: "CM",
   })));
+  // Club formation requires every invited Player to resolve to one GG account.
+  // Each fixture Player receives one unique editor identity, matching the
+  // HMAC-authenticated browser identity used by the integration request helper.
+  await User.insertMany(players.map(player => ({
+    firebaseUid: `e2e-test:editor:${String(player._id)}`,
+    name: player.name,
+    email: `club-fixture-${String(player._id)}@test.invalid`,
+    role: "editor",
+    platformRole: "user",
+    accessRequest: "none",
+    playerProfile: player._id,
+  })));
 
   server = app.listen(0, "127.0.0.1");
   await new Promise(resolve => server.once("listening", resolve));
