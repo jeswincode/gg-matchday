@@ -91,7 +91,7 @@ export function LoginDashboard({
       <div className="gg-entry-copy">
         <p className="gg-refined-eyebrow">THE FOOTBALL UNIVERSE</p>
         <h1>Your football journey starts here.</h1>
-        <p>One GG account. Multiple football Worlds. Your own player identity and football history in every community you join.</p>
+        <p>One GG account. One shared football World. Your player identity and football history stay with Original GG.</p>
       </div>
 
       {(message || formMessage) && (
