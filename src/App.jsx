@@ -241,7 +241,6 @@ function App() {
     window.addEventListener('gg-data-changed',changed);
     return()=>window.removeEventListener('gg-data-changed',changed);
   },[]);
-  useEffect(()=>{if(activeTab===TABS.HOME)return;api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey,activeTab]);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
 
@@ -253,6 +252,11 @@ function App() {
     activeTab,
     setActiveTab,
   ] = useState(TABS.HOME);
+
+  useEffect(() => {
+    if (activeTab === TABS.HOME) return;
+    api("/stats/overview").then(setOverview).catch(() => {});
+  }, [refreshKey, activeTab]);
 
   // =========================================================
   // AUTH
