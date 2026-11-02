@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, setApiActiveWorld } from "../../lib/api";
 import { getActiveWorldSlug } from "../../lib/worldContext.js";
+import { promptPwaInstall } from "../../lib/pwaInstall.js";
 import GlobalMapScene from "./GlobalMapScene";
 import WorldMapView from "./WorldMapView";
 import "./immersive-world-map.css";
@@ -90,6 +91,30 @@ function PlayerProfileModal({ open, world, onClose, onCreate, busy, existingProf
         )}
       </section>
     </div>
+  );
+}
+
+function PwaInstallButton({ onMessage }) {
+  const install = async () => {
+    try {
+      const result = await promptPwaInstall();
+      if (result?.outcome === "accepted") {
+        onMessage?.("GG Matchday was added to your device.");
+      } else if (result?.outcome === "dismissed") {
+        onMessage?.("Installation was dismissed. You can install GG Matchday later.");
+      } else {
+        onMessage?.("Use your browser menu and choose Install app or Add to Home Screen when available.");
+      }
+    } catch {
+      onMessage?.("Your browser could not open the installation prompt. Try its Install app option.");
+    }
+  };
+
+  return (
+    <button type="button" className="gg-world-install-link" aria-label="Install GG as an app" onClick={install}>
+      <span aria-hidden="true">↧</span>
+      Install GG as an app
+    </button>
   );
 }
 
@@ -497,6 +522,7 @@ export default function GlobalMapPage({
               membershipStates={membershipStates}
               onEnterWorld={enterWorld}
             />
+            <PwaInstallButton onMessage={onMessage}/>
             {loading && <div className="gg-world-map-toast" role="status">Charting the football universe…</div>}
             {refreshing && <div className="gg-world-map-toast gg-world-map-toast-refresh" role="status">Updating territories…</div>}
             {!loading && !worlds.length && !loadError && (
