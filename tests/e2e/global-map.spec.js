@@ -15,6 +15,10 @@ test("guest opens the Global Map, inspects the isometric canvas and sees the ins
   await expect(page.getByRole("button", { name: "Zoom in" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Zoom out" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Install GG as an app" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Preview Original GG" })).toBeVisible();
+  await page.getByRole("button", { name: "Preview Original GG" }).click();
+  await expect(page.getByRole("button", { name: "Access by invitation only" })).toBeDisabled();
+  await expect(page.locator(".gg-world-screen-interior")).toHaveCount(0);
 
   const camera = page.locator(".gg-global-map-camera");
   const before = await camera.getAttribute("transform");
