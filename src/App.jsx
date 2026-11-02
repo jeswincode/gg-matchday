@@ -263,6 +263,11 @@ function App() {
   ] = useState(null);
 
   const [
+    worldMembership,
+    setWorldMembership,
+  ] = useState(null);
+
+  const [
     authLoading,
     setAuthLoading,
   ] = useState(
@@ -493,14 +498,12 @@ function App() {
   const isSignedIn =
     Boolean(authUser);
 
-  const isAdmin =
-    backendUser?.role ===
-    "admin";
+  const isAdmin = backendUser?.platformRole === "platform_admin";
 
-  const isEditor =
-    backendUser?.role ===
-      "editor" ||
-    isAdmin;
+  const isEditor = isAdmin || (
+    worldMembership?.status === "active" &&
+    ["editor", "owner", "admin"].includes(worldMembership.role)
+  );
 
   const hasPendingRequest =
     backendUser?.accessRequest ===
@@ -539,11 +542,13 @@ function App() {
             getIdToken: async () => "",
           });
           setBackendUser(data.user || null);
+          setWorldMembership(null);
           setMessage("");
         })
         .catch(error => {
           if (!active) return;
           setBackendUser(null);
+          setWorldMembership(null);
           setMessage(`Test authentication failed: ${error.message}`);
         })
         .finally(() => {
@@ -563,6 +568,7 @@ function App() {
 
       if (!firebaseUser) {
         setBackendUser(null);
+        setWorldMembership(null);
         setAuthLoading(false);
         return;
       }
@@ -586,12 +592,14 @@ function App() {
 
         if (!active) return;
         setBackendUser(data.user || null);
+        setWorldMembership(null);
         setMessage("");
       } catch (error) {
         console.error("Auth sync error:", error);
 
         if (!active) return;
         setBackendUser(null);
+        setWorldMembership(null);
         setMessage(`Could not sync your account: ${error.message}`);
       } finally {
         if (active) setAuthLoading(false);
@@ -1060,6 +1068,7 @@ function App() {
       await signOut(auth);
 
       setBackendUser(null);
+      setWorldMembership(null);
 
       if (
         activeTab ===
@@ -2457,6 +2466,7 @@ function App() {
           isSignedIn={isSignedIn}
           authUser={authUser}
           backendUser={backendUser}
+          onWorldMembershipChange={setWorldMembership}
           onMessage={setMessage}
           onSignIn={() => setExperience("entry")}
           onSignOut={logout}
@@ -2856,7 +2866,7 @@ function App() {
       {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer}/>}
       {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer}/>}
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
-      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
+      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={worldMembership?.playerProfileId || backendUser?.playerProfile}/>}
       </Suspense>
       {modeTransitionLayer}
     </main>
