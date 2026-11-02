@@ -37,20 +37,39 @@ export async function requireAuth(
       const playerProfile = mongoose.isValidObjectId(requestedPlayerId)
         ? new mongoose.Types.ObjectId(requestedPlayerId)
         : null;
-      const uid = `e2e-test:${role}:${playerProfile ? String(playerProfile) : "unlinked"}`;
+      const playerKey = playerProfile ? String(playerProfile) : "unlinked";
+      const uid = `e2e-test:${role}:${playerKey}`;
+      const email = role === "admin"
+        ? String(process.env.ADMIN_EMAIL || "admin@gmail.com").trim().toLowerCase()
+        : `playwright-${role}-${playerKey}@test.invalid`;
       const user = await User.findOneAndUpdate(
         { firebaseUid: uid },
-        { $set: {
-          name: `Playwright ${role}`,
-          email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
-          profileImage: "",
-          role,
-          platformRole: role === "admin" ? "platform_admin" : "user",
-          accessRequest: "none",
-          playerProfile,
-        } },
+        {
+          $set: {
+            name: `Playwright ${role}`,
+            email,
+            emailVerified: true,
+            profileImage: "",
+            role,
+            platformRole: role === "admin" ? "platform_admin" : "user",
+            accessRequest: "none",
+          },
+          // The same test Player can be viewed through separate synthetic
+          // roles/sessions. Keep the unique persistent User.playerProfile
+          // index untouched and expose the requested link only on this
+          // HMAC-authenticated request's in-memory User document.
+          $unset: { playerProfile: "" },
+        },
         { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, runValidators: true },
       );
+      if (playerProfile) {
+        Object.defineProperty(user, "playerProfile", {
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: playerProfile,
+        });
+      }
       req.firebaseUser = { uid, email: user.email, email_verified: true, testOnly: true };
       req.user = user;
       return next();
