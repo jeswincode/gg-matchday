@@ -1,7 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
 import { requireAuth } from "../middleware/auth.js";
-import { requireOptionalWorldMembership, withWorldDataScope, requireWorldCapability } from "../middleware/domainWorldContext.js";
+import { requireOptionalWorldMembership, withWorldDataScope } from "../middleware/domainWorldContext.js";
 import Club from "../models/clubs/Club.js";
 import ClubContract from "../models/clubs/ClubContract.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
