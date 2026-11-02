@@ -49,7 +49,10 @@ clubMatchSchema.index({ worldId: 1, fixtureDate: 1 }, {
     status: { $in: ["requested", "accepted", "completed"] },
   },
 });
-clubMatchSchema.index({ mainMatchId: 1 }, { unique: true, sparse: true });
+clubMatchSchema.index(
+  { mainMatchId: 1 },
+  { unique: true, partialFilterExpression: { mainMatchId: { $type: "objectId" } } },
+);
 
 clubMatchSchema.plugin(worldDataScopePlugin);
 
