@@ -82,7 +82,13 @@ function localDateString(
 }
 
 function App() {
-  const [experience,setExperience]=useState('startup');
+  const [experience,setExperience]=useState(() => {
+    const e2eEnabled = Boolean(import.meta.env.VITE_E2E_TEST_AUTH_SECRET);
+    const e2eRole = new URLSearchParams(window.location.search).get("e2eRole") ||
+      import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
+    // Only the explicit HMAC guest fixture bypasses the branded startup gate.
+    return e2eEnabled && e2eRole === "guest" ? "entry" : "startup";
+  });
   // Product mode is intentionally session-only. A full reload always starts
   // in the main Matchday Home experience, including when the previous mode was Clubs.
   const [productMode,setProductMode]=useState("matchday");
