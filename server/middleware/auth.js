@@ -53,12 +53,11 @@ export async function requireAuth(
             role,
             platformRole: role === "admin" ? "platform_admin" : "user",
             accessRequest: "none",
+            // A single editor test identity owns the persistent fixture link.
+            // Viewer/admin impersonations expose it only on this request.
+            ...(role === "editor" && playerProfile ? { playerProfile } : {}),
           },
-          // The same test Player can be viewed through separate synthetic
-          // roles/sessions. Keep the unique persistent User.playerProfile
-          // index untouched and expose the requested link only on this
-          // HMAC-authenticated request's in-memory User document.
-          $unset: { playerProfile: "" },
+          ...(role !== "editor" || !playerProfile ? { $unset: { playerProfile: "" } } : {}),
         },
         { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, runValidators: true },
       );
