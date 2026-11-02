@@ -105,11 +105,13 @@ test('admin can record manual Pace/Physical and the OVR endpoint exposes the cac
 
 test('GG audit distinguishes missing codes and partial records',async()=>{
   const missing=await Match.create({
+    worldId:p1.worldId,
     date:new Date('2026-09-02'),name:'Audit Missing Codes',
     teamA:{label:'A',score:0},teamB:{label:'B',score:0},
     participants:[{player:p1._id,team:'A'},{player:p2._id,team:'B'}],events:[],
   });
   const partial=await Match.create({
+    worldId:p1.worldId,
     date:new Date('2026-09-03'),name:'Audit Partial',
     teamA:{label:'A',score:0},teamB:{label:'B',score:0},
     participants:[
@@ -130,6 +132,7 @@ test('GG audit distinguishes missing codes and partial records',async()=>{
 
 test('GG audit detects stored rating inconsistencies without rewriting them',async()=>{
   const match=await Match.create({
+    worldId:p1.worldId,
     date:new Date('2026-09-01'),name:'Audit Rating Issue',
     teamA:{label:'A',score:1},teamB:{label:'B',score:0},
     participants:[
@@ -148,7 +151,7 @@ test('GG audit detects stored rating inconsistencies without rewriting them',asy
   assert.equal(stored.participants[0].rating,7.2);
 });
 
-test('closed-period awards and career achievements remain immutable across subsequent corrections',async()=>{for(let i=0;i<9;i++)await Match.create({...payload(),date:new Date('2025-06-01'),teamA:{label:'A',score:1},teamB:{label:'B',score:0}});await syncHistory();const original=await Award.findOne({key:'player:2025:0'}).lean();assert.ok(original);await Match.updateMany({date:{$lt:new Date('2026-01-01')}},{$set:{'participants.0.rating':0,'participants.1.rating':10}});await syncHistory();const kept=await Award.findOne({key:'player:2025:0'}).lean();assert.equal(String(kept.player),String(original.player));assert.ok(await Achievement.exists({player:p1._id,key:'goals:10'}));});
+test('closed-period awards and career achievements remain immutable across subsequent corrections',async()=>{for(let i=0;i<9;i++)await Match.create({...payload(),worldId:p1.worldId,date:new Date('2025-06-01'),teamA:{label:'A',score:1},teamB:{label:'B',score:0}});await syncHistory();const original=await Award.findOne({key:'player:2025:0'}).lean();assert.ok(original);await Match.updateMany({date:{$lt:new Date('2026-01-01')}},{$set:{'participants.0.rating':0,'participants.1.rating':10}});await syncHistory();const kept=await Award.findOne({key:'player:2025:0'}).lean();assert.equal(String(kept.player),String(original.player));assert.ok(await Achievement.exists({player:p1._id,key:'goals:10'}));});
 test('concurrent first sign-ins for one Firebase UID safely reuse the created user',async()=>{
   const results=await Promise.all(Array.from({length:12},()=>request('/auth/me',{token:'racer'})));
   assert.ok(results.every(result=>result.status===200),JSON.stringify(results.map(result=>({status:result.status,data:result.data}))));
@@ -182,6 +185,7 @@ test("rating explanation is read-only and uses the canonical server GG-v3 calcul
 
 test("legacy rating explanation clearly reports unavailable formula facts instead of inventing a breakdown", async () => {
   const legacy = await Match.create({
+    worldId: p1.worldId,
     date: new Date("2026-10-02"),
     name: "Legacy Explanation No Formula Data",
     teamA: { label: "Legacy A", score: 0 },
