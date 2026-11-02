@@ -6,13 +6,13 @@ const coreUri = String(process.env.MONGODB_URI || "").trim();
 const clubsUri = String(process.env.CLUBS_MONGODB_URI || "").trim();
 const coreCollections = [
   "worldMemberships", "worldMapLayouts", "worldMapFacilities", "players", "matches",
-  "playerstats", "seasonstats", "news", "awards", "achievements", "notifications",
-  "chatmessages", "votes", "profilechangerequests", "ratingdisputes", "ratingexplanations",
+  "playerStats", "seasonStats", "news", "awards", "achievements", "notifications",
+  "chatmessages", "votes", "profilechangerequests", "ratingDisputes", "mediaassets", "clubsyncjobs",
 ];
 const clubsCollections = [
-  "clubs", "clubmatches", "clubcontracts", "clubhistories", "clubwallettransactions",
-  "playerwallets", "playerwallettransactions", "auctionoffers", "joinrequests",
-  "playerreviews", "clubformationapplications", "clubrenewaldecisions", "clubmatchbets",
+  "clubs", "clubMatches", "clubContracts", "clubHistory", "clubWalletTransactions",
+  "playerWallets", "playerWalletTransactions", "auctionOffers", "joinRequests",
+  "playerReviews", "clubFormationApplications", "clubRenewalDecisions", "clubMatchBets",
 ];
 
 if (!coreUri || !primarySlug) {
