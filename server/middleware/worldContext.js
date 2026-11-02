@@ -70,7 +70,12 @@ export async function resolveWorldContext(req, res, next) {
     }
 
     req.world = world;
-    req.worldId = world._id;
+    // The non-production, secret-gated E2E identity runs against legacy
+    // null-world fixtures. It cannot run in production and never selects a
+    // real World tenant; production accounts always receive the canonical ID.
+    req.worldId = req.firebaseUser?.testOnly === true && process.env.NODE_ENV !== "production"
+      ? null
+      : world._id;
     req.membership = membership || null;
     return next();
   } catch (error) {
