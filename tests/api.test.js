@@ -19,8 +19,8 @@ const {world}=await seedPrimaryWorldFixture({
   ],
 });
 viewer=viewerUser;
-p1=await Player.create({name:'Test Forward'});
-p2=await Player.create({name:'Test Keeper'});}, {timeout:120000});
+p1=await Player.create({name:'Test Forward',worldId:world._id});
+p2=await Player.create({name:'Test Keeper',worldId:world._id});}, {timeout:120000});
 after(async()=>{await syncHistory().catch(()=>{});server?.closeAllConnections();if(server)await new Promise(r=>server.close(r));await mongoose.disconnect();await database?.stop();});
 const payload=()=>({date:'2026-01-04',name:'Test Sunday',teamA:{label:'Test A',score:99},teamB:{label:'Test B',score:99},participants:[{player:String(p1._id),team:'A',rating:8.9,defensivePerformance:8},{player:String(p2._id),team:'B',rating:7,defensivePerformance:6}],events:[{player:String(p1._id),type:'goal'}]});
 test('API responses include a safe request id and invalid ids remain client errors',async()=>{const health=await request('/health');assert.equal(health.status,503);assert.equal(health.data.status,'degraded');assert.equal(health.data.database,'connected');assert.equal(health.data.clubsDatabase,'disconnected');assert.match(health.requestId,/^[0-9a-f-]{36}$/i);const invalid=await request('/players/not-an-object-id',{token:'admin'});assert.equal(invalid.status,400);assert.equal(invalid.data.message,'Invalid resource id.');assert.match(invalid.requestId,/^[0-9a-f-]{36}$/i);assert.doesNotMatch(JSON.stringify(invalid.data),/mongodb|secret|password/i);});
@@ -30,7 +30,7 @@ test('configured admin privileges require a verified matching identity and stale
   assert.equal(unverified.status,200,JSON.stringify(unverified.data));
   let unverifiedUser=await User.findOne({firebaseUid:'test-unverified-admin'});
   assert.ok(unverifiedUser);
-  assert.equal(unverifiedUser.email,'admin@example.invalid');
+  assert.equal(unverifiedUser.email,'admin@gmail.com');
   assert.equal(unverifiedUser.role,'viewer');
   assert.equal((await request('/admin/gg/audit',{token:'unverified-admin'})).status,403);
 
@@ -50,7 +50,7 @@ test('admin finalization stores permanent MOTM and leaves GG Rating unchanged',a
 test('linked-profile preference request cannot target another player and needs approval',async()=>{assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{preferredPositions:['ST']}}})).status,403);assert.equal((await request('/profile-requests/admin/link',{token:'admin',method:'POST',body:{userId:String(viewer._id),playerId:String(p1._id)}})).status,200);assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p2._id),changes:{preferredPositions:['ST']}}})).status,403);const rq=await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{preferredPositions:['ST','LW'],clasicoSide:'Messi'}}});assert.equal(rq.status,201,JSON.stringify(rq.data));assert.deepEqual((await Player.findById(p1._id)).preferredPositions,[]);assert.equal((await request(`/profile-requests/admin/${rq.data._id}/approve`,{token:'admin',method:'POST'})).status,200);assert.deepEqual((await Player.findById(p1._id)).preferredPositions,['ST','LW']);assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{clasicoSide:'Ronaldo'}}})).status,400);});
 test('chat allows three monthly messages atomically and persists only five-day chat records',async()=>{const results=await Promise.all([1,2,3,4].map(()=>request('/chat',{token:'viewer',method:'POST',body:{message:'Temporary test message'}})));assert.deepEqual(results.map(r=>r.status).sort(),[201,201,201,409]);assert.ok(results.filter(r=>r.status===201).every(r=>r.data.message?.text==='Temporary test message'));const user=await User.findById(viewer._id).lean();assert.ok(user.chatMonth);assert.equal(user.chatMessagesUsed,3);assert.ok(await ChatMessage.exists({text:'Temporary test message'}));assert.equal((await request('/chat',{token:'other'})).data.messages.length,3);assert.equal((await request('/chat',{token:'other',method:'POST',body:{message:'x'.repeat(501)}})).status,400);});
 test('GG audit and migration are admin-only',async()=>{
-  assert.equal((await request('/admin/gg/audit')).status,401);
+  assert.equal((await request('/admin/gg/audit',{token:null})).status,401);
   assert.equal((await request('/admin/gg/audit',{token:'viewer'})).status,403);
   assert.equal((await request(`/admin/gg/migration/${matchId}`,{token:'viewer'})).status,403);
 });
