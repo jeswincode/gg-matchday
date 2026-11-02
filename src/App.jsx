@@ -2408,7 +2408,7 @@ function App() {
     return (
       <>
         <Suspense fallback={<div className="loading-panel">Opening Clubs…</div>}>
-          <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
+          <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={{ ...backendUser, playerProfile: worldMembership?.playerProfileId || backendUser?.playerProfile || null }} isAdmin={isAdmin} />
         </Suspense>
         {modeTransitionLayer}
       </>
