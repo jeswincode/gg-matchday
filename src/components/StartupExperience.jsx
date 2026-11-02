@@ -162,7 +162,7 @@ export function LoginDashboard({
         </button>
       </div>
 
-      <p className="gg-entry-note">Guests can explore public Worlds. Sign in to request membership, create a World and build your player profile.</p>
+      <p className="gg-entry-note">Guests can preview the shared GG football World. Sign in with the Gmail address linked by the administrator to enter and build your player profile.</p>
     </section>
   </main>;
 }
