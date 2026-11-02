@@ -171,8 +171,9 @@ function safeWorld(world) {
     globalMap: {
       mapId: world.globalMap?.mapId || "gg-main-v1",
       slotIndex: Number.isSafeInteger(world.globalMap?.slotIndex) ? world.globalMap.slotIndex : null,
-      x: world.globalMap?.x,
-      y: world.globalMap?.y,
+      // The one existing GG kingdom remains visible before any map-placement migration.
+      x: Number.isFinite(world.globalMap?.x) ? world.globalMap.x : 0,
+      y: Number.isFinite(world.globalMap?.y) ? world.globalMap.y : 0,
     },
   };
 }
