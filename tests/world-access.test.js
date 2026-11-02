@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import World from "../server/models/World.js";
 import WorldMembership from "../server/models/WorldMembership.js";
+import WorldAccessGrant from "../server/models/WorldAccessGrant.js";
 import {
   hasWorldCapability,
   isActiveWorldMembership,
@@ -17,6 +18,9 @@ import {
   requireWorldCapability,
   requireWorldRole,
 } from "../server/middleware/worldPermissions.js";
+
+process.env.GG_PRIMARY_WORLD_SLUG = "original-gg";
+process.env.ADMIN_EMAIL = "admin@gmail.com";
 
 function responseRecorder() {
   return {
@@ -61,10 +65,14 @@ test("only active memberships grant access", () => {
   }
 });
 
-test("platform administrator is separate from legacy global and World roles", () => {
+test("platform administrator requires the configured verified Firebase identity and platform role", () => {
+  const user = { firebaseUid: "firebase-admin", email: "admin@gmail.com", platformRole: "platform_admin" };
   assert.equal(isPlatformAdministrator({ role: "admin" }), false);
-  assert.equal(isPlatformAdministrator({ role: "admin", platformRole: "user" }), false);
-  assert.equal(isPlatformAdministrator({ platformRole: "platform_admin" }), true);
+  assert.equal(isPlatformAdministrator({ ...user, platformRole: "user" }, { uid: "firebase-admin", email: "admin@gmail.com", email_verified: true }), false);
+  assert.equal(isPlatformAdministrator(user, { uid: "firebase-admin", email: "admin@gmail.com", email_verified: false }), false);
+  assert.equal(isPlatformAdministrator(user, { uid: "other-uid", email: "admin@gmail.com", email_verified: true }), false);
+  assert.equal(isPlatformAdministrator(user, { uid: "firebase-admin", email: "wrong@gmail.com", email_verified: true }), false);
+  assert.equal(isPlatformAdministrator(user, { uid: "firebase-admin", email: "admin@gmail.com", email_verified: true }), true);
 });
 
 test("resolveWorldContext normalizes slug and attaches World plus membership", async () => {
@@ -123,14 +131,14 @@ test("resolveWorldContext rejects a missing or malformed selector before databas
 test("resolveWorldContext permits public preview without assigning membership", async () => {
   const originalFindWorld = World.findOne;
   const originalFindMembership = WorldMembership.findOne;
-  const world = { _id: "world-public", slug: "public-world" };
+  const world = { _id: "world-public", slug: "original-gg" };
   World.findOne = async () => world;
   WorldMembership.findOne = async () => {
     throw new Error("Unauthenticated public preview must not query memberships.");
   };
 
   try {
-    const req = { headers: { "x-world-slug": "public-world" } };
+    const req = { headers: { "x-world-slug": "original-gg" } };
     const res = responseRecorder();
     let nextCalled = false;
 
@@ -145,67 +153,97 @@ test("resolveWorldContext permits public preview without assigning membership", 
   }
 });
 
-test("pending and missing memberships are denied while active memberships pass", () => {
-  const req = {
-    user: { _id: "user-1" },
-    world: { _id: "world-1" },
-    membership: { status: "pending" },
-  };
-  const pendingRes = responseRecorder();
-  let nextCalled = false;
-  requireActiveWorldMembership(req, pendingRes, () => { nextCalled = true; });
-  assert.equal(pendingRes.statusCode, 403);
-  assert.equal(pendingRes.body.code, "WORLD_MEMBERSHIP_PENDING");
-  assert.equal(nextCalled, false);
+test("active membership also requires an exact active Gmail grant", async () => {
+  const originalExists = WorldAccessGrant.exists;
+  WorldAccessGrant.exists = async () => ({ _id: "grant-1" });
+  try {
+    const req = {
+      user: { _id: "user-1", firebaseUid: "uid-1", email: "member@gmail.com" },
+      firebaseUser: { uid: "uid-1", email: "member@gmail.com", email_verified: true },
+      world: { _id: "world-1" },
+      membership: { status: "pending" },
+    };
+    const pendingRes = responseRecorder();
+    let nextCalled = false;
+    await requireActiveWorldMembership(req, pendingRes, () => { nextCalled = true; });
+    assert.equal(pendingRes.statusCode, 403);
+    assert.equal(pendingRes.body.code, "WORLD_MEMBERSHIP_PENDING");
+    assert.equal(nextCalled, false);
 
-  req.membership = { status: "active" };
-  const activeRes = responseRecorder();
-  requireActiveWorldMembership(req, activeRes, () => { nextCalled = true; });
-  assert.equal(activeRes.statusCode, 200);
-  assert.equal(nextCalled, true);
+    req.membership = { status: "active" };
+    const activeRes = responseRecorder();
+    await requireActiveWorldMembership(req, activeRes, () => { nextCalled = true; });
+    assert.equal(activeRes.statusCode, 200);
+    assert.equal(nextCalled, true);
+
+    WorldAccessGrant.exists = async () => null;
+    const missingGrantRes = responseRecorder();
+    nextCalled = false;
+    await requireActiveWorldMembership(req, missingGrantRes, () => { nextCalled = true; });
+    assert.equal(missingGrantRes.statusCode, 403);
+    assert.equal(missingGrantRes.body.code, "WORLD_ACCESS_GRANT_REQUIRED");
+    assert.equal(nextCalled, false);
+  } finally {
+    WorldAccessGrant.exists = originalExists;
+  }
 });
 
-test("capability middleware denies cross-role operations", () => {
-  const req = {
-    user: { _id: "user-1" },
-    world: { _id: "world-1" },
-    membership: { status: "active", role: "member" },
-  };
-  const res = responseRecorder();
-  let nextCalled = false;
+test("capability middleware enforces grant-backed membership and role capabilities", async () => {
+  const originalExists = WorldAccessGrant.exists;
+  WorldAccessGrant.exists = async () => ({ _id: "grant-1" });
+  try {
+    const req = {
+      user: { _id: "user-1", firebaseUid: "uid-1", email: "member@gmail.com" },
+      firebaseUser: { uid: "uid-1", email: "member@gmail.com", email_verified: true },
+      world: { _id: "world-1" },
+      membership: { status: "active", role: "member" },
+    };
+    const res = responseRecorder();
+    let nextCalled = false;
 
-  requireWorldCapability("map:edit")(req, res, () => { nextCalled = true; });
-  assert.equal(res.statusCode, 403);
-  assert.equal(res.body.code, "WORLD_CAPABILITY_REQUIRED");
-  assert.equal(nextCalled, false);
+    await requireWorldCapability("map:edit")(req, res, () => { nextCalled = true; });
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.body.code, "WORLD_CAPABILITY_REQUIRED");
+    assert.equal(nextCalled, false);
 
-  const memberRes = responseRecorder();
-  requireWorldCapability("training:write-own")(req, memberRes, () => { nextCalled = true; });
-  assert.equal(memberRes.statusCode, 200);
-  assert.equal(nextCalled, true);
+    const memberRes = responseRecorder();
+    await requireWorldCapability("training:write-own")(req, memberRes, () => { nextCalled = true; });
+    assert.equal(memberRes.statusCode, 200);
+    assert.equal(nextCalled, true);
+  } finally {
+    WorldAccessGrant.exists = originalExists;
+  }
 });
 
-test("role middleware and platform admin middleware are independently enforced", () => {
-  const req = {
-    user: { _id: "user-1", role: "admin" },
-    world: { _id: "world-1" },
-    membership: { status: "active", role: "member" },
-  };
-  const roleRes = responseRecorder();
-  let nextCalled = false;
-  requireWorldRole("owner", "admin")(req, roleRes, () => { nextCalled = true; });
-  assert.equal(roleRes.statusCode, 403);
-  assert.equal(roleRes.body.code, "WORLD_ROLE_REQUIRED");
-  assert.equal(nextCalled, false);
+test("legacy admin role does not bypass World roles; platform admin requires verified identity", async () => {
+  const originalExists = WorldAccessGrant.exists;
+  WorldAccessGrant.exists = async () => ({ _id: "grant-1" });
+  try {
+    const req = {
+      user: { _id: "user-1", firebaseUid: "uid-1", email: "member@gmail.com", role: "admin", platformRole: "user" },
+      firebaseUser: { uid: "uid-1", email: "member@gmail.com", email_verified: true },
+      world: { _id: "world-1" },
+      membership: { status: "active", role: "member" },
+    };
+    const roleRes = responseRecorder();
+    let nextCalled = false;
+    await requireWorldRole("owner", "admin")(req, roleRes, () => { nextCalled = true; });
+    assert.equal(roleRes.statusCode, 403);
+    assert.equal(roleRes.body.code, "WORLD_ROLE_REQUIRED");
+    assert.equal(nextCalled, false);
 
-  const platformRes = responseRecorder();
-  requirePlatformAdmin(req, platformRes, () => { nextCalled = true; });
-  assert.equal(platformRes.statusCode, 403);
-  assert.equal(platformRes.body.code, "PLATFORM_ADMIN_REQUIRED");
+    const platformRes = responseRecorder();
+    requirePlatformAdmin(req, platformRes, () => { nextCalled = true; });
+    assert.equal(platformRes.statusCode, 403);
+    assert.equal(platformRes.body.code, "PLATFORM_ADMIN_REQUIRED");
 
-  req.user.platformRole = "platform_admin";
-  const allowed = responseRecorder();
-  requirePlatformAdmin(req, allowed, () => { nextCalled = true; });
-  assert.equal(allowed.statusCode, 200);
-  assert.equal(nextCalled, true);
+    req.user = { firebaseUid: "uid-admin", email: "admin@gmail.com", platformRole: "platform_admin" };
+    req.firebaseUser = { uid: "uid-admin", email: "admin@gmail.com", email_verified: true };
+    const allowed = responseRecorder();
+    requirePlatformAdmin(req, allowed, () => { nextCalled = true; });
+    assert.equal(allowed.statusCode, 200);
+    assert.equal(nextCalled, true);
+  } finally {
+    WorldAccessGrant.exists = originalExists;
+  }
 });
