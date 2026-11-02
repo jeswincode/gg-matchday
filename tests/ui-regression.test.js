@@ -97,7 +97,7 @@ test('Player profile supports cinematic video, image, and global background fall
 test('Player background video management is admin-only at the API boundary',()=>{
   const route=read('server/routes/players.js');
   const admin=read('src/features/admin/AdminPage.jsx');
-  assert.match(route,/router\.patch\("\/:id\/background-video", requireAuth, requireAdmin/);
+  assert.ok(route.includes('router.patch("/:id/background-video", requireAuth, requireDomainCapability("world:manage", requireAdmin)'));
   assert.match(route,/backgroundVideoUrl/);
   assert.match(route,/valid http\(s\) URL/);
   assert.match(admin,/Background Videos/);
@@ -170,7 +170,7 @@ test('immersive Home restores an active World and preserves admin access',()=>{
   assert.match(page,/setEnteredWorld\(world\)/);
   assert.match(page,/setApiActiveWorld\(null\)/);
   assert.match(page,/isAdmin && <button[^>]*gg-world-admin-link/);
-  assert.match(app,/onNavigateAdmin=\{\(\) => onNavigateTab\?\.\("admin"\)\}/);
+  assert.ok(page.includes('onNavigateAdmin={() => onNavigateTab?.("admin")}'));
 });
 
 test('Global Map always projects one kingdom and never exposes claimable World plots',()=>{
@@ -180,8 +180,8 @@ test('Global Map always projects one kingdom and never exposes claimable World p
   assert.ok(page.includes("slice(0, 1)"));
   assert.ok(!["availablePlots","claimPlot","globalMapSlotIndex","createModalOpen"].some(value => page.includes(value)));
   assert.ok(!["availablePlots","ClaimPlot","onClaimPlot"].some(value => scene.includes(value)));
-  assert.match(routes,/worlds: \\[safeWorld\\(world\\)\\]/);
-  assert.match(routes,/availablePlots: \\[\\]/);
+  assert.ok(routes.includes("worlds: [safeWorld(world)]"));
+  assert.ok(routes.includes("availablePlots: []"));
 });
 
 test('GG sign-in supports Google, email/password, account creation and password reset',()=>{
@@ -205,14 +205,14 @@ test('single-World entry is grant-gated and preserves one player identity inside
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
   const routes=read('server/routes/worlds.js');
   const player=read('server/models/Player.js');
-  assert.match(page,/slice\\(0, 1\\)/);
+  assert.ok(page.includes("slice(0, 1)"));
   assert.doesNotMatch(page,/function WorldSwitcher|Your Worlds/);
   assert.ok(page.includes('accessStatus !== "active"'));
   assert.match(page,/function PlayerProfileModal/);
-  assert.match(page,/\\/player-profiles/);
+  assert.ok(page.includes("/player-profiles"));
   assert.ok(routes.includes("/:slug/player-profiles"));
-  assert.match(routes,/worldId: req\\.worldId/);
-  assert.match(routes,/playerProfileId = created\\._id/);
+  assert.ok(routes.includes("worldId: req.worldId"));
+  assert.ok(routes.includes("playerProfileId = created._id"));
   assert.match(player,/player_world_name_unique/);
   assert.match(player,/worldId: 1, nameNormalized: 1/);
 });
@@ -231,7 +231,7 @@ test('Global Map administrator links and revokes Gmail access instead of creatin
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
   const routes=read('server/routes/worlds.js');
   assert.match(page,/function WorldAccessManager/);
-  assert.match(page,/api\\("\\/worlds\\/admin\\/access"\\)/);
+  assert.ok(page.includes('api("/worlds/admin/access")'));
   assert.match(page,/method: "POST"/);
   assert.match(page,/method: "DELETE"/);
   assert.match(routes,/router\\.post\\("\\/admin\\/access"/);
