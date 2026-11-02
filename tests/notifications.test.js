@@ -2,12 +2,23 @@ import test,{before,after,mock} from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import {MongoMemoryReplSet} from 'mongodb-memory-server';
-process.env.ADMIN_EMAIL='admin@example.invalid';process.env.CHAT_ENABLED='true';
-mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other'].includes(token))throw new Error('Invalid test token');return {uid:`notification-${token}`,email:`${token}@example.invalid`,email_verified:true,name:`Test ${token}`};}})});
-const {default:app}=await import('../server/app.js');const {default:User}=await import('../server/models/User.js');const {default:Notification}=await import('../server/models/Notification.js');
+process.env.ADMIN_EMAIL='admin@gmail.com';process.env.GG_PRIMARY_WORLD_SLUG='original-gg';process.env.CHAT_ENABLED='true';
+mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other'].includes(token))throw new Error('Invalid test token');return {uid:`notification-${token}`,email:`${token}@gmail.com`,email_verified:true,name:`Test ${token}`};}})});
+const {default:app}=await import('../server/app.js');const {default:User}=await import('../server/models/User.js');const {default:Notification}=await import('../server/models/Notification.js');const {default:World}=await import('../server/models/World.js');const {default:WorldMembership}=await import('../server/models/WorldMembership.js');const {default:WorldAccessGrant}=await import('../server/models/WorldAccessGrant.js');const {seedPrimaryWorldFixture}=await import('./helpers/primaryWorldFixture.js');
 let database,server,origin;
 async function request(path,{token,method='GET',body}={}){const response=await fetch(origin+'/api'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,data:await response.json()};}
-before(async()=>{database=await MongoMemoryReplSet.create({binary:{version:'8.2.6'},replSet:{count:1}});await mongoose.connect(database.getUri());await Promise.all([User,Notification].map(m=>m.init()));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.on('listening',r));origin=`http://127.0.0.1:${server.address().port}`;for(const token of ['admin','viewer','other'])await request('/auth/me',{token});});
+before(async()=>{database=await MongoMemoryReplSet.create({binary:{version:'8.2.6'},replSet:{count:1}});await mongoose.connect(database.getUri());await Promise.all([User,Notification,World,WorldMembership,WorldAccessGrant].map(m=>m.init()));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.on('listening',r));origin=`http://127.0.0.1:${server.address().port}`;for(const token of ['admin','viewer','other'])await request('/auth/me',{token});
+const adminUser=await User.findOne({firebaseUid:'notification-admin'});
+const viewerUser=await User.findOne({firebaseUid:'notification-viewer'});
+const otherUser=await User.findOne({firebaseUid:'notification-other'});
+await seedPrimaryWorldFixture({
+  World,User,WorldMembership,WorldAccessGrant,
+  users:[
+    {user:adminUser,platformAdmin:true},
+    {user:viewerUser},
+    {user:otherUser},
+  ],
+});});
 after(async()=>{server?.closeAllConnections();if(server)await new Promise(r=>server.close(r));await mongoose.disconnect();await database?.stop();});
 test('notifications are admin-created, visible to viewers and unread per user',async()=>{const created=await request('/notifications',{token:'admin',method:'POST',body:{title:'GG MATCHDAY vNext',message:'Notifications are now live.'}});assert.equal(created.status,201,JSON.stringify(created.data));const stored=await Notification.findById(created.data.notification.id).lean();assert.ok(stored);assert.equal(stored.readBy.length,1);const viewerList=await request('/notifications',{token:'viewer'});assert.equal(viewerList.status,200);assert.equal(viewerList.data.notifications.length,1);assert.equal(viewerList.data.notifications[0].read,false);assert.equal(viewerList.data.unread,true);const adminList=await request('/notifications',{token:'admin'});assert.equal(adminList.data.notifications[0].read,true);assert.equal(adminList.data.unread,false);});
 test('opening notifications marks all current notifications read for that user only',async()=>{const before=await request('/notifications',{token:'viewer'});assert.equal(before.data.unread,true);assert.equal((await request('/notifications/read-all',{token:'viewer',method:'POST'})).status,200);const viewerList=await request('/notifications',{token:'viewer'});assert.equal(viewerList.data.unread,false);assert.equal(viewerList.data.notifications.every(item=>item.read),true);const otherList=await request('/notifications',{token:'other'});assert.equal(otherList.data.unread,true);});
