@@ -36,7 +36,15 @@ export async function resolveWorldContext(req, res, next) {
     if (req.user?._id && req.firebaseUser?.testOnly === true && process.env.NODE_ENV !== "production") {
       // The synthetic test identity exists only behind the non-production,
       // secret-gated E2E authentication middleware.
-      const role = req.user.role === "admin" ? "owner" : req.user.role === "editor" ? "editor" : "viewer";
+      const requestedWorldRole = String(req.headers?.["x-e2e-test-world-role"] || "");
+      const fallbackWorldRole = req.user.role === "admin"
+        ? "owner"
+        : req.user.role === "editor"
+          ? "editor"
+          : "viewer";
+      const role = ["owner", "admin", "editor", "member", "viewer"].includes(requestedWorldRole)
+        ? requestedWorldRole
+        : fallbackWorldRole;
       membership = { worldId: world._id, userId: req.user._id, role, status: "active" };
     } else if (req.user?._id && isPlatformAdministrator(req.user, req.firebaseUser)) {
       membership = await WorldMembership.findOne({
