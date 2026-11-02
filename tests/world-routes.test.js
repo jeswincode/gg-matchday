@@ -31,4 +31,575 @@ const { default: WorldMapFacility } = await import("../server/models/WorldMapFac
 const { default: MediaAsset } = await import("../server/models/MediaAsset.js");
 const { default: Player } = await import("../server/models/Player.js");
 const { default: Match } = await import("../server/models/Match.js");
-const { default: News }¶»§q«^
+const { default: News } = await import("../server/models/News.js");
+
+let database;
+let server;
+let origin;
+let ownerWorld;
+let otherWorld;
+let pendingMembershipId;
+
+async function request(path, { token, method = "GET", body, worldSlug } = {}) {
+  const response = await fetch(origin + "/api" + path, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(worldSlug ? { "X-World-Slug": worldSlug } : {}),
+    },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await response.json().catch(() => ({}));
+  return { status: response.status, data, requestId: response.headers.get("x-request-id") };
+}
+
+before(async () => {
+  database = await MongoMemoryReplSet.create({
+    binary: { version: "8.2.6" },
+    replSet: { count: 1 },
+  });
+  await mongoose.connect(database.getUri());
+  await Promise.all([
+    User.init(),
+    World.init(),
+    WorldMembership.init(),
+    WorldMapLayout.init(),
+    WorldMapFacility.init(),
+    MediaAsset.init(),
+    Player.init(),
+    Match.init(),
+    News.init(),
+  ]);
+
+  server = app.listen(0, "127.0.0.1");
+  await new Promise(resolve => server.on("listening", resolve));
+  origin = "http://127.0.0.1:" + server.address().port;
+
+  for (const token of allowedTokens) {
+    await request("/auth/me", { token });
+  }
+}, { timeout: 120000 });
+
+after(async () => {
+  server?.closeAllConnections();
+  if (server) await new Promise(resolve => server.close(resolve));
+  await mongoose.disconnect();
+  await database?.stop();
+});
+
+test("World creation atomically creates owner membership, map layout and standard facilities", async () => {
+  const result = await request("/worlds", {
+    token: "owner",
+    method: "POST",
+    body: {
+      name: "Original GG",
+      slug: "Original-GG",
+      description: "The founding football community.",
+    },
+  });
+
+  assert.equal(result.status, 201, JSON.stringify(result.data));
+  assert.equal(result.data.world.slug, "original-gg");
+  assert.equal(result.data.world.globalMap.mapId, "gg-main-v1");
+  assert.equal(result.data.world.globalMap.slotIndex, 0);
+  assert.equal(result.data.membership.role, "owner");
+  assert.equal(result.data.membership.status, "active");
+
+  ownerWorld = await World.findOne({ slug: "original-gg" });
+  assert.ok(ownerWorld);
+  assert.equal(await WorldMembership.countDocuments({ worldId: ownerWorld._id }), 1);
+  assert.equal(await WorldMapLayout.countDocuments({ worldId: ownerWorld._id }), 1);
+  assert.equal(await WorldMapFacility.countDocuments({ worldId: ownerWorld._id }), 8);
+
+  const ownerMembership = await WorldMembership.findOne({
+    worldId: ownerWorld._id,
+    role: "owner",
+  });
+  assert.equal(ownerMembership.status, "active");
+  assert.ok(ownerMembership.approvedAt);
+  assert.equal(ownerMembership.approvedBy, null);
+});
+
+test("World creation validates input and rejects duplicate slugs without partial records", async () => {
+  const invalid = await request("/worlds", {
+    token: "owner",
+    method: "POST",
+    body: { name: "x", slug: "x" },
+  });
+  assert.equal(invalid.status, 400);
+
+  const duplicate = await request("/worlds", {
+    token: "other",
+    method: "POST",
+    body: { name: "Another group", slug: "original-gg" },
+  });
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.data.code, "WORLD_SLUG_TAKEN");
+  assert.equal(await World.countDocuments({ slug: "original-gg" }), 1);
+});
+
+test("public Global Map and World preview expose World info but not viewer membership", async () => {
+  const map = await request("/worlds/map");
+  assert.equal(map.status, 200);
+  assert.equal(map.data.worlds.length, 1);
+  assert.equal(map.data.worlds[0].slug, "original-gg");
+  assert.equal(map.data.worlds[0].memberCount, 1);
+  assert.equal(map.data.availablePlots.length, 16);
+  assert.equal(map.data.availablePlots[0].slotIndex, 1);
+  assert.equal(Object.hasOwn(map.data.worlds[0], "membership"), false);
+  assert.equal(Object.hasOwn(map.data.worlds[0], "ownerUserId"), false);
+
+  const preview = await request("/worlds/original-gg");
+  assert.equal(preview.status, 200);
+  assert.equal(preview.data.world.slug, "original-gg");
+  assert.equal(Object.hasOwn(preview.data.world, "membership"), false);
+});
+
+test("World owner can list their own membership; other accounts cannot see it through public preview", async () => {
+  const ownerList = await request("/worlds/me", { token: "owner" });
+  assert.equal(ownerList.status, 200);
+  assert.equal(ownerList.data.worlds.length, 1);
+  assert.equal(ownerList.data.worlds[0].membership.role, "owner");
+  assert.equal(ownerList.data.worlds[0].membership.status, "active");
+
+  const otherList = await request("/worlds/me", { token: "other" });
+  assert.equal(otherList.status, 200);
+  assert.equal(otherList.data.worlds.length, 0);
+
+  const unauthenticatedList = await request("/worlds/me");
+  assert.equal(unauthenticatedList.status, 401);
+});
+
+test("World join requests are pending until an owner approves them", async () => {
+  const join = await request("/worlds/original-gg/join-requests", {
+    token: "viewer",
+    method: "POST",
+  });
+  assert.equal(join.status, 202, JSON.stringify(join.data));
+  assert.equal(join.data.membership.status, "pending");
+
+  const viewerStatus = await request("/worlds/original-gg/membership", { token: "viewer" });
+  assert.equal(viewerStatus.status, 200);
+  assert.equal(viewerStatus.data.status, "pending");
+
+  const duplicateJoin = await request("/worlds/original-gg/join-requests", {
+    token: "viewer",
+    method: "POST",
+  });
+  assert.equal(duplicateJoin.status, 200);
+  assert.equal(duplicateJoin.data.membership.status, "pending");
+
+  const queueAsMember = await request("/worlds/original-gg/join-requests", { token: "viewer" });
+  assert.equal(queueAsMember.status, 403);
+
+  const queueAsOwner = await request("/worlds/original-gg/join-requests", { token: "owner" });
+  assert.equal(queueAsOwner.status, 200);
+  assert.equal(queueAsOwner.data.requests.length, 1);
+  pendingMembershipId = queueAsOwner.data.requests[0].id;
+});
+
+test("only an owner/admin in the same World can approve a pending join request", async () => {
+  const denied = await request("/worlds/original-gg/join-requests/" + pendingMembershipId + "/approve", {
+    token: "other",
+    method: "POST",
+  });
+  assert.equal(denied.status, 403);
+
+  const approved = await request("/worlds/original-gg/join-requests/" + pendingMembershipId + "/approve", {
+    token: "owner",
+    method: "POST",
+  });
+  assert.equal(approved.status, 200, JSON.stringify(approved.data));
+  assert.equal(approved.data.membership.status, "active");
+  assert.equal(approved.data.membership.role, "member");
+
+  const viewerStatus = await request("/worlds/original-gg/membership", { token: "viewer" });
+  assert.equal(viewerStatus.data.status, "active");
+
+  const ownerMe = await request("/worlds/me", { token: "viewer" });
+  assert.equal(ownerMe.data.worlds.length, 1);
+  assert.equal(ownerMe.data.worlds[0].membership.status, "active");
+});
+
+
+
+test("World map is member-only and owner edits enforce overlap, bounds and optimistic versioning", async () => {
+  const unauthenticated = await request("/worlds/original-gg/map");
+  assert.equal(unauthenticated.status, 401);
+
+  const ownerMap = await request("/worlds/original-gg/map", { token: "owner" });
+  assert.equal(ownerMap.status, 200, JSON.stringify(ownerMap.data));
+  assert.equal(ownerMap.data.facilities.length, 8);
+  assert.equal(ownerMap.data.permissions.canEditMap, true);
+  assert.equal(ownerMap.data.layout.layoutVersion, 1);
+
+  const memberMap = await request("/worlds/original-gg/map", { token: "viewer" });
+  assert.equal(memberMap.status, 200);
+  assert.equal(memberMap.data.permissions.canEditMap, false);
+
+  const memberEdit = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "viewer",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 1,
+      position: { column: 20, row: 20 },
+      rotation: 0,
+    },
+  });
+  assert.equal(memberEdit.status, 403);
+  assert.equal(memberEdit.data.code, "WORLD_CAPABILITY_REQUIRED");
+
+  const moved = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 1,
+      position: { column: 20, row: 20 },
+      rotation: 0,
+    },
+  });
+  assert.equal(moved.status, 200, JSON.stringify(moved.data));
+  assert.deepEqual(moved.data.facility.position, { column: 20, row: 20 });
+  assert.equal(moved.data.layoutVersion, 2);
+
+  const overlap = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 2,
+      position: { column: 37, row: 10 },
+      rotation: 0,
+    },
+  });
+  assert.equal(overlap.status, 409);
+  assert.equal(overlap.data.code, "WORLD_MAP_FACILITY_OVERLAP");
+
+  const stale = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 1,
+      position: { column: 21, row: 20 },
+      rotation: 0,
+    },
+  });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.data.code, "WORLD_MAP_VERSION_CONFLICT");
+
+  const outOfBounds = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 2,
+      position: { column: 59, row: 59 },
+      rotation: 0,
+    },
+  });
+  assert.equal(outOfBounds.status, 400);
+  assert.equal(outOfBounds.data.code, "FACILITY_OUT_OF_BOUNDS");
+
+  const rotated = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "owner",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 2,
+      position: { column: 20, row: 20 },
+      rotation: 90,
+    },
+  });
+  assert.equal(rotated.status, 200, JSON.stringify(rotated.data));
+  assert.equal(rotated.data.facility.rotation, 90);
+  assert.equal(rotated.data.layoutVersion, 3);
+});
+
+test("a global legacy admin role does not grant World membership review access", async () => {
+  const withoutMembership = await request("/worlds/original-gg/join-requests", { token: "admin" });
+  assert.equal(withoutMembership.status, 403);
+});
+
+test("join approval and rejection queries are scoped to the World in the URL", async () => {
+  const created = await request("/worlds", {
+    token: "other",
+    method: "POST",
+    body: {
+      name: "Other World",
+      slug: "other-world",
+      globalMapSlotIndex: 8,
+    },
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.deepEqual(created.data.world.globalMap, {
+    mapId: "gg-main-v1",
+    slotIndex: 8,
+    x: 8,
+    y: -8,
+  });
+  otherWorld = await World.findOne({ slug: "other-world" });
+
+  const duplicatePlot = await request("/worlds", {
+    token: "member-two",
+    method: "POST",
+    body: {
+      name: "Plot Collision World",
+      slug: "plot-collision-world",
+      globalMapSlotIndex: 8,
+    },
+  });
+  assert.equal(duplicatePlot.status, 409);
+  assert.equal(duplicatePlot.data.code, "GLOBAL_MAP_SLOT_TAKEN");
+  assert.equal(await World.countDocuments({ slug: "plot-collision-world" }), 0);
+
+  const secondRequest = await request("/worlds/other-world/join-requests", {
+    token: "member-two",
+    method: "POST",
+  });
+  assert.equal(secondRequest.status, 202);
+
+  const requestRecord = await WorldMembership.findOne({
+    worldId: otherWorld._id,
+    userId: (await User.findOne({ firebaseUid: "world-test-member-two" }))._id,
+  });
+  assert.ok(requestRecord);
+
+  const crossWorldApprove = await request(
+    "/worlds/original-gg/join-requests/" + requestRecord._id + "/approve",
+    { token: "owner", method: "POST" },
+  );
+  assert.equal(crossWorldApprove.status, 404);
+
+  const reject = await request(
+    "/worlds/other-world/join-requests/" + requestRecord._id + "/reject",
+    { token: "other", method: "POST", body: { decisionNote: "Please reapply next season." } },
+  );
+  assert.equal(reject.status, 200);
+  assert.equal(reject.data.membership.status, "rejected");
+
+  const memberStatus = await request("/worlds/other-world/membership", { token: "member-two" });
+  assert.equal(memberStatus.data.status, "rejected");
+
+  const reRequest = await request("/worlds/other-world/join-requests", {
+    token: "member-two",
+    method: "POST",
+  });
+  assert.equal(reRequest.status, 202);
+  assert.equal(reRequest.data.membership.status, "pending");
+});
+
+test("join route refuses entry when membership has been suspended", async () => {
+  const membership = await WorldMembership.findOne({
+    worldId: ownerWorld._id,
+    userId: (await User.findOne({ firebaseUid: "world-test-viewer" }))._id,
+  });
+  assert.ok(membership);
+  membership.status = "suspended";
+  await membership.save();
+
+  const rejoin = await request("/worlds/original-gg/join-requests", {
+    token: "viewer",
+    method: "POST",
+  });
+  assert.equal(rejoin.status, 403);
+  assert.equal(rejoin.data.code, "WORLD_MEMBERSHIP_SUSPENDED");
+});
+
+
+test("one account can own a separate same-named Player profile in each World", async () => {
+  const originalProfile = await request("/worlds/original-gg/player-profiles", {
+    token: "owner",
+    method: "POST",
+    body: {
+      name: "Jeswin",
+      position: "Midfielder",
+      preferredFoot: "Right",
+      bio: "Original GG player identity.",
+    },
+  });
+  assert.equal(originalProfile.status, 201, JSON.stringify(originalProfile.data));
+  const originalPlayerId = originalProfile.data.profile.id;
+
+  const otherOwnerProfile = await request("/worlds/other-world/player-profiles", {
+    token: "other",
+    method: "POST",
+    body: { name: "Jeswin", position: "Attacker" },
+  });
+  assert.equal(otherOwnerProfile.status, 201, JSON.stringify(otherOwnerProfile.data));
+
+  // The same account asks to join a second World, then creates an independent
+  // profile with the same display name after that World approves the request.
+  const joinSecondWorld = await request("/worlds/other-world/join-requests", {
+    token: "owner",
+    method: "POST",
+  });
+  assert.equal(joinSecondWorld.status, 202);
+  const reviewQueue = await request("/worlds/other-world/join-requests", { token: "other" });
+  assert.equal(reviewQueue.status, 200);
+  const ownerRequest = reviewQueue.data.requests.find(item => item.user?.name === "World Test owner");
+  assert.ok(ownerRequest);
+
+  const approved = await request("/worlds/other-world/join-requests/" + ownerRequest.id + "/approve", {
+    token: "other",
+    method: "POST",
+  });
+  assert.equal(approved.status, 200);
+
+  const secondProfile = await request("/worlds/other-world/player-profiles", {
+    token: "owner",
+    method: "POST",
+    body: {
+      name: "Jeswin",
+      position: "Goalkeeper",
+      preferredFoot: "Left",
+      bio: "A different World, a different football identity.",
+    },
+  });
+  assert.equal(secondProfile.status, 201, JSON.stringify(secondProfile.data));
+  const secondPlayerId = secondProfile.data.profile.id;
+  assert.notEqual(secondPlayerId, originalPlayerId);
+
+  const originalLinked = await request("/worlds/original-gg/player-profile", { token: "owner" });
+  const secondLinked = await request("/worlds/other-world/player-profile", { token: "owner" });
+  assert.equal(originalLinked.data.profile.name, "Jeswin");
+  assert.equal(secondLinked.data.profile.name, "Jeswin");
+  assert.notEqual(String(originalLinked.data.profile._id), String(secondLinked.data.profile._id));
+
+  const originalPlayer = await Player.findById(originalPlayerId).lean();
+  const secondPlayer = await Player.findById(secondPlayerId).lean();
+  assert.equal(String(originalPlayer.worldId), String(ownerWorld._id));
+  assert.equal(String(secondPlayer.worldId), String(otherWorld._id));
+
+  // A second member cannot take the same display name inside Original GG.
+  const thirdJoin = await request("/worlds/original-gg/join-requests", {
+    token: "member-three",
+    method: "POST",
+  });
+  assert.equal(thirdJoin.status, 202);
+  const originalQueue = await request("/worlds/original-gg/join-requests", { token: "owner" });
+  const thirdRequest = originalQueue.data.requests.find(item => item.user?.name === "World Test member-three");
+  assert.ok(thirdRequest);
+  const thirdApproved = await request("/worlds/original-gg/join-requests/" + thirdRequest.id + "/approve", {
+    token: "owner",
+    method: "POST",
+  });
+  assert.equal(thirdApproved.status, 200);
+
+  const duplicateName = await request("/worlds/original-gg/player-profiles", {
+    token: "member-three",
+    method: "POST",
+    body: { name: "Jeswin" },
+  });
+  assert.equal(duplicateName.status, 409);
+  assert.equal(duplicateName.data.code, "WORLD_PLAYER_NAME_TAKEN");
+
+  const duplicateOwnProfile = await request("/worlds/original-gg/player-profiles", {
+    token: "owner",
+    method: "POST",
+    body: { name: "Jeswin Two" },
+  });
+  assert.equal(duplicateOwnProfile.status, 409);
+  assert.equal(duplicateOwnProfile.data.code, "WORLD_PLAYER_PROFILE_EXISTS");
+});
+
+
+test("Matchday Players, Matches, statistics and News are isolated between two Worlds", async () => {
+  const originalMembership = await WorldMembership.findOne({
+    worldId: ownerWorld._id,
+    userId: (await User.findOne({ firebaseUid: "world-test-owner" }))._id,
+  }).lean();
+  const secondMembership = await WorldMembership.findOne({
+    worldId: otherWorld._id,
+    userId: (await User.findOne({ firebaseUid: "world-test-owner" }))._id,
+  }).lean();
+  assert.ok(originalMembership?.playerProfileId);
+  assert.ok(secondMembership?.playerProfileId);
+
+  const originalPlayer = await Player.findOne({
+    _id: originalMembership.playerProfileId,
+    worldId: ownerWorld._id,
+  });
+  const secondPlayer = await Player.findOne({
+    _id: secondMembership.playerProfileId,
+    worldId: otherWorld._id,
+  });
+  assert.ok(originalPlayer);
+  assert.ok(secondPlayer);
+
+  const [originalMatch] = await Match.create([{
+    worldId: ownerWorld._id,
+    date: new Date("2026-10-02T12:00:00.000Z"),
+    name: "Original GG World Match",
+    teamA: { label: "Blue", score: 0 },
+    teamB: { label: "Gold", score: 0 },
+    participants: [{ player: originalPlayer._id, team: "A", rating: 7.2, ratingSystem: "gg-v3" }],
+    events: [],
+  }]);
+  const [secondMatch] = await Match.create([{
+    worldId: otherWorld._id,
+    date: new Date("2026-10-03T12:00:00.000Z"),
+    name: "Other World Match",
+    teamA: { label: "Red", score: 0 },
+    teamB: { label: "White", score: 0 },
+    participants: [{ player: secondPlayer._id, team: "A", rating: 8.1, ratingSystem: "gg-v3" }],
+    events: [],
+  }]);
+
+  const [originalNews] = await News.create([{
+    worldId: ownerWorld._id,
+    match: originalMatch._id,
+    headline: "Original GG only headline",
+    summary: "Only Original GG members should see this.",
+  }]);
+  const [secondNews] = await News.create([{
+    worldId: otherWorld._id,
+    match: secondMatch._id,
+    headline: "Other World only headline",
+    summary: "Only the other World members should see this.",
+  }]);
+
+  const originalPlayers = await request("/players", { token: "owner", worldSlug: "original-gg" });
+  const secondPlayers = await request("/players", { token: "owner", worldSlug: "other-world" });
+  assert.equal(originalPlayers.status, 200);
+  assert.equal(secondPlayers.status, 200);
+  assert.ok(originalPlayers.data.some(item => String(item._id) === String(originalPlayer._id)));
+  assert.ok(!originalPlayers.data.some(item => String(item._id) === String(secondPlayer._id)));
+  assert.ok(secondPlayers.data.some(item => String(item._id) === String(secondPlayer._id)));
+  assert.ok(!secondPlayers.data.some(item => String(item._id) === String(originalPlayer._id)));
+
+  const originalMatches = await request("/matches", { token: "owner", worldSlug: "original-gg" });
+  const secondMatches = await request("/matches", { token: "owner", worldSlug: "other-world" });
+  assert.ok(originalMatches.data.some(item => String(item._id) === String(originalMatch._id)));
+  assert.ok(!originalMatches.data.some(item => String(item._id) === String(secondMatch._id)));
+  assert.ok(secondMatches.data.some(item => String(item._id) === String(secondMatch._id)));
+  assert.ok(!secondMatches.data.some(item => String(item._id) === String(originalMatch._id)));
+
+  const crossWorldMatchDetail = await request("/matches/" + String(secondMatch._id), {
+    token: "owner",
+    worldSlug: "original-gg",
+  });
+  assert.equal(crossWorldMatchDetail.status, 404);
+
+  const originalOverview = await request("/stats/overview", { token: "owner", worldSlug: "original-gg" });
+  const secondOverview = await request("/stats/overview", { token: "owner", worldSlug: "other-world" });
+  assert.equal(originalOverview.data.matches, 1);
+  assert.equal(secondOverview.data.matches, 1);
+  assert.equal(originalOverview.data.players, 1);
+  assert.equal(secondOverview.data.players, 1);
+
+  const originalFeed = await request("/news", { token: "owner", worldSlug: "original-gg" });
+  const secondFeed = await request("/news", { token: "owner", worldSlug: "other-world" });
+  assert.ok(originalFeed.data.some(item => String(item._id) === String(originalNews._id)));
+  assert.ok(!originalFeed.data.some(item => String(item._id) === String(secondNews._id)));
+  assert.ok(secondFeed.data.some(item => String(item._id) === String(secondNews._id)));
+  assert.ok(!secondFeed.data.some(item => String(item._id) === String(originalNews._id)));
+
+  const crossWorldNews = await request("/news/" + String(secondNews._id), {
+    token: "owner",
+    worldSlug: "original-gg",
+  });
+  assert.equal(crossWorldNews.status, 404);
+
+  const legacyView = await request("/matches");
+  assert.ok(!legacyView.data.some(item =>
+    [String(originalMatch._id), String(secondMatch._id)].includes(String(item._id)),
+  ));
+});
