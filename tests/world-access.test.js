@@ -188,6 +188,76 @@ test("active membership also requires an exact active Gmail grant", async () => 
   }
 });
 
+test("synthetic Playwright access is confined to NODE_ENV=test", async () => {
+  const originalEnvironment = process.env.NODE_ENV;
+  const originalExists = WorldAccessGrant.exists;
+  const testIdentity = {
+    user: { _id: "e2e-user", firebaseUid: "e2e-uid", email: "playwright-editor@test.invalid", role: "editor" },
+    firebaseUser: {
+      uid: "e2e-uid",
+      email: "playwright-editor@test.invalid",
+      email_verified: true,
+      testOnly: true,
+    },
+    world: { _id: "world-1" },
+    membership: { status: "active", role: "editor" },
+  };
+
+  try {
+    process.env.NODE_ENV = "test";
+    let testNextCalled = false;
+    const testResponse = responseRecorder();
+    await requireActiveWorldMembership(testIdentity, testResponse, () => { testNextCalled = true; });
+    assert.equal(testResponse.statusCode, 200);
+    assert.equal(testNextCalled, true);
+
+    process.env.NODE_ENV = "development";
+    WorldAccessGrant.exists = async () => null;
+    let developmentNextCalled = false;
+    const developmentResponse = responseRecorder();
+    await requireActiveWorldMembership(testIdentity, developmentResponse, () => { developmentNextCalled = true; });
+    assert.equal(developmentResponse.statusCode, 403);
+    assert.equal(developmentResponse.body.code, "WORLD_ACCESS_GRANT_REQUIRED");
+    assert.equal(developmentNextCalled, false);
+
+    const syntheticAdmin = {
+      ...testIdentity,
+      user: {
+        _id: "e2e-admin",
+        firebaseUid: "e2e-admin-uid",
+        email: "admin@gmail.com",
+        role: "admin",
+        platformRole: "platform_admin",
+      },
+      firebaseUser: {
+        uid: "e2e-admin-uid",
+        email: "admin@gmail.com",
+        email_verified: true,
+        testOnly: true,
+      },
+    };
+
+    process.env.NODE_ENV = "test";
+    const testAdminResponse = responseRecorder();
+    let testAdminNext = false;
+    requirePlatformAdmin(syntheticAdmin, testAdminResponse, () => { testAdminNext = true; });
+    assert.equal(testAdminResponse.statusCode, 200);
+    assert.equal(testAdminNext, true);
+
+    process.env.NODE_ENV = "development";
+    const developmentAdminResponse = responseRecorder();
+    let developmentAdminNext = false;
+    requirePlatformAdmin(syntheticAdmin, developmentAdminResponse, () => { developmentAdminNext = true; });
+    assert.equal(developmentAdminResponse.statusCode, 403);
+    assert.equal(developmentAdminResponse.body.code, "PLATFORM_ADMIN_REQUIRED");
+    assert.equal(developmentAdminNext, false);
+  } finally {
+    WorldAccessGrant.exists = originalExists;
+    if (originalEnvironment === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalEnvironment;
+  }
+});
+
 test("capability middleware enforces grant-backed membership and role capabilities", async () => {
   const originalExists = WorldAccessGrant.exists;
   WorldAccessGrant.exists = async () => ({ _id: "grant-1" });
