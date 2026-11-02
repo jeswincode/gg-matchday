@@ -45,6 +45,7 @@ export async function requireAuth(
           email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
           profileImage: "",
           role,
+          platformRole: role === "admin" ? "platform_admin" : "user",
           accessRequest: "none",
           playerProfile,
         } },
