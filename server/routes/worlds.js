@@ -1,24 +1,166 @@
 import express from "express";
 import mongoose from "mongoose";
 
-import World from "../models/World.js";
 import WorldMembership from "../models/WorldMembership.js";
+import WorldAccessGrant from "../models/WorldAccessGrant.js";
 import Player from "../models/Player.js";
 import { requireAuth } from "../middleware/auth.js";
 import { resolveWorldContext } from "../middleware/worldContext.js";
 import {
   requireActiveWorldMembership,
   requireWorldCapability,
+  requirePlatformAdmin,
 } from "../middleware/worldPermissions.js";
 import { getWorldMapSnapshot, moveWorldMapFacility } from "../services/worldMapLayout.js";
-import {
-  availableGlobalMapSlots,
-  createWorldForUser,
-} from "../services/worldCreation.js";
+import { getPrimaryWorld } from "../services/primaryWorld.js";
+import { normalizeGmailAddress, isGmailAddress } from "../services/worldAccessGrants.js";
+import { isPlatformAdministrator } from "../services/worldAccess.js";
 
 const router = express.Router();
 
-function safeWorld(world, memberCount = 0) {
+
+// Platform-admin access management for the one shared GG football World.
+router.post("/admin/primary/ensure", requireAuth, requirePlatformAdmin, asyncRoute(async (req, res) => {
+  const world = await getPrimaryWorld();
+  const membership = await WorldMembership.findOneAndUpdate(
+    { worldId: world._id, userId: req.user._id },
+    { $set: { role: "owner", status: "active", approvedAt: new Date(), approvedBy: null,
+      rejectedAt: null, rejectedBy: null, decisionNote: "" } },
+    { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
+  );
+  return res.json({ world: safeWorld(world), membership: { role: membership.role, status: membership.status }, ensured: true });
+}));
+
+router.get("/admin/access", requireAuth, requirePlatformAdmin, asyncRoute(async (req, res) => {
+  const world = await getPrimaryWorld();
+  const grants = await WorldAccessGrant.find({ worldId: world._id })
+    .populate({ path: "userId", select: "name email" })
+    .populate({ path: "invitedBy", select: "name" })
+    .populate({ path: "revokedBy", select: "name" })
+    .sort({ updatedAt: -1, email: 1 }).lean();
+  return res.json({ grants: grants.map(grant => ({
+    id: String(grant._id), email: grant.email, role: grant.role, status: grant.status,
+    user: grant.userId ? { id: String(grant.userId._id), name: grant.userId.name || "", email: grant.userId.email || "" } : null,
+    invitedBy: grant.invitedBy ? { id: String(grant.invitedBy._id), name: grant.invitedBy.name || "" } : null,
+    revokedBy: grant.revokedBy ? { id: String(grant.revokedBy._id), name: grant.revokedBy.name || "" } : null,
+    createdAt: grant.createdAt, activatedAt: grant.activatedAt, revokedAt: grant.revokedAt, updatedAt: grant.updatedAt,
+  })) });
+}));
+
+router.post("/admin/access", requireAuth, requirePlatformAdmin, asyncRoute(async (req, res) => {
+  const allowed = new Set(["email", "role"]);
+  if (Object.keys(req.body || {}).some(key => !allowed.has(key))) return res.status(400).json({
+    message: "Access invitation contains unsupported fields.", code: "WORLD_ACCESS_FIELDS_INVALID",
+  });
+  const email = normalizeGmailAddress(req.body?.email);
+  if (!isGmailAddress(email)) return res.status(400).json({
+    message: "Enter a valid Gmail address.", code: "WORLD_ACCESS_GMAIL_REQUIRED",
+  });
+  const role = req.body?.role || "member";
+  if (!["member", "editor"].includes(role)) return res.status(400).json({
+    message: "Choose Member or Editor access.", code: "WORLD_ACCESS_ROLE_INVALID",
+  });
+
+  const world = await getPrimaryWorld();
+  const existing = await WorldAccessGrant.findOne({ worldId: world._id, email });
+  if (existing && existing.status !== "revoked") return res.status(409).json({
+    message: "This Gmail address already has an invitation or active World access.", code: "WORLD_ACCESS_GRANT_EXISTS",
+  });
+  let grant;
+  if (existing) {
+    existing.role = role; existing.status = "invited"; existing.userId = null;
+    existing.invitedBy = req.user._id; existing.activatedAt = null; existing.revokedAt = null; existing.revokedBy = null;
+    grant = await existing.save();
+  } else {
+    try {
+      grant = await WorldAccessGrant.create({ worldId: world._id, email, role, status: "invited", invitedBy: req.user._id });
+    } catch (error) {
+      if (error?.code !== 11000) throw error;
+      return res.status(409).json({ message: "An invitation for this Gmail address was created at the same time.", code: "WORLD_ACCESS_GRANT_EXISTS" });
+    }
+  }
+  return res.status(201).json({
+    message: "Gmail invitation created. Access activates after verified Google sign-in.",
+    grant: { id: String(grant._id), email: grant.email, role: grant.role, status: grant.status, createdAt: grant.createdAt },
+  });
+}));
+
+router.delete("/admin/access/:grantId", requireAuth, requirePlatformAdmin, asyncRoute(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.grantId)) return res.status(400).json({
+    message: "Invalid access grant id.", code: "WORLD_ACCESS_GRANT_ID_INVALID",
+  });
+  const world = await getPrimaryWorld();
+  const session = await mongoose.startSession();
+  let revokedGrant = null;
+  try {
+    await session.withTransaction(async () => {
+      revokedGrant = await WorldAccessGrant.findOneAndUpdate(
+        { _id: req.params.grantId, worldId: world._id, status: { $in: ["invited", "active"] } },
+        { $set: { status: "revoked", revokedAt: new Date(), revokedBy: req.user._id } },
+        { new: true, session },
+      );
+      if (revokedGrant?.userId) await WorldMembership.updateOne(
+        { worldId: world._id, userId: revokedGrant.userId, status: "active" },
+        { $set: { status: "suspended" } }, { session },
+      );
+    });
+  } finally {
+    await session.endSession();
+  }
+  if (!revokedGrant) return res.status(404).json({
+    message: "Active or invited access grant not found.", code: "WORLD_ACCESS_GRANT_NOT_FOUND",
+  });
+  return res.json({
+    message: "World access revoked. Future protected API requests are denied.",
+    grant: { id: String(revokedGrant._id), email: revokedGrant.email, status: revokedGrant.status, revokedAt: revokedGrant.revokedAt },
+  });
+}));
+
+// Public projection: a single safe shared World, never the private interior.
+router.get("/map", asyncRoute(async (req, res) => {
+  const world = await getPrimaryWorld();
+  return res.json({ worlds: [safeWorld(world)], availablePlots: [] });
+}));
+
+async function accountWorldAccess(req, world) {
+  const email = normalizeGmailAddress(req.firebaseUser?.email || req.user?.email);
+  const [membership, grant] = await Promise.all([
+    req.user?._id ? WorldMembership.findOne({ worldId: world._id, userId: req.user._id }).lean() : null,
+    req.user?._id && email ? WorldAccessGrant.findOne({ worldId: world._id, email }).lean() : null,
+  ]);
+  if (isPlatformAdministrator(req.user, req.firebaseUser)) {
+    return { role: "owner", status: "active", playerProfileId: membership?.playerProfileId || null };
+  }
+  const activeGrant = grant?.status === "active" && String(grant.userId) === String(req.user?._id) &&
+    req.firebaseUser?.email_verified === true && email === normalizeGmailAddress(req.user?.email);
+  let status = "none";
+  if (grant?.status === "invited") status = "invited";
+  else if (grant?.status === "revoked") status = "revoked";
+  else if (activeGrant && membership?.status === "active") status = "active";
+  else if (membership?.status === "suspended") status = "suspended";
+  else if (membership?.status === "active") status = "not_linked";
+  return {
+    role: status === "active" ? grant.role : (grant?.role || "member"),
+    status,
+    playerProfileId: status === "active" ? (membership?.playerProfileId || null) : null,
+  };
+}
+
+router.get("/me", requireAuth, asyncRoute(async (req, res) => {
+  const world = await getPrimaryWorld();
+  const membership = await accountWorldAccess(req, world);
+  return res.json({ worlds: [{ ...safeWorld(world), membership }] });
+}));
+
+// World creation is disabled; the admin links accounts to the existing World.
+router.post("/", requireAuth, (req, res) => res.status(403).json({
+  message: "GG has one shared football World. World creation is disabled.",
+  code: "SINGLE_WORLD_ONLY",
+}));
+
+
+
+function safeWorld(world) {
   return {
     slug: world.slug,
     name: world.name,
@@ -26,7 +168,6 @@ function safeWorld(world, memberCount = 0) {
     emblem: String(world.name || "GG").trim().slice(0, 2).toUpperCase(),
     emblemAssetId: world.branding?.emblemAssetId || null,
     accentColor: world.branding?.accentColor || "#c5a45b",
-    memberCount,
     globalMap: {
       mapId: world.globalMap?.mapId || "gg-main-v1",
       slotIndex: Number.isSafeInteger(world.globalMap?.slotIndex) ? world.globalMap.slotIndex : null,
@@ -39,85 +180,6 @@ function safeWorld(world, memberCount = 0) {
 function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
-
-// Public map projection. Viewer membership state is deliberately not included;
-// clients load that separately from /me or /:slug/membership.
-router.get("/map", asyncRoute(async (req, res) => {
-  const [worlds, occupiedWorlds] = await Promise.all([
-    World.find({
-      visibility: "public",
-      status: "active",
-      "globalMap.x": { $type: "number" },
-      "globalMap.y": { $type: "number" },
-    })
-      .select("name slug description branding globalMap")
-      .sort({ createdAt: 1, _id: 1 })
-      .lean(),
-    World.find({
-      status: "active",
-      "globalMap.mapId": "gg-main-v1",
-      "globalMap.x": { $type: "number" },
-      "globalMap.y": { $type: "number" },
-    })
-      .select("globalMap.x globalMap.y")
-      .lean(),
-  ]);
-
-  // Plot availability considers every active World even though the public
-  // directory projection is capped for payload size.
-  const availablePlots = availableGlobalMapSlots(occupiedWorlds, 16);
-  if (!worlds.length) return res.json({ worlds: [], availablePlots });
-
-  const worldIds = worlds.map(world => world._id);
-  const counts = await WorldMembership.aggregate([
-    { $match: { worldId: { $in: worldIds }, status: "active" } },
-    { $group: { _id: "$worldId", count: { $sum: 1 } } },
-  ]);
-  const countByWorld = new Map(counts.map(entry => [String(entry._id), entry.count]));
-
-  return res.json({
-    worlds: worlds.map(world => safeWorld(world, countByWorld.get(String(world._id)) || 0)),
-    availablePlots,
-  });
-}));
-
-// The signed-in account's own World list. No other members' account details are
-// returned by this endpoint.
-router.get("/me", requireAuth, asyncRoute(async (req, res) => {
-  const memberships = await WorldMembership.find({
-    userId: req.user._id,
-    status: { $in: ["active", "pending", "rejected", "suspended"] },
-  })
-    .sort({ updatedAt: -1, _id: 1 })
-    .lean();
-
-  const worlds = await World.find({
-    _id: { $in: memberships.map(item => item.worldId) },
-    status: { $ne: "archived" },
-  })
-    .select("name slug description branding globalMap status")
-    .lean();
-
-  const worldById = new Map(worlds.map(world => [String(world._id), world]));
-  return res.json({
-    worlds: memberships
-      .map(membership => {
-        const world = worldById.get(String(membership.worldId));
-        if (!world) return null;
-        return {
-          ...safeWorld(world),
-          membership: {
-            role: membership.role,
-            status: membership.status,
-            playerProfileId: membership.playerProfileId || null,
-            requestedAt: membership.requestedAt,
-            approvedAt: membership.approvedAt,
-          },
-        };
-      })
-      .filter(Boolean),
-  });
-}));
 
 // Link an existing World-specific Player profile to the signed-in account.
 // Profile ownership is recorded on WorldMembership, never inferred from a
@@ -348,37 +410,6 @@ router.post(
   }),
 );
 
-// Create a public World. Its owner membership, isometric layout and standard
-// facilities are created in one MongoDB transaction.
-router.post("/", requireAuth, asyncRoute(async (req, res) => {
-  const allowed = new Set(["name", "slug", "description", "globalMapSlotIndex"]);
-  const unexpected = Object.keys(req.body || {}).filter(key => !allowed.has(key));
-  if (unexpected.length) {
-    return res.status(400).json({
-      message: "World creation contains unsupported fields.",
-      code: "WORLD_CREATE_FIELDS_INVALID",
-      requestId: req.requestId || null,
-    });
-  }
-
-  const world = await createWorldForUser({
-    user: req.user,
-    name: req.body?.name,
-    slug: req.body?.slug,
-    description: req.body?.description,
-    globalMapSlotIndex: req.body?.globalMapSlotIndex ?? null,
-  });
-
-  return res.status(201).json({
-    world: safeWorld(world, 1),
-    membership: {
-      role: "owner",
-      status: "active",
-      playerProfileId: null,
-    },
-  });
-}));
-
 // Internal World map. The preview is public, but local facilities are visible
 // only to an approved member of that World.
 router.get(
@@ -430,229 +461,17 @@ router.patch(
 
 // Public World preview. Do not include membership status in this response.
 router.get("/:slug", resolveWorldContext, asyncRoute(async (req, res) => {
-  const memberCount = await WorldMembership.countDocuments({
-    worldId: req.worldId,
-    status: "active",
-  });
-  return res.json({ world: safeWorld(req.world, memberCount) });
+  return res.json({ world: safeWorld(req.world) });
 }));
 
 router.get("/:slug/membership", requireAuth, resolveWorldContext, asyncRoute(async (req, res) => {
-  const membership = req.membership;
-  if (!membership) return res.json({ membership: null, status: "none" });
-  return res.json({
-    membership: {
-      role: membership.role,
-      status: membership.status,
-      playerProfileId: membership.playerProfileId || null,
-      requestedAt: membership.requestedAt,
-      approvedAt: membership.approvedAt,
-    },
-    status: membership.status,
-  });
+  const membership = await accountWorldAccess(req, req.world);
+  return res.json({ membership, status: membership.status });
 }));
 
-router.post("/:slug/join-requests", requireAuth, resolveWorldContext, asyncRoute(async (req, res) => {
-  const current = req.membership;
-  if (current?.status === "active") {
-    return res.json({
-      message: "You are already a member of this World.",
-      membership: { status: current.status, role: current.role },
-    });
-  }
-  if (current?.status === "pending") {
-    return res.json({
-      message: "Your request is already awaiting approval.",
-      membership: { status: current.status, role: current.role },
-    });
-  }
-  if (current?.status === "suspended") {
-    return res.status(403).json({
-      message: "Your membership in this World is suspended.",
-      code: "WORLD_MEMBERSHIP_SUSPENDED",
-    });
-  }
-
-  const now = new Date();
-  let membership;
-  if (current) {
-    membership = await WorldMembership.findOneAndUpdate(
-      {
-        _id: current._id,
-        worldId: req.worldId,
-        userId: req.user._id,
-        status: { $in: ["rejected", "left"] },
-      },
-      {
-        $set: {
-          role: "member",
-          status: "pending",
-          requestedAt: now,
-          approvedAt: null,
-          approvedBy: null,
-          rejectedAt: null,
-          rejectedBy: null,
-          decisionNote: "",
-        },
-      },
-      { new: true, runValidators: true },
-    );
-  } else {
-    try {
-      membership = await WorldMembership.create({
-        worldId: req.worldId,
-        userId: req.user._id,
-        role: "member",
-        status: "pending",
-        requestedAt: now,
-      });
-    } catch (error) {
-      if (error?.code !== 11000) throw error;
-      membership = await WorldMembership.findOne({
-        worldId: req.worldId,
-        userId: req.user._id,
-      });
-    }
-  }
-
-  if (!membership) {
-    return res.status(409).json({
-      message: "The membership request changed. Refresh and try again.",
-      code: "WORLD_MEMBERSHIP_CONFLICT",
-    });
-  }
-
-  return res.status(202).json({
-    message: "Your request to join this World has been submitted.",
-    membership: { status: membership.status, role: membership.role },
-  });
+router.use("/:slug/join-requests", requireAuth, resolveWorldContext, (req, res) => res.status(410).json({
+  message: "Self-service join requests are disabled. Ask the GG platform administrator to link your verified Gmail address.",
+  code: "WORLD_INVITATION_REQUIRED",
 }));
-
-router.get(
-  "/:slug/join-requests",
-  requireAuth,
-  resolveWorldContext,
-  requireWorldCapability("membership:review"),
-  asyncRoute(async (req, res) => {
-    const pending = await WorldMembership.find({
-      worldId: req.worldId,
-      status: "pending",
-    })
-      .sort({ requestedAt: 1, _id: 1 })
-      .populate({ path: "userId", select: "name profileImage" })
-      .lean();
-
-    return res.json({
-      requests: pending.map(item => ({
-        id: String(item._id),
-        user: item.userId
-          ? { id: String(item.userId._id), name: item.userId.name, profileImage: item.userId.profileImage || "" }
-          : null,
-        requestedAt: item.requestedAt,
-      })),
-    });
-  }),
-);
-
-router.post(
-  "/:slug/join-requests/:membershipId/approve",
-  requireAuth,
-  resolveWorldContext,
-  requireWorldCapability("membership:review"),
-  asyncRoute(async (req, res) => {
-    if (!mongoose.isValidObjectId(req.params.membershipId)) {
-      return res.status(400).json({ message: "Invalid membership id.", code: "MEMBERSHIP_ID_INVALID" });
-    }
-
-    const now = new Date();
-    const membership = await WorldMembership.findOneAndUpdate(
-      {
-        _id: req.params.membershipId,
-        worldId: req.worldId,
-        status: "pending",
-      },
-      {
-        $set: {
-          role: "member",
-          status: "active",
-          approvedAt: now,
-          approvedBy: req.user._id,
-          rejectedAt: null,
-          rejectedBy: null,
-          decisionNote: "",
-        },
-      },
-      { new: true, runValidators: true },
-    );
-
-    if (!membership) {
-      return res.status(404).json({
-        message: "Pending membership request not found in this World.",
-        code: "WORLD_JOIN_REQUEST_NOT_FOUND",
-      });
-    }
-
-    return res.json({
-      message: "World membership approved.",
-      membership: {
-        id: String(membership._id),
-        role: membership.role,
-        status: membership.status,
-        approvedAt: membership.approvedAt,
-      },
-    });
-  }),
-);
-
-router.post(
-  "/:slug/join-requests/:membershipId/reject",
-  requireAuth,
-  resolveWorldContext,
-  requireWorldCapability("membership:review"),
-  asyncRoute(async (req, res) => {
-    if (!mongoose.isValidObjectId(req.params.membershipId)) {
-      return res.status(400).json({ message: "Invalid membership id.", code: "MEMBERSHIP_ID_INVALID" });
-    }
-
-    const decisionNote = String(req.body?.decisionNote || "").trim();
-    if (decisionNote.length > 500) {
-      return res.status(400).json({ message: "Decision note is too long.", code: "DECISION_NOTE_INVALID" });
-    }
-
-    const membership = await WorldMembership.findOneAndUpdate(
-      {
-        _id: req.params.membershipId,
-        worldId: req.worldId,
-        status: "pending",
-      },
-      {
-        $set: {
-          status: "rejected",
-          rejectedAt: new Date(),
-          rejectedBy: req.user._id,
-          decisionNote,
-        },
-      },
-      { new: true, runValidators: true },
-    );
-
-    if (!membership) {
-      return res.status(404).json({
-        message: "Pending membership request not found in this World.",
-        code: "WORLD_JOIN_REQUEST_NOT_FOUND",
-      });
-    }
-
-    return res.json({
-      message: "World membership request rejected.",
-      membership: {
-        id: String(membership._id),
-        role: membership.role,
-        status: membership.status,
-        rejectedAt: membership.rejectedAt,
-      },
-    });
-  }),
-);
 
 export default router;
