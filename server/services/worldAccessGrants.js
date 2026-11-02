@@ -31,6 +31,16 @@ export async function activatePendingWorldAccessGrant({ user, firebaseUser } = {
   ) return null;
 
   const world = await getPrimaryWorld();
+  // Avoid opening a transaction for every authenticated API call when the
+  // exact verified mailbox has no pending invitation. Re-check inside the
+  // transaction to remain safe against invitation/revocation races.
+  const pendingGrant = await WorldAccessGrant.exists({
+    worldId: world._id,
+    email,
+    status: "invited",
+  });
+  if (!pendingGrant) return null;
+
   const session = await mongoose.startSession();
   let activatedGrant = null;
   try {
