@@ -283,7 +283,7 @@ test("platform admin enters the one GG football World and manages Gmail invitati
   await openLinkedWorld(page, { role: "admin", playerId: adminPlayerId });
 
   await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "One World. One shared football home." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Original GG" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("button")).toHaveCount(5);
   await expect(page.getByRole("button", { name: "Found a World" })).toHaveCount(0);
 
