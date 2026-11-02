@@ -465,7 +465,7 @@ export default function GlobalMapPage({
           onSignOut={onSignOut}
           theme={theme}
           onThemeChange={onThemeChange}
-          onOpenClubs={membershipStates[worlds[0]?.slug] === "active" ? onOpenClubs : null}
+          onOpenClubs={enteredWorld && membershipStates[worlds[0]?.slug] === "active" ? onOpenClubs : null}
         />
       </header>
 
