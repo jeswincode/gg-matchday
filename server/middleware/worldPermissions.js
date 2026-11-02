@@ -38,7 +38,7 @@ export async function requireActiveWorldMembership(req, res, next) {
   if (!req.world) return membershipDenied(res, req);
 
   // E2E auth is secret-gated and unavailable in production.
-  if (req.firebaseUser?.testOnly === true && process.env.NODE_ENV !== "production") return next();
+  if (req.firebaseUser?.testOnly === true && process.env.NODE_ENV === "test") return next();
   if (isPlatformAdministrator(req.user, req.firebaseUser)) return next();
 
   if (!isActiveWorldMembership(req.membership)) return membershipDenied(res, req);
@@ -91,7 +91,7 @@ export function requireWorldRole(...roles) {
 export function requirePlatformAdmin(req, res, next) {
   if (!req.user) return unauthorized(res, req);
   const isolatedTestAdmin = req.firebaseUser?.testOnly === true &&
-    process.env.NODE_ENV !== "production" &&
+    process.env.NODE_ENV === "test" &&
     req.user.role === "admin";
   if (!isolatedTestAdmin && !isPlatformAdministrator(req.user, req.firebaseUser)) {
     return res.status(403).json({
