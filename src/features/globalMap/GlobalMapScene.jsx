@@ -185,8 +185,8 @@ export default function GlobalMapScene({
     }
   }, []);
   const instanceId = useId().replace(/:/g, "");
-  const mapPoints = worlds.map(world => ({ x: world.globalMap?.x, y: world.globalMap?.y }));
-  const tiles = useMemo(() => terrain(mapPoints), [worlds]);
+  const mapPoints = useMemo(() => worlds.map(world => ({ x: world.globalMap?.x, y: world.globalMap?.y })), [worlds]);
+  const tiles = useMemo(() => terrain(mapPoints), [mapPoints]);
   const fit = useMemo(() => {
     const positions = mapPoints
       .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
@@ -219,7 +219,7 @@ export default function GlobalMapScene({
       centerY: (minY + maxY) / 2,
       scale,
     };
-  }, [worlds]);
+  }, [mapPoints]);
   const activeSelection = worlds.find(world => world.slug === selectedWorldSlug) || selected;
 
   const selectWorld = world => {
