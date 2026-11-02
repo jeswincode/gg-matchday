@@ -15,6 +15,8 @@ router.get("/me", requireAuth, async (req, res) => {
         email: user.email,
         photoURL: user.photoURL || user.profileImage || "",
         role: user.role,
+        platformRole: user.platformRole || "user",
+        emailVerified: user.emailVerified === true,
         accessRequest: user.accessRequest || "none",
         playerProfile: user.playerProfile || null,
       },
