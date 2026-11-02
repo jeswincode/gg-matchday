@@ -20,7 +20,7 @@ test("PWA shell caches only public app resources, never private API or media", (
   assert.ok(worker.includes('url.pathname.startsWith("/auth/")'));
   assert.ok(worker.includes('url.pathname.startsWith("/uploads/")'));
   assert.ok(worker.includes('request.mode === "navigate"'));
-  assert.ok(worker.includes('caches.match("/offline.html")') || worker.includes('caches.match("/offline.html")') === false);
+  assert.ok(worker.includes('caches.match("/offline.html")'));
   assert.ok(worker.includes('request.headers.has("authorization")'));
   assert.ok(worker.includes('cache.put("/", response.clone())'));
 });
