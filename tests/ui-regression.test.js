@@ -78,7 +78,7 @@ test('Refined startup flow replaces the account-bar login with startup, entry, a
   assert.match(app,/activeExperience === "welcome"/);
   assert.match(app,/setExperience\("entry"\)/);
   assert.match(startup,/Continue with Google/);
-  assert.match(startup,/Explore as Guest/);
+  assert.ok(startup.includes("Explore the Global Map as Guest"));
   assert.match(startup,/aria-label="Enter Matchday"/);
   assert.doesNotMatch(startup,/gg-welcome-button-visual|>ENTER MATCHDAY/);
   assert.match(app,/Read-only access/);
@@ -173,11 +173,15 @@ test('immersive Home restores an active World and preserves admin access',()=>{
   assert.match(app,/onNavigateAdmin=\{\(\) => onNavigateTab\?\.\("admin"\)\}/);
 });
 
-test('Global Map does not submit a synthetic plot when all available plots are claimed',()=>{
+test('Global Map always projects one kingdom and never exposes claimable World plots',()=>{
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
-  assert.match(page,/disabled=\{availablePlots\.length === 0\}/);
-  assert.match(page,/onClick=\{\(\) => availablePlots\[0\] && claimPlot\(availablePlots\[0\]\)\}/);
-  assert.match(page,/All mapped territory is currently claimed/);
+  const scene=read('src/features/globalMap/GlobalMapScene.jsx');
+  const routes=read('server/routes/worlds.js');
+  assert.match(page,/slice\\(0, 1\\)/);
+  assert.doesNotMatch(page,/availablePlots|claimPlot|globalMapSlotIndex|createModalOpen/);
+  assert.doesNotMatch(scene,/availablePlots|ClaimPlot|onClaimPlot/);
+  assert.match(routes,/worlds: \\[safeWorld\\(world\\)\\]/);
+  assert.match(routes,/availablePlots: \\[\\]/);
 });
 
 test('GG sign-in supports Google, email/password, account creation and password reset',()=>{
@@ -197,18 +201,18 @@ test('GG sign-in supports Google, email/password, account creation and password 
   assert.match(firebase,/getAuth\(initializeApp\(firebaseConfig\)\)/);
 });
 
-test('World account switcher lists memberships and local entry supports one Player profile per World',()=>{
+test('single-World entry is grant-gated and preserves one player identity inside Original GG',()=>{
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
   const routes=read('server/routes/worlds.js');
   const player=read('server/models/Player.js');
-  assert.match(page,/function WorldSwitcher/);
-  assert.match(page,/Your Worlds/);
-  assert.match(page,/onSelect=\{enterWorld\}/);
+  assert.match(page,/slice\\(0, 1\\)/);
+  assert.doesNotMatch(page,/function WorldSwitcher|Your Worlds/);
+  assert.match(page,/accessStatus !== "active"/);
   assert.match(page,/function PlayerProfileModal/);
-  assert.match(page,/\/player-profiles/);
+  assert.match(page,/\\/player-profiles/);
   assert.ok(routes.includes("/:slug/player-profiles"));
-  assert.match(routes,/worldId: req\.worldId/);
-  assert.match(routes,/playerProfileId = created\._id/);
+  assert.match(routes,/worldId: req\\.worldId/);
+  assert.match(routes,/playerProfileId = created\\._id/);
   assert.match(player,/player_world_name_unique/);
   assert.match(player,/worldId: 1, nameNormalized: 1/);
 });
@@ -223,18 +227,18 @@ test('each World map keeps undeveloped plots visible for future facilities and C
   assert.match(css,/\.gg-world-open-plot/);
 });
 
-test('Global Map open plots are claimable and World creation reserves the selected plot',()=>{
+test('Global Map administrator links and revokes Gmail access instead of creating Worlds',()=>{
   const page=read('src/features/globalMap/GlobalMapPage.jsx');
-  const scene=read('src/features/globalMap/GlobalMapScene.jsx');
   const routes=read('server/routes/worlds.js');
-  const creation=read('server/services/worldCreation.js');
-  assert.match(page,/globalMapSlotIndex: plot\.slotIndex/);
-  assert.match(page,/onClaimPlot=\{claimPlot\}/);
-  assert.match(scene,/availablePlots\.map\(plot =>/);
-  assert.match(scene,/ClaimPlot key=/);
-  assert.match(routes,/availablePlots,/);
-  assert.match(creation,/GLOBAL_MAP_SLOT_TAKEN/);
-  assert.match(creation,/slotIndex: requestedSlotIndex/);
+  assert.match(page,/function WorldAccessManager/);
+  assert.match(page,/api\\("\\/worlds\\/admin\\/access"\\)/);
+  assert.match(page,/method: "POST"/);
+  assert.match(page,/method: "DELETE"/);
+  assert.match(routes,/router\\.post\\("\\/admin\\/access"/);
+  assert.match(routes,/router\\.delete\\("\\/admin\\/access\\/:grantId"/);
+  assert.match(routes,/SINGLE_WORLD_ONLY/);
+  assert.match(routes,/WORLD_INVITATION_REQUIRED/);
+  assert.doesNotMatch(page,/globalMapSlotIndex|onClaimPlot|claimPlot/);
 });
 
 test('World navigation separates public discovery, member entry, and owner map editing',()=>{
