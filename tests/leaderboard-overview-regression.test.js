@@ -8,6 +8,11 @@ import Player from "../server/models/Player.js";
 import Match from "../server/models/Match.js";
 import PlayerStats from "../server/models/PlayerStats.js";
 import SeasonStats from "../server/models/SeasonStats.js";
+import World from "../server/models/World.js";
+
+process.env.NODE_ENV = "test";
+process.env.GG_PRIMARY_WORLD_SLUG = "original-gg";
+process.env.E2E_TEST_AUTH_SECRET = "leaderboard-test-secret-never-for-production";
 import Award from "../server/models/Award.js";
 import Achievement from "../server/models/Achievement.js";
 
@@ -16,7 +21,12 @@ let server;
 let origin;
 
 async function get(path) {
-  const response = await fetch(origin + path);
+  const response = await fetch(origin + path, {
+    headers: {
+      "X-E2E-Test-Token": process.env.E2E_TEST_AUTH_SECRET,
+      "X-E2E-Test-Role": "viewer",
+    },
+  });
   return { status: response.status, data: await response.json() };
 }
 
@@ -26,7 +36,15 @@ before(async () => {
     replSet: { count: 1 },
   });
   await mongoose.connect(database.getUri("leaderboard-overview-regression"));
-  await Promise.all([Player, Match, PlayerStats, SeasonStats, Award, Achievement].map(model => model.init()));
+  await Promise.all([Player, Match, PlayerStats, SeasonStats, Award, Achievement, World].map(model => model.init()));
+  await World.create({
+    name: "Original GG",
+    slug: "original-gg",
+    ownerUserId: new mongoose.Types.ObjectId(),
+    visibility: "public",
+    joinPolicy: "approval",
+    globalMap: { mapId: "gg-main-v1", slotIndex: 0, x: 0, y: 0 },
+  });
 
   const app = express();
   app.use("/api/stats", statsRoutes);
