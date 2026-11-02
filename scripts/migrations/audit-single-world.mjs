@@ -7,7 +7,7 @@ const clubsUri = String(process.env.CLUBS_MONGODB_URI || "").trim();
 const coreCollections = [
   "worldMemberships", "worldMapLayouts", "worldMapFacilities", "players", "matches",
   "playerStats", "seasonStats", "news", "awards", "achievements", "notifications",
-  "chatmessages", "votes", "profilechangerequests", "ratingDisputes", "mediaassets", "clubsyncjobs",
+  "chatmessages", "votes", "profilechangerequests", "ratingDisputes", "mediaassets", "clubSyncJobs",
 ];
 const clubsCollections = [
   "clubs", "clubMatches", "clubContracts", "clubHistory", "clubWalletTransactions",
