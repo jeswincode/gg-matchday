@@ -33,5 +33,8 @@ const playerWalletTransactionSchema = new mongoose.Schema(
 );
 
 playerWalletTransactionSchema.index({ worldId: 1, playerId: 1, createdAt: -1 });
-playerWalletTransactionSchema.index(
-  { ¶»§q«^
+playerWalletTransactionSchema.index({ worldId: 1, idempotencyKey: 1 }, { unique: true, sparse: true, name: "player_wallet_tx_world_idempotency_unique" });
+
+playerWalletTransactionSchema.plugin(worldDataScopePlugin);
+
+export default getClubsConnection().model("PlayerWalletTransaction", playerWalletTransactionSchema);
