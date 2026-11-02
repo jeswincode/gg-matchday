@@ -23,6 +23,9 @@ const { default: Player } = await import("../../server/models/Player.js");
 const { default: Match } = await import("../../server/models/Match.js");
 const { default: RatingDispute } = await import("../../server/models/RatingDispute.js");
 const { default: User } = await import("../../server/models/User.js");
+const { default: World } = await import("../../server/models/World.js");
+const { default: WorldMapLayout } = await import("../../server/models/WorldMapLayout.js");
+const { default: WorldMapFacility } = await import("../../server/models/WorldMapFacility.js");
 const { default: Club } = await import("../../server/models/clubs/Club.js");
 const { default: ClubContract } = await import("../../server/models/clubs/ClubContract.js");
 const { default: ClubFormationApplication } = await import("../../server/models/clubs/ClubFormationApplication.js");
@@ -38,6 +41,9 @@ await Promise.all([
   Match.init(),
   RatingDispute.init(),
   User.init(),
+  World.init(),
+  WorldMapLayout.init(),
+  WorldMapFacility.init(),
   Club.init(),
   ClubContract.init(),
   ClubFormationApplication.init(),
@@ -103,6 +109,41 @@ const allPlayers = [
   ...workflowPlayers.map(({ id, ...player }) => ({ _id: new mongoose.Types.ObjectId(id), ...player })),
 ];
 await Player.insertMany(allPlayers);
+
+const worldOwner = await User.create({
+  firebaseUid: "e2e-primary-world-owner",
+  name: "GG Test Platform Owner",
+  email: "gg-e2e-owner@gmail.com",
+  emailVerified: true,
+  role: "viewer",
+  platformRole: "user",
+});
+const primaryWorld = await World.create({
+  name: "Original GG",
+  slug: "original-gg",
+  description: "The one shared GG football World.",
+  ownerUserId: worldOwner._id,
+  visibility: "public",
+  joinPolicy: "approval",
+  globalMap: { mapId: "gg-main-v1", slotIndex: 0, x: 0, y: 0 },
+});
+await WorldMapLayout.create({
+  worldId: primaryWorld._id,
+  projection: "isometric",
+  theme: "woodland",
+  seed: 42,
+  gridWidth: 60,
+  gridHeight: 60,
+  layoutVersion: 1,
+});
+await WorldMapFacility.create({
+  worldId: primaryWorld._id,
+  facilityKey: "central-stadium",
+  type: "central_stadium",
+  position: { column: 25, row: 25 },
+  footprint: { width: 8, height: 6 },
+  placementManagedBy: "world_owner",
+});
 
 // Formation requires every invitee to already have a linked GG account. These
 // test identities mirror the role/player mapping used by requireAuth's
