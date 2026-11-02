@@ -8,6 +8,7 @@ on:
       - .github/workflows/audit-lockfile-remediation.yml
 
 permissions:
+  # This job is scoped to the feature branch and only commits package-lock.json.
   contents: write
 
 jobs:
