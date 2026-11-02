@@ -63,7 +63,7 @@ test("match reports are saved before old articles are cleaned up on edit or rege
 
   const generateRoute = newsRoute.indexOf('router.post("/generate/:matchId"');
   const newsCreate = newsRoute.indexOf("await News.create(", generateRoute);
-  const cleanup = newsRoute.indexOf("await News.deleteMany({ match: match._id", generateRoute);
+  const cleanup = newsRoute.indexOf("await News.deleteMany({ ...worldFilter(req), match: match._id", generateRoute);
   assert.ok(generateRoute >= 0 && newsCreate > generateRoute && cleanup > newsCreate);
   assert.doesNotMatch(newsRoute, /await News\.deleteMany\(\{ match: match\._id \}\);/);
 });
