@@ -1,9 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { gridToScreen } from "./mapProjection.js";
-import {
-  GLOBAL_MAP_DEMO_MEMBERSHIP,
-  GLOBAL_MAP_DEMO_WORLDS,
-} from "./globalMapFixtures.js";
 import "./global-map-scene.css";
 
 const WIDTH = 1800;
@@ -84,36 +80,12 @@ function terrain(mapPoints = []) {
   return result;
 }
 
-function ClaimPlot({ plot, onClaim }) {
-  const point = project(plot.x, plot.y);
-  return (
-    <g
-      className="gg-global-map-plot"
-      transform={"translate(" + point.x + " " + point.y + ")"}
-      role="button"
-      tabIndex="0"
-      aria-label={"Claim open land plot " + (plot.slotIndex + 1)}
-      onClick={() => onClaim?.(plot)}
-      onKeyDown={event => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onClaim?.(plot);
-        }
-      }}
-    >
-      <path className="gg-map-plot-ground" d="M-37 0 L0 -19 L37 0 L0 19 Z"/>
-      <path className="gg-map-plot-outline" d="M-37 0 L0 -19 L37 0 L0 19 Z"/>
-      <circle className="gg-map-plot-plus-disc" cx="0" cy="-3" r="12"/>
-      <path className="gg-map-plot-plus" d="M-5 -3 H5 M0 -8 V2"/>
-      <text className="gg-map-plot-label" x="0" y="31" textAnchor="middle">CLAIM LAND</text>
-    </g>
-  );
-}
-
 function Kingdom({ world, membership, selected, onSelect }) {
   const position = project(world.globalMap.x, world.globalMap.y);
-  const status = membership === "active" ? "YOUR WORLD"
-    : membership === "pending" ? "REQUEST PENDING" : "PUBLIC KINGDOM";
+  const status = membership === "active" ? "ACCESS LINKED"
+    : membership === "invited" ? "INVITATION READY"
+      : membership === "revoked" ? "ACCESS REVOKED"
+        : "ADMIN ACCESS ONLY";
 
   return (
     <g
@@ -151,47 +123,40 @@ function Kingdom({ world, membership, selected, onSelect }) {
   );
 }
 
-function Preview({ world, membership, onEnter, onRequestMembership, onClose }) {
+function Preview({ world, membership, onEnter, onClose }) {
   if (!world) return null;
   const active = membership === "active";
-  const pending = membership === "pending";
+  const invited = membership === "invited";
+  const revoked = membership === "revoked";
 
   return (
-    <aside className="gg-global-map-preview" aria-label={world.name + " preview"}>
+    <aside className="gg-global-map-preview" aria-label={world.name + " access"}>
       <button className="gg-map-close" type="button" onClick={onClose} aria-label="Close preview">×</button>
-      <div className="gg-preview-kicker">KINGDOM DISCOVERED</div>
+      <div className="gg-preview-kicker">THE SHARED FOOTBALL WORLD</div>
       <div className="gg-preview-emblem">{world.emblem || "GG"}</div>
       <h2>{world.name}</h2>
-      <p>{world.description || "A public football community on GG."}</p>
+      <p>{world.description || "The one shared GG football world."}</p>
       <div className="gg-preview-meta">
-        <span>{Number(world.memberCount || 0).toLocaleString()} members</span>
-        <span>{active ? "Member" : pending ? "Request pending" : "Public World"}</span>
+        <span>ONE WORLD</span>
+        <span>{active ? "Access linked" : invited ? "Invitation found" : revoked ? "Access revoked" : "Restricted access"}</span>
       </div>
       {active && onEnter ? (
         <button className="gg-preview-primary" type="button" onClick={() => onEnter(world)}>
-          Enter World <span aria-hidden="true">↗</span>
-        </button>
-      ) : active ? (
-        <button className="gg-preview-primary" type="button" disabled>
-          World interior opening soon
+          Enter Football World <span aria-hidden="true">↗</span>
         </button>
       ) : (
-        <button
-          className="gg-preview-primary"
-          type="button"
-          disabled={pending}
-          onClick={() => onRequestMembership?.(world)}
-        >
-          {pending ? "Awaiting approval" : "Request membership"}
+        <button className="gg-preview-primary" type="button" disabled>
+          {invited ? "Sign in with invited Gmail" : revoked ? "Ask admin to restore access" : "Access by invitation only"}
         </button>
       )}
       <p className="gg-preview-note">
-        {active ? (onEnter
-          ? "Your membership is active."
-          : "Your membership is active. World facilities are being connected.")
-          : pending
-            ? "The owner has not approved your request yet."
-            : "Membership approval is required to enter."}
+        {active
+          ? "Your administrator-linked Gmail account is verified. The facilities and training grounds are ready."
+          : invited
+            ? "Sign in with the exact Gmail address linked by the GG administrator."
+            : revoked
+              ? "This account no longer has permission to enter the football World."
+              : "Only Gmail accounts explicitly linked by the GG administrator can enter the local World map."}
       </p>
     </aside>
   );
@@ -199,18 +164,15 @@ function Preview({ world, membership, onEnter, onRequestMembership, onClose }) {
 
 /**
  * Map renderer prototype. worlds must be a public-projection DTO.
- * membershipStates is viewer-specific and must come from a separate membership response.
- * The enter and request callbacks must still be verified by the backend.
+ * membershipStates is viewer-specific and must come from the signed-in account's
+ * single-World access response. Local map access is still verified by the backend.
  */
 export default function GlobalMapScene({
-  worlds = GLOBAL_MAP_DEMO_WORLDS,
-  membershipStates = GLOBAL_MAP_DEMO_MEMBERSHIP,
+  worlds = [],
+  membershipStates = {},
   selectedWorldSlug = null,
   onSelectWorld,
   onEnterWorld,
-  onRequestMembership,
-  availablePlots = [],
-  onClaimPlot,
 }) {
   const [selected, setSelected] = useState(null);
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
@@ -223,11 +185,8 @@ export default function GlobalMapScene({
     }
   }, []);
   const instanceId = useId().replace(/:/g, "");
-  const mapPoints = [
-    ...worlds.map(world => ({ x: world.globalMap?.x, y: world.globalMap?.y })),
-    ...availablePlots.map(plot => ({ x: plot.x, y: plot.y })),
-  ];
-  const tiles = useMemo(() => terrain(mapPoints), [worlds, availablePlots]);
+  const mapPoints = worlds.map(world => ({ x: world.globalMap?.x, y: world.globalMap?.y }));
+  const tiles = useMemo(() => terrain(mapPoints), [worlds]);
   const fit = useMemo(() => {
     const positions = mapPoints
       .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
@@ -260,13 +219,12 @@ export default function GlobalMapScene({
       centerY: (minY + maxY) / 2,
       scale,
     };
-  }, [worlds, availablePlots]);
+  }, [worlds]);
   const activeSelection = worlds.find(world => world.slug === selectedWorldSlug) || selected;
 
   const selectWorld = world => {
-    // Public/non-member kingdoms open their preview and approval request flow.
-    // An active member gets a short camera flight toward their kingdom before
-    // the app swaps to the full-screen local World map.
+    // The one kingdom is visible on the Global Map, but only a verified
+    // administrator-linked account can fly into its private local map.
     if (membershipStates[world.slug] === "active" && onEnterWorld) {
       const position = project(world.globalMap.x, world.globalMap.y);
       const targetZoom = Math.min(6, Math.max(camera.zoom, 3.4 / Math.max(fit.scale, 0.1)));
@@ -367,9 +325,6 @@ export default function GlobalMapScene({
                 <path d="M1440 820 l-28 -48 l56 0 Z M1478 842 l-19 -34 l38 0 Z"/>
               </g>
             </g>
-            {availablePlots.map(plot => (
-              <ClaimPlot key={"plot-" + plot.slotIndex} plot={plot} onClaim={onClaimPlot}/>
-            ))}
             {worlds.filter(world => Number.isFinite(world.globalMap?.x) && Number.isFinite(world.globalMap?.y)).map(world => (
               <Kingdom key={world.slug} world={world}
                 membership={membershipStates[world.slug] || "none"}
@@ -382,12 +337,11 @@ export default function GlobalMapScene({
           <button type="button" onClick={() => setCamera(c => ({ ...c, zoom: Math.max(0.5, c.zoom - 0.25) }))} aria-label="Zoom out">−</button>
           <button type="button" onClick={() => setCamera({ x: 0, y: 0, zoom: 1 })} aria-label="Reset map view">⌖</button>
         </div>
-        <div className="gg-global-map-hint">Drag to explore · Select a kingdom · Claim open land to found a World</div>
+        <div className="gg-global-map-hint">Drag to explore · Select the GG football World · Entry requires an administrator-linked Gmail</div>
         <Preview
           world={activeSelection}
           membership={activeSelection ? membershipStates[activeSelection.slug] || "none" : "none"}
           onEnter={selectWorld}
-          onRequestMembership={onRequestMembership}
           onClose={() => {
             setSelected(null);
             onSelectWorld?.(null);
