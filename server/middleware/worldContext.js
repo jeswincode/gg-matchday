@@ -33,7 +33,7 @@ export async function resolveWorldContext(req, res, next) {
 
     const world = await getPrimaryWorld();
     let membership = null;
-    if (req.user?._id && req.firebaseUser?.testOnly === true && process.env.NODE_ENV !== "production") {
+    if (req.user?._id && req.firebaseUser?.testOnly === true && process.env.NODE_ENV === "test") {
       // The synthetic test identity exists only behind the non-production,
       // secret-gated E2E authentication middleware.
       const requestedWorldRole = String(req.headers?.["x-e2e-test-world-role"] || "");
@@ -82,7 +82,7 @@ export async function resolveWorldContext(req, res, next) {
     // null-world fixtures. It cannot run in production and never selects a
     // real World tenant; production accounts always receive the canonical ID.
     const isolatedTestIdentity = req.firebaseUser?.testOnly === true &&
-      process.env.NODE_ENV !== "production";
+      process.env.NODE_ENV === "test";
     const isWorldRoute = req.baseUrl === "/api/worlds" ||
       String(req.originalUrl || "").startsWith("/api/worlds/");
     // Legacy HMAC browser/API fixtures stay in their null-world namespace.
