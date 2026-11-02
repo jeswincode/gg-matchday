@@ -47,7 +47,6 @@ let origin;
 let primaryWorld;
 let adminUser;
 let memberGrantId;
-let editorGrantId;
 
 async function request(path, { token, method = "GET", body, worldSlug } = {}) {
   const response = await fetch(origin + "/api" + path, {
@@ -282,7 +281,6 @@ test("Editor invitation grants football edit capabilities but not private map ad
     body: { email: "editor@gmail.com", role: "editor" },
   });
   assert.equal(invite.status, 201);
-  editorGrantId = invite.data.grant.id;
 
   const status = await request("/worlds/me", { token: "editor" });
   assert.equal(status.data.worlds[0].membership.status, "active");
