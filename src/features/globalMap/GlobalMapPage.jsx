@@ -148,29 +148,11 @@ function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, onSignIn, onS
   );
 }
 
-function WorldAccessManager({ open, onClose, onMessage }) {
-  const [grants, setGrants] = useState([]);
+function WorldAccessManager({ open, onClose, onMessage, grants = [], loading = false, loadError = "", onRefresh }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
-  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
-
-  const loadGrants = useCallback(async () => {
-    try {
-      const result = await api("/worlds/admin/access");
-      setError("");
-      setGrants(Array.isArray(result?.grants) ? result.grants : []);
-    } catch (loadError) {
-      setError(loadError?.message || "Could not load linked Gmail accounts.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (open) loadGrants();
-  }, [open, loadGrants]);
 
   if (!open) return null;
 
@@ -185,7 +167,7 @@ function WorldAccessManager({ open, onClose, onMessage }) {
       });
       setEmail("");
       onMessage?.(result?.message || "Gmail invitation created.");
-      await loadGrants();
+      await onRefresh?.();
     } catch (inviteError) {
       setError(inviteError?.message || "Could not create this invitation.");
     } finally {
@@ -202,7 +184,7 @@ function WorldAccessManager({ open, onClose, onMessage }) {
         method: "DELETE",
       });
       onMessage?.(result?.message || "World access revoked.");
-      await loadGrants();
+      await onRefresh?.();
     } catch (revokeError) {
       setError(revokeError?.message || "Could not revoke this invitation.");
     } finally {
@@ -237,10 +219,10 @@ function WorldAccessManager({ open, onClose, onMessage }) {
             {busyId === "invite" ? "Linking Gmail…" : "Link Gmail account"}
           </button>
         </form>
-        {error && <p className="gg-world-access-error" role="alert">{error}</p>}
+        {(loadError || error) && <p className="gg-world-access-error" role="alert">{error || loadError}</p>}
         <div className="gg-world-access-list-heading">
           <strong>Linked accounts and invitations</strong>
-          <button type="button" onClick={loadGrants} disabled={loading || Boolean(busyId)}>Refresh</button>
+          <button type="button" onClick={onRefresh} disabled={loading || Boolean(busyId)}>Refresh</button>
         </div>
         {loading ? (
           <p className="gg-world-access-empty" role="status">Loading access records…</p>
@@ -292,6 +274,9 @@ export default function GlobalMapPage({
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileCreating, setProfileCreating] = useState(false);
   const [accessManagerOpen, setAccessManagerOpen] = useState(false);
+  const [accessGrants, setAccessGrants] = useState([]);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessLoadError, setAccessLoadError] = useState("");
   const [enteringWorld, setEnteringWorld] = useState(false);
   const [interiorError, setInteriorError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -315,6 +300,24 @@ export default function GlobalMapPage({
       setRefreshing(false);
     }
   }, [isSignedIn]);
+
+  const refreshAccessGrants = useCallback(async () => {
+    setAccessLoading(true);
+    setAccessLoadError("");
+    try {
+      const result = await api("/worlds/admin/access");
+      setAccessGrants(Array.isArray(result?.grants) ? result.grants : []);
+    } catch (error) {
+      setAccessLoadError(error?.message || "Could not load linked Gmail accounts.");
+    } finally {
+      setAccessLoading(false);
+    }
+  }, []);
+
+  const openAccessManager = () => {
+    setAccessManagerOpen(true);
+    void refreshAccessGrants();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -451,7 +454,7 @@ export default function GlobalMapPage({
           isSignedIn={isSignedIn}
           isAdmin={isAdmin}
           onNavigateAdmin={() => onNavigateTab?.("admin")}
-          onManageAccess={() => setAccessManagerOpen(true)}
+          onManageAccess={openAccessManager}
           onSignIn={onSignIn}
           onSignOut={onSignOut}
           theme={theme}
@@ -577,6 +580,10 @@ export default function GlobalMapPage({
         open={isAdmin && accessManagerOpen}
         onClose={() => setAccessManagerOpen(false)}
         onMessage={onMessage}
+        grants={accessGrants}
+        loading={accessLoading}
+        loadError={accessLoadError}
+        onRefresh={refreshAccessGrants}
       />
     </main>
   );
