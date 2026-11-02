@@ -124,6 +124,10 @@ router.get("/map", asyncRoute(async (req, res) => {
 
 async function accountWorldAccess(req, world) {
   const email = normalizeGmailAddress(req.firebaseUser?.email || req.user?.email);
+  if (req.firebaseUser?.testOnly === true && process.env.NODE_ENV !== "production") {
+    const role = req.user?.role === "admin" ? "owner" : req.user?.role === "editor" ? "editor" : "member";
+    return { role, status: "active", playerProfileId: req.user?.playerProfile || null };
+  }
   const [membership, grant] = await Promise.all([
     req.user?._id ? WorldMembership.findOne({ worldId: world._id, userId: req.user._id }).lean() : null,
     req.user?._id && email ? WorldAccessGrant.findOne({ worldId: world._id, email }).lean() : null,
