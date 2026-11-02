@@ -44,7 +44,7 @@ function PlayerProfileModal({ open, world, onClose, onCreate, busy, existingProf
         <div className="gg-world-modal-copy">
           <span className="gg-world-create-eyebrow">YOUR PLACE IN THIS WORLD</span>
           <h2 id="gg-world-player-profile-title">{existingProfile ? "Your World Player" : "Create your player profile"}</h2>
-          <p>This profile belongs only to {world.name}. Your player identity and football record belong to this shared football World.</p>
+          <p>Your player identity and football record belong to the shared GG football World.</p>
         </div>
         {existingProfile ? (
           <div className="gg-world-profile-summary">
