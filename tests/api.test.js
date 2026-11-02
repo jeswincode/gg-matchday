@@ -19,8 +19,8 @@ const {world}=await seedPrimaryWorldFixture({
   ],
 });
 viewer=viewerUser;
-p1=await Player.create({name:'Test Forward',worldId:world._id});
-p2=await Player.create({name:'Test Keeper',worldId:world._id});}, {timeout:120000});
+p1=await Player.create({name:'Test Forward'});
+p2=await Player.create({name:'Test Keeper'});}, {timeout:120000});
 after(async()=>{await syncHistory().catch(()=>{});server?.closeAllConnections();if(server)await new Promise(r=>server.close(r));await mongoose.disconnect();await database?.stop();});
 const payload=()=>({date:'2026-01-04',name:'Test Sunday',teamA:{label:'Test A',score:99},teamB:{label:'Test B',score:99},participants:[{player:String(p1._id),team:'A',rating:8.9,defensivePerformance:8},{player:String(p2._id),team:'B',rating:7,defensivePerformance:6}],events:[{player:String(p1._id),type:'goal'}]});
 test('API responses include a safe request id and invalid ids remain client errors',async()=>{const health=await request('/health');assert.equal(health.status,503);assert.equal(health.data.status,'degraded');assert.equal(health.data.database,'connected');assert.equal(health.data.clubsDatabase,'disconnected');assert.match(health.requestId,/^[0-9a-f-]{36}$/i);const invalid=await request('/players/not-an-object-id',{token:'admin'});assert.equal(invalid.status,400);assert.equal(invalid.data.message,'Invalid resource id.');assert.match(invalid.requestId,/^[0-9a-f-]{36}$/i);assert.doesNotMatch(JSON.stringify(invalid.data),/mongodb|secret|password/i);});
