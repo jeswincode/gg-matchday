@@ -7,6 +7,7 @@ import {
 } from "../services/adminIdentityPolicy.js";
 
 import getFirebaseAdmin from "../config/firebaseAdmin.js";
+import { activatePendingWorldAccessGrant } from "../services/worldAccessGrants.js";
 
 // ==================================================
 // REQUIRE VALID FIREBASE LOGIN
@@ -17,6 +18,7 @@ export async function requireAuth(
   res,
   next
 ) {
+  if (req.user && req.firebaseUser) return next();
   try {
     const testToken = String(req.headers["x-e2e-test-token"] || "");
     if (testToken) {
@@ -48,7 +50,7 @@ export async function requireAuth(
         } },
         { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, runValidators: true },
       );
-      req.firebaseUser = { uid, testOnly: true };
+      req.firebaseUser = { uid, email: user.email, email_verified: true, testOnly: true };
       req.user = user;
       return next();
     }
@@ -109,80 +111,71 @@ export async function requireAuth(
       configuredAdminEmail,
     );
 
-    let user =
-      await User.findOne({
-        firebaseUid,
-      });
-
-    // ------------------------------------------------
-    // CREATE FIRST RECORD IF NEEDED
-    // ------------------------------------------------
-
+    let user = await User.findOne({ firebaseUid });
     if (!user) {
       const role = isConfiguredAdmin ? "admin" : "viewer";
-
       try {
         user = await User.create({
           firebaseUid,
           email,
+          emailVerified: decoded.email_verified === true,
           name,
           profileImage: photoURL,
           role,
+          platformRole: isConfiguredAdmin ? "platform_admin" : "user",
           accessRequest: "none",
         });
       } catch (createError) {
-        // Several API calls can arrive immediately after the same first login.
-        // If another request inserted this Firebase UID first, reuse that row
-        // instead of turning the losing request into a spurious 401.
-        const firebaseUidCollision =
-          createError?.code === 11000 &&
+        const firebaseUidCollision = createError?.code === 11000 &&
           (createError?.keyPattern?.firebaseUid || String(createError?.message || "").includes("firebaseUid_1"));
         if (!firebaseUidCollision) throw createError;
-
         user = await User.findOne({ firebaseUid });
         if (!user) throw createError;
-
-        let changed = false;
-        if (email && email !== user.email) { user.email = email; changed = true; }
-        if (name && name !== user.name) { user.name = name; changed = true; }
-        if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
-        if (isConfiguredAdmin) {
-          if (user.role !== "admin") { user.role = "admin"; changed = true; }
-          if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
-        } else if (user.role === "admin") {
-          // Remove stale auto-granted privilege when the current Firebase
-          // identity no longer proves ownership of the configured admin email.
-          user.role = "viewer";
-          user.accessRequest = "none";
-          changed = true;
-        }
-        if (changed) await user.save();
       }
-    } else {
-      let changed = false;
-      if (email && email !== user.email) { user.email = email; changed = true; }
-      if (name && name !== user.name) { user.name = name; changed = true; }
-      if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
-      if (isConfiguredAdmin) {
-        if (user.role !== "admin") { user.role = "admin"; changed = true; }
-        if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
-      } else if (user.role === "admin") {
-        // Remove stale auto-granted privilege when the current Firebase
-        // identity no longer proves ownership of the configured admin email.
-        user.role = "viewer";
-        user.accessRequest = "none";
-        changed = true;
-      }
-      if (changed) await user.save();
     }
 
-    req.firebaseUser =
-      decoded;
+    let changed = false;
+    if (email && email !== user.email) { user.email = email; changed = true; }
+    if (name && name !== user.name) { user.name = name; changed = true; }
+    if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
 
-    req.user =
-      user;
+    const verified = decoded.email_verified === true;
+    const expectedPlatformRole = isConfiguredAdmin ? "platform_admin" : "user";
+    if (user.emailVerified !== verified) { user.emailVerified = verified; changed = true; }
+    if (user.platformRole !== expectedPlatformRole) {
+      user.platformRole = expectedPlatformRole;
+      changed = true;
+    }
 
-    next();
+    if (isConfiguredAdmin) {
+      if (user.role !== "admin") { user.role = "admin"; changed = true; }
+      if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+    } else if (user.role === "admin") {
+      user.role = "viewer";
+      user.accessRequest = "none";
+      changed = true;
+    }
+
+    if (changed) await user.save();
+
+    req.firebaseUser = decoded;
+    req.user = user;
+
+    // A pending invitation activates only after Firebase proves the exact
+    // Gmail address and UID. Failures leave the account unlinked and denied.
+    if (!isConfiguredAdmin && verified) {
+      try {
+        await activatePendingWorldAccessGrant({ user, firebaseUser: decoded });
+      } catch (activationError) {
+        console.error(JSON.stringify({
+          event: "world_access_invitation_activation_failed",
+          errorName: activationError?.name || "Error",
+          code: activationError?.code || null,
+        }));
+      }
+    }
+
+    return next();
   } catch (error) {
     console.error(
       "Authentication error:",
