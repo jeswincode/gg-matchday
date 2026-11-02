@@ -149,12 +149,13 @@ await WorldMapFacility.create({
 // Formation requires every invitee to already have a linked GG account. These
 // test identities mirror the role/player mapping used by requireAuth's
 // test-only header path and remain confined to this in-memory database.
-await User.insertMany(workflowPlayers.map(({ id }) => ({
+await User.insertMany([...basePlayers, ...workflowPlayers].map(({ id, name }) => ({
   firebaseUid: `e2e-test:editor:${id}`,
-  name: "Playwright editor",
+  name: name || "Playwright editor",
   email: `playwright-editor-${id}@test.invalid`,
   profileImage: "",
   role: "editor",
+  platformRole: "user",
   accessRequest: "none",
   playerProfile: new mongoose.Types.ObjectId(id),
 })));
@@ -214,14 +215,8 @@ const ratingExplanationMatch = await Match.create({
   events: [{ player: new mongoose.Types.ObjectId(basePlayers[0].id), type: "goal" }],
 });
 
-const ratingDisputeReporter = await User.create({
-  firebaseUid: `e2e-test:viewer:${basePlayers[1].id}`,
-  name: "E2E Dispute Reporter",
-  email: "e2e-rating-dispute-reporter@test.invalid",
-  profileImage: "",
-  role: "viewer",
-  accessRequest: "none",
-  playerProfile: new mongoose.Types.ObjectId(basePlayers[1].id),
+const ratingDisputeReporter = await User.findOne({
+  firebaseUid: `e2e-test:editor:${basePlayers[1].id}`,
 });
 await RatingDispute.create({
   match: ratingExplanationMatch._id,
