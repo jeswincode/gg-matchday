@@ -25,6 +25,10 @@ const userSchema =
         trim: true,
       },
 
+      // Cached for display/auditing only; authorization checks the current
+      // Firebase token's email_verified claim on protected requests.
+      emailVerified: { type: Boolean, default: false },
+
       profileImage: {
         type: String,
         default: "",
