@@ -124,7 +124,7 @@ router.get("/map", asyncRoute(async (req, res) => {
 
 async function accountWorldAccess(req, world) {
   const email = normalizeGmailAddress(req.firebaseUser?.email || req.user?.email);
-  if (req.firebaseUser?.testOnly === true && process.env.NODE_ENV !== "production") {
+  if (req.firebaseUser?.testOnly === true && process.env.NODE_ENV === "test") {
     const role = req.user?.role === "admin" ? "owner" : req.user?.role === "editor" ? "editor" : "member";
     return { role, status: "active", playerProfileId: req.user?.playerProfile || null };
   }
