@@ -260,9 +260,12 @@ export default function GlobalMapScene({
   const pointerDown = event => {
     // Child controls own their click/pointer events; the camera only captures
     // gestures that begin on empty terrain.
+    const isTouch = event.pointerType === "touch";
+    const touchOnKingdom = isTouch && event.target.closest?.(".gg-global-map-kingdom");
+    const interactiveTarget = event.target.closest?.(".gg-global-map-kingdom, .gg-global-map-preview, .gg-global-map-controls, button, a, input, textarea, select, [role='button']");
     if (
-      (event.button !== 0 && event.pointerType !== "touch") ||
-      event.target.closest?.(".gg-global-map-kingdom, .gg-global-map-preview, .gg-global-map-controls, button, a, input, textarea, select, [role='button']")
+      (event.button !== 0 && !isTouch) ||
+      (interactiveTarget && !touchOnKingdom)
     ) return;
 
     pointers.current.set(event.pointerId, {
@@ -275,6 +278,11 @@ export default function GlobalMapScene({
     const touchPointers = [...pointers.current.entries()]
       .filter(([, pointer]) => pointer.pointerType === "touch");
     if (touchPointers.length >= 2) {
+      // A pinch may begin on a kingdom/facility. Capture both active pointers
+      // only once the gesture is unambiguously a two-finger camera gesture.
+      for (const [pointerId] of touchPointers.slice(-2)) {
+        event.currentTarget.setPointerCapture?.(pointerId);
+      }
       const [first, second] = touchPointers.slice(-2).map(([, pointer]) => pointer);
       pinch.current = {
         pointerIds: touchPointers.slice(-2).map(([id]) => id),
@@ -285,6 +293,8 @@ export default function GlobalMapScene({
       setIsPanning(true);
       return;
     }
+
+    if (touchOnKingdom) return;
 
     drag.current = {
       id: event.pointerId,
@@ -351,7 +361,7 @@ export default function GlobalMapScene({
     }
 
     if (pointers.current.size === 0) setIsPanning(false);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const handleWheel = event => {
