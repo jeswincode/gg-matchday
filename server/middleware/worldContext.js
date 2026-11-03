@@ -45,7 +45,13 @@ export async function resolveWorldContext(req, res, next) {
       const role = ["owner", "admin", "editor", "member", "viewer"].includes(requestedWorldRole)
         ? requestedWorldRole
         : fallbackWorldRole;
-      membership = { worldId: world._id, userId: req.user._id, role, status: "active" };
+      membership = {
+        worldId: world._id,
+        userId: req.user._id,
+        role,
+        status: "active",
+        playerProfileId: req.user.playerProfile || null,
+      };
     } else if (req.user?._id && isPlatformAdministrator(req.user, req.firebaseUser)) {
       membership = await WorldMembership.findOne({
         worldId: world._id,
