@@ -119,6 +119,8 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
   const [saving, setSaving] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const drag = useRef(null);
+  const pointers = useRef(new Map());
+  const pinch = useRef(null);
 
   const width = data.layout.gridWidth;
   const height = data.layout.gridHeight;
@@ -142,12 +144,34 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
   });
 
   const pointerDown = event => {
-    // Facilities and viewport controls must receive their own clicks;
-    // camera pointer capture is reserved for empty terrain.
+    // Facilities and viewport controls receive their own clicks; camera
+    // gestures begin only on empty terrain.
     if (
-      event.button !== 0 ||
+      (event.button !== 0 && event.pointerType !== "touch") ||
       event.target.closest?.(".gg-world-facility, .gg-world-map-controls, button, a, input, textarea, select, [role='button']")
     ) return;
+
+    pointers.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+      pointerType: event.pointerType,
+    });
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    const touchPointers = [...pointers.current.entries()]
+      .filter(([, pointer]) => pointer.pointerType === "touch");
+    if (touchPointers.length >= 2) {
+      const [first, second] = touchPointers.slice(-2).map(([, pointer]) => pointer);
+      pinch.current = {
+        pointerIds: touchPointers.slice(-2).map(([id]) => id),
+        startDistance: Math.max(1, Math.hypot(second.x - first.x, second.y - first.y)),
+        startZoom: camera.zoom,
+      };
+      drag.current = null;
+      setIsPanning(true);
+      return;
+    }
+
     drag.current = {
       id: event.pointerId,
       x: event.clientX,
@@ -156,10 +180,31 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
       cameraY: camera.y,
     };
     setIsPanning(true);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   const pointerMove = event => {
+    if (pointers.current.has(event.pointerId)) {
+      pointers.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+        pointerType: event.pointerType,
+      });
+    }
+
+    if (pinch.current) {
+      const [firstId, secondId] = pinch.current.pointerIds;
+      const first = pointers.current.get(firstId);
+      const second = pointers.current.get(secondId);
+      if (!first || !second) return;
+      const distance = Math.max(1, Math.hypot(second.x - first.x, second.y - first.y));
+      const start = pinch.current;
+      setCamera(current => ({
+        ...current,
+        zoom: Math.max(0.4, Math.min(2.5, start.startZoom * distance / start.startDistance)),
+      }));
+      return;
+    }
+
     if (!drag.current || drag.current.id !== event.pointerId) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     setCamera(current => ({
@@ -170,10 +215,38 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
   };
 
   const pointerUp = event => {
-    if (drag.current?.id !== event.pointerId) return;
-    drag.current = null;
-    setIsPanning(false);
+    pointers.current.delete(event.pointerId);
+    if (pinch.current?.pointerIds.includes(event.pointerId)) {
+      pinch.current = null;
+      const remaining = [...pointers.current.entries()]
+        .find(([, pointer]) => pointer.pointerType === "touch");
+      if (remaining) {
+        const [id, pointer] = remaining;
+        drag.current = {
+          id,
+          x: pointer.x,
+          y: pointer.y,
+          cameraX: camera.x,
+          cameraY: camera.y,
+        };
+      } else {
+        drag.current = null;
+      }
+    } else if (drag.current?.id === event.pointerId) {
+      drag.current = null;
+    }
+
+    if (pointers.current.size === 0) setIsPanning(false);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
+  };
+
+  const handleWheel = event => {
+    event.preventDefault();
+    const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+    setCamera(current => ({
+      ...current,
+      zoom: Math.max(0.4, Math.min(2.5, current.zoom * factor)),
+    }));
   };
 
   const moveSelected = async (deltaColumn, deltaRow) => {
@@ -248,6 +321,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
         onPointerCancel={pointerUp}
+        onWheel={handleWheel}
       >
         <svg
           className="gg-world-map-svg"
