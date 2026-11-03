@@ -30,6 +30,27 @@ test("guest opens the Global Map, inspects the isometric canvas and sees the ins
     element.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -120 }));
   });
   await expect.poll(() => camera.getAttribute("transform")).not.toBe(wheelBefore);
+
+  const pinchBefore = await camera.getAttribute("transform");
+  await page.locator(".gg-global-map-viewport").evaluate(element => {
+    element.setPointerCapture = () => {};
+    element.releasePointerCapture = () => {};
+    const pointer = (type, id, x, y) => element.dispatchEvent(new PointerEvent(type, {
+      bubbles: true,
+      pointerId: id,
+      pointerType: "touch",
+      isPrimary: id === 1,
+      clientX: x,
+      clientY: y,
+      button: 0,
+    }));
+    pointer("pointerdown", 1, 100, 200);
+    pointer("pointerdown", 2, 200, 200);
+    pointer("pointermove", 2, 260, 200);
+    pointer("pointerup", 2, 260, 200);
+    pointer("pointerup", 1, 100, 200);
+  });
+  await expect.poll(() => camera.getAttribute("transform")).not.toBe(pinchBefore);
   expect(pageErrors).toEqual([]);
 });
 
