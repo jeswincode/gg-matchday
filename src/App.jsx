@@ -2432,27 +2432,30 @@ function App() {
 
   if (activeTab === TABS.HOME) {
     return (
-      <Suspense fallback={<div className="gg-map-loading">Opening the football universe…</div>}>
-        <GlobalMapPage
-          isSignedIn={isSignedIn}
-          authUser={authUser}
-          backendUser={backendUser}
-          onWorldMembershipChange={setWorldMembership}
-          onMessage={setMessage}
-          onSignIn={() => setExperience("entry")}
-          onSignOut={logout}
-          onNavigateTab={setActiveTab}
-          theme={theme}
-          onThemeChange={setTheme}
-          isAdmin={isAdmin}
-          message={message}
-          onClearMessage={() => setMessage("")}
-          onOpenClubs={() => switchProductMode("clubs")}
-          onTouchStart={handleAppTouchStart}
-          onTouchMove={handleAppTouchMove}
-          onTouchEnd={handleAppTouchEnd}
-        />
-      </Suspense>
+      <>
+        <Suspense fallback={<div className="gg-map-loading">Opening the football universe…</div>}>
+          <GlobalMapPage
+            isSignedIn={isSignedIn}
+            authUser={authUser}
+            backendUser={backendUser}
+            onWorldMembershipChange={setWorldMembership}
+            onMessage={setMessage}
+            onSignIn={() => setExperience("entry")}
+            onSignOut={logout}
+            onNavigateTab={setActiveTab}
+            theme={theme}
+            onThemeChange={setTheme}
+            isAdmin={isAdmin}
+            message={message}
+            onClearMessage={() => setMessage("")}
+            onOpenClubs={() => switchProductMode("clubs")}
+            onTouchStart={handleAppTouchStart}
+            onTouchMove={handleAppTouchMove}
+            onTouchEnd={handleAppTouchEnd}
+          />
+        </Suspense>
+        {modeTransitionLayer}
+      </>
     );
   }
 
