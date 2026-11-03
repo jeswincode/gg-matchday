@@ -264,6 +264,8 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   // Returning to Matchday must preserve the ability to choose Gold independently.
   await page.getByRole("button", { name: /Matchday/ }).click();
   await expect(html).toHaveAttribute("data-product-mode", "matchday");
+  // The 720 ms mode guard must remain visible over the Global Map too.
+  await expect(page.locator(".product-mode-transition")).toBeVisible();
   await expect(page.locator(".product-mode-transition")).toHaveCount(0);
   // Returning from Clubs remounts the Global Map and asynchronously revalidates
   // the administrator-linked World membership before showing World actions.
