@@ -116,6 +116,14 @@ test("Original GG backfill scopes legacy Core and Clubs data, preserves finance,
       worldId: null, mainMatchId: matchId,
     });
 
+    await coreDb.collection("players").createIndex(
+      { worldId: 1, nameNormalized: 1 },
+      {
+        unique: true,
+        name: "player_world_name_unique_test",
+        partialFilterExpression: { worldId: { $type: "objectId" } },
+      },
+    );
     await clubsDb.collection("clubs").createIndex(
       { worldId: 1, name: 1 }, { unique: true, name: "world_name_unique_test" },
     );
@@ -131,6 +139,14 @@ test("Original GG backfill scopes legacy Core and Clubs data, preserves finance,
     assert.equal(first.postflight.eligibleLegacyCount, 0);
     assert.ok(first.modified.core.players >= 2);
     assert.ok(first.modified.clubs.clubs >= 2);
+
+    const migratedPlayers = await coreDb.collection("players")
+      .find({ worldId }).toArray();
+    assert.equal(migratedPlayers.length, 2);
+    assert.deepEqual(
+      migratedPlayers.map(player => player.nameNormalized).sort(),
+      ["legacy player a", "legacy player b"],
+    );
 
     for (const [db, names] of [
       [coreDb, ["players", "matches", "awards", "ratingDisputes"]],
