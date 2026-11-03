@@ -28,6 +28,44 @@ test("guest opens the Global Map, inspects the isometric canvas and sees the ins
   expect(pageErrors).toEqual([]);
 });
 
+test("global and local maps support wheel zoom and two-pointer pinch gestures", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
+
+  const globalViewport = page.locator(".gg-global-map-viewport");
+  const globalCamera = page.locator(".gg-global-map-camera");
+  const globalBefore = await globalCamera.getAttribute("transform");
+  await globalViewport.evaluate(element => {
+    element.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -120 }));
+  });
+  await expect.poll(() => globalCamera.getAttribute("transform")).not.toBe(globalBefore);
+
+  const localMap = page.getByRole("region", { name: "Original GG World map" });
+  const localViewport = localMap.locator(".gg-world-map-viewport");
+  const localCamera = localMap.locator(".gg-world-map-camera");
+  const localBefore = await localCamera.getAttribute("transform");
+  await localViewport.evaluate(element => {
+    const pointer = (type, id, x, y) => {
+      const event = new PointerEvent(type, {
+        bubbles: true,
+        pointerId: id,
+        pointerType: "touch",
+        isPrimary: id === 1,
+        clientX: x,
+        clientY: y,
+        button: 0,
+      });
+      element.dispatchEvent(event);
+    };
+    pointer("pointerdown", 1, 100, 200);
+    pointer("pointerdown", 2, 200, 200);
+    pointer("pointermove", 2, 260, 200);
+    pointer("pointerup", 2, 260, 200);
+    pointer("pointerup", 1, 100, 200);
+  });
+  await expect.poll(() => localCamera.getAttribute("transform")).not.toBe(localBefore);
+});
+
 test("linked member enters the private local map and explores its facilities on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const pageErrors = [];
