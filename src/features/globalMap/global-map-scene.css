@@ -37,7 +37,7 @@
 .gg-preview-primary{align-items:center;background:#c6a557;border:0;border-radius:.65rem;color:#1d2b29;cursor:pointer;display:flex;font-size:.8rem;font-weight:900;justify-content:space-between;padding:.75rem .9rem;width:100%}
 .gg-preview-primary:disabled{background:#45564b;color:#d3d4c5;cursor:not-allowed}
 .gg-global-map-preview .gg-preview-note{font-size:.66rem;margin-top:.55rem}
-@media(max-width:680px){.gg-global-map-header{align-items:flex-start}.gg-global-map-viewport{border-radius:.9rem;min-height:560px}.gg-global-map-svg{height:600px;min-height:600px;width:950px;max-width:none;margin-left:-135px}.gg-global-map-preview{bottom:.7rem;left:.7rem;max-width:none;right:.7rem;width:auto}.gg-global-map-hint{bottom:auto;left:50%;top:.8rem}}
+@media(max-width:680px){.gg-global-map-header{align-items:flex-start}.gg-global-map-viewport{border-radius:.9rem;min-height:560px}.gg-global-map-svg{height:600px;min-height:600px;width:950px;max-width:none;margin-left:0;position:relative;left:50%;transform:translateX(-50%)}.gg-global-map-preview{bottom:.7rem;left:.7rem;max-width:none;right:.7rem;width:auto}.gg-global-map-hint{bottom:auto;left:50%;top:.8rem}}
 @media(prefers-reduced-motion:reduce){.gg-global-map-camera,.gg-global-map-kingdom{transition:none}}
 
 
