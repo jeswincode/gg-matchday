@@ -106,7 +106,7 @@ export async function authenticatedFetch(url, options = {}) {
   });
 }
 
-export async function api(path, { method = 'GET', body, signal, ...options } = {}) {
+export async function api(path, { method = 'GET', body, signal, cacheResponse = true, ...options } = {}) {
   const normalizedMethod = String(method || 'GET').toUpperCase();
   const activeWorldSlug = getActiveWorldSlug();
   // The World selector is part of the cache and in-flight request identity.
@@ -114,8 +114,8 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
   const key = (auth?.currentUser?.uid || 'public') + ':' +
     (activeWorldSlug || 'global') + ':' + path;
   const hit = cache.get(key);
-  if (normalizedMethod === 'GET' && !signal && hit && hit.until > Date.now()) return hit.data;
-  if (normalizedMethod === 'GET' && !signal && pending.has(key)) return pending.get(key);
+  if (normalizedMethod === 'GET' && cacheResponse && !signal && hit && hit.until > Date.now()) return hit.data;
+  if (normalizedMethod === 'GET' && cacheResponse && !signal && pending.has(key)) return pending.get(key);
 
   const task = (async () => {
     const token = await auth?.currentUser?.getIdToken();
@@ -166,11 +166,11 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
       throw error;
     }
 
-    if (normalizedMethod === 'GET') cache.set(key, { data, until: Date.now() + 15_000 });
+    if (normalizedMethod === 'GET' && cacheResponse) cache.set(key, { data, until: Date.now() + 15_000 });
     else invalidate();
     return data;
   })().finally(() => pending.delete(key));
 
-  if (normalizedMethod === 'GET' && !signal) pending.set(key, task);
+  if (normalizedMethod === 'GET' && cacheResponse && !signal) pending.set(key, task);
   return task;
 }
