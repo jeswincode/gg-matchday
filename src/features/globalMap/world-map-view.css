@@ -4,6 +4,8 @@
 .gg-world-map-heading p{color:#aebbb0;font-size:.75rem;margin:0}
 .gg-world-map-version{background:rgba(197,164,91,.12);border:1px solid rgba(197,164,91,.25);border-radius:999px;color:#e0ca91;font-size:.65rem;font-weight:850;letter-spacing:.08em;padding:.45rem .7rem}
 .gg-world-map-viewport{background:#18323b;border:1px solid rgba(222,202,150,.18);border-radius:1.1rem;min-height:440px;overflow:hidden;position:relative;touch-action:none}
+.gg-world-map-camera{transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.gg-world-map-camera.is-panning{transition:none}
 .gg-world-map-svg{display:block;height:min(72vh,720px);min-height:440px;user-select:none;width:100%}
 .gg-world-map-ground{stroke:#8da077;stroke-width:4}
 .gg-world-map-grid{fill:none;stroke:rgba(206,218,168,.15);stroke-width:1}
@@ -37,7 +39,7 @@
 .gg-world-map-readonly{color:#a6b4a9;font-size:.7rem}
 .gg-world-map-footnote{color:#82948a;font-size:.67rem;margin:0}
 @media(max-width:680px){.gg-world-map-heading{align-items:flex-start}.gg-world-map-viewport{border-radius:.85rem;min-height:520px}.gg-world-map-svg{height:580px;min-height:580px;width:950px;max-width:none;margin-left:0;position:relative;left:50%;transform:translateX(-50%)}.gg-world-facility-panel{align-items:flex-start;flex-direction:column}.gg-world-facility-editor{justify-content:space-between;width:100%;}}
-@media(prefers-reduced-motion:reduce){.gg-world-facility{transition:none}}
+@media(prefers-reduced-motion:reduce){.gg-world-facility,.gg-world-map-camera{transition:none}}
 
 
 .gg-world-open-plot{pointer-events:none;opacity:.68}
