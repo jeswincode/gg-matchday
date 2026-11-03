@@ -47,8 +47,8 @@ test("Original GG backfill scopes legacy Core and Clubs data, preserves finance,
     ]);
 
     await clubsDb.collection("clubs").insertMany([
-      { _id: clubA, worldId: null, name: "Legacy Club A", memberIds: [playerA, playerB], captainIds: [playerA], balance: 3000, committedBalance: 250 },
-      { _id: clubB, name: "Legacy Club B", memberIds: [playerB], captainIds: [playerB], balance: 2750, committedBalance: 0 },
+      { _id: clubA, worldId: null, name: "Legacy Club A", nameNormalized: "legacy club a", memberIds: [playerA, playerB], captainIds: [playerA], balance: 3000, committedBalance: 250 },
+      { _id: clubB, name: "Legacy Club B", nameNormalized: "legacy club b", memberIds: [playerB], captainIds: [playerB], balance: 2750, committedBalance: 0 },
     ]);
     await clubsDb.collection("clubMatches").insertOne({
       _id: clubMatchId,
@@ -125,7 +125,7 @@ test("Original GG backfill scopes legacy Core and Clubs data, preserves finance,
       },
     );
     await clubsDb.collection("clubs").createIndex(
-      { worldId: 1, name: 1 }, { unique: true, name: "world_name_unique_test" },
+      { worldId: 1, nameNormalized: 1 }, { unique: true, name: "club_world_name_unique_test" },
     );
 
     const preflight = await inspectSingleWorldMigration({
@@ -148,6 +148,13 @@ test("Original GG backfill scopes legacy Core and Clubs data, preserves finance,
     assert.equal(first.postflight.eligibleLegacyCount, 0);
     assert.ok(first.modified.core.players >= 2);
     assert.ok(first.modified.clubs.clubs >= 2);
+    const migratedClubs = await clubsDb.collection("clubs")
+      .find({ worldId }).toArray();
+    assert.equal(migratedClubs.length, 2);
+    assert.deepEqual(
+      migratedClubs.map(club => club.nameNormalized).sort(),
+      ["legacy club a", "legacy club b"],
+    );
 
     const migratedPlayers = await coreDb.collection("players")
       .find({ worldId }).toArray();
