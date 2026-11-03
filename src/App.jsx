@@ -16,6 +16,7 @@ const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
 const GlobalMapPage = lazy(() => import('./features/globalMap/GlobalMapPage'));
+const HomePage = lazy(() => import('./features/home/HomePage'));
 import {
   useEffect,
   useState,
@@ -44,6 +45,7 @@ const API_URL =
 
 const TABS = {
   HOME: "home",
+  JOURNAL: "journal",
   RECORD: "record",
   LEADERBOARD: "leaderboard",
   CALENDAR: "calendar",
@@ -128,6 +130,7 @@ function App() {
     if (!(target instanceof Element)) return false;
 
     if (target.closest('[role="dialog"]')) return true;
+    if (target.closest("button, a, input, textarea, select, [role='button']")) return true;
     // The Global Map owns its touch gestures for isometric camera panning.
     if (target.closest(".gg-global-map-viewport, .gg-world-map-viewport")) return true;
 
@@ -308,7 +311,7 @@ function App() {
     setMatches,
   ] = useState([]);
 
-  const [, setNews] = useState([]);
+  const [news, setNews] = useState([]);
 
   const [
     leaderboard,
@@ -325,7 +328,7 @@ function App() {
     setLoadingMatches,
   ] = useState(true);
 
-  const [, setNewsLoading] = useState(true);
+  const [newsLoading, setNewsLoading] = useState(true);
 
   const [
     ,
@@ -2331,6 +2334,27 @@ function App() {
   // =========================================================
 
   // =========================================================
+  // MATCHDAY JOURNAL
+  // =========================================================
+
+  const latestMatch = matches[0] || null;
+  const latestTopScorer = latestMatch
+    ? Object.values((latestMatch.events || [])
+      .filter(event => event.type === "goal")
+      .reduce((result, event) => {
+        const playerId = String(event.player?._id || event.player);
+        if (!result[playerId]) {
+          result[playerId] = { name: event.player?.name || "Player", goals: 0 };
+        }
+        result[playerId].goals += 1;
+        return result;
+      }, {}))
+      .sort((first, second) => second.goals - first.goals)[0] || null
+    : null;
+  const totalAllTimeGoals = matches.reduce((total, match) =>
+    total + (Number(match.teamA?.score) || 0) + (Number(match.teamB?.score) || 0), 0);
+
+  // =========================================================
   // RENDER
   // =========================================================
 
@@ -2424,7 +2448,47 @@ function App() {
           message={message}
           onClearMessage={() => setMessage("")}
           onOpenClubs={() => switchProductMode("clubs")}
+          onTouchStart={handleAppTouchStart}
+          onTouchMove={handleAppTouchMove}
+          onTouchEnd={handleAppTouchEnd}
         />
+      </Suspense>
+    );
+  }
+
+  if (activeTab === TABS.JOURNAL) {
+    return (
+      <Suspense fallback={<div className="loading-panel">Opening the Matchday Journal…</div>}>
+        <main className="app">
+          <header className="topbar">
+            <div>
+              <p className="eyebrow">GG MATCHDAY</p>
+              <h1>Matchday Journal</h1>
+            </div>
+            <button type="button" className="secondary-button" onClick={() => setActiveTab(TABS.HOME)}>
+              ← Back to World Map
+            </button>
+          </header>
+          <HomePage
+            latestMatch={latestMatch}
+            latestTopScorer={latestTopScorer}
+            players={players}
+            matches={matches}
+            overview={overview}
+            totalAllTimeGoals={totalAllTimeGoals}
+            news={news}
+            newsLoading={newsLoading}
+            leaderboard={leaderboard}
+            onHallOfFame={() => setModal("hall")}
+            onPlayer={showPlayer}
+            onLeaderboard={() => setActiveTab(TABS.LEADERBOARD)}
+            onOpenPlayer={player => {
+              openPlayerProfile(player);
+              setActiveTab(TABS.PLAYERS);
+            }}
+          />
+          {modal === "hall" && <HallOfFame onClose={closeModal} onPlayer={showPlayer} />}
+        </main>
       </Suspense>
     );
   }
