@@ -8,6 +8,7 @@
 .gg-global-map-viewport{background:#102a36;border:1px solid rgba(222,202,150,.18);border-radius:1.2rem;min-height:440px;overflow:hidden;position:relative;touch-action:none}
 .gg-global-map-svg{display:block;height:min(72vh,720px);min-height:440px;user-select:none;width:100%}
 .gg-global-map-camera{transition:transform .22s ease-out}
+.gg-global-map-camera.is-panning{transition:none}
 .gg-map-tile{stroke:rgba(17,45,39,.23);stroke-width:.8}
 .gg-map-tile-water{fill:#244c5a;opacity:.62}.gg-map-tile-grass{fill:#506f50}.gg-map-tile-grass-light{fill:#5d7954}.gg-map-tile-forest{fill:#355a43}.gg-map-tile-hill{fill:#788064}
 .gg-map-river{fill:none;stroke:#73a7a6;stroke-linecap:round;stroke-width:15;opacity:.65}
