@@ -90,12 +90,16 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);
   await enterLinkedMatchday(page);
-  const navigation = page.locator(".bottom-nav");
-  await expect(navigation).toBeVisible();
-  await navigation.getByRole("button", { name: /Players/ }).click();
-  await expect(navigation.getByRole("button", { name: /Players/ })).toBeVisible();
-  await navigation.getByRole("button", { name: /Calendar/ }).click();
-  await expect(page.locator(".bottom-nav")).toBeVisible();
+  const mapNavigation = page.locator(".gg-world-bottom-nav");
+  await expect(mapNavigation).toBeVisible();
+  await mapNavigation.getByRole("button", { name: "Players", exact: true }).click();
+
+  const matchdayNavigation = page.locator(".bottom-nav");
+  await expect(matchdayNavigation).toBeVisible();
+  await matchdayNavigation.getByRole("button", { name: /Calendar/ }).click();
+  await expect(matchdayNavigation).toBeVisible();
+  await matchdayNavigation.getByRole("button", { name: /Home/ }).click();
+  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
 });
 
 
@@ -223,11 +227,12 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   await enterLinkedMatchday(page);
 
   const html = page.locator("html");
-  const themeSwitch = page.locator(".gg-theme");
+  const mapThemeSwitch = page.locator(".gg-world-theme-switch");
+  const matchdayThemeSwitch = page.locator(".gg-theme");
   const clubsApp = page.locator(".clubs-app");
 
   // Dark mode should preserve the Matchday-aligned navy background and controls.
-  await themeSwitch.getByRole("button", { name: "Dark", exact: true }).click();
+  await mapThemeSwitch.getByRole("button", { name: "Dark", exact: true }).click();
   await expect(html).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(clubsApp).toBeVisible();
@@ -254,7 +259,7 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   await page.getByRole("button", { name: /Matchday/ }).click();
   await expect(html).toHaveAttribute("data-product-mode", "matchday");
   await expect(page.locator(".product-mode-transition")).toHaveCount(0);
-  await themeSwitch.getByRole("button", { name: "Gold", exact: true }).click();
+  await matchdayThemeSwitch.getByRole("button", { name: "Gold", exact: true }).click();
   await expect(html).toHaveAttribute("data-theme", "golden");
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(clubsApp).toBeVisible();
