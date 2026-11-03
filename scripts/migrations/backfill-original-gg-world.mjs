@@ -57,6 +57,7 @@ const REFERENCE_CHECKS = [
   { sourceDb: "core", source: "ratingDisputes", path: "match", parentDb: "core", parent: "matches" },
   { sourceDb: "core", source: "ratingDisputes", path: "player", parentDb: "core", parent: "players" },
 
+
   { sourceDb: "clubs", source: "clubs", path: "memberIds", parentDb: "core", parent: "players" },
   { sourceDb: "clubs", source: "clubs", path: "captainIds", parentDb: "core", parent: "players" },
   { sourceDb: "clubs", source: "clubMatches", path: "clubAId", parentDb: "clubs", parent: "clubs" },
@@ -233,7 +234,7 @@ async function findCrossWorldReferenceConflicts(entriesByDb, targetWorldId, batc
     if (!(await collectionExists(parentEntry.db, parentEntry.name))) continue;
 
     const cursor = sourceEntry.db.collection(sourceEntry.name)
-      .find(legacyWorldFilter, { projection: { [check.path]: 1 } })
+      .find({ $and: [legacyWorldFilter, check.sourceFilter || {}] }, { projection: { [check.path]: 1 } })
       .batchSize(batchSize);
     const referencedIds = new Map();
 
