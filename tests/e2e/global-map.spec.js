@@ -25,20 +25,17 @@ test("guest opens the Global Map, inspects the isometric canvas and sees the ins
   const before = await camera.getAttribute("transform");
   await page.getByRole("button", { name: "Zoom in" }).click();
   await expect.poll(() => camera.getAttribute("transform")).not.toBe(before);
+  const wheelBefore = await camera.getAttribute("transform");
+  await page.locator(".gg-global-map-viewport").evaluate(element => {
+    element.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -120 }));
+  });
+  await expect.poll(() => camera.getAttribute("transform")).not.toBe(wheelBefore);
   expect(pageErrors).toEqual([]);
 });
 
 test("global and local maps support wheel zoom and two-pointer pinch gestures", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
-
-  const globalViewport = page.locator(".gg-global-map-viewport");
-  const globalCamera = page.locator(".gg-global-map-camera");
-  const globalBefore = await globalCamera.getAttribute("transform");
-  await globalViewport.evaluate(element => {
-    element.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: -120 }));
-  });
-  await expect.poll(() => globalCamera.getAttribute("transform")).not.toBe(globalBefore);
 
   const localMap = page.getByRole("region", { name: "Original GG World map" });
   const localViewport = localMap.locator(".gg-world-map-viewport");
