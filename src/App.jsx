@@ -2465,7 +2465,10 @@ function App() {
               <p className="eyebrow">GG MATCHDAY</p>
               <h1>Matchday Journal</h1>
             </div>
-            <button type="button" className="secondary-button" onClick={() => setActiveTab(TABS.HOME)}>
+            <button type="button" className="secondary-button" onClick={() => {
+              setApiActiveWorld(null);
+              setActiveTab(TABS.HOME);
+            }}>
               ← Back to World Map
             </button>
           </header>
