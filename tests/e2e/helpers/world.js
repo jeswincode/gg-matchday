@@ -17,6 +17,29 @@ export async function openLinkedWorld(page, { role = "editor", playerId = null }
   else query.set("e2ePlayerId", "unlinked");
 
   await page.goto("/?" + query.toString());
+
+  // Prove the test identity receives the expected one-World access state
+  // independently of the React map rendering. This keeps auth regressions
+  // distinguishable from map/navigation regressions.
+  const playerIdForAuth = playerId || "unlinked";
+  const accessResponse = await page.request.get("http://127.0.0.1:5000/api/worlds/me", {
+    headers: {
+      "X-E2E-Test-Token": "gg-matchday-e2e-only-secret",
+      "X-E2E-Test-Role": role,
+      "X-E2E-Test-Player-Id": playerIdForAuth,
+    },
+  });
+  const accessPayload = await accessResponse.json().catch(() => ({}));
+  console.log("[E2E World access]", {
+    role,
+    playerId: playerIdForAuth,
+    status: accessResponse.status(),
+    membership: accessPayload?.worlds?.[0]?.membership || null,
+    code: accessPayload?.code || null,
+  });
+  expect(accessResponse.ok(), JSON.stringify(accessPayload)).toBeTruthy();
+  expect(accessPayload?.worlds?.[0]?.membership?.status).toBe("active");
+
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await enterWorldFromGlobalMap(page);
