@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { MongoClient, ObjectId } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { applySingleWorldMigration } from "../scripts/migrations/backfill-original-gg-world.mjs";
+import { applySingleWorldMigration, inspectSingleWorldMigration } from "../scripts/migrations/backfill-original-gg-world.mjs";
 
 test("Original GG backfill scopes legacy Core and Clubs data, preserves finance, and safely reruns", async () => {
   const mongo = await MongoMemoryServer.create({ binary: { version: "8.2.6" } });
@@ -126,6 +126,15 @@ test("Original GG backfill scopes legacy Core and Clubs data, preserves finance,
     );
     await clubsDb.collection("clubs").createIndex(
       { worldId: 1, name: 1 }, { unique: true, name: "world_name_unique_test" },
+    );
+
+    const preflight = await inspectSingleWorldMigration({
+      coreDb, clubsDb, primarySlug: "original-gg", batchSize: 2,
+    });
+    assert.deepEqual(
+      preflight.uniqueIndexCollisions,
+      [],
+      "Unexpected unique-index collision: " + JSON.stringify(preflight.uniqueIndexCollisions),
     );
 
     const first = await applySingleWorldMigration({
