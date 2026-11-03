@@ -273,8 +273,6 @@ export default function GlobalMapScene({
       y: event.clientY,
       pointerType: event.pointerType,
     });
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-
     const touchPointers = [...pointers.current.entries()]
       .filter(([, pointer]) => pointer.pointerType === "touch");
     if (touchPointers.length >= 2) {
@@ -296,6 +294,7 @@ export default function GlobalMapScene({
 
     if (touchOnKingdom) return;
 
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     drag.current = {
       id: event.pointerId,
       x: event.clientX,
