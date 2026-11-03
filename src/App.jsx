@@ -678,11 +678,7 @@ function App() {
     try {
       setLoadingPlayers(true);
 
-      const response =
-        await fetch(
-          `${API_URL}/players`,
-          { headers: worldContextHeaders() }
-        );
+      const response = await authenticatedFetch(`${API_URL}/players`);
 
       if (!response.ok) {
         throw new Error(
@@ -712,11 +708,7 @@ function App() {
     try {
       setLoadingMatches(true);
 
-      const response =
-        await fetch(
-          `${API_URL}/matches?page=${page}&limit=50`,
-          { headers: worldContextHeaders() }
-        );
+      const response = await authenticatedFetch(`${API_URL}/matches?page=${page}&limit=50`);
 
       if (!response.ok) {
         throw new Error(
@@ -752,11 +744,7 @@ function App() {
     try {
       setNewsLoading(true);
 
-      const response =
-        await fetch(
-          `${API_URL}/news?limit=12`,
-          { headers: worldContextHeaders() }
-        );
+      const response = await authenticatedFetch(`${API_URL}/news?limit=12`);
 
       if (!response.ok) {
         throw new Error(
@@ -809,8 +797,7 @@ function App() {
           `&month=${now.getMonth() + 1}`;
       }
 
-      const response =
-        await fetch(url, { headers: worldContextHeaders() });
+      const response = await authenticatedFetch(url);
 
       if (!response.ok) {
         throw new Error(
@@ -851,14 +838,8 @@ function App() {
         yearResponse,
         monthResponse,
       ] = await Promise.all([
-        fetch(
-          `${API_URL}/stats/awards?year=${year}`,
-          { headers: worldContextHeaders() }
-        ),
-        fetch(
-          `${API_URL}/stats/awards?year=${year}&month=${month}`,
-          { headers: worldContextHeaders() }
-        ),
+        authenticatedFetch(`${API_URL}/stats/awards?year=${year}`),
+        authenticatedFetch(`${API_URL}/stats/awards?year=${year}&month=${month}`),
       ]);
 
       if (
