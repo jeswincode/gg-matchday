@@ -162,7 +162,7 @@ function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, worldRole, on
               <small>{worldRole || backendUser?.role || "member"}</small>
             </div>
           </div>
-          {isAdmin && <button type="button" className="gg-world-admin-link" onClick={onNavigateAdmin}>Admin</button>}
+          {isAdmin && onNavigateAdmin && <button type="button" className="gg-world-admin-link" onClick={onNavigateAdmin}>Admin</button>}
           {isAdmin && <button type="button" className="gg-world-admin-link" onClick={onManageAccess}>Manage access</button>}
           <button type="button" className="gg-world-signout" onClick={onSignOut}>Sign out</button>
         </>
@@ -484,7 +484,7 @@ export default function GlobalMapPage({
           isSignedIn={isSignedIn}
           isAdmin={isAdmin}
           worldRole={worldMembership?.role}
-          onNavigateAdmin={() => onNavigateTab?.("admin")}
+          onNavigateAdmin={enteredWorld ? () => onNavigateTab?.("admin") : null}
           onManageAccess={openAccessManager}
           onSignIn={onSignIn}
           onSignOut={onSignOut}
@@ -558,7 +558,7 @@ export default function GlobalMapPage({
               <span className="gg-world-create-eyebrow">WELCOME TO YOUR WORLD</span>
               <h1>{enteredWorld.name}</h1>
             </div>
-            <span className="gg-world-interior-role">{enteredMap?.permissions?.canEditMap ? "OWNER / ADMIN" : "MEMBER"}</span>
+            <span className="gg-world-interior-role">{worldMembership?.role?.toUpperCase() || (enteredMap?.permissions?.canEditMap ? "OWNER / ADMIN" : "MEMBER")}</span>
           </header>
           {!playerProfile && !isAdmin && (
             <section className="gg-world-profile-setup-banner">
