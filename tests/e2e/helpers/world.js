@@ -3,8 +3,12 @@ import { expect } from "@playwright/test";
 export async function enterWorldFromGlobalMap(page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.locator(".gg-world-screen-global")).toBeVisible();
-  await page.getByRole("button", { name: "Preview Original GG" }).dispatchEvent("click");
+  await expect(page.getByRole("heading", { name: "One World. One shared football home." })).toBeVisible();
+  await page.getByRole("button", { name: "Preview Original GG" }).click();
+  await expect(page.getByRole("button", { name: "Enter Football World" })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Football World" }).click();
   await expect(page.locator(".gg-world-screen-interior")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("region", { name: "Original GG World map" })).toBeVisible();
 }
 
 export async function openLinkedWorld(page, { role = "editor", playerId = null } = {}) {
