@@ -2,11 +2,14 @@ import { expect } from "@playwright/test";
 
 export async function enterWorldFromGlobalMap(page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  // World context intentionally survives a reload in sessionStorage. Re-entering
-  // this helper on an already-restored interior should be a no-op, not demand
-  // that the user navigate backwards to the Global Map first.
-  await expect(page.locator(".gg-world-screen-global, .gg-world-screen-interior")).toBeVisible();
-  if (await page.locator(".gg-world-screen-interior").isVisible()) {
+  // World context intentionally survives a reload in sessionStorage. Check
+  // the persisted selector first: the Global Map briefly renders while its
+  // restore request is in flight, so DOM-only branching can race that transition.
+  const activeWorldSlug = await page.evaluate(() =>
+    window.sessionStorage.getItem("gg.activeWorldSlug"),
+  );
+  if (activeWorldSlug === "original-gg") {
+    await expect(page.locator(".gg-world-screen-interior")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("region", { name: "Original GG World map" })).toBeVisible();
     return;
   }
