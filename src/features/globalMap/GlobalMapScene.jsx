@@ -414,7 +414,7 @@ export default function GlobalMapScene({
         <Preview
           world={activeSelection}
           membership={activeSelection ? membershipStates[activeSelection.slug] || "none" : "none"}
-          onEnter={selectWorld}
+          onEnter={onEnterWorld}
           onClose={() => {
             setSelected(null);
             onSelectWorld?.(null);
