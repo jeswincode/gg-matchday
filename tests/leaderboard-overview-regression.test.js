@@ -19,12 +19,14 @@ import Achievement from "../server/models/Achievement.js";
 let database;
 let server;
 let origin;
+let primaryWorld;
 
 async function get(path) {
   const response = await fetch(origin + path, {
     headers: {
       "X-E2E-Test-Token": process.env.E2E_TEST_AUTH_SECRET,
       "X-E2E-Test-Role": "viewer",
+      "X-World-Slug": "original-gg",
     },
   });
   return { status: response.status, data: await response.json() };
@@ -37,7 +39,7 @@ before(async () => {
   });
   await mongoose.connect(database.getUri("leaderboard-overview-regression"));
   await Promise.all([Player, Match, PlayerStats, SeasonStats, Award, Achievement, World].map(model => model.init()));
-  await World.create({
+  primaryWorld = await World.create({
     name: "Original GG",
     slug: "original-gg",
     ownerUserId: new mongoose.Types.ObjectId(),
@@ -61,12 +63,13 @@ after(async () => {
 });
 
 test("overview counts detailed goal events and own goals", async () => {
-  const scorer = await Player.create({ name: "Overview Regression Scorer" });
-  const opponent = await Player.create({ name: "Overview Regression Opponent" });
+  const scorer = await Player.create({ worldId: primaryWorld._id, name: "Overview Regression Scorer" });
+  const opponent = await Player.create({ worldId: primaryWorld._id, name: "Overview Regression Opponent" });
   const before = await get("/api/stats/overview");
   assert.equal(before.status, 200);
 
   await Match.create({
+    worldId: primaryWorld._id,
     date: new Date("2026-10-09T12:00:00.000Z"),
     name: "Overview goal aggregation regression",
     teamA: { label: "A", score: 0 },
@@ -87,11 +90,12 @@ test("overview counts detailed goal events and own goals", async () => {
 });
 
 test("leaderboard globally sorts ratings and assigns unique table ranks", async () => {
-  const leader = await Player.create({ name: "Leaderboard Regression Leader", position: "ST" });
-  const runnerUp = await Player.create({ name: "Leaderboard Regression Runner Up", position: "CB" });
+  const leader = await Player.create({ worldId: primaryWorld._id, name: "Leaderboard Regression Leader", position: "ST" });
+  const runnerUp = await Player.create({ worldId: primaryWorld._id, name: "Leaderboard Regression Runner Up", position: "CB" });
 
   for (let index = 0; index < 5; index++) {
     await Match.create({
+      worldId: primaryWorld._id,
       date: new Date(Date.UTC(2026, 7, index + 1, 12)),
       name: `Leaderboard rank regression ${index + 1}`,
       teamA: { label: "A", score: 0 },
@@ -124,13 +128,14 @@ test("leaderboard globally sorts ratings and assigns unique table ranks", async 
 });
 
 test("overview preserves legacy stored scores when a match only has assist events", async () => {
-  const scorer = await Player.create({ name: "Legacy Assist Only Scorer" });
-  const teammate = await Player.create({ name: "Legacy Assist Only Teammate" });
+  const scorer = await Player.create({ worldId: primaryWorld._id, name: "Legacy Assist Only Scorer" });
+  const teammate = await Player.create({ worldId: primaryWorld._id, name: "Legacy Assist Only Teammate" });
   const before = await get("/api/stats/overview");
   assert.equal(before.status, 200);
 
   await Match.collection.insertOne({
     _id: new mongoose.Types.ObjectId(),
+    worldId: primaryWorld._id,
     date: new Date("2024-03-15T12:00:00.000Z"),
     name: "Legacy score with assist event only",
     teamA: { label: "A", score: 2 },
