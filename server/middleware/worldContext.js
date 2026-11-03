@@ -1,4 +1,5 @@
 import WorldMembership from "../models/WorldMembership.js";
+import Player from "../models/Player.js";
 import { getPrimaryWorld, getPrimaryWorldSlug } from "../services/primaryWorld.js";
 import { isPlatformAdministrator } from "../services/worldAccess.js";
 
@@ -83,9 +84,42 @@ export async function resolveWorldContext(req, res, next) {
       });
     }
 
-    req.world = world;
     const isolatedTestIdentity = req.firebaseUser?.testOnly === true &&
       process.env.NODE_ENV === "test";
+
+    // Preserve the existing account-to-player link when a legacy account is
+    // granted access to the new World membership model. Only attach it when
+    // the referenced Player was migrated into this exact World; never copy an
+    // unverified or cross-World profile reference.
+    if (
+      !isolatedTestIdentity &&
+      membership?.status === "active" &&
+      !membership.playerProfileId &&
+      req.user?.playerProfile
+    ) {
+      const matchingPlayer = await Player.exists({
+        _id: req.user.playerProfile,
+        worldId: world._id,
+      });
+      if (matchingPlayer) {
+        membership = await WorldMembership.findOneAndUpdate(
+          {
+            _id: membership._id,
+            worldId: world._id,
+            userId: req.user._id,
+            status: "active",
+            $or: [
+              { playerProfileId: null },
+              { playerProfileId: { $exists: false } },
+            ],
+          },
+          { $set: { playerProfileId: req.user.playerProfile } },
+          { new: true, runValidators: true },
+        ) || membership;
+      }
+    }
+
+    req.world = world;
     const explicitWorldSelector = String(
       req.get?.("x-world-slug") || req.headers?.["x-world-slug"] || "",
     ).trim();
