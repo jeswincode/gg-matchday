@@ -5,20 +5,20 @@ const primarySlug = String(process.env.GG_PRIMARY_WORLD_SLUG || "").trim().toLow
 const coreUri = String(process.env.MONGODB_URI || "").trim();
 const clubsUri = String(process.env.CLUBS_MONGODB_URI || "").trim();
 const coreCollections = [
-  "worldMemberships", "worldMapLayouts", "worldMapFacilities", "players", "matches",
-  "playerStats", "seasonStats", "news", "awards", "achievements", "notifications",
-  "chatmessages", "votes", "profilechangerequests", "ratingDisputes", "mediaAssets",
-  "worldAccessGrants",
+  "players", "matches", "playerStats", "seasonStats", "news", "awards",
+  "achievements", "notifications", "chatmessages", "votes",
+  "profilechangerequests", "ratingDisputes",
 ];
 const clubsCollections = [
-  "clubs", "clubMatches", "clubContracts", "clubHistory", "clubWalletTransactions",
-  "playerWallets", "playerWalletTransactions", "auctionOffers", "joinRequests",
-  "playerReviews", "clubFormationApplications", "clubRenewalDecisions", "clubMatchBets",
+  "clubs", "clubMatches", "clubContracts", "clubHistory",
+  "clubWalletTransactions", "playerWallets", "playerWalletTransactions",
+  "auctionOffers", "joinRequests", "playerReviews",
+  "clubFormationApplications", "clubRenewalDecisions", "clubMatchBets",
   "clubAdminAuditEvents", "clubPlayerStats", "clubSyncJobs",
 ];
 
-if (!coreUri || !primarySlug) {
-  console.error("Read-only audit requires MONGODB_URI and GG_PRIMARY_WORLD_SLUG (the existing intended World slug).");
+if (!coreUri || !clubsUri || !primarySlug) {
+  console.error("Read-only audit requires MONGODB_URI, CLUBS_MONGODB_URI and GG_PRIMARY_WORLD_SLUG (the existing Original GG World slug).");
   process.exitCode = 2;
 } else {
   const clients = [];
@@ -55,26 +55,20 @@ if (!coreUri || !primarySlug) {
     }
 
     const coreInventory = await inventory(coreDb, coreCollections, existingCore, selected);
-    let clubsInventory = {
-      configured: Boolean(clubsUri),
-      database: null,
-      collections: [],
+    const clubsClient = new MongoClient(clubsUri, { readPreference: "primary" });
+    clients.push(clubsClient);
+    await clubsClient.connect();
+    const clubsDb = clubsClient.db(String(process.env.CLUBS_DB_NAME || "").trim() || undefined);
+    const existingClubs = new Set((await clubsDb.listCollections({}, { nameOnly: true }).toArray()).map(item => item.name));
+    const clubsInventory = {
+      configured: true,
+      database: clubsDb.databaseName,
+      collections: await inventory(clubsDb, clubsCollections, existingClubs, selected),
     };
-    if (clubsUri) {
-      const clubsClient = new MongoClient(clubsUri, { readPreference: "primary" });
-      clients.push(clubsClient);
-      await clubsClient.connect();
-      const clubsDb = clubsClient.db(String(process.env.CLUBS_DB_NAME || "").trim() || undefined);
-      const existingClubs = new Set((await clubsDb.listCollections({}, { nameOnly: true }).toArray()).map(item => item.name));
-      clubsInventory = {
-        configured: true,
-        database: clubsDb.databaseName,
-        collections: await inventory(clubsDb, clubsCollections, existingClubs, selected),
-      };
-    }
 
     const report = {
       mode: "READ_ONLY_DRY_RUN",
+      ownershipRule: "All existing legacy documents with null or missing worldId in the listed Matchday and Clubs business collections belong to Original GG.",
       generatedAt: new Date().toISOString(),
       primarySlug,
       coreDatabase: coreDb.databaseName,
