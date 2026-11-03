@@ -35,20 +35,24 @@ test("guest opens the Global Map, inspects the isometric canvas and sees the ins
   await page.locator(".gg-global-map-viewport").evaluate(element => {
     element.setPointerCapture = () => {};
     element.releasePointerCapture = () => {};
-    const pointer = (type, id, x, y) => element.dispatchEvent(new PointerEvent(type, {
+    const target = element.querySelector(".gg-global-map-kingdom");
+    const bounds = target.getBoundingClientRect();
+    const x = bounds.x + bounds.width / 2;
+    const y = bounds.y + bounds.height / 2;
+    const pointer = (type, id, clientX) => target.dispatchEvent(new PointerEvent(type, {
       bubbles: true,
       pointerId: id,
       pointerType: "touch",
       isPrimary: id === 1,
-      clientX: x,
+      clientX,
       clientY: y,
       button: 0,
     }));
-    pointer("pointerdown", 1, 100, 200);
-    pointer("pointerdown", 2, 200, 200);
-    pointer("pointermove", 2, 260, 200);
-    pointer("pointerup", 2, 260, 200);
-    pointer("pointerup", 1, 100, 200);
+    pointer("pointerdown", 1, x - 40);
+    pointer("pointerdown", 2, x + 40);
+    pointer("pointermove", 2, x + 80);
+    pointer("pointerup", 2, x + 80);
+    pointer("pointerup", 1, x - 40);
   });
   await expect.poll(() => camera.getAttribute("transform")).not.toBe(pinchBefore);
   expect(pageErrors).toEqual([]);
@@ -63,27 +67,27 @@ test("global and local maps support wheel zoom and two-pointer pinch gestures", 
   const localCamera = localMap.locator(".gg-world-map-camera");
   const localBefore = await localCamera.getAttribute("transform");
   await localViewport.evaluate(element => {
-    // Synthetic pointer events are not registered by the browser input router;
-    // stub capture while exercising the React gesture state machine itself.
+    // Exercise pinch starting directly over a facility, not only empty terrain.
     element.setPointerCapture = () => {};
     element.releasePointerCapture = () => {};
-    const pointer = (type, id, x, y) => {
-      const event = new PointerEvent(type, {
-        bubbles: true,
-        pointerId: id,
-        pointerType: "touch",
-        isPrimary: id === 1,
-        clientX: x,
-        clientY: y,
-        button: 0,
-      });
-      element.dispatchEvent(event);
-    };
-    pointer("pointerdown", 1, 100, 200);
-    pointer("pointerdown", 2, 200, 200);
-    pointer("pointermove", 2, 260, 200);
-    pointer("pointerup", 2, 260, 200);
-    pointer("pointerup", 1, 100, 200);
+    const target = element.querySelector(".gg-world-facility");
+    const bounds = target.getBoundingClientRect();
+    const x = bounds.x + bounds.width / 2;
+    const y = bounds.y + bounds.height / 2;
+    const pointer = (type, id, clientX) => target.dispatchEvent(new PointerEvent(type, {
+      bubbles: true,
+      pointerId: id,
+      pointerType: "touch",
+      isPrimary: id === 1,
+      clientX,
+      clientY: y,
+      button: 0,
+    }));
+    pointer("pointerdown", 1, x - 40);
+    pointer("pointerdown", 2, x + 40);
+    pointer("pointermove", 2, x + 80);
+    pointer("pointerup", 2, x + 80);
+    pointer("pointerup", 1, x - 40);
   });
   await expect.poll(() => localCamera.getAttribute("transform")).not.toBe(localBefore);
 });
