@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 import WorldMapLayout from "../models/WorldMapLayout.js";
 import WorldMapFacility from "../models/WorldMapFacility.js";
+import {
+  DEFAULT_WORLD_FACILITIES,
+  WORLD_MAP_GRID_HEIGHT,
+  WORLD_MAP_GRID_WIDTH,
+} from "./worldCreation.js";
 
 function serviceError(status, code, message) {
   const error = new Error(message);
@@ -41,6 +46,64 @@ function assertPlacementWithinLayout({ position, footprint, rotation }, layout) 
   ) {
     throw serviceError(400, "FACILITY_OUT_OF_BOUNDS", "Facility must remain inside the World map grid.");
   }
+}
+
+async function upsertMissing(Model, filter, values) {
+  try {
+    await Model.updateOne(filter, { $setOnInsert: values }, {
+      upsert: true,
+      runValidators: true,
+      setDefaultsOnInsert: true,
+    });
+  } catch (error) {
+    // A concurrent first visit may win the same unique upsert. The winning
+    // record is authoritative; all non-duplicate failures still fail closed.
+    if (error?.code !== 11000) throw error;
+  }
+}
+
+/**
+ * Initialize the existing canonical football World's local map on first
+ * authorized entry. Insert-only writes preserve every existing customization.
+ */
+export async function ensureWorldMapInitialized(worldId) {
+  if (!worldId) {
+    throw serviceError(400, "WORLD_MAP_WORLD_REQUIRED", "A canonical World is required to initialize its map.");
+  }
+
+  await upsertMissing(WorldMapLayout, { worldId }, {
+    worldId,
+    projection: "isometric",
+    theme: "woodland",
+    seed: 1,
+    gridWidth: WORLD_MAP_GRID_WIDTH,
+    gridHeight: WORLD_MAP_GRID_HEIGHT,
+    layoutVersion: 1,
+  });
+
+  const layout = await WorldMapLayout.findOne({ worldId }).lean();
+  if (!layout) {
+    throw serviceError(503, "WORLD_MAP_NOT_INITIALIZED", "The World map could not be initialized.");
+  }
+
+  await Promise.all(DEFAULT_WORLD_FACILITIES.map(facility => upsertMissing(
+    WorldMapFacility,
+    { worldId, facilityKey: facility.facilityKey },
+    {
+      worldId,
+      facilityKey: facility.facilityKey,
+      type: facility.type,
+      position: { column: facility.column, row: facility.row },
+      footprint: { width: facility.width, height: facility.height },
+      rotation: 0,
+      level: 1,
+      appearanceKey: "default",
+      status: "active",
+      placementManagedBy: "world_owner",
+    },
+  )));
+
+  return layout;
 }
 
 export async function getWorldMapSnapshot(worldId) {
