@@ -99,24 +99,6 @@ before(async () => {
     joinPolicy: "approval",
     globalMap: { mapId: "gg-main-v1", slotIndex: 0, x: 0, y: 0 },
   });
-  await WorldMapLayout.create({
-    worldId: primaryWorld._id,
-    projection: "isometric",
-    theme: "woodland",
-    seed: 42,
-    gridWidth: 60,
-    gridHeight: 60,
-    layoutVersion: 1,
-  });
-  await WorldMapFacility.create({
-    worldId: primaryWorld._id,
-    facilityKey: "central-stadium",
-    type: "central_stadium",
-    position: { column: 25, row: 25 },
-    footprint: { width: 8, height: 6 },
-    placementManagedBy: "world_owner",
-  });
-
   await Player.create([
     { worldId: primaryWorld._id, name: "World Player" },
     { name: "Legacy Unscoped Player" },
@@ -248,7 +230,9 @@ test("Admin invitation activates only the exact verified Gmail identity and unlo
 
   const interior = await request("/worlds/original-gg/map", { token: "member" });
   assert.equal(interior.status, 200, JSON.stringify(interior.data));
-  assert.equal(interior.data.facilities.length, 1);
+  assert.equal(interior.data.facilities.length, 8);
+  assert.ok(interior.data.facilities.some(facility => facility.type === "training_grounds"));
+  assert.equal(interior.data.layout.layoutVersion, 1);
   assert.equal(interior.data.permissions.canEditMap, false);
 
   const players = await request("/players", { token: "member" });
@@ -297,6 +281,50 @@ test("Editor invitation grants football edit capabilities but not private map ad
   });
   assert.equal(editMap.status, 403);
   assert.equal(editMap.data.code, "WORLD_CAPABILITY_REQUIRED");
+});
+
+test("The platform administrator can edit the initialized local map with bounds and version protection", async () => {
+  const initial = await request("/worlds/original-gg/map", { token: "admin" });
+  assert.equal(initial.status, 200);
+  assert.equal(initial.data.facilities.length, 8);
+  assert.equal(initial.data.permissions.canEditMap, true);
+
+  const moved = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "admin",
+    method: "PATCH",
+    body: {
+      expectedLayoutVersion: 1,
+      position: { column: 24, row: 25 },
+      rotation: 90,
+    },
+  });
+  assert.equal(moved.status, 200, JSON.stringify(moved.data));
+  assert.equal(moved.data.layoutVersion, 2);
+  assert.equal(moved.data.facility.rotation, 90);
+
+  const stale = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "admin",
+    method: "PATCH",
+    body: { expectedLayoutVersion: 1, position: { column: 25, row: 25 }, rotation: 90 },
+  });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.data.code, "WORLD_MAP_VERSION_CONFLICT");
+
+  const outOfBounds = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "admin",
+    method: "PATCH",
+    body: { expectedLayoutVersion: 2, position: { column: 59, row: 59 }, rotation: 0 },
+  });
+  assert.equal(outOfBounds.status, 400);
+  assert.equal(outOfBounds.data.code, "FACILITY_OUT_OF_BOUNDS");
+
+  const overlapping = await request("/worlds/original-gg/map/facilities/central-stadium", {
+    token: "admin",
+    method: "PATCH",
+    body: { expectedLayoutVersion: 2, position: { column: 37, row: 10 }, rotation: 0 },
+  });
+  assert.equal(overlapping.status, 409);
+  assert.equal(overlapping.data.code, "WORLD_MAP_FACILITY_OVERLAP");
 });
 
 test("World join requests stay disabled, and an uninvited account cannot enter the World", async () => {
