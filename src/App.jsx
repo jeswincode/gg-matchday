@@ -18,7 +18,6 @@ const Chat = lazy(()=>import('./components/Chat'));
 const GlobalMapPage = lazy(() => import('./features/globalMap/GlobalMapPage'));
 import {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -655,20 +654,6 @@ function App() {
     setExperience("app");
   }
 
-  // =========================================================
-  // INITIAL LOAD
-  // =========================================================
-
-  const initialFootballDataLoaded = useRef(false);
-  useEffect(() => {
-    if (activeTab === TABS.HOME || initialFootballDataLoaded.current) return;
-    initialFootballDataLoaded.current = true;
-    loadPlayers();
-    loadMatches();
-    loadNews();
-    loadLeaderboard("all");
-    loadAwards();
-  }, [activeTab]);
 
   // =========================================================
   // LOADERS
@@ -928,6 +913,21 @@ function App() {
       }
     );
   }
+
+  // =========================================================
+  // INITIAL LOAD
+  // =========================================================
+
+  const initialFootballDataLoaded = useRef(false);
+  useEffect(() => {
+    if (activeTab === TABS.HOME || initialFootballDataLoaded.current) return;
+    initialFootballDataLoaded.current = true;
+    loadPlayers();
+    loadMatches();
+    loadNews();
+    loadLeaderboard("all");
+    loadAwards();
+  }, [activeTab, loadPlayers, loadMatches, loadNews, loadLeaderboard, loadAwards]);
 
   // =========================================================
   // LOGIN / LOGOUT
@@ -1761,56 +1761,9 @@ function App() {
     });
   }
 
-  const teamAPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-            "A"
-        ),
-      [players, teams]
-    );
-
-  const teamBPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-            "B"
-        ),
-      [players, teams]
-    );
-
-  const assignedPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-              "A" ||
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-              "B"
-        ),
-      [players, teams]
-    );
+  const teamAPlayers = players.filter(player => teams[String(player._id)] === "A");
+  const teamBPlayers = players.filter(player => teams[String(player._id)] === "B");
+  const assignedPlayers = players.filter(player => ["A", "B"].includes(teams[String(player._id)]));
 
   const teamANormalScore =
     teamAPlayers.reduce(
