@@ -130,7 +130,7 @@ function normalizePlayerName(value) {
 }
 
 function normalizeClubName(value) {
-  return String(value || "").trim().replace(/\\s+/g, " ").toLowerCase();
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function flattenPathValues(value, segments) {
