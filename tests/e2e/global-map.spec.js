@@ -104,7 +104,7 @@ test("linked World members can open the preserved Matchday Journal and return to
 
   await page.getByRole("button", { name: "Journal" }).click();
   await expect(page.getByRole("heading", { name: "Matchday Journal" })).toBeVisible();
-  await expect(page.getByText("MATCHDAY MOMENT")).toBeVisible();
+  await expect(page.locator(".home-feature-card .feature-label")).toContainText("MATCHDAY MOMENT");
   await expect(page.getByRole("button", { name: "Back to World Map" })).toBeVisible();
 
   await page.getByRole("button", { name: "Back to World Map" }).click();
