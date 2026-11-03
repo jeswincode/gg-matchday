@@ -495,7 +495,7 @@ export default function GlobalMapPage({
           theme={theme}
           onThemeChange={onThemeChange}
           onOpenClubs={enteredWorld && membershipStates[worlds[0]?.slug] === "active" ? onOpenClubs : null}
-          onOpenJournal={() => onNavigateTab?.("journal")}
+          onOpenJournal={enteredWorld && membershipStates[worlds[0]?.slug] === "active" ? () => onNavigateTab?.("journal") : null}
         />
       </header>
 
