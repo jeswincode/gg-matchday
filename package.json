@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "check:bundle": "node scripts/check-bundle-budget.mjs",
-    "audit:single-world": "node scripts/migrations/audit-single-world.mjs"
+    "audit:single-world": "node scripts/migrations/audit-single-world.mjs",
+    "migrate:single-world": "node scripts/migrations/backfill-original-gg-world.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.28.0",
