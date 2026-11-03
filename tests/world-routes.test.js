@@ -49,12 +49,13 @@ let adminUser;
 let memberGrantId;
 
 async function request(path, { token, method = "GET", body, worldSlug } = {}) {
+  const selectedWorldSlug = worldSlug ?? (token ? "original-gg" : null);
   const response = await fetch(origin + "/api" + path, {
     method,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: "Bearer " + token } : {}),
-      ...(worldSlug ? { "X-World-Slug": worldSlug } : {}),
+      ...(selectedWorldSlug ? { "X-World-Slug": selectedWorldSlug } : {}),
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
