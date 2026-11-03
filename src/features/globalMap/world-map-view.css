@@ -36,7 +36,7 @@
 .gg-world-facility-editor button:disabled,.gg-world-rotate-button:disabled{cursor:wait;opacity:.5}
 .gg-world-map-readonly{color:#a6b4a9;font-size:.7rem}
 .gg-world-map-footnote{color:#82948a;font-size:.67rem;margin:0}
-@media(max-width:680px){.gg-world-map-heading{align-items:flex-start}.gg-world-map-viewport{border-radius:.85rem;min-height:520px}.gg-world-map-svg{height:580px;min-height:580px;width:950px;max-width:none;margin-left:-130px}.gg-world-facility-panel{align-items:flex-start;flex-direction:column}.gg-world-facility-editor{justify-content:space-between;width:100%;}}
+@media(max-width:680px){.gg-world-map-heading{align-items:flex-start}.gg-world-map-viewport{border-radius:.85rem;min-height:520px}.gg-world-map-svg{height:580px;min-height:580px;width:950px;max-width:none;margin-left:0;position:relative;left:50%;transform:translateX(-50%)}.gg-world-facility-panel{align-items:flex-start;flex-direction:column}.gg-world-facility-editor{justify-content:space-between;width:100%;}}
 @media(prefers-reduced-motion:reduce){.gg-world-facility{transition:none}}
 
 
