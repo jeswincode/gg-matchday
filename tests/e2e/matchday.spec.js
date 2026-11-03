@@ -268,11 +268,11 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   // Returning from Clubs remounts the Global Map and asynchronously revalidates
   // the administrator-linked World membership before showing World actions.
   await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
-  await expect(page.locator(".gg-world-clubs-link")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clubs", exact: true })).toBeVisible();
   await matchdayThemeSwitch.getByRole("button", { name: "Gold", exact: true }).click();
   await expect(html).toHaveAttribute("data-theme", "golden");
   await expect(page.locator(".gg-world-clubs-link")).toBeVisible();
-  await page.locator(".gg-world-clubs-link").click();
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(clubsApp).toBeVisible();
   await expect(html).toHaveAttribute("data-product-mode", "clubs");
   await expect.poll(() =>
