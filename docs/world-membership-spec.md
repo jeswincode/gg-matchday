@@ -1,134 +1,115 @@
-# World and Membership Contract
+# GG Football World Access Contract
 
-Status: approved design contract
+Status: current single-World product contract
 
-## World rules
+## Product rule
 
-- A World is publicly discoverable.
-- Joining requires an explicit request and owner/admin approval.
-- An account may join multiple Worlds.
-- A World has one owner and may have admins, editors, members and viewers.
-- A World owner is not automatically a GG platform administrator.
-- The platform does not grant global administration from the existing World-level ADMIN_EMAIL identity. The configured identity must be mapped to the first World during migration, with any platform-level authority represented separately.
+GG Matchday has exactly one shared football World: the existing Original GG World.
 
-## World fields
+- The Global Map exposes one public kingdom projection.
+- Selecting the kingdom previews it; entering its private interior requires an administrator-linked Gmail account.
+- There is no World creation, World switching, self-service join request, or multiple-World selection.
+- Only the configured platform administrator can create/reissue Gmail invitations and revoke access.
+- A visitor without an invitation may view the public kingdom projection but cannot access the local map, facilities, player records, Matchday, or Clubs data.
 
-Required:
-- name
-- slug
-- ownerUserId
-- visibility
-- joinPolicy
-- status
+## Authentication and access
 
-The slug is lowercase, URL-safe, globally unique and immutable after publication unless an audited slug-change operation is introduced.
+A normal account receives private World access only when the current request satisfies all of these conditions:
 
-Locked values for the current product:
-- visibility: public
-- joinPolicy: approval
+1. Firebase verifies the current ID token.
+2. Firebase reports `email_verified === true`.
+3. The verified email is a valid normalized `@gmail.com` address.
+4. The Firebase UID exactly matches the persisted GG User UID.
+5. The Firebase email exactly matches the persisted GG User email.
+6. An active `WorldAccessGrant` exists for the canonical World, exact email and exact GG User ID.
+7. An active `WorldMembership` exists for the same World and user.
 
-World status:
-- active
-- suspended
-- archived
+An extant Firebase token does not preserve access after a grant is revoked. Protected requests check the active grant from MongoDB.
 
-World global-map coordinates are assigned and validated by platform map-placement logic. X and Y must be assigned together or both remain unset until placement is reserved.
+The platform administrator is the only bypass. The current Firebase identity must be verified, match `ADMIN_EMAIL`, match the persisted email and UID, and have `platformRole=platform_admin`. A legacy `User.role=admin` value alone never grants platform administration.
 
-## Membership fields
+## Invitations and revocation
 
-Required:
-- worldId
-- userId
-- role
-- status
-
-Optional:
-- playerProfileId
-- requestedAt
-- approvedAt
-- approvedBy
-- rejectedAt
-- rejectedBy
-- decisionNote
-- lastActiveAt
-
-A unique compound index on worldId + userId prevents duplicate memberships.
-
-A partial unique index on worldId + playerProfileId prevents two accounts from claiming the same Player profile in one World while permitting one account to link to different Player documents in different Worlds.
-
-## Membership states
-
-- pending: a join request is awaiting review.
-- active: the account is an approved member.
-- rejected: the request was rejected; a later request may follow an explicit re-request policy.
-- suspended: access was suspended by World administration.
-- left: the account voluntarily left the World.
-
-Only active memberships grant internal World access. Pending, rejected, suspended and left memberships do not.
-
-Every active membership, including the initial owner membership created with a World, must have an activation/approval timestamp. The approver may be null for the initial owner if the World creation transaction itself establishes ownership.
+- Invitations are created by the platform administrator for a Gmail address and a selected `member` or `editor` role.
+- Invitations remain in `invited` state until the exact verified Firebase Gmail identity signs in.
+- Activation updates the grant and membership in one MongoDB transaction.
+- Revocation marks the grant `revoked` and suspends the corresponding active membership in one transaction.
+- Re-inviting a revoked Gmail address creates a new invitation state; access activates only after verified sign-in again.
 
 ## Roles
 
-- owner: full control of one World, including ownership transfer and membership administration.
-- admin: World administration, membership review and configuration, excluding ownership transfer unless explicitly delegated.
-- editor: permitted football content operations.
-- member: normal approved participant access.
-- viewer: read-only World access.
+- `owner`: full control of the existing World, including membership and map administration.
+- `admin`: World administration and membership/map controls.
+- `editor`: permitted Matchday recording and editing; no map or Clubs administration capability.
+- `member`: normal participant access to permitted Matchday and Clubs features.
+- `viewer`: read-only access.
 
-Permission checks must be capability-based in the backend where practical. Avoid scattered string checks across route handlers.
-
-Platform administration is separate from the World role system.
+Backend capability checks are authoritative. Frontend visibility is not an authorization boundary.
 
 ## Player identity
 
-User is the global account record. Player remains the football identity inside one World.
+The global `User` record represents the authenticated account. `Player` remains the football identity and retains all historic match references.
 
-WorldMembership.playerProfileId links the account to its Player profile in that World. It may be null where the person is a member but has not claimed/linked a Player profile.
+`WorldMembership.playerProfileId` is the authoritative link between the account and its existing Player record in the Original GG World. On World entry, the server may recover the legacy `User.playerProfile` link only when:
 
-Existing Player records that have no linked account remain valid World players and must retain their references in match history.
+- the referenced Player belongs to the canonical World;
+- the membership has no existing player link; and
+- no other membership has claimed that Player profile.
 
-## Join flow
+If no safe existing link is available, the member may create or explicitly link a Player profile. Existing Player records and their match history must never be deleted or silently replaced.
 
-1. Visitor browses public World information.
-2. Authenticated user submits a join request.
-3. Backend creates or reuses a pending membership record.
-4. Owner/admin reviews the request.
-5. Approval changes status to active and records approvedBy/approvedAt.
-6. Rejection records decision metadata and denies World access.
+## Public and private map boundary
 
-A join request is not an active membership.
+The public Global Map returns one bounded, safe World projection. It does not expose the local layout, facility details, members, emails, private player records, training data, wallet data or moderation details.
 
-## World context
+The private local map contains the existing standard facilities:
 
-A World-scoped request sends the selected World slug in the agreed request context header. Backend resolves the World and then looks up the authenticated user's membership.
+- Central Stadium
+- Club District
+- Construction Grounds
+- Captains' Arena
+- Training Grounds
+- Community Hall
+- Hall of Fame
+- Administration Building
 
-The server populates trusted request context:
-- req.world
-- req.worldId
-- req.membership
+Only the World owner/platform administrator can edit facility placement. Members receive read-only map access. Facility movement and rotation use logical grid coordinates, bounds/overlap validation, optimistic layout versions and transactional persistence.
 
-Never trust a user-supplied role, membership status, playerProfileId or worldId.
+## Canonical World context
 
-Public discovery and join-request creation are explicit global/public routes. Internal World APIs require active membership.
+The client sends the selected World slug as request context. It is a selector only, never proof of access. The server resolves the configured primary World, verifies the current identity, grant, membership and capability, then establishes trusted request context:
 
-## Implemented API flow
+- `req.world`
+- `req.worldId`
+- `req.membership`
 
-The initial route contract is:
-- `GET /api/worlds/map`
-- `GET /api/worlds/:slug`
-- `GET /api/worlds/me`
-- `GET /api/worlds/:slug/membership`
-- `POST /api/worlds`
-- `POST /api/worlds/:slug/join-requests`
-- `GET /api/worlds/:slug/join-requests`
-- `POST /api/worlds/:slug/join-requests/:membershipId/approve`
-- `POST /api/worlds/:slug/join-requests/:membershipId/reject`
+Private Matchday and Clubs APIs must never fall back to unscoped legacy records when a normal production request lacks World context.
 
-The Global Map projection intentionally excludes viewer-specific membership fields. The signed-in user's membership state is obtained through their own membership endpoints.
+## Core APIs
 
-Membership decisions use a compare-and-set style filter containing the request ID, resolved World ID and pending status. A request from another World cannot be approved/rejected by changing its ID in the URL.
+- `GET /api/worlds/map`: one safe public kingdom projection.
+- `GET /api/worlds/me`: the authenticated account's own access status.
+- `GET /api/worlds/:slug/map`: active members' private local map.
+- `GET /api/worlds/:slug/player-profile`: the current account's existing World Player link.
+- `POST /api/worlds/:slug/player-profiles`: create and link a Player profile when no existing profile is available.
+- `POST /api/worlds/admin/access`: create/reissue a Gmail invitation.
+- `GET /api/worlds/admin/access`: list invitation and access status.
+- `DELETE /api/worlds/admin/access/:grantId`: revoke access.
 
-## Account lifecycle
+World creation and self-service join routes are disabled.
 
-Leaving or suspending a World must not delete the global account, Player history or World records. Deletion/anonymisation policies will be designed separately and must respect match and financial audit history.
+## Data migration and rollout
+
+All existing Original GG Matchday and Clubs records must be assigned to the canonical World only after ownership and references are verified. This includes Player and Match records, rating/stat snapshots, awards, achievements, news, votes, memberships, Club entities, contracts, fixtures, auctions, wallets, transactions, settlements and synchronization jobs.
+
+The current inventory command is read-only. It does not migrate data. Before production rollout:
+
+1. Confirm the existing Original GG World ID, slug, name, owner and status.
+2. Run the read-only Core and Clubs inventory.
+3. Take and verify backups of both databases.
+4. Reconcile all null/missing-World records and cross-database references.
+5. Build and review an idempotent, resumable migration with dry-run output, pre/post counts, orphan checks and financial reconciliation.
+6. Validate the migration in staging.
+7. Only then apply it to production under an approved change window.
+
+Never guess ownership for unscoped records, delete historic records, or improvise a reverse migration. No production migration is authorized by this branch work.
