@@ -310,14 +310,14 @@ export default function GlobalMapPage({
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
 
-  const applyWorldData = result => {
+  const applyWorldData = useCallback(result => {
     setWorlds(Array.isArray(result.worlds) ? result.worlds.slice(0, 1) : []);
     setMembershipStates(result.membershipStates || {});
     const membership = result.myWorld?.membership || null;
     setWorldMembershipLocal(membership);
     onWorldMembershipChange?.(membership);
     setLoadError("");
-  };
+  }, [onWorldMembershipChange]);
 
   const loadMap = useCallback(async ({ silent = false } = {}) => {
     if (silent) setRefreshing(true);
@@ -329,7 +329,7 @@ export default function GlobalMapPage({
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isSignedIn, onWorldMembershipChange]);
+  }, [isSignedIn, applyWorldData]);
 
   const refreshAccessGrants = useCallback(async () => {
     setAccessLoading(true);
@@ -393,7 +393,7 @@ export default function GlobalMapPage({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [isSignedIn, onWorldMembershipChange]);
+  }, [isSignedIn, applyWorldData]);
 
   const enterWorld = async world => {
     if (!isSignedIn) {
