@@ -115,6 +115,12 @@ test("editor can authenticate and record a match through the real browser and AP
 
   await expect(page.getByText("Match recorded.")).toBeVisible();
   await expect(page.getByText("E2E Browser Regression Match")).toBeVisible();
+
+  // A Matchday write invalidates the shared data cache and the Calendar tab
+  // must read the new record when it becomes active.
+  await page.locator(".bottom-nav").getByRole("button", { name: /Calendar/ }).click();
+  await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible();
+  await expect(page.getByText("E2E Browser Regression Match")).toBeVisible();
 });
 
 test("My Club keeps stats and history available when wallet loading fails, then recovers on retry", async ({ page }) => {
