@@ -159,8 +159,6 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
       y: event.clientY,
       pointerType: event.pointerType,
     });
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-
     const touchPointers = [...pointers.current.entries()]
       .filter(([, pointer]) => pointer.pointerType === "touch");
     if (touchPointers.length >= 2) {
@@ -182,6 +180,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
 
     if (touchOnFacility) return;
 
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     drag.current = {
       id: event.pointerId,
       x: event.clientX,
