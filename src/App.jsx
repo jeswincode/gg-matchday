@@ -2467,6 +2467,7 @@ function App() {
             </div>
             <button type="button" className="secondary-button" onClick={() => {
               setApiActiveWorld(null);
+              setActiveWorldSlug(null);
               setActiveTab(TABS.HOME);
             }}>
               ← Back to World Map
