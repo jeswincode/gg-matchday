@@ -261,6 +261,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
           </defs>
           <rect width={VIEW_WIDTH} height={VIEW_HEIGHT} fill="#18323b"/>
           <g
+            className="gg-world-map-camera"
             transform={"translate(" + (VIEW_WIDTH / 2 + camera.x) + " " + (VIEW_HEIGHT / 2 + camera.y) + ") scale(" + camera.zoom + ") translate(" + (-VIEW_WIDTH / 2) + " " + (-VIEW_HEIGHT / 2) + ")"}
           >
             <path
