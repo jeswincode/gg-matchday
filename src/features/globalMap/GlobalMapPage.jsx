@@ -145,9 +145,10 @@ function WorldBottomNavigation({ onNavigateTab }) {
   );
 }
 
-function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, worldRole, onSignIn, onSignOut, onNavigateAdmin, onManageAccess, theme, onThemeChange, onOpenClubs }) {
+function AccountChip({ authUser, backendUser, isSignedIn, isAdmin, worldRole, onSignIn, onSignOut, onNavigateAdmin, onManageAccess, theme, onThemeChange, onOpenClubs, onOpenJournal }) {
   return (
     <div className="gg-world-account-hud">
+      {onOpenJournal && <button type="button" className="gg-world-clubs-link" onClick={onOpenJournal}>Journal</button>}
       {onOpenClubs && <button type="button" className="gg-world-clubs-link" onClick={onOpenClubs}>Clubs</button>}
       <div className="gg-world-theme-switch" aria-label="Theme">
         <button type="button" aria-pressed={theme === "dark"} onClick={() => onThemeChange?.("dark")}>Dark</button>
@@ -289,6 +290,9 @@ export default function GlobalMapPage({
   onSignOut,
   onNavigateTab,
   onOpenClubs,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
   theme = "dark",
   onThemeChange,
 }) {
@@ -469,7 +473,7 @@ export default function GlobalMapPage({
   };
 
   return (
-    <main className={"gg-world-screen" + (enteredWorld ? " gg-world-screen-interior" : " gg-world-screen-global")}>
+    <main className={"gg-world-screen" + (enteredWorld ? " gg-world-screen-interior" : " gg-world-screen-global")} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <header className="gg-world-top-hud">
         <div className="gg-world-brand">
           <span className="gg-world-brand-mark">GG</span>
@@ -491,6 +495,7 @@ export default function GlobalMapPage({
           theme={theme}
           onThemeChange={onThemeChange}
           onOpenClubs={enteredWorld && membershipStates[worlds[0]?.slug] === "active" ? onOpenClubs : null}
+          onOpenJournal={() => onNavigateTab?.("journal")}
         />
       </header>
 
