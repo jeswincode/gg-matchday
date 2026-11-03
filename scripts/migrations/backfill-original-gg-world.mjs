@@ -121,6 +121,14 @@ const FINANCIAL_SNAPSHOTS = {
 
 const legacyWorldFilter = { worldId: null };
 
+function normalizePlayerName(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\\u0300-\\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("en");
+}
+
 function flattenPathValues(value, segments) {
   if (Array.isArray(value)) return value.flatMap(item => flattenPathValues(item, segments));
   if (segments.length === 0) return value === null || value === undefined ? [] : [value];
@@ -188,6 +196,36 @@ async function findUniqueIndexCollisions(entry, targetWorldId) {
     if (!index.unique || !Object.hasOwn(index.key || {}, "worldId")) continue;
     const groupKey = {};
     for (const field of Object.keys(index.key)) groupKey[field.replaceAll(".", "_")] = "$" + field;
+
+    // Player.nameNormalized was introduced with the World-aware unique
+    // index. Legacy rows predate that derived field, so simulate its value
+    // from the stored name when checking the post-backfill index state.
+    if (entry.database === "core" && entry.name === "players" &&
+        Object.hasOwn(index.key || {}, "nameNormalized")) {
+      const documents = await collection.find({}).project({
+        _id: 1, worldId: 1, name: 1, nameNormalized: 1,
+      }).toArray();
+      const groups = new Map();
+      for (const document of documents) {
+        const worldId = document.worldId == null ? targetWorldId : document.worldId;
+        const nameNormalized = document.nameNormalized || normalizePlayerName(document.name);
+        const key = { worldId, nameNormalized };
+        const serialized = String(worldId) + ":" + nameNormalized;
+        if (!groups.has(serialized)) groups.set(serialized, { key, ids: [] });
+        groups.get(serialized).ids.push(String(document._id));
+      }
+      for (const group of groups.values()) {
+        if (group.ids.length > 1) collisions.push({
+          database: entry.database,
+          collection: entry.name,
+          index: index.name,
+          count: group.ids.length,
+          sampleIds: group.ids.slice(0, 5),
+          key: group.key,
+        });
+      }
+      continue;
+    }
 
     const pipeline = [
       {
@@ -395,20 +433,39 @@ async function backfillEntry(entry, targetWorldId, { batchSize, onBatch }) {
   let batches = 0;
 
   while (true) {
-    const documents = await collection.find(filter, { projection: { _id: 1 } })
+    const isPlayers = entry.database === "core" && entry.name === "players";
+    const documents = await collection.find(filter, {
+      projection: isPlayers ? { _id: 1, name: 1 } : { _id: 1 },
+    })
       .sort({ _id: 1 })
       .limit(batchSize)
       .toArray();
     if (!documents.length) break;
 
-    const ids = documents.map(document => document._id);
-    const result = await collection.updateMany(
-      { _id: { $in: ids }, $and: [legacyWorldFilter, entry.filter] },
-      { $set: { worldId: targetWorldId } },
-    );
+    let result;
+    if (isPlayers) {
+      // Backfill the derived unique-key field alongside worldId. Otherwise
+      // all legacy rows with a missing nameNormalized would collide as null
+      // values when the partial World/name index becomes active.
+      result = await collection.bulkWrite(documents.map(document => ({
+        updateOne: {
+          filter: { _id: document._id, $and: [legacyWorldFilter, entry.filter] },
+          update: { $set: {
+            worldId: targetWorldId,
+            nameNormalized: normalizePlayerName(document.name),
+          } },
+        },
+      })), { ordered: true });
+    } else {
+      const ids = documents.map(document => document._id);
+      result = await collection.updateMany(
+        { _id: { $in: ids }, $and: [legacyWorldFilter, entry.filter] },
+        { $set: { worldId: targetWorldId } },
+      );
+    }
     modified += result.modifiedCount;
     batches += 1;
-    await onBatch?.({ modified: result.modifiedCount, batches, lastId: String(ids[ids.length - 1]) });
+    await onBatch?.({ modified: result.modifiedCount, batches, lastId: String(documents[documents.length - 1]._id) });
   }
 
   const remaining = await collection.countDocuments(filter);
