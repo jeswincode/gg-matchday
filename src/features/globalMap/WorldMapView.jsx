@@ -117,6 +117,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
   const [selectedFacilityKey, setSelectedFacilityKey] = useState("central-stadium");
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 0.7 });
   const [saving, setSaving] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
   const drag = useRef(null);
 
   const width = data.layout.gridWidth;
@@ -154,6 +155,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
       cameraX: camera.x,
       cameraY: camera.y,
     };
+    setIsPanning(true);
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
@@ -170,6 +172,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
   const pointerUp = event => {
     if (drag.current?.id !== event.pointerId) return;
     drag.current = null;
+    setIsPanning(false);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
@@ -261,7 +264,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
           </defs>
           <rect width={VIEW_WIDTH} height={VIEW_HEIGHT} fill="#18323b"/>
           <g
-            className="gg-world-map-camera"
+            className={isPanning ? "gg-world-map-camera is-panning" : "gg-world-map-camera"}
             transform={"translate(" + (VIEW_WIDTH / 2 + camera.x) + " " + (VIEW_HEIGHT / 2 + camera.y) + ") scale(" + camera.zoom + ") translate(" + (-VIEW_WIDTH / 2) + " " + (-VIEW_HEIGHT / 2) + ")"}
           >
             <path
