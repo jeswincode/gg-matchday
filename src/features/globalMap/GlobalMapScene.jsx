@@ -180,13 +180,6 @@ export default function GlobalMapScene({
   const drag = useRef(null);
   const pointers = useRef(new Map());
   const pinch = useRef(null);
-  const transitionTimer = useRef(null);
-
-  useEffect(() => () => {
-    if (transitionTimer.current !== null) {
-      window.clearTimeout(transitionTimer.current);
-    }
-  }, []);
   const instanceId = useId().replace(/:/g, "");
   const mapPoints = useMemo(() => worlds.map(world => ({ x: world.globalMap?.x, y: world.globalMap?.y })), [worlds]);
   const tiles = useMemo(() => terrain(mapPoints), [mapPoints]);
@@ -239,18 +232,9 @@ export default function GlobalMapScene({
         y: -(position.y - fit.centerY) * targetScale,
       });
       onSelectWorld?.(world);
-      if (transitionTimer.current !== null) {
-        window.clearTimeout(transitionTimer.current);
-      }
-      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-      if (reducedMotion) {
-        onEnterWorld(world);
-      } else {
-        transitionTimer.current = window.setTimeout(() => {
-          transitionTimer.current = null;
-          onEnterWorld(world);
-        }, 460);
-      }
+      // Selecting a kingdom only previews it and flies the camera to it.
+      // Entry is a separate, explicit action on the preview card. This avoids
+      // auto-navigation racing the CTA (especially with reduced motion).
       return;
     }
     setSelected(world);
