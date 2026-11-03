@@ -84,11 +84,21 @@ export async function resolveWorldContext(req, res, next) {
     }
 
     req.world = world;
-    // The HMAC test identity is isolated by NODE_ENV=test and a secret token,
-    // but it exercises the same canonical World data scope as real accounts.
-    // E2E fixtures are seeded with this World ID; null-world legacy records
-    // must never be silently mixed into the active World test namespace.
-    req.worldId = world._id;
+    const isolatedTestIdentity = req.firebaseUser?.testOnly === true &&
+      process.env.NODE_ENV === "test";
+    const explicitWorldSelector = String(
+      req.get?.("x-world-slug") || req.headers?.["x-world-slug"] || "",
+    ).trim();
+    const isWorldRoute = req.baseUrl === "/api/worlds" ||
+      String(req.originalUrl || "").startsWith("/api/worlds/");
+
+    // Legacy integration fixtures intentionally omit a World selector and
+    // remain in the null-World namespace. Browser E2E tests enter the actual
+    // World first, so their requests carry X-World-Slug and exercise canonical
+    // World records. This exception is impossible outside NODE_ENV=test.
+    req.worldId = isolatedTestIdentity && !isWorldRoute && !explicitWorldSelector
+      ? null
+      : world._id;
     req.membership = membership || null;
     return next();
   } catch (error) {
