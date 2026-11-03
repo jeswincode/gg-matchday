@@ -128,23 +128,10 @@ const primaryWorld = await World.create({
   joinPolicy: "approval",
   globalMap: { mapId: "gg-main-v1", slotIndex: 0, x: 0, y: 0 },
 });
-await WorldMapLayout.create({
-  worldId: primaryWorld._id,
-  projection: "isometric",
-  theme: "woodland",
-  seed: 42,
-  gridWidth: 60,
-  gridHeight: 60,
-  layoutVersion: 1,
-});
-await WorldMapFacility.create({
-  worldId: primaryWorld._id,
-  facilityKey: "central-stadium",
-  type: "central_stadium",
-  position: { column: 25, row: 25 },
-  footprint: { width: 8, height: 6 },
-  placementManagedBy: "world_owner",
-});
+await Player.collection.updateMany(
+  { worldId: null },
+  { $set: { worldId: primaryWorld._id } },
+);
 
 // Formation requires every invitee to already have a linked GG account. These
 // test identities mirror the role/player mapping used by requireAuth's
@@ -161,6 +148,7 @@ await User.insertMany([...basePlayers, ...workflowPlayers].map(({ id, name }) =>
 })));
 
 await Club.create({
+  worldId: primaryWorld._id,
   name: "E2E My Club Regression FC",
   description: "Isolated browser regression fixture.",
   memberIds: basePlayers.map(player => new mongoose.Types.ObjectId(player.id)),
@@ -172,6 +160,7 @@ await Club.create({
 
 async function seedAuctionClub(name, squad) {
   return Club.create({
+    worldId: primaryWorld._id,
     name,
     description: "Isolated Playwright auction workflow fixture.",
     memberIds: squad.slice(0, 4).map(player => new mongoose.Types.ObjectId(player.id)),
@@ -188,6 +177,7 @@ await Promise.all([
 ]);
 
 const ratingExplanationMatch = await Match.create({
+  worldId: primaryWorld._id,
   date: new Date(),
   name: "E2E Rating Explanation Match",
   teamA: { label: "E2E Rating Side A", score: 1 },
@@ -219,6 +209,7 @@ const ratingDisputeReporter = await User.findOne({
   firebaseUid: `e2e-test:editor:${basePlayers[1].id}`,
 });
 await RatingDispute.create({
+  worldId: primaryWorld._id,
   match: ratingExplanationMatch._id,
   player: new mongoose.Types.ObjectId(basePlayers[1].id),
   submittedBy: ratingDisputeReporter._id,
@@ -250,6 +241,7 @@ await RatingDispute.create({
 
 const adminApplicationMembers = adminOperationsPlayers.map(player => new mongoose.Types.ObjectId(player.id));
 await ClubFormationApplication.create({
+  worldId: primaryWorld._id,
   founderPlayerId: adminApplicationMembers[0],
   memberIds: adminApplicationMembers,
   memberApprovals: adminApplicationMembers.map(playerId => ({ playerId, status: "accepted", respondedAt: new Date() })),
