@@ -11,6 +11,7 @@ test("guest opens the Global Map, inspects the isometric canvas and sees the ins
   await page.getByRole("button", { name: "Explore the Global Map as Guest" }).click();
 
   await expect(page.locator(".gg-world-screen-global")).toBeVisible();
+  await expect(page.locator(".gg-world-bottom-nav")).toHaveCount(0);
   await expect(page.getByText("GLOBAL MAP", { exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "Global World map" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Zoom in" })).toBeVisible();
@@ -61,6 +62,7 @@ test("guest opens the Global Map, inspects the isometric canvas and sees the ins
 test("global and local maps support wheel zoom and two-pointer pinch gestures", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
+  await expect(page.getByRole("navigation", { name: "Main navigation" })).toBeVisible();
 
   const localMap = page.getByRole("region", { name: "Original GG World map" });
   const localViewport = localMap.locator(".gg-world-map-viewport");
