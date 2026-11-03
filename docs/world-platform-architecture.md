@@ -1,149 +1,143 @@
-# GG World Platform Architecture
+# GG Matchday — Single-World Platform Architecture
 
-Status: approved product direction and implementation contract  
-Initial implementation baseline: main at 4cd537e9865c5ec8c56c1e626d80fac12041764b
+Status: current product direction and implementation contract
 
-## Product decisions
+## Product decision
 
-- Brand: GG.
-- Every World is publicly discoverable.
-- Joining a World requires owner/admin approval.
-- A GG account can belong to multiple Worlds.
-- The Global Map is the primary discovery and navigation experience.
-- The Global Map uses an isometric strategy-game presentation.
-- Each World owner/admin controls the placement of its local facilities and Club buildings.
-- Club formation remains an approval-based workflow.
-- Training includes individual workouts and organised team drills.
-- Individual training records are private by default.
-- Media is stored in GG-managed object storage; Google Drive is optional for exports/backups.
-- Progression is cosmetic only.
-- The map is the main experience, but conventional navigation and direct links remain available.
+GG Matchday is moving from the original single Matchday application into one shared football World experience.
 
-## Domain boundaries
+There is exactly one active football World: the existing Original GG World. This product decision supersedes the earlier multi-World discovery and join-request architecture described in previous drafts.
+
+- The Global Map is the primary Home and shows one public kingdom.
+- The kingdom preview is public; the local World interior is private.
+- Entry requires a verified Gmail account explicitly linked by the platform administrator.
+- World creation, switching and self-service join requests are disabled.
+- Existing Matchday and Clubs workflows remain authoritative and must continue to work with their existing records.
+- The World map is a presentation/navigation layer, not a second football database.
+
+## Account, World and Player identity
 
 ### GG account
 
-A global identity authenticated through Firebase. A user account is not a player profile and does not imply membership of any World.
+A global Firebase-authenticated account stored as a User record. Account email and Firebase UID must match the current verified Firebase identity.
 
-Global account data includes authentication identity, account email, account preferences, connected login providers and platform-level permissions.
+### Original GG World
 
-### World
+The one existing canonical World record. Production selects it through `GG_PRIMARY_WORLD_SLUG`; the server must fail closed if the configured World is missing or ambiguous.
 
-A World is an independent football community. It owns its map, members, player profiles, matches, ratings, statistics, awards, news, conversations, training programmes and other World-scoped activity.
+### World membership and access grant
 
-The first World will represent the existing GG Matchday group. Its public identity and slug will be finalised before production migration.
+A WorldAccessGrant records the administrator-issued Gmail invitation and its invited/active/revoked state. WorldMembership records the active World role, status and optional Player profile link.
 
-### World membership
+Both the exact verified Gmail grant and active membership are required for normal private access. The platform administrator is a separate, verified configured identity with `platformRole=platform_admin`; legacy global role strings are not a bypass.
 
-Membership connects one global account to one World. It owns the World-specific role, membership status and optional player profile link.
+### Player
 
-A single account can have multiple memberships and a different Player profile in each World.
+Player remains the football identity inside the Original GG World. Existing Player IDs and references in historic matches must be preserved. WorldMembership.playerProfileId is the authoritative account-to-player link; a legacy User.playerProfile may be recovered only when it points to a Player in the canonical World and that Player is not already claimed by another membership.
 
 ### Club
 
-A Club is a team/squad within a World. It is not a World or a tenant. Existing Club rules, auctions, contracts, wallets, fixtures, settlement and history remain part of the Clubs subsystem.
+A Club is an existing squad within the Original GG World, not a separate tenant. Existing formation, captain voting, contracts, market, auctions, budgets, wallets, fixtures, settlement, betting, statistics and history remain part of the Clubs subsystem.
 
-## Data ownership invariant
+## Global Map and private World map
 
-Every World-owned record must carry a trusted World identifier. Every read, update, delete, aggregation, population and nested reference must be constrained to the resolved World.
+### Global Map
 
-A MongoDB document ID is never sufficient authorization by itself.
+The public map API returns exactly one safe Original GG kingdom projection. It must not expose the local map, facility coordinates, membership roster, emails, private player information, training records, Club financial data or moderation details.
 
-World context is derived server-side from a selected World slug and the authenticated user's membership. Client-provided world IDs are selectors at most; they are never authorization evidence.
+Map navigation supports panning and zooming, including touch pinch gestures, mouse wheel and accessible zoom controls. Selecting the kingdom opens its preview. Only an active invited member can enter.
+
+### Local World map
+
+The private interior uses an isometric logical grid. Its standard facilities are:
+
+- Central Stadium
+- Club District
+- Construction Grounds
+- Captains' Arena
+- Training Grounds
+- Community Hall
+- Hall of Fame
+- Administration Building
+
+The initial layout is a 60 × 60 tile map. Facility placement is persisted in logical grid coordinates. The backend validates bounds, overlaps and expected layout version in a transaction. Existing custom layouts and facility records must be preserved during initialization.
+
+Only the owner/platform administrator may move or rotate facilities. Members can select facilities and inspect details in read-only mode.
+
+## Existing Matchday compatibility
+
+The original Matchday capabilities remain required:
+
+- Player directory and profiles.
+- Match recording, editing, deletion and archive.
+- GG match ratings and separate defensive ratings.
+- OVR and player performance tracking.
+- Leaderboards and rankings.
+- Monthly, annual and match-level awards.
+- Awards history, Hall of Fame and achievements.
+- Match calendar and match details.
+- News, chat, notifications, rating explanations and disputes.
+- Existing admin workflows.
+
+The Global Map is the primary Home. The previous Matchday dashboard remains available as a secondary Matchday Journal so its latest-match summary, totals, news, player comparisons and Hall of Fame entry are not lost.
+
+### Ratings and awards
+
+Do not change the established GG match-rating formula, defensive-rating separation, OVR calculations or historical match results as part of World ownership work.
+
+Player and season statistics snapshots must be keyed by World and Player. Monthly award finalization must be idempotent and World-scoped. Current-month awards remain provisional; closed-period awards and achievements remain immutable after finalization.
+
+### Calendar and synchronization
+
+Match create/edit/delete operations must refresh the shared application data state so Calendar, Matchday history, leaderboard, awards and related tabs show consistent data. Calendar reads use authenticated World-scoped APIs and bypass stale response caching when refreshing.
+
+Match-to-Clubs synchronization remains durable and idempotent. Jobs carry World context, retry safely and reconcile linked Club matches and settlements without duplicating wallet transactions.
+
+## Clubs compatibility
+
+The existing Clubs workflows must be preserved:
+
+- Flexible 4–5 member formation.
+- Captain selection and voting.
+- Captain-details approval and administrator review.
+- Club renewals and retention.
+- Player market and signing offers.
+- Auction reservations and player choice.
+- Captain approval and final settlement.
+- Club and Player wallets.
+- Budget/committed-balance reconciliation.
+- Fixtures, bookings, Club matches and Matchday sync.
+- Match rewards, betting and settlement.
+- Club/player statistics, reviews, audit events and history.
+
+World scoping must constrain Core and separate Clubs database operations. Background workers must explicitly process each World scope. Cross-database writes remain retryable and reconcilable; do not assume Core and Clubs transactions are shared.
+
+## Data ownership and request context
+
+Every World-owned record must carry a trusted World identifier. Reads, updates, deletes, aggregations, populations, nested references and background jobs must be constrained to the canonical World.
+
+The client sends `X-World-Slug` as a selector. The backend resolves the configured World and verifies the active grant, membership and required capability on every private request. A client-supplied World ID is never authorization evidence.
+
+The active World selector is part of GET cache and in-flight request identity. Signing out or leaving the World clears the selector. Private API responses and private media must remain network-only in the service worker.
 
 ## Database topology
 
 Retain the existing Core MongoDB connection and separate Clubs MongoDB connection.
 
-Core database owns global Users, Worlds, WorldMemberships and World-scoped Matchday data. Clubs database owns Club entities and financial/operational records.
+Core owns Users, Worlds, WorldMemberships, WorldAccessGrants and Matchday records. Clubs owns Club entities and operational/financial records. Shared collections are initially scoped with worldId; do not create a database per World.
 
-Use shared collections with worldId scoping initially. Do not create one MongoDB database per World.
+## Rollout and migration constraints
 
-Cross-database writes cannot be assumed to share one transaction. Continue using idempotent jobs, retries and reconciliation for core Match to Clubs synchronization and settlement.
+The current branch includes a read-only Core/Clubs inventory. It does not include or execute a production data migration.
 
-## Global Map
+Before enabling the new World experience against production data:
 
-The Global Map is a GG-controlled, deterministic isometric map. It presents public Worlds as neighbouring kingdoms.
+1. Confirm the canonical existing Original GG World record.
+2. Inventory all Core and Clubs collections.
+3. Take and verify backups of both databases.
+4. Reconcile every legacy null/missing-world record and all cross-collection references.
+5. Build a resumable idempotent migration with dry-run, pre/post counts, orphan checks, financial reconciliation and operator confirmation.
+6. Validate in staging.
+7. Apply only after explicit approval and a tested rollback plan.
 
-Global placement is assigned and validated by the platform. World owners do not control global kingdom coordinates.
-
-The public map API returns a bounded projection of World data only: slug, display name, public emblem, public member-count bucket or count, map coordinates and public status. It must not return member lists, emails, private profiles, training data, wallet data or internal moderation details.
-
-A selected kingdom can be previewed by any visitor. Entry into the internal World map requires active membership. Pending members see request status; non-members can submit a join request.
-
-## World map
-
-Each World has an owner/admin-managed isometric layout. The layout stores logical grid coordinates, not screen pixels. Map rendering is a projection of authoritative World and Club records, not a duplicate football database.
-
-World facilities include the central stadium, Club District, Construction Grounds, Captains' Arena, Training Grounds, Community Hall, Hall of Fame and Administration Building.
-
-Club buildings point to existing Club records. Construction plots point to the existing Club formation application workflow. Facility state must not become a competing source of truth for Club approvals.
-
-## Existing Matchday compatibility
-
-The current Matchday and Clubs workflows remain authoritative. The map is a navigation and presentation layer.
-
-Do not change rating formulas, historic match results, OVR calculations, wallet balances or Club rules as part of tenant ownership work.
-
-The old User.playerProfile field remains available during migration. WorldMembership.playerProfileId becomes the authoritative World-specific link only after the migration and all consumers have been updated.
-
-## Storage
-
-MongoDB stores structured records and metadata. GG-managed object storage holds large binary objects such as images, kits, profile media and training attachments.
-
-Private media access is authorized by the backend. Do not expose provider credentials or permanent private object URLs to the browser.
-
-Google Drive is an optional user-authorized export/backup destination. It is not the canonical data store and is not required to use GG.
-
-## Initial World API contract
-
-The first World route slice is mounted at `/api/worlds`:
-
-- `GET /map`: public Global Map projection plus a bounded list of available plot coordinates. It does not include viewer-specific membership state.
-- `GET /:slug`: public World preview.
-- `GET /me`: the authenticated account's own memberships and safe World summaries.
-- `GET /:slug/membership`: the authenticated account's status in that World.
-- `POST /`: create a public World with approval-only joining.
-- `POST /:slug/join-requests`: submit/re-submit a membership request.
-- `GET /:slug/join-requests`: owner/admin pending-request queue.
-- `POST /:slug/join-requests/:membershipId/approve`: approve one pending membership in that World.
-- `POST /:slug/join-requests/:membershipId/reject`: reject one pending membership in that World.
-
-Approval/rejection queries always include both the membership ID and resolved World ID. The public map and World preview never include the viewer's membership state.
-
-World creation atomically creates the World, its active owner membership, the isometric WorldMapLayout and the standard facility records. This requires a transaction-capable MongoDB deployment (replica set or sharded cluster). Development environments using standalone MongoDB must be configured as a single-node replica set before testing World creation.
-
-## Active World request context
-
-After a member successfully enters a World interior, the client sets that World slug as the active API selector. The selector is sent as `X-World-Slug` on subsequent API requests and is part of GET cache/in-flight request identity. It is stored in browser session storage so a page reload does not silently remove the selected World. Signing out clears the selector.
-
-The header remains untrusted routing context: the backend must resolve the slug to a World and verify active membership and the relevant role/capability for every World-owned read or write. It must never accept a client-provided `worldId` as authorization.
-
-## World map API contract
-
-The local World map has separate access from public kingdom previews:
-
-- `GET /api/worlds/:slug/map`: authenticated active members only.
-- `PATCH /api/worlds/:slug/map/facilities/:facilityKey`: owner/admin map-edit capability only; optimistic layout version and transactional overlap/bounds checks.
-
-The frontend may display read-only map access for regular members, but backend authorization remains authoritative. Moving/rotating a facility never changes canonical Club, match, wallet or roster records.
-
-
-## Rollout constraints
-
-1. Build and test World models and authorization additively.
-2. Add World scoping to every domain and background worker.
-3. Validate Global Map projection and public response contracts using fixture data.
-4. Dry-run a migration assigning existing records to the first World.
-5. Test against a staging database and verify match/player/Club/ledger counts and references.
-6. Only then migrate production data and enable the public Global Map experience.
-
-## Non-goals for the initial foundation
-
-- Cross-World matches or tournaments.
-- Full direct messaging/friends/activity feed.
-- Full game economy or pay-to-win progression.
-- Native Rust/Tauri rewrite.
-- Required Google Drive integration.
-- Automatic player rating or OVR changes from training activity.
-- Public exposure of private World or member data.
+Do not merge, deploy to production, change production environment variables or migrate production data without explicit owner approval.
