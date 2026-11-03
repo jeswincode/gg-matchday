@@ -146,9 +146,12 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
   const pointerDown = event => {
     // Facilities and viewport controls receive their own clicks; camera
     // gestures begin only on empty terrain.
+    const isTouch = event.pointerType === "touch";
+    const touchOnFacility = isTouch && event.target.closest?.(".gg-world-facility");
+    const interactiveTarget = event.target.closest?.(".gg-world-facility, .gg-world-map-controls, button, a, input, textarea, select, [role='button']");
     if (
-      (event.button !== 0 && event.pointerType !== "touch") ||
-      event.target.closest?.(".gg-world-facility, .gg-world-map-controls, button, a, input, textarea, select, [role='button']")
+      (event.button !== 0 && !isTouch) ||
+      (interactiveTarget && !touchOnFacility)
     ) return;
 
     pointers.current.set(event.pointerId, {
@@ -161,6 +164,11 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
     const touchPointers = [...pointers.current.entries()]
       .filter(([, pointer]) => pointer.pointerType === "touch");
     if (touchPointers.length >= 2) {
+      // A pinch may begin on a kingdom/facility. Capture both active pointers
+      // only once the gesture is unambiguously a two-finger camera gesture.
+      for (const [pointerId] of touchPointers.slice(-2)) {
+        event.currentTarget.setPointerCapture?.(pointerId);
+      }
       const [first, second] = touchPointers.slice(-2).map(([, pointer]) => pointer);
       pinch.current = {
         pointerIds: touchPointers.slice(-2).map(([id]) => id),
@@ -171,6 +179,8 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
       setIsPanning(true);
       return;
     }
+
+    if (touchOnFacility) return;
 
     drag.current = {
       id: event.pointerId,
@@ -237,7 +247,7 @@ export default function WorldMapView({ world, data, onUpdated, onMessage }) {
     }
 
     if (pointers.current.size === 0) setIsPanning(false);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
   const handleWheel = event => {
