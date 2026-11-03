@@ -3,7 +3,7 @@ import { expect } from "@playwright/test";
 export async function enterWorldFromGlobalMap(page) {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(page.locator(".gg-world-screen-global")).toBeVisible();
-  await page.getByRole("button", { name: "Preview Original GG" }).press("Enter");
+  await page.getByRole("button", { name: "Preview Original GG" }).click();
   await expect(page.locator(".gg-world-screen-interior")).toBeVisible({ timeout: 10_000 });
 }
 
