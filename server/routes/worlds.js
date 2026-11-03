@@ -11,7 +11,7 @@ import {
   requireWorldCapability,
   requirePlatformAdmin,
 } from "../middleware/worldPermissions.js";
-import { getWorldMapSnapshot, moveWorldMapFacility } from "../services/worldMapLayout.js";
+import { ensureWorldMapInitialized, getWorldMapSnapshot, moveWorldMapFacility } from "../services/worldMapLayout.js";
 import { getPrimaryWorld } from "../services/primaryWorld.js";
 import { normalizeGmailAddress, isGmailAddress } from "../services/worldAccessGrants.js";
 import { isPlatformAdministrator } from "../services/worldAccess.js";
@@ -423,6 +423,7 @@ router.get(
   resolveWorldContext,
   requireActiveWorldMembership,
   asyncRoute(async (req, res) => {
+    await ensureWorldMapInitialized(req.worldId);
     const snapshot = await getWorldMapSnapshot(req.worldId);
     const role = req.membership.role;
     return res.json({
