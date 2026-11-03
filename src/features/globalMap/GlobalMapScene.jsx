@@ -176,6 +176,7 @@ export default function GlobalMapScene({
 }) {
   const [selected, setSelected] = useState(null);
   const [camera, setCamera] = useState({ x: 0, y: 0, zoom: 1 });
+  const [isPanning, setIsPanning] = useState(false);
   const drag = useRef(null);
   const transitionTimer = useRef(null);
 
@@ -265,6 +266,7 @@ export default function GlobalMapScene({
       id: event.pointerId, x: event.clientX, y: event.clientY,
       cameraX: camera.x, cameraY: camera.y,
     };
+    setIsPanning(true);
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
@@ -281,6 +283,7 @@ export default function GlobalMapScene({
   const pointerUp = event => {
     if (drag.current?.id !== event.pointerId) return;
     drag.current = null;
+    setIsPanning(false);
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   };
 
@@ -310,7 +313,7 @@ export default function GlobalMapScene({
           <rect width={WIDTH} height={HEIGHT} fill={"url(#" + waterId + ")"}/>
           <circle cx="290" cy="220" r="250" fill={"url(#" + glowId + ")"}/>
           <circle cx="925" cy="480" r="280" fill={"url(#" + glowId + ")"}/>
-          <g className="gg-global-map-camera"
+          <g className={isPanning ? "gg-global-map-camera is-panning" : "gg-global-map-camera"}
             transform={"translate(" + (CAMERA_CENTER_X + camera.x) + " " + (CAMERA_CENTER_Y + camera.y) + ") scale(" + (camera.zoom * fit.scale) + ") translate(" + (-fit.centerX) + " " + (-fit.centerY) + ")"}>
             <g transform={"translate(" + (fit.centerX - ORIGIN_X) + " " + (fit.centerY - ORIGIN_Y) + ")"}>
               {tiles.map(tile => (
