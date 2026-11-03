@@ -129,6 +129,10 @@ function normalizePlayerName(value) {
     .toLocaleLowerCase("en");
 }
 
+function normalizeClubName(value) {
+  return String(value || "").trim().replace(/\\s+/g, " ").toLowerCase();
+}
+
 function flattenPathValues(value, segments) {
   if (Array.isArray(value)) return value.flatMap(item => flattenPathValues(item, segments));
   if (segments.length === 0) return value === null || value === undefined ? [] : [value];
@@ -200,6 +204,33 @@ async function findUniqueIndexCollisions(entry, targetWorldId) {
     // Player.nameNormalized was introduced with the World-aware unique
     // index. Legacy rows predate that derived field, so simulate its value
     // from the stored name when checking the post-backfill index state.
+    if (entry.database === "clubs" && entry.name === "clubs" &&
+        Object.hasOwn(index.key || {}, "nameNormalized")) {
+      const documents = await collection.find({}).project({
+        _id: 1, worldId: 1, name: 1,
+      }).toArray();
+      const groups = new Map();
+      for (const document of documents) {
+        const worldId = document.worldId == null ? targetWorldId : document.worldId;
+        const nameNormalized = normalizeClubName(document.name);
+        const key = { worldId, nameNormalized };
+        const serialized = String(worldId) + ":" + nameNormalized;
+        if (!groups.has(serialized)) groups.set(serialized, { key, ids: [] });
+        groups.get(serialized).ids.push(String(document._id));
+      }
+      for (const group of groups.values()) {
+        if (group.ids.length > 1) collisions.push({
+          database: entry.database,
+          collection: entry.name,
+          index: index.name,
+          count: group.ids.length,
+          sampleIds: group.ids.slice(0, 5),
+          key: group.key,
+        });
+      }
+      continue;
+    }
+
     if (entry.database === "core" && entry.name === "players" &&
         Object.hasOwn(index.key || {}, "nameNormalized")) {
       const documents = await collection.find({}).project({
@@ -434,8 +465,9 @@ async function backfillEntry(entry, targetWorldId, { batchSize, onBatch }) {
 
   while (true) {
     const isPlayers = entry.database === "core" && entry.name === "players";
+    const isClubs = entry.database === "clubs" && entry.name === "clubs";
     const documents = await collection.find(filter, {
-      projection: isPlayers ? { _id: 1, name: 1 } : { _id: 1 },
+      projection: isPlayers || isClubs ? { _id: 1, name: 1 } : { _id: 1 },
     })
       .sort({ _id: 1 })
       .limit(batchSize)
@@ -443,16 +475,17 @@ async function backfillEntry(entry, targetWorldId, { batchSize, onBatch }) {
     if (!documents.length) break;
 
     let result;
-    if (isPlayers) {
-      // Backfill the derived unique-key field alongside worldId. Otherwise
-      // all legacy rows with a missing nameNormalized would collide as null
-      // values when the partial World/name index becomes active.
+    if (isPlayers || isClubs) {
+      // Backfill derived unique-key fields alongside worldId. The Player and
+      // Club World/name indexes must not receive null or stale normalized keys.
       result = await collection.bulkWrite(documents.map(document => ({
         updateOne: {
           filter: { _id: document._id, $and: [legacyWorldFilter, entry.filter] },
           update: { $set: {
             worldId: targetWorldId,
-            nameNormalized: normalizePlayerName(document.name),
+            nameNormalized: isPlayers
+              ? normalizePlayerName(document.name)
+              : normalizeClubName(document.name),
           } },
         },
       })), { ordered: true });
