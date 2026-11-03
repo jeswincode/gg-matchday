@@ -601,7 +601,9 @@ export default function GlobalMapPage({
         </>
       )}
 
-      <WorldBottomNavigation onNavigateTab={onNavigateTab} />
+      {enteredWorld && membershipStates[enteredWorld.slug] === "active" && (
+        <WorldBottomNavigation onNavigateTab={onNavigateTab} />
+      )}
 
       <PlayerProfileModal
         key={profileModalOpen ? "profile-open-" + (enteredWorld?.slug || "world") : "profile-closed"}
