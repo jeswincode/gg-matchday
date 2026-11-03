@@ -9,6 +9,7 @@ const coreCollections = [
   "achievements", "notifications", "chatmessages", "votes",
   "profilechangerequests", "ratingDisputes",
 ];
+const coreConditionalCollections = [{ name: "mediaAssets", filter: { scope: "world" } }];
 const clubsCollections = [
   "clubs", "clubMatches", "clubContracts", "clubHistory",
   "clubWalletTransactions", "playerWallets", "playerWalletTransactions",
@@ -33,16 +34,17 @@ if (!coreUri || !clubsUri || !primarySlug) {
     const selected = worlds.find(world => String(world.slug || "").trim().toLowerCase() === primarySlug);
     const existingCore = new Set((await coreDb.listCollections({}, { nameOnly: true }).toArray()).map(item => item.name));
 
-    async function inventory(db, collectionNames, existingNames, selectedWorld) {
+    async function inventory(db, collectionNames, existingNames, selectedWorld, filters = {}) {
       const output = [];
       for (const name of collectionNames.filter(value => existingNames.has(value))) {
         const collection = db.collection(name);
+        const scopeFilter = filters[name] || {};
         const [selectedCount, legacyCount, otherWorldCount] = await Promise.all([
-          selectedWorld ? collection.countDocuments({ worldId: selectedWorld._id }) : 0,
-          collection.countDocuments({ $or: [{ worldId: null }, { worldId: { $exists: false } }] }),
+          selectedWorld ? collection.countDocuments({ $and: [{ worldId: selectedWorld._id }, scopeFilter] }) : 0,
+          collection.countDocuments({ $and: [{ $or: [{ worldId: null }, { worldId: { $exists: false } }] }, scopeFilter] }),
           selectedWorld
-            ? collection.countDocuments({ worldId: { $exists: true, $nin: [selectedWorld._id, null] } })
-            : collection.countDocuments({ worldId: { $exists: true, $ne: null } }),
+            ? collection.countDocuments({ $and: [{ worldId: { $exists: true, $nin: [selectedWorld._id, null] } }, scopeFilter] })
+            : collection.countDocuments({ $and: [{ worldId: { $exists: true, $ne: null } }, scopeFilter] }),
         ]);
         output.push({
           collection: name,
@@ -54,7 +56,8 @@ if (!coreUri || !clubsUri || !primarySlug) {
       return output;
     }
 
-    const coreInventory = await inventory(coreDb, coreCollections, existingCore, selected);
+    const coreInventory = await inventory(coreDb, [...coreCollections, ...coreConditionalCollections.map(item => item.name)], existingCore, selected,
+      Object.fromEntries(coreConditionalCollections.map(item => [item.name, item.filter])));
     const clubsClient = new MongoClient(clubsUri, { readPreference: "primary" });
     clients.push(clubsClient);
     await clubsClient.connect();
@@ -68,7 +71,7 @@ if (!coreUri || !clubsUri || !primarySlug) {
 
     const report = {
       mode: "READ_ONLY_DRY_RUN",
-      ownershipRule: "All existing legacy documents with null or missing worldId in the listed Matchday and Clubs business collections belong to Original GG.",
+      ownershipRule: "All existing legacy documents with null or missing worldId in the listed Matchday and Clubs business collections belong to Original GG; only world-scoped media assets are included.",
       generatedAt: new Date().toISOString(),
       primarySlug,
       coreDatabase: coreDb.databaseName,
