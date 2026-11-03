@@ -260,12 +260,50 @@ router.post(
 // A signed-in member has one independent Player profile per World.
 // Creating the profile and linking it to the membership is atomic, so a failed
 // membership update cannot leave an orphan profile behind.
+async function linkLegacyPlayerProfile(req) {
+  if (req.membership?.playerProfileId || !req.user?.playerProfile || !req.membership?._id) {
+    return req.membership;
+  }
+
+  // Preserve the existing Matchday account-to-player link after Gmail access
+  // is activated, but only when that exact Player record has been migrated
+  // into this World and no other account already owns the profile.
+  const player = await Player.findOne({
+    _id: req.user.playerProfile,
+    worldId: req.worldId,
+  }).select("_id").lean();
+  if (!player) return req.membership;
+
+  try {
+    const membership = await WorldMembership.findOneAndUpdate(
+      {
+        _id: req.membership._id,
+        worldId: req.worldId,
+        userId: req.user._id,
+        status: "active",
+        playerProfileId: null,
+      },
+      { $set: { playerProfileId: player._id } },
+      { new: true, runValidators: true },
+    );
+    if (membership) req.membership = membership;
+  } catch (error) {
+    // A unique World/profile index prevents the same player record from being
+    // attached to two Gmail accounts. Keep the account usable without linking
+    // an already-owned profile.
+    if (error?.code !== 11000) throw error;
+  }
+
+  return req.membership;
+}
+
 router.get(
   "/:slug/player-profile",
   requireAuth,
   resolveWorldContext,
   requireActiveWorldMembership,
   asyncRoute(async (req, res) => {
+    await linkLegacyPlayerProfile(req);
     const playerId = req.membership.playerProfileId;
     if (!playerId) return res.json({ profile: null, needsProfile: true });
 
