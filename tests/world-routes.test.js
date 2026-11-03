@@ -213,6 +213,15 @@ test("Admin invitation activates only the exact verified Gmail identity and unlo
   assert.equal(grantsBeforeActivation.status, 200);
   assert.ok(grantsBeforeActivation.data.grants.some(item => item.email === "member@gmail.com" && item.status === "invited"));
 
+  const existingPlayer = await Player.findOne({
+    worldId: primaryWorld._id,
+    name: "World Player",
+  }).lean();
+  await User.updateOne(
+    { firebaseUid: "single-world-test:member" },
+    { $set: { playerProfile: existingPlayer._id } },
+  );
+
   const memberStatus = await request("/worlds/me", { token: "member" });
   assert.equal(memberStatus.status, 200);
   assert.equal(memberStatus.data.worlds.length, 1);
@@ -220,12 +229,18 @@ test("Admin invitation activates only the exact verified Gmail identity and unlo
   assert.equal(memberStatus.data.worlds[0].membership.role, "member");
 
   const member = await User.findOne({ firebaseUid: "single-world-test:member" });
+  const linkedProfile = await request("/worlds/original-gg/player-profile", { token: "member" });
+  assert.equal(linkedProfile.status, 200, JSON.stringify(linkedProfile.data));
+  assert.equal(linkedProfile.data.needsProfile, false);
+  assert.equal(String(linkedProfile.data.profile._id), String(existingPlayer._id));
+
   const grant = await WorldAccessGrant.findById(memberGrantId).lean();
   const membership = await WorldMembership.findOne({ worldId: primaryWorld._id, userId: member._id }).lean();
   assert.equal(grant.status, "active");
   assert.equal(String(grant.userId), String(member._id));
   assert.equal(membership.status, "active");
   assert.equal(membership.role, "member");
+  assert.equal(String(membership.playerProfileId), String(existingPlayer._id));
   assert.ok(membership.approvedAt);
 
   const interior = await request("/worlds/original-gg/map", { token: "member" });
