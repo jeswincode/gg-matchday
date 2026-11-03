@@ -99,6 +99,18 @@ test("linked member enters the private local map and explores its facilities on 
   expect(pageErrors).toEqual([]);
 });
 
+test("linked World members can open the preserved Matchday Journal and return to the map", async ({ page }) => {
+  await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
+
+  await page.getByRole("button", { name: "Journal" }).click();
+  await expect(page.getByRole("heading", { name: "Matchday Journal" })).toBeVisible();
+  await expect(page.getByText("MATCHDAY MOMENT")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Back to World Map" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Back to World Map" }).click();
+  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
+});
+
 test("platform administrator can move a local facility from the map controls", async ({ page }) => {
   await openLinkedWorld(page, { role: "admin" });
 
