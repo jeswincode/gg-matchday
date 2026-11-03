@@ -45,6 +45,10 @@ test("global and local maps support wheel zoom and two-pointer pinch gestures", 
   const localCamera = localMap.locator(".gg-world-map-camera");
   const localBefore = await localCamera.getAttribute("transform");
   await localViewport.evaluate(element => {
+    // Synthetic pointer events are not registered by the browser input router;
+    // stub capture while exercising the React gesture state machine itself.
+    element.setPointerCapture = () => {};
+    element.releasePointerCapture = () => {};
     const pointer = (type, id, x, y) => {
       const event = new PointerEvent(type, {
         bubbles: true,
