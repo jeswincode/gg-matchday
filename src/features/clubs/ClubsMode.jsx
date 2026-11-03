@@ -649,7 +649,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     if (!authUser) return;
     try {
       setAuctionLoading(true);
-      const data = await api("/clubs/auction/me");
+      const data = await api("/clubs/auction/me", { cacheResponse: false });
       setAuctionState(data || null);
     } catch (e) {
       setError(e.message);
@@ -1218,7 +1218,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     if (!authUser || activeSection !== "market") return undefined;
     let active = true;
-    api("/clubs/auction/me")
+    api("/clubs/auction/me", { cacheResponse: false })
       .then(data => {
         if (active) setAuctionState(data || null);
       })
