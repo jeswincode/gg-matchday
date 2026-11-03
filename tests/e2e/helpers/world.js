@@ -2,7 +2,7 @@ import { expect } from "@playwright/test";
 
 export async function enterWorldFromGlobalMap(page) {
   await expect(page.locator(".gg-world-screen-global")).toBeVisible();
-  await page.getByRole("button", { name: "Preview Original GG" }).click({ force: true });
+  await page.getByRole("button", { name: "Preview Original GG" }).press("Enter");
   await expect(page.locator(".gg-world-screen-interior")).toBeVisible({ timeout: 10_000 });
 }
 
