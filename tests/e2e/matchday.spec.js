@@ -43,7 +43,7 @@ test("guest can preview the one shared football World but cannot enter without a
   await expect(page.locator(".gg-world-screen-interior")).toHaveCount(0);
 });
 
-test("mobile welcome screen fills the viewport without stretching and any poster tap opens Matchday", async ({ page }) => {
+test("mobile welcome screen fills the viewport and poster tap opens the Global Map", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const poster = page.getByRole("img", { name: /GG Matchday cinematic football poster/i });
@@ -73,17 +73,17 @@ test("mobile welcome screen fills the viewport without stretching and any poster
 
   // Tap a part of the artwork well away from the former visible CTA.
   await page.mouse.click(viewport.width * 0.88, viewport.height * 0.36);
-  await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
+  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
 });
 
-test("Enter key opens Matchday from the welcome screen without requiring a pointer", async ({ page }) => {
+test("Enter key opens the Global Map from the welcome screen without requiring a pointer", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("/");
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await expect(page.getByRole("button", { name: "Enter Matchday" })).toBeVisible();
 
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
+  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
 });
 
 test("mobile viewport keeps primary navigation usable across key tabs", async ({ page }) => {
@@ -234,7 +234,7 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
 
   const html = page.locator("html");
   const mapThemeSwitch = page.locator(".gg-world-theme-switch");
-  const matchdayThemeSwitch = page.locator(".gg-theme");
+  const matchdayThemeSwitch = page.locator(".gg-world-theme-switch");
   const clubsApp = page.locator(".clubs-app");
 
   // Dark mode should preserve the Matchday-aligned navy background and controls.
