@@ -106,10 +106,17 @@ perform an improvised reverse migration.
 No production database migration has been run by this branch change because
 production credentials and verified backups were not available.
 
-## Verification notes
+## Existing-World map initialization
 
-The branch's previously existing `tests/world-routes.test.js` and
-`src/features/globalMap/GlobalMapPage.jsx` are currently present as short
-incomplete files in the remote branch. Repair/recovery of those files and the
-frontend access manager are follow-on work; their current state must not be
-represented as passing browser or UI verification.
+The first authorized request to `GET /api/worlds/:slug/map` now performs an
+idempotent insert-only initialization for an existing canonical World. It
+creates the isometric 60 × 60 layout and any missing standard facility records
+(stadium, Club district, construction grounds, captain arena, training
+grounds, community hall, Hall of Fame and administration). Existing layout
+customizations and facility records are preserved. Concurrent first visits
+are safe against duplicate-key races.
+
+The route integration test and Playwright browser fixture now start with an
+existing World and no map layout/facility records, then verify first-entry
+initialization. This is separate from the read-only Core/Clubs inventory and
+reviewed data migration described above.
