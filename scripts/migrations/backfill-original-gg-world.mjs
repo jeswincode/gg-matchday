@@ -158,6 +158,7 @@ async function inventoryEntry(entry, targetWorldId) {
         { worldId: { $exists: true } },
         { worldId: { $ne: null } },
         { worldId: { $ne: targetWorldId } },
+        entry.filter,
       ],
     }),
   ]);
@@ -344,6 +345,7 @@ export async function inspectSingleWorldMigration({ coreDb, clubsDb, primarySlug
   if (otherWorldRecords.length) blockers.push("Records already assigned to a different World exist in the migration domain; preserve and reconcile them before applying.");
   if (uniqueIndexCollisions.length) blockers.push("The proposed World assignment would violate one or more existing unique indexes.");
   if (references.conflicts.length) blockers.push("Legacy records reference Player, Match or Club records already assigned to a different World.");
+  if (references.orphanReferences.length) blockers.push("Legacy records contain orphaned Player, Match or Club references; reconcile them before migration.");
 
   return {
     mode: "READ_ONLY_PREFLIGHT",
