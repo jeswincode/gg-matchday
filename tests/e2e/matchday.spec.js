@@ -92,7 +92,7 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
   await enterLinkedMatchday(page);
   const mapNavigation = page.locator(".gg-world-bottom-nav");
   await expect(mapNavigation).toBeVisible();
-  await mapNavigation.getByRole("button", { name: "Players", exact: true }).click();
+  await mapNavigation.getByRole("button", { name: /Players/ }).click();
 
   const matchdayNavigation = page.locator(".bottom-nav");
   await expect(matchdayNavigation).toBeVisible();
