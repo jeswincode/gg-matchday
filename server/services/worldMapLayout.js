@@ -5,7 +5,7 @@ import {
   DEFAULT_WORLD_FACILITIES,
   WORLD_MAP_GRID_HEIGHT,
   WORLD_MAP_GRID_WIDTH,
-} from "./worldCreation.js";
+} from "./worldMapConfig.js";
 
 function serviceError(status, code, message) {
   const error = new Error(message);
