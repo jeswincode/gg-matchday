@@ -94,10 +94,16 @@ test("aggregation-style update pipelines cannot move records across Worlds", asy
       [{ $set: { worldId: worldB, bio: "attempted move" } }],
     );
     assert.equal(result.matchedCount, 1);
+
+    const unsetAttempt = await Player.updateOne(
+      { _id: player._id },
+      { $unset: { worldId: 1 }, $set: { bio: "ownership retained" } },
+    );
+    assert.equal(unsetAttempt.matchedCount, 1);
   });
   const stored = await Player.findById(player._id).lean();
   assert.equal(String(stored.worldId), String(worldA));
-  assert.equal(stored.bio, "attempted move");
+  assert.equal(stored.bio, "ownership retained");
 });
 
 test("legacy scope can see only null or missing World ownership", async () => {
