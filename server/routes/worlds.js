@@ -57,8 +57,8 @@ router.post("/admin/access", requireAuth, requirePlatformAdmin, asyncRoute(async
     message: "Enter a valid Gmail address.", code: "WORLD_ACCESS_GMAIL_REQUIRED",
   });
   const role = req.body?.role || "member";
-  if (!["member", "editor"].includes(role)) return res.status(400).json({
-    message: "Choose Member or Editor access.", code: "WORLD_ACCESS_ROLE_INVALID",
+  if (!["member", "editor", "viewer"].includes(role)) return res.status(400).json({
+    message: "Choose Viewer, Member or Editor access.", code: "WORLD_ACCESS_ROLE_INVALID",
   });
 
   const world = await getPrimaryWorld();
@@ -148,7 +148,7 @@ async function accountWorldAccess(req, world) {
   else if (membership?.status === "suspended") status = "suspended";
   else if (membership?.status === "active") status = "not_linked";
   return {
-    role: status === "active" ? grant.role : (grant?.role || "member"),
+    role: status === "active" ? membership.role : (grant?.role || "member"),
     status,
     playerProfileId: status === "active" ? (membership?.playerProfileId || null) : null,
   };
@@ -196,7 +196,7 @@ router.post(
   "/:slug/player-profile",
   requireAuth,
   resolveWorldContext,
-  requireActiveWorldMembership,
+  requireWorldCapability("profile:manage-own"),
   asyncRoute(async (req, res) => {
     const playerId = String(req.body?.playerId || "");
     if (!mongoose.isValidObjectId(playerId)) {
@@ -333,7 +333,7 @@ router.post(
   "/:slug/player-profiles",
   requireAuth,
   resolveWorldContext,
-  requireActiveWorldMembership,
+  requireWorldCapability("profile:manage-own"),
   asyncRoute(async (req, res) => {
     const allowed = new Set(["name", "position", "preferredFoot", "bio"]);
     const unexpected = Object.keys(req.body || {}).filter(key => !allowed.has(key));
