@@ -67,6 +67,15 @@ test("World capabilities distinguish owner, editor, member and viewer", () => {
   assert.equal(hasWorldCapability("platform_admin", "world:manage"), false);
 });
 
+test("only non-viewer World roles can send chat and submit rating disputes", () => {
+  for (const role of ["owner", "admin", "editor", "member"]) {
+    assert.equal(hasWorldCapability(role, "chat:send"), true, role);
+    assert.equal(hasWorldCapability(role, "football:dispute"), true, role);
+  }
+  assert.equal(hasWorldCapability("viewer", "chat:send"), false);
+  assert.equal(hasWorldCapability("viewer", "football:dispute"), false);
+});
+
 test("only active memberships grant access", () => {
   assert.equal(isActiveWorldMembership({ status: "active" }), true);
   for (const status of ["pending", "rejected", "suspended", "left", undefined]) {
