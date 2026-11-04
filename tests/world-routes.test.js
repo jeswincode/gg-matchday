@@ -367,6 +367,14 @@ test("Viewer grants are supported but cannot create or link player profiles", as
   assert.equal(dispute.status, 403);
   assert.equal(dispute.data.code, "WORLD_CAPABILITY_REQUIRED");
 
+  const vote = await request("/matches/" + new mongoose.Types.ObjectId() + "/votes", {
+    token: "viewer",
+    method: "POST",
+    body: { playerId: String(existing._id) },
+  });
+  assert.equal(vote.status, 403);
+  assert.equal(vote.data.code, "WORLD_CAPABILITY_REQUIRED");
+
   process.env.CHAT_ENABLED = "true";
   try {
     const chat = await request("/chat", {
