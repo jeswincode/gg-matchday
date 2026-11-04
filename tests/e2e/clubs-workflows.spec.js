@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { enterWorldFromGlobalMap } from "./helpers/world.js";
+import { enterWorldFromGlobalMap, openLinkedWorld } from "./helpers/world.js";
 
 const FORMATION_PLAYERS = [
   { id: "65a000000000000000000011", name: "E2E Formation Founder" },
@@ -328,4 +328,23 @@ test("auction signing reserves budget and settles only after player choice and b
   } finally {
     await Promise.allSettled(pages.map(page => page.close()));
   }
+});
+
+test("viewer can enter the shared World but cannot navigate to or call private Clubs APIs", async ({ page }) => {
+  await openLinkedWorld(page, { role: "viewer" });
+
+  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clubs", exact: true })).toHaveCount(0);
+
+  const response = await page.request.get("http://127.0.0.1:5000/api/clubs/meta", {
+    headers: {
+      "X-E2E-Test-Token": "gg-matchday-e2e-only-secret",
+      "X-E2E-Test-Role": "viewer",
+      "X-World-Slug": "original-gg",
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  expect(response.status(), JSON.stringify(payload)).toBe(403);
+  expect(payload.code).toBe("WORLD_CAPABILITY_REQUIRED");
+  expect(payload.capability).toBe("clubs:participate");
 });
