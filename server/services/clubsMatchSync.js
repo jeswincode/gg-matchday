@@ -8,6 +8,7 @@ import Club from "../models/clubs/Club.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { normalizeClubName, clubDateKey, clubDateStartUtc } from "../config/clubsRules.js";
 import { effectiveMatchRating } from "./ratings/index.js";
+import { currentWorldDataScope } from "./worldDataScope.js";
 
 const idOf = value => String(value?._id || value);
 
@@ -254,6 +255,7 @@ export async function rebuildClubPlayerStats(clubId) {
   const mainMatches = matchIds.length ? await Match.find({ _id: { $in: matchIds } }).lean() : [];
   const mainMatchById = new Map(mainMatches.map(match => [String(match._id), match]));
   const playerIds = [...new Set(contracts.map(contract => String(contract.playerId)))];
+  const worldId = currentWorldDataScope()?.worldId || mainMatches[0]?.worldId || null;
   const stats = [];
 
   for (const playerId of playerIds) {
@@ -298,6 +300,7 @@ export async function rebuildClubPlayerStats(clubId) {
 
     if (matchesPlayed) {
       stats.push({
+        worldId,
         clubId: new mongoose.Types.ObjectId(clubId),
         playerId: new mongoose.Types.ObjectId(playerId),
         matches: matchesPlayed, wins, draws, losses, goals, assists, motm,
@@ -306,7 +309,7 @@ export async function rebuildClubPlayerStats(clubId) {
     }
   }
 
-  await ClubPlayerStats.deleteMany({ clubId });
+  await ClubPlayerStats.deleteMany({ worldId, clubId });
   if (stats.length) await ClubPlayerStats.insertMany(stats);
   return stats;
 }
