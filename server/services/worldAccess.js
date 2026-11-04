@@ -21,6 +21,8 @@ export const WORLD_ROLE_CAPABILITIES = Object.freeze({
   admin: Object.freeze([
     "world:read",
     "profile:manage-own",
+    "chat:send",
+    "football:dispute",
     "world:manage",
     "membership:review",
     "map:edit",
