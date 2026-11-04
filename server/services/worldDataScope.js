@@ -45,7 +45,7 @@ export function worldDataScopePlugin(schema) {
 
     const pipeline = this.pipeline();
     const matchStage = { $match: { worldId: scope.worldId || null } };
-    if (pipeline[0]?.$search || pipeline[0]?.$geoNear) pipeline.splice(1, 0, matchStage);
+    if (pipeline[0]?.$search || pipeline[0]?.$searchMeta || pipeline[0]?.$geoNear || pipeline[0]?.$vectorSearch || pipeline[0]?.$documents) pipeline.splice(1, 0, matchStage);
     else pipeline.unshift(matchStage);
   });
 
