@@ -1,128 +1,69 @@
 # GG Global Map Specification
 
-Status: approved product direction; implementation begins with projection primitives and fixture data.
+Status: single-World Original GG implementation.
 
-## Purpose
+## Product rule
 
-The Global Map is the primary entry experience for GG. It presents public Football Worlds as neighbouring kingdoms in a custom isometric strategy-game environment.
-
-It is not a geographic street map. It uses original fictional terrain, roads, rivers, coastlines, castles and kingdom artwork.
-
-## Product behaviour
-
-- Logged-in and logged-out visitors may explore public kingdom previews.
-- A public kingdom preview exposes only approved public information.
-- An active member may enter that World.
-- A pending member sees their request status and cannot enter internal facilities.
-- A non-member may submit a join request.
-- A member of multiple Worlds can switch between those Worlds.
-- The user can return to the Global Map from any World.
-- Existing feature navigation and direct routes remain accessible.
-
-## Global placement
-
-Global placement belongs to GG platform administration/map placement logic, not individual World owners.
-
-Each World has logical coordinates (mapId, x, y). Coordinates are not CSS pixels and must not be recalculated from the current viewport.
-
-Active kingdom placements must not overlap. Use a unique compound index or an explicit placement allocator that guarantees deterministic non-overlapping coordinates.
-
-Map layout changes must be versioned. A map seed can generate decorative terrain, but authoritative World identity and placement must not depend on nondeterministic client-side generation.
+GG Matchday has exactly one shared football World: Original GG. Visitors may
+view its safe public Global Map projection. There is no user-created World,
+kingdom, plot claiming, World switching, or self-service join flow. Access to
+the private football experience is granted only when the platform
+administrator explicitly links a verified Gmail account.
 
 ## Public map projection
 
-The public map endpoint returns a minimal projection:
-- world slug
-- display name
-- public description summary, if approved
-- public emblem asset reference
-- public member count or bucket
-- global map coordinates
-- public World status
+The public map endpoint returns one safe Original GG projection only. It must
+not expose private Player profiles, emails, membership lists, training
+records, chat, wallet balances, moderation details or Club financial data.
+The public map is not evidence of private football-data access.
 
-It must not return private Player profiles, emails, membership lists, training records, chat, wallet balances, moderation details or Club financial data.
+## Access and entry
 
-Member-specific entry eligibility is returned separately for the authenticated user, or derived through a membership endpoint. Do not leak membership lists to all visitors.
+A private World request requires the current verified Firebase identity, the
+exact linked Gmail identity, an active administrator-issued access grant and
+an active Original GG membership. Revocation must block subsequent protected
+requests even when a Firebase session remains valid. Platform-administrator
+privileges are separately verified and audited.
 
-## Entry state machine
+Unauthenticated and unlinked accounts may see only the public Global Map
+projection. There are no join requests or membership self-service actions.
+The only supported World context is the configured canonical Original GG
+World.
 
-- loading
-- global
-- selected
-- preview
-- entering
-- internal
+## Fixed local map
 
-A kingdom selection opens a preview. An authenticated active member can enter. An unauthenticated visitor is directed to authentication before submitting a join request. Pending and rejected members cannot transition to internal.
+The Original GG local map uses a 60 × 60 isometric grid and a fixed set of
+standard facilities. Facility configuration is stored separately from World
+creation/allocation logic. First authorized entry initializes only missing
+layout/facility records; existing layout customizations are preserved.
 
-The zoom transition is presentation only. Backend authorization still occurs when loading internal World data.
+Owners/admins with the map-edit capability can move or rotate facilities.
+Updates validate integer grid coordinates, footprint bounds, rotation,
+overlap and expected layout version, then commit the facility change and
+layout-version increment transactionally. Members have read-only map access.
 
-## Isometric projection contract
+Facility selection currently exposes facility details; it does not imply that
+a dedicated gameplay workflow (for example, training or stadium operations)
+has been implemented. Matchday and Clubs remain separate application
+workflows.
 
-Map positions are stored as integer tile coordinates (column, row). For tile dimensions tileWidth/tileHeight:
+## Rendering and accessibility
 
-screenX = originX + (column - row) * tileWidth / 2  
-screenY = originY + (column + row) * tileHeight / 2
+The map is an isometric presentation, not a geographic street map. Logical
+tile positions are stored as integer (column, row) values; screen coordinates
+are derived at render time. Camera pan/zoom remains client-side. Keep the
+existing conventional Matchday navigation available so map interaction is
+never the only route to football records. Support keyboard, touch, pinch zoom,
+reduced motion and accessible interface panels.
 
-Screen coordinates are derived and never persisted.
+## Data and rollout boundary
 
-The inverse projection is required for hit testing and map editing. Map camera zoom and pan remain client-side state.
+Matchday and Clubs records are scoped to the canonical World. Existing
+production records with missing or null World identifiers must be inventoried,
+reconciled and backfilled only through the reviewed migration process in
+`docs/single-world-access.md`. Do not infer ownership of unscoped records.
+Take and verify Core and Clubs backups, rehearse in staging, reconcile
+historical records and financial totals, and obtain explicit approval before
+production migration.
 
-## Rendering architecture
-
-React 19 remains the application shell and owns accessible interface panels, menus, dialogs and existing feature screens.
-
-A dedicated renderer owns terrain, sprites, hit testing, isometric depth ordering, camera movement, pan/zoom and transitions. PixiJS is the preferred candidate to evaluate against a lightweight Canvas/SVG prototype; no renderer dependency is approved until a performance/accessibility prototype is measured.
-
-Renderer input is a bounded map-scene DTO, not raw Mongoose documents.
-
-Do not load full match histories, training logs, chat history or financial data to render the map.
-
-## Performance and accessibility
-
-- Render visible map tiles and objects only where possible.
-- Keep map art and sprite assets versioned and cacheable.
-- Support mouse, keyboard, touch and pinch zoom.
-- Provide a reduced-motion mode and respect OS accessibility preferences.
-- Keep a conventional searchable World list as an alternative to the map.
-- On mobile, preserve large tap targets and prevent accidental page scroll while panning.
-- Do not make map interaction the only route to football records.
-
-## Global placement and overview camera
-
-New kingdom positions are reserved on a deterministic square spiral with fixed logical spacing. This avoids the map growing as a single long row and gives nearby kingdoms nearby sectors. Coordinates remain logical grid values, not screen pixels.
-
-The Global Map renderer derives an overview camera from the current public kingdom bounds. It fits the available kingdoms into the viewport, while pan and zoom remain client-side camera state. The map is not limited to the first small demo terrain grid; newly allocated kingdoms remain addressable as the platform grows.
-
-## World entry and local facilities
-
-An active member enters through `GET /api/worlds/:slug/map`. The endpoint requires authentication and active membership and returns the World map layout, facility placements and a role-derived `canEditMap` permission.
-
-Owners/admins can update a facility through `PATCH /api/worlds/:slug/map/facilities/:facilityKey`. The update includes the expected layout version. The server validates the World capability, integer position, footprint bounds, rotation and overlap with every other facility, and commits the facility change plus layout-version increment in one MongoDB transaction.
-
-A member can view the local map but cannot edit facilities. A public visitor or pending member cannot fetch the interior map.
-
-## Public API boundary
-
-The initial public projection is served by `GET /api/worlds/map`. It returns public World identity, description, emblem asset reference, accent colour, active member count and logical Global Map coordinates.
-
-Viewer-specific membership state is not embedded in that response. The client obtains its own memberships through `GET /api/worlds/me` or a particular World membership endpoint. The renderer must never infer access from the presence of a kingdom or from its public preview.
-
-New Worlds are created through `POST /api/worlds`. The public map response includes a bounded set of currently unclaimed `availablePlots`, each with a stable `slotIndex` and logical coordinates. The user selects a plot and submits its `globalMapSlotIndex`; the server re-checks occupancy inside the World-creation transaction and reserves that exact location. A concurrent claim of the same plot returns `409 GLOBAL_MAP_SLOT_TAKEN` without leaving partial World records.
-
-The map is the full-screen Home experience, not a sixth navigation destination. Matchday retains five destinations: Home, Record, Leaderboard, Calendar and Players. Home shows the Global Map when no local World map is open. Selecting a public kingdom shows its public preview; only an active member can enter and trigger the zoom transition into its full-screen World map. Non-members can request approval but cannot fetch the local map.
-
-A World creator is automatically its owner and enters the new local map after the selected plot is reserved. The local map is full-screen and presents the World’s own facilities and map layout. The bottom navigation remains the same five Matchday destinations.
-
-## Implemented Global Map experience
-
-- Public kingdom directory loaded from `GET /api/worlds/map`.
-- Server-generated open plot list and exact transactional plot claims.
-- Viewer-specific membership states loaded separately from `GET /api/worlds/me`.
-- Selectable kingdom buildings with public preview and approval-based membership request.
-- Full-screen global map with pan/zoom and a five-destination navigation bar.
-- Full-screen local World map with an animated zoom-in transition.
-- Owner/admin facility move and rotation controls; member read-only access.
-- Reduced-motion handling and separate loading, empty and retry states.
-
-The Global Map and membership flow are connected to live World API records. The broader Player/Match/Clubs tenant isolation and Original GG production data migration remain separate rollout requirements.
+No production database migration is performed by the feature branch.
