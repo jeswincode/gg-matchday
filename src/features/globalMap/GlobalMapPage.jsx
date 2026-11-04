@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, setApiActiveWorld } from "../../lib/api";
 import { getActiveWorldSlug } from "../../lib/worldContext.js";
 import { promptPwaInstall } from "../../lib/pwaInstall.js";
@@ -300,7 +300,7 @@ export default function GlobalMapPage({
   const [membershipStates, setMembershipStates] = useState({});
   const [worldMembership, setWorldMembershipLocal] = useState(null);
   const [enteredWorld, setEnteredWorld] = useState(null);
-  const enteredAuthUidRef = useRef(null);
+  const [enteredAuthUid, setEnteredAuthUid] = useState(null);
   const [enteredMap, setEnteredMap] = useState(null);
   const [playerProfile, setPlayerProfile] = useState(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -326,7 +326,7 @@ export default function GlobalMapPage({
 
   const clearPrivateWorld = useCallback(({ clearSelector = true, clearMembership = true, messageText = "" } = {}) => {
     if (clearSelector) setApiActiveWorld(null);
-    enteredAuthUidRef.current = null;
+    setEnteredAuthUid(null);
     setEnteredWorld(null);
     setEnteredMap(null);
     setPlayerProfile(null);
@@ -399,7 +399,7 @@ export default function GlobalMapPage({
         try {
           const data = await api("/worlds/" + encodeURIComponent(activeSlug) + "/map");
           if (cancelled) return;
-          enteredAuthUidRef.current = authUser?.uid || null;
+          setEnteredAuthUid(authUser?.uid || null);
           setEnteredWorld(world);
           setEnteredMap(data);
           try {
@@ -509,7 +509,7 @@ export default function GlobalMapPage({
     try {
       const data = await api("/worlds/" + encodeURIComponent(world.slug) + "/map");
       setApiActiveWorld(world.slug);
-      enteredAuthUidRef.current = authUser?.uid || null;
+      setEnteredAuthUid(authUser?.uid || null);
       setEnteredWorld(world);
       setEnteredMap(data);
       setPlayerProfile(null);
@@ -554,7 +554,7 @@ export default function GlobalMapPage({
 
   const goToGlobalMap = () => {
     setApiActiveWorld(null);
-    enteredAuthUidRef.current = null;
+    setEnteredAuthUid(null);
     setEnteredWorld(null);
     setEnteredMap(null);
     setPlayerProfile(null);
@@ -563,7 +563,7 @@ export default function GlobalMapPage({
   };
 
   const identityOwnsEnteredWorld = Boolean(
-    isSignedIn && enteredWorld && enteredAuthUidRef.current === (authUser?.uid || null),
+    isSignedIn && enteredWorld && enteredAuthUid === (authUser?.uid || null),
   );
   const visibleEnteredWorld = identityOwnsEnteredWorld ? enteredWorld : null;
   const visibleEnteredMap = identityOwnsEnteredWorld ? enteredMap : null;
