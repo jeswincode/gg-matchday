@@ -123,7 +123,7 @@ router.get("/map", asyncRoute(async (req, res) => {
 }));
 
 async function accountWorldAccess(req, world) {
-  const email = normalizeGmailAddress(req.firebaseUser?.email || req.user?.email);
+  const email = normalizeGmailAddress(req.firebaseUser?.email);
   if (req.firebaseUser?.testOnly === true && process.env.NODE_ENV === "test") {
     const role = req.user?.role === "admin"
       ? "owner"
