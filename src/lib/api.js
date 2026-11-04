@@ -162,6 +162,19 @@ export async function api(path, { method = 'GET', body, signal, cacheResponse = 
       ]);
       const accessLost = response.status === 401 ||
         (response.status === 403 && accessLossCodes.has(data?.code));
+      const clubsAccessLost = response.status === 403 &&
+        data?.code === 'WORLD_CAPABILITY_REQUIRED' &&
+        data?.capability === 'clubs:participate';
+      if (clubsAccessLost && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('gg-clubs-access-lost', {
+          detail: {
+            status: response.status,
+            code: data?.code || null,
+            capability: data?.capability || null,
+            message: typeof data?.message === 'string' ? data.message : '',
+          },
+        }));
+      }
       if (accessLost && !publicRequest && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
         window.dispatchEvent(new CustomEvent('gg-world-access-lost', {
           detail: {

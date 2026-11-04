@@ -252,8 +252,16 @@ function App() {
       setProductMode("matchday");
       setMessage(event?.detail?.message || "Your GG World access could not be verified. Please sign in again.");
     };
+    const handleClubsAccessLost = event => {
+      setProductMode("matchday");
+      setMessage(event?.detail?.message || "Your GG World role no longer permits Clubs access.");
+    };
     window.addEventListener("gg-world-access-lost", handleWorldAccessLost);
-    return () => window.removeEventListener("gg-world-access-lost", handleWorldAccessLost);
+    window.addEventListener("gg-clubs-access-lost", handleClubsAccessLost);
+    return () => {
+      window.removeEventListener("gg-world-access-lost", handleWorldAccessLost);
+      window.removeEventListener("gg-clubs-access-lost", handleClubsAccessLost);
+    };
   }, []);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
@@ -524,6 +532,59 @@ function App() {
 
   const isSignedIn =
     Boolean(authUser);
+
+  // Revalidate the World membership when a signed-in user returns to any
+  // private Matchday or Clubs surface. The Global Map performs this check
+  // itself while Home is mounted; this covers the other product surfaces.
+  useEffect(() => {
+    if (!isSignedIn || !activeWorldSlug || (activeTab === TABS.HOME && productMode !== "clubs")) {
+      return undefined;
+    }
+
+    let active = true;
+    const revalidate = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const result = await api("/worlds/me", { cacheResponse: false });
+        if (!active) return;
+        const membership = result?.worlds?.find(item => item.slug === activeWorldSlug)?.membership || null;
+        setWorldMembership(membership);
+        if (membership?.status !== "active") {
+          window.dispatchEvent(new CustomEvent("gg-world-access-lost", {
+            detail: {
+              code: "WORLD_MEMBERSHIP_REQUIRED",
+              message: "Access to the GG football World is no longer active. Contact the platform administrator.",
+            },
+          }));
+          return;
+        }
+        if (productMode === "clubs" &&
+            !["owner", "admin", "editor", "member"].includes(membership.role)) {
+          window.dispatchEvent(new CustomEvent("gg-clubs-access-lost", {
+            detail: {
+              code: "WORLD_CAPABILITY_REQUIRED",
+              capability: "clubs:participate",
+              message: "Your GG World role no longer permits Clubs access.",
+            },
+          }));
+        }
+      } catch (error) {
+        if (!active) return;
+        if (error?.status === 401 || error?.status === 403) {
+          // api() also emits the global access-loss event for these statuses.
+          setProductMode("matchday");
+        }
+      }
+    };
+
+    window.addEventListener("focus", revalidate);
+    document.addEventListener("visibilitychange", revalidate);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", revalidate);
+      document.removeEventListener("visibilitychange", revalidate);
+    };
+  }, [isSignedIn, activeWorldSlug, activeTab, productMode]);
 
   const isAdmin = backendUser?.platformRole === "platform_admin";
 

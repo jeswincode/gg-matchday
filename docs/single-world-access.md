@@ -37,6 +37,20 @@ sets the grant to `revoked` and suspends membership in one transaction.
 Protected requests read the grant from MongoDB each time, so an extant Firebase
 token cannot preserve revoked access.
 
+## World role capabilities
+
+- **Owner/Admin:** full World administration, map/facility administration, Matchday editing and Club administration.
+- **Editor:** Matchday recording/editing and normal Clubs participation; cannot administer World membership or the private map.
+- **Member:** normal Clubs participation and own training/profile workflows; cannot record/edit Matchday results or administer Clubs.
+- **Viewer:** read-only World access; no Clubs navigation or Clubs API access.
+
+The Clubs API checks `clubs:participate` for every private Clubs route and
+checks `clubs:manage` for administrative Club operations. The client hides
+navigation that the current role cannot use, but the API remains authoritative.
+When a role or grant is changed while the app is open, protected API failures
+or focus/visibility revalidation move the user out of an unauthorized private
+surface and clear revoked World state.
+
 ## Admin API
 
 - `POST /api/worlds/admin/primary/ensure`: idempotently ensure owner membership

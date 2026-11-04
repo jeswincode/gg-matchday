@@ -348,3 +348,25 @@ test("viewer can enter the shared World but cannot navigate to or call private C
   expect(payload.code).toBe("WORLD_CAPABILITY_REQUIRED");
   expect(payload.capability).toBe("clubs:participate");
 });
+
+test("an open Clubs session returns to Matchday when membership loses Clubs capability", async ({ page }) => {
+  await openLinkedWorld(page, { role: "editor" });
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.locator(".clubs-app")).toBeVisible();
+
+  await page.route("**/api/worlds/me", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      worlds: [{
+        slug: "original-gg",
+        membership: { role: "viewer", status: "active", playerProfileId: null },
+      }],
+    }),
+  }));
+
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.locator(".clubs-app")).toHaveCount(0);
+  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clubs", exact: true })).toHaveCount(0);
+});
