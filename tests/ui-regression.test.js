@@ -225,7 +225,9 @@ test('Original GG map shows decorative open land markers without claim interacti
   assert.match(view,/function LocalOpenLandMarker/);
   assert.match(view,/const openLandMarkers = LOCAL_OPEN_LAND_MARKERS\.filter/);
   assert.match(view,/openLandMarkers\.map\(plot/);
-  assert.match(css,/\.gg-world-open-land-marker/);\n  assert.match(view,/aria-hidden="true"/);\n  assert.doesNotMatch(view,/gg-world-open-land-marker[^>]*role="button"/);
+  assert.match(css,/\.gg-world-open-land-marker/);
+  assert.match(view,/aria-hidden="true"/);
+  assert.doesNotMatch(view,/gg-world-open-land-marker[^>]*role="button"/);
 });
 
 test('Global Map administrator links and revokes Gmail access instead of creating Worlds',()=>{
