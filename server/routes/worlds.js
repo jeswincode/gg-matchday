@@ -14,7 +14,7 @@ import {
 import { ensureWorldMapInitialized, getWorldMapSnapshot, moveWorldMapFacility } from "../services/worldMapLayout.js";
 import { getPrimaryWorld } from "../services/primaryWorld.js";
 import { normalizeGmailAddress, isGmailAddress } from "../services/worldAccessGrants.js";
-import { isPlatformAdministrator } from "../services/worldAccess.js";
+import { hasWorldCapability, isPlatformAdministrator } from "../services/worldAccess.js";
 
 const router = express.Router();
 
@@ -264,7 +264,8 @@ router.post(
 // Creating the profile and linking it to the membership is atomic, so a failed
 // membership update cannot leave an orphan profile behind.
 async function linkLegacyPlayerProfile(req) {
-  if (req.membership?.playerProfileId || !req.user?.playerProfile || !req.membership?._id) {
+  if (req.membership?.playerProfileId || !req.user?.playerProfile || !req.membership?._id ||
+      !hasWorldCapability(req.membership.role, "profile:manage-own")) {
     return req.membership;
   }
 
