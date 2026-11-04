@@ -71,9 +71,11 @@ test("only non-viewer World roles can send chat and submit rating disputes", () 
   for (const role of ["owner", "admin", "editor", "member"]) {
     assert.equal(hasWorldCapability(role, "chat:send"), true, role);
     assert.equal(hasWorldCapability(role, "football:dispute"), true, role);
+    assert.equal(hasWorldCapability(role, "football:vote"), true, role);
   }
   assert.equal(hasWorldCapability("viewer", "chat:send"), false);
   assert.equal(hasWorldCapability("viewer", "football:dispute"), false);
+  assert.equal(hasWorldCapability("viewer", "football:vote"), false);
 });
 
 test("only active memberships grant access", () => {
