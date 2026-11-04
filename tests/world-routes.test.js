@@ -336,14 +336,18 @@ test("Viewer grants are supported but cannot create or link player profiles", as
   assert.equal(link.data.code, "WORLD_CAPABILITY_REQUIRED");
 
   const viewer = await User.findOne({ firebaseUid: "single-world-test:viewer" });
+  const viewerProfile = await Player.create({
+    worldId: primaryWorld._id,
+    name: "Viewer Profile Fixture",
+  });
   await WorldMembership.updateOne(
     { worldId: primaryWorld._id, userId: viewer._id },
-    { $set: { playerProfileId: existing._id } },
+    { $set: { playerProfileId: viewerProfile._id } },
   );
   const profileRequest = await request("/profile-requests", {
     token: "viewer",
     method: "POST",
-    body: { playerId: String(existing._id), changes: { bio: "Viewer write attempt" } },
+    body: { playerId: String(viewerProfile._id), changes: { bio: "Viewer write attempt" } },
   });
   assert.equal(profileRequest.status, 403);
   assert.equal(profileRequest.data.code, "WORLD_CAPABILITY_REQUIRED");
