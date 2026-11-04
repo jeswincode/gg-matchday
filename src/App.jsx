@@ -593,10 +593,6 @@ function App() {
     ["editor", "owner", "admin"].includes(worldMembership.role)
   );
 
-  const hasPendingRequest =
-    backendUser?.accessRequest ===
-    "pending";
-
   // =========================================================
   // AUTH STATE
   // =========================================================
@@ -1154,60 +1150,6 @@ function App() {
 
       setMessage(
         "Could not sign out."
-      );
-    }
-  }
-
-  // =========================================================
-  // EDITOR REQUEST
-  // =========================================================
-
-  async function requestEditorAccess() {
-    if (!isSignedIn) {
-      setMessage(
-        "Sign in first."
-      );
-      return;
-    }
-
-    try {
-      const response =
-        await authenticatedFetch(
-          `${API_URL}/auth/request-editor`,
-          {
-            method:
-              "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Could not submit request."
-        );
-      }
-
-      setBackendUser(
-        data.user ||
-          backendUser
-      );
-
-      setMessage(
-        "Editor access request submitted."
-      );
-    } catch (error) {
-      console.error(error);
-
-      setMessage(
-        error.message ||
-          "Could not submit editor request."
       );
     }
   }
@@ -2653,25 +2595,6 @@ function App() {
             </div>
 
             <div className="account-actions">
-
-              {!isEditor &&
-                !hasPendingRequest && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={
-                      requestEditorAccess
-                    }
-                  >
-                    Request Editor Access
-                  </button>
-                )}
-
-              {hasPendingRequest && (
-                <span className="request-pending">
-                  Request pending
-                </span>
-              )}
 
               {isAdmin && (
                 <button
