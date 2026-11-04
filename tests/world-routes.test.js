@@ -98,7 +98,7 @@ before(async () => {
     ownerUserId: adminUser._id,
     visibility: "public",
     joinPolicy: "approval",
-    globalMap: { mapId: "gg-main-v1", slotIndex: 0, x: 0, y: 0 },
+    globalMap: { mapId: "gg-main-v1", x: 0, y: 0 },
   });
   await Player.create([
     { worldId: primaryWorld._id, name: "World Player" },
@@ -118,7 +118,7 @@ test("Global Map exposes exactly one safe football World and no private interior
   assert.equal(map.status, 200, JSON.stringify(map.data));
   assert.equal(map.data.worlds.length, 1);
   assert.equal(map.data.worlds[0].slug, "original-gg");
-  assert.deepEqual(map.data.availablePlots, []);
+  assert.equal(Object.hasOwn(map.data, "availablePlots"), false);
   assert.equal(Object.hasOwn(map.data.worlds[0], "membership"), false);
   assert.equal(Object.hasOwn(map.data.worlds[0], "ownerUserId"), false);
   assert.equal(Object.hasOwn(map.data.worlds[0], "memberCount"), false);
