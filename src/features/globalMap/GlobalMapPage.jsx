@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, setApiActiveWorld } from "../../lib/api";
 import { getActiveWorldSlug } from "../../lib/worldContext.js";
 import { promptPwaInstall } from "../../lib/pwaInstall.js";
@@ -300,6 +300,7 @@ export default function GlobalMapPage({
   const [membershipStates, setMembershipStates] = useState({});
   const [worldMembership, setWorldMembershipLocal] = useState(null);
   const [enteredWorld, setEnteredWorld] = useState(null);
+  const enteredAuthUidRef = useRef(null);
   const [enteredMap, setEnteredMap] = useState(null);
   const [playerProfile, setPlayerProfile] = useState(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -323,8 +324,9 @@ export default function GlobalMapPage({
     setLoadError("");
   }, [onWorldMembershipChange]);
 
-  const clearPrivateWorld = useCallback(({ clearSelector = true, messageText = "" } = {}) => {
+  const clearPrivateWorld = useCallback(({ clearSelector = true, clearMembership = true, messageText = "" } = {}) => {
     if (clearSelector) setApiActiveWorld(null);
+    enteredAuthUidRef.current = null;
     setEnteredWorld(null);
     setEnteredMap(null);
     setPlayerProfile(null);
@@ -332,8 +334,10 @@ export default function GlobalMapPage({
     setProfileCreating(false);
     setEnteringWorld(false);
     setInteriorError("");
-    setWorldMembershipLocal(null);
-    onWorldMembershipChange?.(null);
+    if (clearMembership) {
+      setWorldMembershipLocal(null);
+      onWorldMembershipChange?.(null);
+    }
     setAccessManagerOpen(false);
     if (messageText) onMessage?.(messageText);
   }, [onMessage, onWorldMembershipChange]);
@@ -370,18 +374,19 @@ export default function GlobalMapPage({
 
   useEffect(() => {
     let cancelled = false;
-    // Never keep a previously rendered private interior on screen while the
-    // current Firebase identity is being checked. Preserve the selector only
-    // during a signed-in identity change so the new account can be revalidated.
-    clearPrivateWorld({ clearSelector: !isSignedIn });
-
+    // The render path below hides an interior immediately if its recorded
+    // Firebase UID differs from the current identity. Clear stale state only
+    // after the fresh membership response has been received.
     fetchWorldData(isSignedIn)
       .then(async result => {
         if (cancelled) return;
         applyWorldData(result);
 
         const activeSlug = isSignedIn ? getActiveWorldSlug() : null;
-        if (!activeSlug) return;
+        if (!activeSlug) {
+          clearPrivateWorld({ clearSelector: true, clearMembership: !isSignedIn });
+          return;
+        }
 
         const world = result.worlds.find(item => item.slug === activeSlug);
         if (!world || result.membershipStates[activeSlug] !== "active") {
@@ -394,6 +399,7 @@ export default function GlobalMapPage({
         try {
           const data = await api("/worlds/" + encodeURIComponent(activeSlug) + "/map");
           if (cancelled) return;
+          enteredAuthUidRef.current = authUser?.uid || null;
           setEnteredWorld(world);
           setEnteredMap(data);
           try {
@@ -503,6 +509,7 @@ export default function GlobalMapPage({
     try {
       const data = await api("/worlds/" + encodeURIComponent(world.slug) + "/map");
       setApiActiveWorld(world.slug);
+      enteredAuthUidRef.current = authUser?.uid || null;
       setEnteredWorld(world);
       setEnteredMap(data);
       setPlayerProfile(null);
@@ -547,6 +554,7 @@ export default function GlobalMapPage({
 
   const goToGlobalMap = () => {
     setApiActiveWorld(null);
+    enteredAuthUidRef.current = null;
     setEnteredWorld(null);
     setEnteredMap(null);
     setPlayerProfile(null);
@@ -554,14 +562,21 @@ export default function GlobalMapPage({
     setInteriorError("");
   };
 
+  const identityOwnsEnteredWorld = Boolean(
+    isSignedIn && enteredWorld && enteredAuthUidRef.current === (authUser?.uid || null),
+  );
+  const visibleEnteredWorld = identityOwnsEnteredWorld ? enteredWorld : null;
+  const visibleEnteredMap = identityOwnsEnteredWorld ? enteredMap : null;
+  const visiblePlayerProfile = identityOwnsEnteredWorld ? playerProfile : null;
+
   return (
-    <main className={"gg-world-screen" + (enteredWorld ? " gg-world-screen-interior" : " gg-world-screen-global")} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
+    <main className={"gg-world-screen" + (visibleEnteredWorld ? " gg-world-screen-interior" : " gg-world-screen-global")} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}>
       <header className="gg-world-top-hud">
         <div className="gg-world-brand">
           <span className="gg-world-brand-mark">GG</span>
           <div>
             <strong>FOOTBALL UNIVERSE</strong>
-            <small>{enteredWorld ? enteredWorld.name : "GLOBAL MAP"}</small>
+            <small>{visibleEnteredWorld ? visibleEnteredWorld.name : "GLOBAL MAP"}</small>
           </div>
         </div>
         <AccountChip
@@ -570,18 +585,18 @@ export default function GlobalMapPage({
           isSignedIn={isSignedIn}
           isAdmin={isAdmin}
           worldRole={worldMembership?.role}
-          onNavigateAdmin={enteredWorld ? () => onNavigateTab?.("admin") : null}
+          onNavigateAdmin={visibleEnteredWorld ? () => onNavigateTab?.("admin") : null}
           onManageAccess={openAccessManager}
           onSignIn={onSignIn}
           onSignOut={onSignOut}
           theme={theme}
           onThemeChange={onThemeChange}
-          onOpenClubs={enteredWorld &&
-            membershipStates[enteredWorld.slug] === "active" &&
+          onOpenClubs={visibleEnteredWorld &&
+            membershipStates[visibleEnteredWorld.slug] === "active" &&
             (isAdmin || ["owner", "admin", "editor", "member"].includes(worldMembership?.role))
             ? onOpenClubs
             : null}
-          onOpenJournal={enteredWorld && membershipStates[worlds[0]?.slug] === "active" ? () => onNavigateTab?.("journal") : null}
+          onOpenJournal={visibleEnteredWorld && membershipStates[worlds[0]?.slug] === "active" ? () => onNavigateTab?.("journal") : null}
         />
       </header>
 
@@ -592,7 +607,7 @@ export default function GlobalMapPage({
         </div>
       )}
 
-      {!enteredWorld ? (
+      {!visibleEnteredWorld ? (
         <>
           <div className="gg-world-map-title">
             <div>
@@ -647,23 +662,23 @@ export default function GlobalMapPage({
             </button>
             <div className="gg-world-interior-title">
               <span className="gg-world-create-eyebrow">WELCOME TO YOUR WORLD</span>
-              <h1>{enteredWorld.name}</h1>
+              <h1>{visibleEnteredWorld.name}</h1>
             </div>
-            <span className="gg-world-interior-role">{worldMembership?.role?.toUpperCase() || (enteredMap?.permissions?.canEditMap ? "OWNER / ADMIN" : "MEMBER")}</span>
+            <span className="gg-world-interior-role">{worldMembership?.role?.toUpperCase() || (visibleEnteredMap?.permissions?.canEditMap ? "OWNER / ADMIN" : "MEMBER")}</span>
           </header>
-          {!playerProfile && !isAdmin && (
+          {!visiblePlayerProfile && !isAdmin && (
             <section className="gg-world-profile-setup-banner">
               <div>
-                <strong>Set up your player identity in {enteredWorld.name}</strong>
+                <strong>Set up your player identity in {visibleEnteredWorld.name}</strong>
                 <span>Your player profile and football statistics are separate in every World.</span>
               </div>
               <button type="button" onClick={() => setProfileModalOpen(true)}>Create player profile</button>
             </section>
           )}
-          {playerProfile && (
+          {visiblePlayerProfile && (
             <div className="gg-world-player-chip">
-              <span>{playerProfile.name}</span>
-              <small>{playerProfile.position || "Player"} · this World</small>
+              <span>{visiblePlayerProfile.name}</span>
+              <small>{visiblePlayerProfile.position || "Player"} · this World</small>
               <button type="button" onClick={() => setProfileModalOpen(true)}>View profile</button>
             </div>
           )}
@@ -671,14 +686,14 @@ export default function GlobalMapPage({
           {interiorError && (
             <div className="gg-world-map-error" role="alert">
               <span>{interiorError}</span>
-              <button type="button" onClick={() => enterWorld(enteredWorld)}>Retry</button>
+              <button type="button" onClick={() => enterWorld(visibleEnteredWorld)}>Retry</button>
             </div>
           )}
-          {enteredMap && (
+          {visibleEnteredMap && (
             <div className="gg-world-local-map-stage">
               <WorldMapView
-                world={enteredWorld}
-                data={enteredMap}
+                world={visibleEnteredWorld}
+                data={visibleEnteredMap}
                 onUpdated={refreshEnteredMap}
                 onMessage={onMessage}
               />
@@ -687,15 +702,15 @@ export default function GlobalMapPage({
         </>
       )}
 
-      {enteredWorld && membershipStates[enteredWorld.slug] === "active" && (
+      {enteredWorld && membershipStates[visibleEnteredWorld.slug] === "active" && (
         <WorldBottomNavigation onNavigateTab={onNavigateTab} />
       )}
 
       <PlayerProfileModal
-        key={profileModalOpen ? "profile-open-" + (enteredWorld?.slug || "world") : "profile-closed"}
+        key={profileModalOpen ? "profile-open-" + (visibleEnteredWorld?.slug || "world") : "profile-closed"}
         open={!isAdmin && profileModalOpen}
-        world={enteredWorld}
-        existingProfile={playerProfile}
+        world={visibleEnteredWorld}
+        existingProfile={visiblePlayerProfile}
         busy={profileCreating}
         onClose={() => setProfileModalOpen(false)}
         onCreate={createPlayerProfile}
