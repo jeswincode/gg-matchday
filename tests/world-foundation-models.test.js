@@ -76,6 +76,16 @@ test("World global map coordinates must be integer tile positions and assigned t
   assert.ok(partialError.errors.globalMap);
 });
 
+
+test("World schema has no user-claimable Global Map plot allocator", () => {
+  assert.equal(World.schema.path("globalMap.slotIndex"), undefined);
+  const indexes = World.schema.indexes();
+  assert.ok(!indexes.some(([keys, options]) =>
+    options.name === "world_global_map_position_unique" ||
+    Object.keys(keys).some(key => key.startsWith("globalMap."))
+  ));
+});
+
 test("WorldMembership defaults to a pending member without a linked Player", async () => {
   const membership = new WorldMembership({
     worldId: objectId(),
