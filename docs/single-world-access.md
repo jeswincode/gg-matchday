@@ -50,10 +50,10 @@ token cannot preserve revoked access.
 
 ## World role capabilities
 
-- **Owner/Admin:** full World administration, map/facility administration, Matchday editing, own-profile management and Club administration.
-- **Editor:** Matchday recording/editing, own-profile management and normal Clubs participation; cannot administer World membership or the private map.
-- **Member:** own-profile management, normal Clubs participation and own training workflows; cannot record/edit Matchday results or administer Clubs.
-- **Viewer:** read-only World access; cannot create or change a player profile and has no Clubs navigation or Clubs API access.
+- **Owner/Admin:** full World administration, map/facility administration, Matchday editing, own-profile management, community chat, rating disputes and Club administration.
+- **Editor:** Matchday recording/editing, own-profile management, community chat, rating disputes and normal Clubs participation; cannot administer World membership or the private map.
+- **Member:** own-profile management, community chat, rating disputes, normal Clubs participation and own training workflows; cannot record/edit Matchday results or administer Clubs.
+- **Viewer:** read-only World access; cannot create or change a player profile, submit profile-change requests, send chat messages or submit rating disputes, and has no Clubs navigation or Clubs API access.
 
 The Clubs API checks `clubs:participate` for every private Clubs route and
 checks `clubs:manage` for administrative Club operations. The client hides
@@ -69,8 +69,8 @@ surface and clear revoked World state.
   create a World.
 - `GET /api/worlds/admin/access`: list invitations, linked accounts and status.
 - `POST /api/worlds/admin/access`: create/reissue a Gmail invitation with
-  `{ "email": "person@gmail.com", "role": "member" }`; `editor` must be
-  explicitly selected.
+  `{ "email": "person@gmail.com", "role": "member" }`; choose `viewer` for
+  read-only access or `editor` for Matchday editing and participation.
 - `DELETE /api/worlds/admin/access/:grantId`: revoke access and suspend the
   corresponding active membership.
 - `GET /api/worlds/map`: safe public projection of exactly one World.
