@@ -37,6 +37,13 @@ function responseRecorder() {
   };
 }
 
+test("only non-viewer World roles can manage their own player profile", () => {
+  for (const role of ["owner", "admin", "editor", "member"]) {
+    assert.equal(hasWorldCapability(role, "profile:manage-own"), true, role);
+  }
+  assert.equal(hasWorldCapability("viewer", "profile:manage-own"), false);
+});
+
 test("World slug normalization is deterministic and rejects unsafe values", () => {
   assert.equal(normalizeWorldSlug("  Original-GG "), "original-gg");
   assert.equal(isValidWorldSlug("original-gg"), true);
