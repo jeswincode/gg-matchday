@@ -1136,6 +1136,10 @@ function App() {
     try {
       if (auth) await signOut(auth);
 
+      // Clear the in-memory identity immediately as well as relying on
+      // Firebase's observer. This also covers the isolated E2E auth adapter,
+      // which deliberately has no Firebase Auth instance.
+      setAuthUser(null);
       setApiActiveWorld(null);
       setBackendUser(null);
       setWorldMembership(null);

@@ -334,6 +334,18 @@ test("viewer can enter the shared World but cannot navigate to or call private C
   await openLinkedWorld(page, { role: "viewer" });
 
   await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
+
+  const membershipResponse = await page.request.get("http://127.0.0.1:5000/api/worlds/me", {
+    headers: {
+      "X-E2E-Test-Token": "gg-matchday-e2e-only-secret",
+      "X-E2E-Test-Role": "viewer",
+      "X-World-Slug": "original-gg",
+    },
+  });
+  const membershipPayload = await membershipResponse.json().catch(() => ({}));
+  expect(membershipResponse.status(), JSON.stringify(membershipPayload)).toBe(200);
+  expect(membershipPayload.worlds?.[0]?.membership?.role).toBe("viewer");
+  expect(membershipPayload.worlds?.[0]?.membership?.status).toBe("active");
   await expect(page.getByRole("button", { name: "Clubs", exact: true })).toHaveCount(0);
 
   const response = await page.request.get("http://127.0.0.1:5000/api/clubs/meta", {
