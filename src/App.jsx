@@ -2364,6 +2364,8 @@ function App() {
     experience === "entry" && authUser && !authLoading
       ? "welcome"
       : experience;
+  const canAccessClubs = isAdmin ||
+    ["owner", "admin", "editor", "member"].includes(worldMembership?.role);
 
   const modeTransitionLayer = modeTransition ? (
     <div className={`product-mode-transition product-mode-transition--${modeTransition}`} aria-hidden="true">
@@ -2531,7 +2533,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions">{canAccessClubs && <button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button>}<div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}

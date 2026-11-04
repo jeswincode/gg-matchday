@@ -58,7 +58,11 @@ import {
 } from "../services/clubsEconomy.js";
 
 const router = express.Router();
-router.use(requireOptionalWorldMembership, withWorldDataScope);
+router.use(
+  requireOptionalWorldMembership,
+  withWorldDataScope,
+  requireDomainCapability("clubs:participate"),
+);
 
 const FORMATION_ACTIVE_STATUSES = [
   "pendingMutualAgreement",

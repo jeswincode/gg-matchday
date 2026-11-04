@@ -297,6 +297,10 @@ test("Editor invitation grants football edit capabilities but not private map ad
   });
   assert.equal(editMap.status, 403);
   assert.equal(editMap.data.code, "WORLD_CAPABILITY_REQUIRED");
+
+  const clubsMeta = await request("/clubs/meta", { token: "editor" });
+  assert.equal(clubsMeta.status, 200, JSON.stringify(clubsMeta.data));
+  assert.ok(Array.isArray(clubsMeta.data.formations));
 });
 
 test("The platform administrator can edit the initialized local map with bounds and version protection", async () => {

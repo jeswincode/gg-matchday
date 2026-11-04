@@ -33,6 +33,7 @@ export const WORLD_ROLE_CAPABILITIES = Object.freeze({
     "world:read",
     "football:record",
     "football:edit",
+    "clubs:participate",
     "training:write-own",
     "training:read-shared",
   ]),

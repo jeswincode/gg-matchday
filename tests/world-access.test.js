@@ -283,6 +283,28 @@ test("capability middleware enforces grant-backed membership and role capabiliti
     await requireWorldCapability("training:write-own")(req, memberRes, () => { nextCalled = true; });
     assert.equal(memberRes.statusCode, 200);
     assert.equal(nextCalled, true);
+
+    const editorReq = { ...req, membership: { status: "active", role: "editor" } };
+    const editorRes = responseRecorder();
+    nextCalled = false;
+    await requireWorldCapability("clubs:participate")(editorReq, editorRes, () => { nextCalled = true; });
+    assert.equal(editorRes.statusCode, 200);
+    assert.equal(nextCalled, true);
+
+    const editorManageRes = responseRecorder();
+    nextCalled = false;
+    await requireWorldCapability("clubs:manage")(editorReq, editorManageRes, () => { nextCalled = true; });
+    assert.equal(editorManageRes.statusCode, 403);
+    assert.equal(editorManageRes.body.code, "WORLD_CAPABILITY_REQUIRED");
+    assert.equal(nextCalled, false);
+
+    const viewerReq = { ...req, membership: { status: "active", role: "viewer" } };
+    const viewerRes = responseRecorder();
+    nextCalled = false;
+    await requireWorldCapability("clubs:participate")(viewerReq, viewerRes, () => { nextCalled = true; });
+    assert.equal(viewerRes.statusCode, 403);
+    assert.equal(viewerRes.body.code, "WORLD_CAPABILITY_REQUIRED");
+    assert.equal(nextCalled, false);
   } finally {
     WorldAccessGrant.exists = originalExists;
   }
