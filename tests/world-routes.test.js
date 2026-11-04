@@ -318,6 +318,18 @@ test("Viewer grants are supported but cannot create or link player profiles", as
   assert.equal(status.data.worlds[0].membership.status, "active");
   assert.equal(status.data.worlds[0].membership.role, "viewer");
 
+  const viewer = await User.findOne({ firebaseUid: "single-world-test:viewer" });
+  const viewerProfile = await Player.create({
+    worldId: primaryWorld._id,
+    name: "Viewer Profile Fixture",
+  });
+  await User.updateOne({ _id: viewer._id }, { $set: { playerProfile: viewerProfile._id } });
+  const profileRead = await request("/worlds/original-gg/player-profile", { token: "viewer" });
+  assert.equal(profileRead.status, 200, JSON.stringify(profileRead.data));
+  assert.equal(profileRead.data.needsProfile, true);
+  const unlinkedMembership = await WorldMembership.findOne({ worldId: primaryWorld._id, userId: viewer._id }).lean();
+  assert.equal(unlinkedMembership.playerProfileId, null);
+
   const create = await request("/worlds/original-gg/player-profiles", {
     token: "viewer",
     method: "POST",
@@ -335,11 +347,6 @@ test("Viewer grants are supported but cannot create or link player profiles", as
   assert.equal(link.status, 403);
   assert.equal(link.data.code, "WORLD_CAPABILITY_REQUIRED");
 
-  const viewer = await User.findOne({ firebaseUid: "single-world-test:viewer" });
-  const viewerProfile = await Player.create({
-    worldId: primaryWorld._id,
-    name: "Viewer Profile Fixture",
-  });
   await WorldMembership.updateOne(
     { worldId: primaryWorld._id, userId: viewer._id },
     { $set: { playerProfileId: viewerProfile._id } },
