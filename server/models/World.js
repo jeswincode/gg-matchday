@@ -10,16 +10,6 @@ const globalMapSchema = new Schema({
     maxlength: 64,
     default: "gg-main-v1",
   },
-  slotIndex: {
-    type: Number,
-    min: 0,
-    max: 249999,
-    default: null,
-    validate: {
-      validator: value => value === null || Number.isSafeInteger(value),
-      message: "Global map slot index must be a non-negative integer.",
-    },
-  },
   x: {
     type: Number,
     min: -100000,
@@ -124,18 +114,6 @@ const worldSchema = new Schema({
 
 worldSchema.index({ slug: 1 }, { unique: true, name: "world_slug_unique" });
 worldSchema.index({ ownerUserId: 1, status: 1 }, { name: "world_owner_status" });
-worldSchema.index(
-  { "globalMap.mapId": 1, "globalMap.x": 1, "globalMap.y": 1 },
-  {
-    unique: true,
-    name: "world_global_map_position_unique",
-    partialFilterExpression: {
-      status: "active",
-      "globalMap.x": { $type: "number" },
-      "globalMap.y": { $type: "number" },
-    },
-  },
-);
 
 worldSchema.pre("validate", function validateGlobalMapPosition() {
   const x = this.globalMap?.x;
