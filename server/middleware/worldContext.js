@@ -1,7 +1,7 @@
 import WorldMembership from "../models/WorldMembership.js";
 import Player from "../models/Player.js";
 import { getPrimaryWorld, getPrimaryWorldSlug } from "../services/primaryWorld.js";
-import { isPlatformAdministrator } from "../services/worldAccess.js";
+import { hasWorldCapability, isPlatformAdministrator } from "../services/worldAccess.js";
 
 function worldSlugFromRequest(req) {
   return String(
@@ -94,6 +94,7 @@ export async function resolveWorldContext(req, res, next) {
     if (
       !isolatedTestIdentity &&
       membership?.status === "active" &&
+      hasWorldCapability(membership.role, "profile:manage-own") &&
       !membership.playerProfileId &&
       req.user?.playerProfile
     ) {
