@@ -182,7 +182,7 @@ test('Global Map always projects one kingdom and never exposes claimable World p
   assert.ok(!["availablePlots","claimPlot","globalMapSlotIndex","createModalOpen"].some(value => page.includes(value)));
   assert.ok(!["availablePlots","ClaimPlot","onClaimPlot"].some(value => scene.includes(value)));
   assert.ok(routes.includes("worlds: [safeWorld(world)]"));
-  assert.ok(routes.includes("availablePlots: []"));
+  assert.ok(!routes.includes("availablePlots"));
 });
 
 test('GG sign-in supports Google, email/password, account creation and password reset',()=>{
@@ -218,11 +218,11 @@ test('single-World entry is grant-gated and preserves one player identity inside
   assert.match(player,/worldId: 1, nameNormalized: 1/);
 });
 
-test('each World map keeps undeveloped plots visible for future facilities and Clubs',()=>{
+test('Original GG map shows decorative open land markers without claim interactions',()=>{
   const view=read('src/features/globalMap/WorldMapView.jsx');
   const css=read('src/features/globalMap/world-map-view.css');
-  assert.match(view,/LOCAL_OPEN_PLOTS/);
-  assert.match(view,/function LocalOpenPlot/);
+  assert.match(view,/LOCAL_OPEN_LAND_MARKERS/);
+  assert.match(view,/function LocalOpenLandMarker/);
   assert.match(view,/const openPlots = LOCAL_OPEN_PLOTS\.filter/);
   assert.match(view,/openPlots\.map\(plot/);
   assert.match(css,/\.gg-world-open-plot/);
