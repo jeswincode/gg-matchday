@@ -74,7 +74,7 @@ function publicDispute(dispute) {
 
 // Report a concern about the signed-in user's own rating. This endpoint stores
 // a snapshot and workflow record only; it never writes to Match.
-router.post("/matches/:matchId/players/:playerId", requireAuth, async (req, res) => {
+router.post("/matches/:matchId/players/:playerId", requireAuth, requireDomainCapability("football:dispute"), async (req, res) => {
   if (!validId(req.params.matchId) || !validId(req.params.playerId)) {
     return res.status(400).json({ message: "Invalid match or player id." });
   }
