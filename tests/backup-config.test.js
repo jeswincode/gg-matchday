@@ -76,3 +76,23 @@ test("backup refuses to guess a Clubs database when its URI has no path", () => 
   assert.match(result.stderr, /MongoDB database name is missing/i);
   assert.doesNotMatch(result.stdout + result.stderr, /cluster\.example/);
 });
+
+test("Atlas backup refuses ambiguous source databases before opening temporary network access", () => {
+  const result = spawnSync("bash", ["scripts/backup-mongodb-atlas.sh"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      MONGODB_URI: "mongodb+srv://private.example/",
+      CLUBS_MONGODB_URI: "mongodb+srv://private.example/",
+      BACKUP_ENCRYPTION_KEY: "test-key",
+      ATLAS_CLIENT_ID: "test-client",
+      ATLAS_CLIENT_SECRET: "test-secret",
+      ATLAS_PROJECT_ID: "test-project",
+      RUNNER_IP: "192.0.2.10",
+    },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /database name is missing/i);
+  assert.doesNotMatch(result.stdout, /GitHub runner public IP|Adding temporary Atlas access/);
+  assert.doesNotMatch(result.stdout + result.stderr, /private\.example|test-secret/);
+});
