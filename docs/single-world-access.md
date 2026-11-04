@@ -93,6 +93,59 @@ records when the World header is absent.
 The service worker must remain application-shell-only. It must never cache
 authenticated API responses, memberships, private World data or private media.
 
+## Staging acceptance gate
+
+Run this checklist only against an explicitly identified **non-production staging**
+deployment and its dedicated Core and Clubs databases. Do not use production
+credentials, production URLs or production data for these checks.
+
+### Environment preflight
+
+- Confirm the staging API and frontend deployment identifiers; verify the frontend is a preview/staging deployment, not a production alias.
+- Confirm production-mode behavior is exercised in staging, both E2E test-auth secrets are absent, and Firebase test identities are not enabled.
+- Configure the exact existing staging Original GG World slug in GG_PRIMARY_WORLD_SLUG; confirm the World record is active and unique.
+- Confirm Core and Clubs database names explicitly, and confirm both URIs point to staging clusters.
+- Confirm the Firebase Google provider, authorized staging domains and ADMIN_EMAIL configuration. Use dedicated test Gmail accounts, not personal production accounts.
+
+### Identity and role matrix
+
+| Identity | Expected access | Expected denials |
+|---|---|---|
+| Configured platform admin | Owner access, World access management, Matchday and Club administration | No access if current Firebase email is unverified or UID/email does not match the persisted account |
+| Invited Editor | Matchday record/edit, own profile, Clubs participation, chat and rating disputes | World membership administration, map editing and Club administration |
+| Invited Member | Own profile, Clubs participation, chat and rating disputes | Matchday record/edit, map editing and Club administration |
+| Invited Viewer | Read-only World and private map projection | Player-profile create/link/change, profile-change requests, chat send, rating disputes and all private Clubs APIs |
+| Uninvited Gmail | Public shell and safe Global Map projection | Private map, Matchday, Clubs and other private World APIs |
+| Revoked Gmail | Public shell and safe Global Map projection | Every subsequent private API request, including with a previously valid Firebase token |
+| Unverified or non-Gmail identity | Public shell and safe Global Map projection | Invitation activation and all private World APIs |
+
+For each invited role, verify both the visible navigation and the API response.
+Hiding a control is not an authorization test. Exercise direct API requests for
+each denied capability and require a server-side 403 response.
+
+### Lifecycle and isolation scenarios
+
+1. Invite each test Gmail with its intended role; sign in with that exact account and verify grant and membership activation.
+2. Sign out, sign in as an uninvited account, and verify that Firebase authentication alone does not unlock private data.
+3. For Viewer, attempt profile creation/linking, profile-change request submission, chat send, rating dispute submission and Clubs metadata/history calls; each write/private Clubs request must be denied.
+4. For Editor and Member, verify their permitted capabilities and attempt at least one forbidden capability for each role.
+5. Revoke an active test grant while that account is signed in. Without clearing the Firebase token, issue another private API request and verify denial; return focus to the app and verify private state is cleared.
+6. Reissue a revoked invitation with a different role, sign in again, and verify the new membership role is authoritative in /api/worlds/me and the UI.
+7. Verify the public Global Map contains exactly one safe World projection and no membership roster, local facilities or football records.
+8. Verify records and aggregates from the canonical World do not include legacy/unscoped records before migration, and that all Core and Clubs operations use the intended World scope.
+
+Record the deployment ID, test account role (never passwords or tokens),
+endpoint, expected result, actual result and timestamp. Do not use real player
+wallets or financial activity for test mutations.
+
+### Staging database rehearsal
+
+- Run npm run audit:single-world with staging-only Core/Clubs credentials and the verified staging slug.
+- Run npm run migrate:single-world in dry-run mode against staging and inspect every blocker, orphan reference, unique-index collision and financial snapshot.
+- Take and verify restorable backups of both staging databases, then rehearse the controlled apply only in staging with all writers paused.
+- Verify postflight counts, cross-collection references, wallet/ledger totals and historical Matchday records. Restore the staging backups and confirm the restore is usable.
+- Save the reports and backup references as rollout evidence. Production inventory, backup, migration dry-run or apply remains a separate explicitly approved activity.
+
 ## Database inventory and migration plan
 
 Run the read-only inventory after setting verified database credentials and
