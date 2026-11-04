@@ -79,8 +79,10 @@ GG_PRIMARY_WORLD_SLUG=original-gg npm run audit:single-world
 
 The script lists all existing Worlds and reports counts for selected-World,
 legacy null/missing-`worldId`, and other-World records in the relevant Core
-and (when configured) separate Clubs collections. It does not write, delete,
-archive or reassign records.
+and separate Clubs collections. If either URI omits its database path, set
+`MONGODB_DATABASE` or `CLUBS_DB_NAME` explicitly. The audit refuses to guess
+or silently use MongoDB's `test` default. It does not write, delete, archive
+or reassign records.
 
 Before an apply migration:
 

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { MongoClient, ObjectId } from "mongodb";
+import { resolveMongoDatabaseName } from "../mongodb-database-name.mjs";
 import { pathToFileURL } from "node:url";
 
 export const CORE_BACKFILL_COLLECTIONS = [
@@ -649,14 +650,16 @@ async function main() {
     }
   }
 
+  const coreDatabaseName = resolveMongoDatabaseName(coreUri, process.env.MONGODB_DATABASE, "Core MongoDB");
+  const clubsDatabaseName = resolveMongoDatabaseName(clubsUri, process.env.CLUBS_DB_NAME, "Clubs MongoDB");
   const clients = [];
   try {
     const coreClient = new MongoClient(coreUri, { readPreference: "primary", retryWrites: true });
     const clubsClient = new MongoClient(clubsUri, { readPreference: "primary", retryWrites: true });
     clients.push(coreClient, clubsClient);
     await Promise.all([coreClient.connect(), clubsClient.connect()]);
-    const coreDb = coreClient.db();
-    const clubsDb = clubsClient.db(String(process.env.CLUBS_DB_NAME || "").trim() || undefined);
+    const coreDb = coreClient.db(coreDatabaseName);
+    const clubsDb = clubsClient.db(clubsDatabaseName);
 
     if (!apply) {
       const report = await inspectSingleWorldMigration({ coreDb, clubsDb, primarySlug, batchSize });

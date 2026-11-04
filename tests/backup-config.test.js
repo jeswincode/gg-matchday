@@ -52,3 +52,11 @@ test("backup refuses the implicit test database before invoking MongoDB tools", 
   assert.match(result.stderr, /Refusing to back up the default 'test' database/);
   assert.doesNotMatch(result.stdout + result.stderr, /cluster\.example/);
 });
+
+test("database resolver rejects an unsupported protocol without leaking URI content", () => {
+  const result = spawnSync(process.execPath, [resolver], { input: "https://private.example/database", encoding: "utf8" });
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /URI is invalid or does not include a database name/);
+  assert.doesNotMatch(result.stderr, /private\\.example/);
+});

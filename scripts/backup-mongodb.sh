@@ -23,7 +23,7 @@ CLUBS_MONGODB_URI="${CLUBS_MONGODB_URI:-}"
 
 CLUBS_DB_NAME="${CLUBS_DB_NAME:-}"
 if [ -z "$CLUBS_DB_NAME" ]; then
-  CLUBS_DB_NAME="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs gg_matchday_clubs)"
+  CLUBS_DB_NAME="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
 fi
 if [ "$CLUBS_DB_NAME" = "test" ] && [ "${ALLOW_TEST_DATABASE_BACKUP:-false}" != "true" ]; then
   echo "Refusing to back up the default 'test' Clubs database. Set CLUBS_DB_NAME to the intended database." >&2

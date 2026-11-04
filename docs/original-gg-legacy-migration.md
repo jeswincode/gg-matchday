@@ -14,7 +14,8 @@ Global `users`, World configuration, World memberships, access grants, World map
 
 - `MONGODB_URI`
 - `CLUBS_MONGODB_URI`
-- `CLUBS_DB_NAME` (if Clubs uses a named database)
+- `MONGODB_DATABASE` when the Core URI has no database path
+- `CLUBS_DB_NAME` when the Clubs URI has no database path
 - `GG_PRIMARY_WORLD_SLUG` (must resolve to exactly one existing active World)
 
 ## 1. Read-only inventory
@@ -25,7 +26,7 @@ Run:
 npm run audit:single-world
 ```
 
-This is read-only. It reports target World identity, per-collection counts, unscoped records, records already assigned to another World, and the configured database names. It does not migrate or write data.
+This is read-only. It reports target World identity, per-collection counts, unscoped records, records already assigned to another World, and the configured database names. It does not migrate or write data. The audit and migration preflight fail closed if either database name cannot be resolved from an explicit setting or the corresponding URI path; they never default to `test` or guess a Clubs database.
 
 ## 2. Migration preflight (dry-run)
 

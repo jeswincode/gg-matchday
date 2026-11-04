@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { MongoClient } from "mongodb";
+import { resolveMongoDatabaseName } from "../mongodb-database-name.mjs";
 
 const primarySlug = String(process.env.GG_PRIMARY_WORLD_SLUG || "").trim().toLowerCase();
 const coreUri = String(process.env.MONGODB_URI || "").trim();
@@ -19,15 +20,17 @@ const clubsCollections = [
 ];
 
 if (!coreUri || !clubsUri || !primarySlug) {
-  console.error("Read-only audit requires MONGODB_URI, CLUBS_MONGODB_URI and GG_PRIMARY_WORLD_SLUG (the existing Original GG World slug).");
+  console.error("Read-only audit requires MONGODB_URI, CLUBS_MONGODB_URI and GG_PRIMARY_WORLD_SLUG (the existing Original GG World slug). Set MONGODB_DATABASE and CLUBS_DB_NAME when the corresponding URI has no database path.");
   process.exitCode = 2;
 } else {
   const clients = [];
   try {
+    const coreDatabaseName = resolveMongoDatabaseName(coreUri, process.env.MONGODB_DATABASE, "Core MongoDB");
+    const clubsDatabaseName = resolveMongoDatabaseName(clubsUri, process.env.CLUBS_DB_NAME, "Clubs MongoDB");
     const coreClient = new MongoClient(coreUri, { readPreference: "primary" });
     clients.push(coreClient);
     await coreClient.connect();
-    const coreDb = coreClient.db();
+    const coreDb = coreClient.db(coreDatabaseName);
     const worlds = await coreDb.collection("worlds").find({}).project({
       _id: 1, name: 1, slug: 1, status: 1, ownerUserId: 1,
     }).sort({ createdAt: 1, _id: 1 }).toArray();
@@ -61,7 +64,7 @@ if (!coreUri || !clubsUri || !primarySlug) {
     const clubsClient = new MongoClient(clubsUri, { readPreference: "primary" });
     clients.push(clubsClient);
     await clubsClient.connect();
-    const clubsDb = clubsClient.db(String(process.env.CLUBS_DB_NAME || "").trim() || undefined);
+    const clubsDb = clubsClient.db(clubsDatabaseName);
     const existingClubs = new Set((await clubsDb.listCollections({}, { nameOnly: true }).toArray()).map(item => item.name));
     const clubsInventory = {
       configured: true,

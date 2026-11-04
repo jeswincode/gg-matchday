@@ -7,6 +7,7 @@ on:
       - ".github/workflows/mongodb-backup.yml"
       - "scripts/backup-mongodb.sh"
       - "scripts/backup-mongodb-atlas.sh"
+      - "scripts/mongodb-database-name.mjs"
       - "scripts/resolve-mongodb-db-name.mjs"
       - "tests/backup-config.test.js"
       - "scripts/backup-crypto.mjs"
@@ -116,7 +117,7 @@ jobs:
           : "${CLUBS_MONGODB_URI:?Set the CLUBS_MONGODB_URI repository secret or variable to the actual Clubs database URI}"
           CLUBS_DATABASE="${CLUBS_DB_NAME:-}"
           if [ -z "$CLUBS_DATABASE" ]; then
-            CLUBS_DATABASE="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs gg_matchday_clubs)"
+            CLUBS_DATABASE="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
           fi
           : "${CLUBS_DATABASE:?Set CLUBS_DB_NAME or include the database path in CLUBS_MONGODB_URI}"
           CLUBS_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-clubs-*.archive.gz.enc' -print -quit)"
