@@ -334,6 +334,40 @@ test("Viewer grants are supported but cannot create or link player profiles", as
   });
   assert.equal(link.status, 403);
   assert.equal(link.data.code, "WORLD_CAPABILITY_REQUIRED");
+
+  const viewer = await User.findOne({ firebaseUid: "single-world-test:viewer" });
+  await WorldMembership.updateOne(
+    { worldId: primaryWorld._id, userId: viewer._id },
+    { $set: { playerProfileId: existing._id } },
+  );
+  const profileRequest = await request("/profile-requests", {
+    token: "viewer",
+    method: "POST",
+    body: { playerId: String(existing._id), changes: { bio: "Viewer write attempt" } },
+  });
+  assert.equal(profileRequest.status, 403);
+  assert.equal(profileRequest.data.code, "WORLD_CAPABILITY_REQUIRED");
+
+  const dispute = await request("/rating-disputes/matches/" + new mongoose.Types.ObjectId() + "/players/" + existing._id, {
+    token: "viewer",
+    method: "POST",
+    body: { category: "other", reason: "Viewer write attempt" },
+  });
+  assert.equal(dispute.status, 403);
+  assert.equal(dispute.data.code, "WORLD_CAPABILITY_REQUIRED");
+
+  process.env.CHAT_ENABLED = "true";
+  try {
+    const chat = await request("/chat", {
+      token: "viewer",
+      method: "POST",
+      body: { message: "Viewer write attempt" },
+    });
+    assert.equal(chat.status, 403);
+    assert.equal(chat.data.code, "WORLD_CAPABILITY_REQUIRED");
+  } finally {
+    process.env.CHAT_ENABLED = "false";
+  }
 });
 
 test("The platform administrator can edit the initialized local map with bounds and version protection", async () => {
