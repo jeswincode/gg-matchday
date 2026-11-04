@@ -370,8 +370,6 @@ export default function GlobalMapPage({
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-
     // Never keep a previously rendered private interior on screen while the
     // current Firebase identity is being checked. Preserve the selector only
     // during a signed-in identity change so the new account can be revalidated.
