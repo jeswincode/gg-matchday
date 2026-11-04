@@ -92,6 +92,7 @@ test("aggregation-style update pipelines cannot move records across Worlds", asy
     const result = await Player.updateOne(
       { _id: player._id },
       [{ $set: { worldId: worldB, bio: "attempted move" } }],
+      { updatePipeline: true },
     );
     assert.equal(result.matchedCount, 1);
 
