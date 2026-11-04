@@ -61,13 +61,17 @@ export function worldDataScopePlugin(schema) {
     this.worldId = expected;
   });
 
-  for (const operation of ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne"]) {
+  for (const operation of ["updateOne", "updateMany", "findOneAndUpdate", "replaceOne", "findOneAndReplace"]) {
     schema.pre(operation, function enforceWorldOnUpdate() {
       const scope = currentWorldDataScope();
       if (!scope) return;
       const expected = scope.worldId || null;
       const update = this.getUpdate();
-      if (!update || Array.isArray(update)) return;
+      if (!update) return;
+      if (Array.isArray(update)) {
+        this.setUpdate([...update, { $set: { worldId: expected } }]);
+        return;
+      }
 
       const next = { ...update };
       delete next.worldId;
