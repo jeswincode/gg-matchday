@@ -21,7 +21,7 @@ test("database resolver refuses to guess when the URI has no database path", () 
   assert.doesNotMatch(result.stdout + result.stderr, /audit-user|very-secret|cluster\.example/);
 });
 
-test("database resolver accepts an explicit fallback for a URI without a path", () => {
+test("database resolver accepts an explicitly configured database for a URI without a path", () => {
   const uri = "mongodb+srv://cluster.example.mongodb.net/?retryWrites=true";
   const result = spawnSync(process.execPath, [resolver, "gg_matchday_clubs"], { input: uri, encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
@@ -32,10 +32,9 @@ test("database resolver rejects malformed URIs without leaking their text", () =
   const result = spawnSync(process.execPath, [resolver], { input: "not-a-uri-with-private-data", encoding: "utf8" });
   assert.equal(result.status, 2);
   assert.equal(result.stdout, "");
-  assert.match(result.stderr, /Could not derive a database name from the MongoDB URI path/);
+  assert.match(result.stderr, /URI is invalid or does not include a database name/);
   assert.doesNotMatch(result.stderr, /private-data/);
 });
-
 
 test("backup refuses the implicit test database before invoking MongoDB tools", () => {
   const result = spawnSync("bash", ["scripts/backup-mongodb.sh"], {
@@ -58,5 +57,5 @@ test("database resolver rejects an unsupported protocol without leaking URI cont
   assert.equal(result.status, 2);
   assert.equal(result.stdout, "");
   assert.match(result.stderr, /URI is invalid or does not include a database name/);
-  assert.doesNotMatch(result.stderr, /private\\.example/);
+  assert.doesNotMatch(result.stderr, /private\.example/);
 });
