@@ -141,7 +141,7 @@ wallets or financial activity for test mutations.
 ### Staging database rehearsal
 
 - Run npm run audit:single-world with staging-only Core/Clubs credentials and the verified staging slug.
-- Run npm run migrate:single-world in dry-run mode against staging and inspect every blocker, orphan reference, unique-index collision and financial snapshot.
+- Run npm run migrate:single-world against staging without --apply (the default is read-only preflight) and inspect every blocker, orphan reference, unique-index collision and financial snapshot.
 - Take and verify restorable backups of both staging databases, then rehearse the controlled apply only in staging with all writers paused.
 - Verify postflight counts, cross-collection references, wallet/ledger totals and historical Matchday records. Restore the staging backups and confirm the restore is usable.
 - Save the reports and backup references as rollout evidence. Production inventory, backup, migration dry-run or apply remains a separate explicitly approved activity.
