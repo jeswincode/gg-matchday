@@ -170,7 +170,7 @@ test('immersive Home restores an active World and preserves admin access',()=>{
   assert.match(page,/setEnteredWorld\(world\)/);
   assert.match(page,/setApiActiveWorld\(null\)/);
   assert.match(page,/isAdmin && <button[^>]*gg-world-admin-link/);
-  assert.ok(page.includes('onNavigateAdmin={enteredWorld ? () => onNavigateTab?.("admin") : null}'));
+  assert.ok(page.includes('onNavigateAdmin={visibleEnteredWorld ? () => onNavigateTab?.("admin") : null}'));
   assert.ok(page.includes('{isAdmin && onNavigateAdmin && <button'));
 });
 
