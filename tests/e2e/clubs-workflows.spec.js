@@ -347,6 +347,21 @@ test("viewer can enter the shared World but cannot navigate to or call private C
   expect(response.status(), JSON.stringify(payload)).toBe(403);
   expect(payload.code).toBe("WORLD_CAPABILITY_REQUIRED");
   expect(payload.capability).toBe("clubs:participate");
+
+  const historyResponse = await page.request.get(
+    "http://127.0.0.1:5000/api/clubs/player/65a000000000000000000001/history",
+    {
+      headers: {
+        "X-E2E-Test-Token": "gg-matchday-e2e-only-secret",
+        "X-E2E-Test-Role": "viewer",
+        "X-World-Slug": "original-gg",
+      },
+    },
+  );
+  const historyPayload = await historyResponse.json().catch(() => ({}));
+  expect(historyResponse.status(), JSON.stringify(historyPayload)).toBe(403);
+  expect(historyPayload.code).toBe("WORLD_CAPABILITY_REQUIRED");
+  expect(historyPayload.capability).toBe("clubs:participate");
 });
 
 test("an open Clubs session returns to Matchday when membership loses Clubs capability", async ({ page }) => {

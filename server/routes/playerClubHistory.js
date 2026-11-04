@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import { requireAuth } from "../middleware/auth.js";
 import { requireOptionalWorldMembership, withWorldDataScope } from "../middleware/domainWorldContext.js";
+import { requireDomainCapability } from "../middleware/worldPermissions.js";
 import Club from "../models/clubs/Club.js";
 import ClubContract from "../models/clubs/ClubContract.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
@@ -11,7 +12,11 @@ import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js"
 import { buildPlayerClubHistory } from "../services/playerClubHistory.js";
 
 const router = express.Router();
-router.use(requireOptionalWorldMembership, withWorldDataScope);
+router.use(
+  requireOptionalWorldMembership,
+  withWorldDataScope,
+  requireDomainCapability("clubs:participate"),
+);
 
 const ensureObjectId = value => mongoose.isValidObjectId(value);
 
