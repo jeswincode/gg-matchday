@@ -313,6 +313,13 @@ test("Viewer grants are supported but cannot create or link player profiles", as
   assert.equal(invite.status, 201, JSON.stringify(invite.data));
   assert.equal(invite.data.grant.role, "viewer");
 
+  const selfServiceRequest = await request("/auth/request-editor", {
+    token: "viewer",
+    method: "POST",
+  });
+  assert.equal(selfServiceRequest.status, 410);
+  assert.equal(selfServiceRequest.data.code, "WORLD_ACCESS_ADMIN_MANAGED");
+
   const status = await request("/worlds/me", { token: "viewer" });
   assert.equal(status.status, 200);
   assert.equal(status.data.worlds[0].membership.status, "active");
