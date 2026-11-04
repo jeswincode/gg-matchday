@@ -83,7 +83,9 @@ test("Atlas backup refuses ambiguous source databases before opening temporary n
     env: {
       ...process.env,
       MONGODB_URI: "mongodb+srv://private.example/",
+      MONGODB_DATABASE: "",
       CLUBS_MONGODB_URI: "mongodb+srv://private.example/",
+      CLUBS_DB_NAME: "",
       BACKUP_ENCRYPTION_KEY: "test-key",
       ATLAS_CLIENT_ID: "test-client",
       ATLAS_CLIENT_SECRET: "test-secret",

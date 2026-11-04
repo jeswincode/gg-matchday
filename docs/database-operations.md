@@ -34,7 +34,7 @@ The repository contains:
 - `scripts/mongodb-database-name.mjs`
 - `.github/workflows/mongodb-backup.yml`
 
-The workflow runs daily at **02:30 UTC** and can also be started manually. It backs up both the configured core Matchday database and the separate Clubs database. Each database name must be supplied explicitly through `MONGODB_DATABASE` / `CLUBS_DB_NAME` or be present in its corresponding MongoDB URI path. The scripts never guess a database and never silently fall back to MongoDB's `test` default or a guessed Clubs database name. Production backup jobs refuse the `test` database; the local-only `ALLOW_TEST_DATABASE_BACKUP=true` override is not configured in GitHub Actions. A separate Clubs URI is required unless both connections intentionally share a cluster.
+The workflow runs daily at **02:30 UTC** and can also be started manually. It backs up both the configured core Matchday database and the separate Clubs database. Each database name must be supplied explicitly through `MONGODB_DATABASE` / `CLUBS_DB_NAME` or be present in its corresponding MongoDB URI path. The scripts never guess a database and never silently fall back to MongoDB's `test` default or a guessed Clubs database name. Production backup jobs refuse the `test` database; the explicit `ALLOW_TEST_DATABASE_BACKUP=true` override is not configured in GitHub Actions and should be used only for controlled non-production test backups. A separate Clubs URI is required unless both connections intentionally share a cluster.
 
 The current workflow:
 1. installs MongoDB Database Tools 100.19.0;

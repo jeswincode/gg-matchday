@@ -37,6 +37,17 @@ sets the grant to `revoked` and suspends membership in one transaction.
 Protected requests read the grant from MongoDB each time, so an extant Firebase
 token cannot preserve revoked access.
 
+## Sign-in and navigation lifecycle
+
+1. **Open the app:** the public shell and safe one-World Global Map projection can load without exposing private map or football records.
+2. **Sign in with Google:** Firebase verifies the identity. Firebase authentication by itself does not grant access.
+3. **Resolve the GG account:** the backend matches the verified Firebase UID and exact verified Gmail address to the persisted GG User. Non-Gmail and unverified identities cannot activate an invitation.
+4. **Resolve the invitation:** the backend checks the exact Gmail/World grant. An invited identity activates only on a verified sign-in, with grant and membership updated atomically. Uninvited, revoked or suspended identities remain outside the private World.
+5. **Enter Original GG:** the user selects the single public Global Map projection. The private local map request re-checks the current grant and active membership before returning facilities or football data.
+6. **Use Matchday:** Home returns to the Global Map/local map; the existing Matchday navigation exposes Record, Leaderboard, Calendar, Players and Journal, with Admin tools reserved for the configured platform administrator.
+7. **Open Clubs:** the Clubs link appears only for roles with `clubs:participate`. Every private Clubs API route checks that capability again; Club administration additionally requires `clubs:manage`.
+8. **Logout or lose access:** logout clears the active World selector and private UI state. A denied protected request or focus/visibility revalidation returns the user to the public map/entry experience; loss of Clubs-only capability returns the user to Matchday without discarding an otherwise active World membership.
+
 ## World role capabilities
 
 - **Owner/Admin:** full World administration, map/facility administration, Matchday editing and Club administration.
