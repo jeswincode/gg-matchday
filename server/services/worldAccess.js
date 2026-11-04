@@ -3,6 +3,7 @@ import { isVerifiedConfiguredAdminEmail } from "./adminIdentityPolicy.js";
 export const WORLD_ROLE_CAPABILITIES = Object.freeze({
   owner: Object.freeze([
     "world:read",
+    "profile:manage-own",
     "world:manage",
     "membership:review",
     "map:edit",
@@ -31,6 +32,7 @@ export const WORLD_ROLE_CAPABILITIES = Object.freeze({
   ]),
   editor: Object.freeze([
     "world:read",
+    "profile:manage-own",
     "football:record",
     "football:edit",
     "clubs:participate",
@@ -39,6 +41,7 @@ export const WORLD_ROLE_CAPABILITIES = Object.freeze({
   ]),
   member: Object.freeze([
     "world:read",
+    "profile:manage-own",
     "clubs:participate",
     "training:write-own",
     "training:read-shared",
