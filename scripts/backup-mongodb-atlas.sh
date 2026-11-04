@@ -8,6 +8,22 @@ set -euo pipefail
 : "${ATLAS_CLIENT_SECRET:?ATLAS_CLIENT_SECRET is required}"
 : "${ATLAS_PROJECT_ID:?ATLAS_PROJECT_ID is required}"
 
+# Resolve and validate both source databases before making any Atlas API call
+# or temporarily changing the project's network access list.
+if [ -z "${MONGODB_DATABASE:-}" ]; then
+  MONGODB_DATABASE="$(printf '%s' "$MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
+fi
+if [ -z "${CLUBS_DB_NAME:-}" ]; then
+  CLUBS_DB_NAME="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
+fi
+for database in "$MONGODB_DATABASE" "$CLUBS_DB_NAME"; do
+  if [ "$database" = "test" ] && [ "${ALLOW_TEST_DATABASE_BACKUP:-false}" != "true" ]; then
+    echo "Refusing to back up the default 'test' database. Configure the intended Core and Clubs database names." >&2
+    exit 2
+  fi
+done
+export MONGODB_DATABASE CLUBS_DB_NAME
+
 ATLAS_API_BASE="https://cloud.mongodb.com/api/atlas/v2"
 ATLAS_ACCEPT="application/vnd.atlas.2025-03-12+json"
 RUNNER_IP="${RUNNER_IP:-$(curl -fsS --retry 3 https://api.ipify.org)}"

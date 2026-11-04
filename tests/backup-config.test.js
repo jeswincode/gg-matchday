@@ -59,3 +59,20 @@ test("database resolver rejects an unsupported protocol without leaking URI cont
   assert.match(result.stderr, /URI is invalid or does not include a database name/);
   assert.doesNotMatch(result.stderr, /private\.example/);
 });
+
+test("backup refuses to guess a Clubs database when its URI has no path", () => {
+  const result = spawnSync("bash", ["scripts/backup-mongodb.sh"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      MONGODB_URI: "mongodb+srv://cluster.example.mongodb.net/gg-matchday",
+      MONGODB_DATABASE: "gg-matchday",
+      CLUBS_MONGODB_URI: "mongodb+srv://cluster.example.mongodb.net/",
+      CLUBS_DB_NAME: "",
+      BACKUP_ENCRYPTION_KEY: "test-key",
+    },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Clubs MongoDB database name is missing/i);
+  assert.doesNotMatch(result.stdout + result.stderr, /cluster\\.example/);
+});

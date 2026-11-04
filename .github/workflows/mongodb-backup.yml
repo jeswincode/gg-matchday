@@ -120,6 +120,10 @@ jobs:
             CLUBS_DATABASE="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
           fi
           : "${CLUBS_DATABASE:?Set CLUBS_DB_NAME or include the database path in CLUBS_MONGODB_URI}"
+          if [ "$CLUBS_DATABASE" = "test" ]; then
+            echo "Refusing to restore a production backup drill from the default 'test' Clubs database." >&2
+            exit 2
+          fi
           CLUBS_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-clubs-*.archive.gz.enc' -print -quit)"
           test -n "$CLUBS_BACKUP"
           node scripts/backup-crypto.mjs decrypt "$CLUBS_BACKUP" /tmp/gg-restore/clubs.archive.gz
