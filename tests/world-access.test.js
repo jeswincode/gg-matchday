@@ -50,6 +50,8 @@ test("World capabilities distinguish owner, editor, member and viewer", () => {
   assert.equal(hasWorldCapability("owner", "world:manage"), true);
   assert.equal(hasWorldCapability("admin", "membership:review"), true);
   assert.equal(hasWorldCapability("editor", "football:record"), true);
+  assert.equal(hasWorldCapability("editor", "clubs:participate"), true);
+  assert.equal(hasWorldCapability("editor", "clubs:manage"), false);
   assert.equal(hasWorldCapability("editor", "map:edit"), false);
   assert.equal(hasWorldCapability("member", "training:write-own"), true);
   assert.equal(hasWorldCapability("member", "training:organise"), false);
