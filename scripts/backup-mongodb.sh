@@ -4,11 +4,15 @@ set -euo pipefail
 : "${MONGODB_URI:?MONGODB_URI is required}"
 MONGODB_DATABASE="${MONGODB_DATABASE:-}"
 resolve_database_name() {
-  printf '%s' "$1" | node scripts/resolve-mongodb-db-name.mjs "${2:-test}"
+  printf '%s' "$1" | node scripts/resolve-mongodb-db-name.mjs
 }
 
 if [ -z "$MONGODB_DATABASE" ]; then
-  MONGODB_DATABASE="$(resolve_database_name "$MONGODB_URI" "test")"
+  MONGODB_DATABASE="$(resolve_database_name "$MONGODB_URI")"
+fi
+if [ "$MONGODB_DATABASE" = "test" ] && [ "${ALLOW_TEST_DATABASE_BACKUP:-false}" != "true" ]; then
+  echo "Refusing to back up the default 'test' database. Set MONGODB_DATABASE to the intended production database." >&2
+  exit 2
 fi
 : "${BACKUP_ENCRYPTION_KEY:?BACKUP_ENCRYPTION_KEY is required}"
 
@@ -19,7 +23,11 @@ CLUBS_MONGODB_URI="${CLUBS_MONGODB_URI:-}"
 
 CLUBS_DB_NAME="${CLUBS_DB_NAME:-}"
 if [ -z "$CLUBS_DB_NAME" ]; then
-  CLUBS_DB_NAME="$(resolve_database_name "$CLUBS_MONGODB_URI" "gg_matchday_clubs")"
+  CLUBS_DB_NAME="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs gg_matchday_clubs)"
+fi
+if [ "$CLUBS_DB_NAME" = "test" ] && [ "${ALLOW_TEST_DATABASE_BACKUP:-false}" != "true" ]; then
+  echo "Refusing to back up the default 'test' Clubs database. Set CLUBS_DB_NAME to the intended database." >&2
+  exit 2
 fi
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
@@ -36,7 +44,10 @@ backup_database() {
   local decrypted="$TMP_DIR/verify-${label}.archive.gz"
 
   echo "Creating ${label} MongoDB backup for database: ${database}"
-  mongodump --uri="$uri" --db="$database" --archive="$archive" --gzip --quiet
+  if ! mongodump --uri="$uri" --db="$database" --archive="$archive" --gzip; then
+    echo "mongodump failed for the configured ${label} database (${database}). Review the MongoDB Database Tools error above." >&2
+    return 1
+  fi
   test -s "$archive"
 
   echo "Encrypting ${label} backup with authenticated v2 format..."

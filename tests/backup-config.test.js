@@ -12,11 +12,12 @@ test("database resolver extracts a MongoDB SRV URI path without exposing credent
   assert.doesNotMatch(result.stdout + result.stderr, /audit-user|very-secret|cluster\.example/);
 });
 
-test("database resolver matches the app's test default when the URI has no database path", () => {
+test("database resolver refuses to guess when the URI has no database path", () => {
   const uri = "mongodb+srv://audit-user:very-secret@cluster.example.mongodb.net/?retryWrites=true";
   const result = spawnSync(process.execPath, [resolver], { input: uri, encoding: "utf8" });
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(result.stdout.trim(), "test");
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /database name is missing/i);
   assert.doesNotMatch(result.stdout + result.stderr, /audit-user|very-secret|cluster\.example/);
 });
 
@@ -33,4 +34,21 @@ test("database resolver rejects malformed URIs without leaking their text", () =
   assert.equal(result.stdout, "");
   assert.match(result.stderr, /Could not derive a database name from the MongoDB URI path/);
   assert.doesNotMatch(result.stderr, /private-data/);
+});
+
+
+test("backup refuses the implicit test database before invoking MongoDB tools", () => {
+  const result = spawnSync("bash", ["scripts/backup-mongodb.sh"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      MONGODB_URI: "mongodb+srv://cluster.example.mongodb.net/gg-matchday",
+      MONGODB_DATABASE: "test",
+      CLUBS_MONGODB_URI: "mongodb+srv://cluster.example.mongodb.net/gg-matchday-clubs",
+      BACKUP_ENCRYPTION_KEY: "test-key",
+    },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /Refusing to back up the default 'test' database/);
+  assert.doesNotMatch(result.stdout + result.stderr, /cluster\.example/);
 });
