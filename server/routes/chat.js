@@ -1,7 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { requireAuth } from '../middleware/auth.js';
-import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope } from '../middleware/domainWorldContext.js';
+import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope, requireDomainCapability } from '../middleware/domainWorldContext.js';
 import User from '../models/User.js';
 import ChatMessage from '../models/ChatMessage.js';
 import { chatMonth, messageText } from '../services/validation.js';
@@ -130,7 +130,7 @@ router.get('/stream', async (req, res) => {
   });
 });
 
-router.post('/', async (req, res) => {
+router.post('/', requireDomainCapability('chat:send'), async (req, res) => {
   try {
     const text = messageText(req.body.message);
     const month = chatMonth();
