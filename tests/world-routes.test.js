@@ -12,6 +12,7 @@ const tokenEmails = {
   admin: "admin@gmail.com",
   member: "member@gmail.com",
   editor: "editor@gmail.com",
+  viewer: "viewer@gmail.com",
   other: "other@gmail.com",
   unverified: "unverified@gmail.com",
 };
@@ -301,6 +302,38 @@ test("Editor invitation grants football edit capabilities but not private map ad
   const clubsMeta = await request("/clubs/meta", { token: "editor" });
   assert.equal(clubsMeta.status, 200, JSON.stringify(clubsMeta.data));
   assert.ok(Array.isArray(clubsMeta.data.formations));
+});
+
+test("Viewer grants are supported but cannot create or link player profiles", async () => {
+  const invite = await request("/worlds/admin/access", {
+    token: "admin",
+    method: "POST",
+    body: { email: "viewer@gmail.com", role: "viewer" },
+  });
+  assert.equal(invite.status, 201, JSON.stringify(invite.data));
+  assert.equal(invite.data.grant.role, "viewer");
+
+  const status = await request("/worlds/me", { token: "viewer" });
+  assert.equal(status.status, 200);
+  assert.equal(status.data.worlds[0].membership.status, "active");
+  assert.equal(status.data.worlds[0].membership.role, "viewer");
+
+  const create = await request("/worlds/original-gg/player-profiles", {
+    token: "viewer",
+    method: "POST",
+    body: { name: "Read Only Player" },
+  });
+  assert.equal(create.status, 403);
+  assert.equal(create.data.code, "WORLD_CAPABILITY_REQUIRED");
+
+  const existing = await Player.findOne({ worldId: primaryWorld._id, name: "World Player" }).lean();
+  const link = await request("/worlds/original-gg/player-profile", {
+    token: "viewer",
+    method: "POST",
+    body: { playerId: String(existing._id) },
+  });
+  assert.equal(link.status, 403);
+  assert.equal(link.data.code, "WORLD_CAPABILITY_REQUIRED");
 });
 
 test("The platform administrator can edit the initialized local map with bounds and version protection", async () => {
