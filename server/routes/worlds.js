@@ -174,7 +174,6 @@ function safeWorld(world) {
     accentColor: world.branding?.accentColor || "#c5a45b",
     globalMap: {
       mapId: world.globalMap?.mapId || "gg-main-v1",
-      slotIndex: Number.isSafeInteger(world.globalMap?.slotIndex) ? world.globalMap.slotIndex : null,
       // The one existing GG kingdom remains visible before any map-placement migration.
       x: Number.isFinite(world.globalMap?.x) ? world.globalMap.x : 0,
       y: Number.isFinite(world.globalMap?.y) ? world.globalMap.y : 0,
