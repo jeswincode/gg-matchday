@@ -50,10 +50,10 @@ token cannot preserve revoked access.
 
 ## World role capabilities
 
-- **Owner/Admin:** full World administration, map/facility administration, Matchday editing and Club administration.
-- **Editor:** Matchday recording/editing and normal Clubs participation; cannot administer World membership or the private map.
-- **Member:** normal Clubs participation and own training/profile workflows; cannot record/edit Matchday results or administer Clubs.
-- **Viewer:** read-only World access; no Clubs navigation or Clubs API access.
+- **Owner/Admin:** full World administration, map/facility administration, Matchday editing, own-profile management and Club administration.
+- **Editor:** Matchday recording/editing, own-profile management and normal Clubs participation; cannot administer World membership or the private map.
+- **Member:** own-profile management, normal Clubs participation and own training workflows; cannot record/edit Matchday results or administer Clubs.
+- **Viewer:** read-only World access; cannot create or change a player profile and has no Clubs navigation or Clubs API access.
 
 The Clubs API checks `clubs:participate` for every private Clubs route and
 checks `clubs:manage` for administrative Club operations. The client hides
