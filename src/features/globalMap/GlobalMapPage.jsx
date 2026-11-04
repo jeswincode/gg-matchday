@@ -702,13 +702,13 @@ export default function GlobalMapPage({
         </>
       )}
 
-      {enteredWorld && membershipStates[visibleEnteredWorld.slug] === "active" && (
+      {visibleEnteredWorld && membershipStates[visibleEnteredWorld.slug] === "active" && (
         <WorldBottomNavigation onNavigateTab={onNavigateTab} />
       )}
 
       <PlayerProfileModal
         key={profileModalOpen ? "profile-open-" + (visibleEnteredWorld?.slug || "world") : "profile-closed"}
-        open={!isAdmin && profileModalOpen}
+        open={!isAdmin && profileModalOpen && Boolean(visibleEnteredWorld)}
         world={visibleEnteredWorld}
         existingProfile={visiblePlayerProfile}
         busy={profileCreating}
