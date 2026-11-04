@@ -86,6 +86,20 @@ test("writes cannot target another World and new records inherit active World ow
   );
 });
 
+test("aggregation-style update pipelines cannot move records across Worlds", async () => {
+  const player = await Player.create({ worldId: worldA, name: "Pipeline Scoped Player" });
+  await runWithWorldDataScope(worldA, async () => {
+    const result = await Player.updateOne(
+      { _id: player._id },
+      [{ $set: { worldId: worldB, bio: "attempted move" } }],
+    );
+    assert.equal(result.matchedCount, 1);
+  });
+  const stored = await Player.findById(player._id).lean();
+  assert.equal(String(stored.worldId), String(worldA));
+  assert.equal(stored.bio, "attempted move");
+});
+
 test("legacy scope can see only null or missing World ownership", async () => {
   const legacy = await Player.create({ name: "Legacy Scope Player" });
   assert.equal(legacy.worldId, null);
