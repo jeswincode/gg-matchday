@@ -11,7 +11,7 @@ const worldAccessGrantSchema = new Schema({
     maxlength: 254,
     match: /^[a-z0-9][a-z0-9.]{4,28}[a-z0-9]@gmail[.]com$/,
   },
-  role: { type: String, enum: ["member", "editor"], default: "member", required: true },
+  role: { type: String, enum: ["member", "editor", "viewer"], default: "member", required: true },
   status: { type: String, enum: ["invited", "active", "revoked"], default: "invited", required: true, index: true },
   userId: { type: Schema.Types.ObjectId, ref: "User", default: null },
   invitedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
