@@ -2,59 +2,35 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  availableGlobalMapSlots,
-  globalPositionAt,
-  GLOBAL_KINGDOM_SPACING,
-} from "../server/services/worldCreation.js";
+  DEFAULT_WORLD_FACILITIES,
+  GLOBAL_MAP_ID,
+  WORLD_MAP_GRID_HEIGHT,
+  WORLD_MAP_GRID_WIDTH,
+} from "../server/services/worldMapConfig.js";
 
-test("Global Map kingdoms are reserved in a deterministic square spiral", () => {
-  const positions = Array.from({ length: 9 }, (_, index) => globalPositionAt(index));
-
-  assert.deepEqual(positions, [
-    { x: 0, y: 0 },
-    { x: GLOBAL_KINGDOM_SPACING, y: 0 },
-    { x: GLOBAL_KINGDOM_SPACING, y: GLOBAL_KINGDOM_SPACING },
-    { x: 0, y: GLOBAL_KINGDOM_SPACING },
-    { x: -GLOBAL_KINGDOM_SPACING, y: GLOBAL_KINGDOM_SPACING },
-    { x: -GLOBAL_KINGDOM_SPACING, y: 0 },
-    { x: -GLOBAL_KINGDOM_SPACING, y: -GLOBAL_KINGDOM_SPACING },
-    { x: 0, y: -GLOBAL_KINGDOM_SPACING },
-    { x: GLOBAL_KINGDOM_SPACING, y: -GLOBAL_KINGDOM_SPACING },
-  ]);
-  assert.equal(new Set(positions.map(position => position.x + ":" + position.y)).size, positions.length);
+test("Original GG uses one fixed Global Map identity and bounded local map", () => {
+  assert.equal(GLOBAL_MAP_ID, "gg-main-v1");
+  assert.equal(WORLD_MAP_GRID_WIDTH, 60);
+  assert.equal(WORLD_MAP_GRID_HEIGHT, 60);
 });
 
-test("square-spiral positions remain exact beyond the initial kingdom cluster", () => {
-  assert.deepEqual(globalPositionAt(24), {
-    x: 2 * GLOBAL_KINGDOM_SPACING,
-    y: -2 * GLOBAL_KINGDOM_SPACING,
-  });
-  assert.deepEqual(globalPositionAt(25), {
-    x: 3 * GLOBAL_KINGDOM_SPACING,
-    y: -2 * GLOBAL_KINGDOM_SPACING,
-  });
-  assert.deepEqual(globalPositionAt(48), {
-    x: 3 * GLOBAL_KINGDOM_SPACING,
-    y: -3 * GLOBAL_KINGDOM_SPACING,
-  });
+test("Original GG facility configuration is fixed, unique and inside the map", () => {
+  assert.equal(DEFAULT_WORLD_FACILITIES.length, 8);
+  assert.equal(new Set(DEFAULT_WORLD_FACILITIES.map(item => item.facilityKey)).size, 8);
+  for (const facility of DEFAULT_WORLD_FACILITIES) {
+    assert.ok(Number.isSafeInteger(facility.column) && facility.column >= 0);
+    assert.ok(Number.isSafeInteger(facility.row) && facility.row >= 0);
+    assert.ok(facility.column + facility.width <= WORLD_MAP_GRID_WIDTH);
+    assert.ok(facility.row + facility.height <= WORLD_MAP_GRID_HEIGHT);
+    assert.ok(Object.isFrozen(facility));
+  }
+  assert.ok(Object.isFrozen(DEFAULT_WORLD_FACILITIES));
 });
 
-test("Global Map position allocator rejects invalid indexes and spacing", () => {
-  assert.throws(() => globalPositionAt(-1), /non-negative integer/);
-  assert.throws(() => globalPositionAt(1.5), /non-negative integer/);
-  assert.throws(() => globalPositionAt(0, 0), /positive integer/);
-});
-
-
-test("available Global Map plots skip every occupied position", () => {
-  const occupied = [
-    { globalMap: { x: 0, y: 0 } },
-    { globalMap: { x: GLOBAL_KINGDOM_SPACING, y: 0 } },
-  ];
-  const plots = availableGlobalMapSlots(occupied, 4);
-  assert.deepEqual(plots.map(plot => plot.slotIndex), [2, 3, 4, 5]);
-  assert.deepEqual(plots[0], {
-    slotIndex: 2,
-    ...globalPositionAt(2),
-  });
+test("fixed Original GG facilities contain no World ownership or plot allocation fields", () => {
+  for (const facility of DEFAULT_WORLD_FACILITIES) {
+    assert.deepEqual(Object.keys(facility).sort(), [
+      "column", "facilityKey", "height", "row", "type", "width",
+    ]);
+  }
 });
