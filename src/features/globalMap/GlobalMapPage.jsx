@@ -237,6 +237,7 @@ function WorldAccessManager({ open, onClose, onMessage, grants = [], loading = f
           <label>
             World role
             <select value={role} onChange={event => setRole(event.target.value)}>
+              <option value="viewer">Viewer</option>
               <option value="member">Member</option>
               <option value="editor">Editor</option>
             </select>
