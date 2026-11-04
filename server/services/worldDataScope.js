@@ -74,17 +74,23 @@ export function worldDataScopePlugin(schema) {
       }
 
       const next = { ...update };
-      delete next.worldId;
-      for (const operator of ["$set", "$setOnInsert", "$setOnUpdate"]) {
-        if (next[operator]) {
-          next[operator] = { ...next[operator], worldId: expected };
-        }
-      }
       if (!Object.keys(next).some(key => key.startsWith("$"))) {
+        delete next.worldId;
         next.worldId = expected;
       } else {
-        next.$setOnInsert = { ...(next.$setOnInsert || {}), worldId: expected };
-        if (next.$set) delete next.$set.worldId;
+        for (const [operator, value] of Object.entries(next)) {
+          if (!operator.startsWith("$") || !value || typeof value !== "object" || Array.isArray(value)) continue;
+          const sanitized = { ...value };
+          for (const key of Object.keys(sanitized)) {
+            if (key === "worldId" || key.startsWith("worldId.")) delete sanitized[key];
+            if (operator === "$rename" && (sanitized[key] === "worldId" || String(sanitized[key] || "").startsWith("worldId."))) {
+              delete sanitized[key];
+            }
+          }
+          next[operator] = sanitized;
+        }
+        next.$set = { ...(next.$set || {}), worldId: expected };
+        if (next.$setOnInsert) delete next.$setOnInsert.worldId;
       }
       this.setUpdate(next);
     });
