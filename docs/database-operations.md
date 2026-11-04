@@ -40,7 +40,7 @@ The current workflow:
 1. installs MongoDB Database Tools 100.19.0;
 2. temporarily authorizes the GitHub runner IP in Atlas and removes the temporary entry on exit (with an expiry safety net);
 3. creates a compressed `mongodump` archive for each configured database;
-4. encrypts each archive using AES-256-CBC with PBKDF2 (200,000 iterations);
+4. encrypts each archive using the authenticated versioned AES-256-GCM format (with backward-compatible decryption for retained legacy CBC archives);
 5. decrypts and validates gzip integrity;
 6. restores core and Clubs archives into separate temporary databases using explicit namespace remapping;
 7. verifies restored collections/documents and uploads encrypted artifacts only after both isolated restores succeed.

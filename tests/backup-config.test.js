@@ -74,5 +74,5 @@ test("backup refuses to guess a Clubs database when its URI has no path", () => 
   });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /Clubs MongoDB database name is missing/i);
-  assert.doesNotMatch(result.stdout + result.stderr, /cluster\\.example/);
+  assert.doesNotMatch(result.stdout + result.stderr, /cluster\.example/);
 });
