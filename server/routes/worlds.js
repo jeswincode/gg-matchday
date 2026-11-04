@@ -119,7 +119,7 @@ router.delete("/admin/access/:grantId", requireAuth, requirePlatformAdmin, async
 // Public projection: a single safe shared World, never the private interior.
 router.get("/map", asyncRoute(async (req, res) => {
   const world = await getPrimaryWorld();
-  return res.json({ worlds: [safeWorld(world)], availablePlots: [] });
+  return res.json({ worlds: [safeWorld(world)] });
 }));
 
 async function accountWorldAccess(req, world) {
