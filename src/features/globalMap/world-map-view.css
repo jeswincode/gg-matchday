@@ -42,7 +42,7 @@
 @media(prefers-reduced-motion:reduce){.gg-world-facility,.gg-world-map-camera{transition:none}}
 
 
-.gg-world-open-plot{pointer-events:none;opacity:.68}
-.gg-world-open-plot>path:first-child{fill:rgba(164,174,111,.23);stroke:rgba(222,214,159,.7);stroke-width:1.6;stroke-dasharray:5 5}
-.gg-world-open-plot-inner{fill:rgba(45,79,55,.18);stroke:rgba(222,214,159,.28);stroke-width:1}
-.gg-world-open-plot text{fill:#d8d0a3;font-size:10px;font-weight:900;letter-spacing:.12em;paint-order:stroke;stroke:rgba(9,27,25,.9);stroke-width:3px}
+.gg-world-open-land-marker{pointer-events:none;opacity:.68}
+.gg-world-open-land-marker>path:first-child{fill:rgba(164,174,111,.23);stroke:rgba(222,214,159,.7);stroke-width:1.6;stroke-dasharray:5 5}
+.gg-world-open-land-marker-inner{fill:rgba(45,79,55,.18);stroke:rgba(222,214,159,.28);stroke-width:1}
+.gg-world-open-land-marker text{fill:#d8d0a3;font-size:10px;font-weight:900;letter-spacing:.12em;paint-order:stroke;stroke:rgba(9,27,25,.9);stroke-width:3px}
