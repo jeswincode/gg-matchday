@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import {
   CORE_BACKFILL_COLLECTIONS,
   CORE_CONDITIONAL_COLLECTIONS,
@@ -65,4 +66,40 @@ test("apply refuses to start without a verified backup reference", async () => {
     applySingleWorldMigration({ confirmOwnership: true, confirmMaintenance: true }),
     /verified pre-migration backup reference/,
   );
+});
+
+test("migration CLI refuses to guess the Core database when its URI has no path", () => {
+  const env = {
+    ...process.env,
+    MONGODB_URI: "mongodb+srv://private.example/",
+    CLUBS_MONGODB_URI: "mongodb+srv://private.example/gg_matchday_clubs",
+    GG_PRIMARY_WORLD_SLUG: "original-gg",
+  };
+  delete env.MONGODB_DATABASE;
+  delete env.CLUBS_DB_NAME;
+  const result = spawnSync(process.execPath, ["scripts/migrations/backfill-original-gg-world.mjs"], {
+    encoding: "utf8",
+    env,
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Core MongoDB database name is missing/i);
+  assert.doesNotMatch(result.stdout + result.stderr, /private\.example/);
+});
+
+test("migration CLI refuses to guess the Clubs database when its URI has no path", () => {
+  const env = {
+    ...process.env,
+    MONGODB_URI: "mongodb+srv://private.example/gg_matchday",
+    CLUBS_MONGODB_URI: "mongodb+srv://private.example/",
+    GG_PRIMARY_WORLD_SLUG: "original-gg",
+  };
+  delete env.MONGODB_DATABASE;
+  delete env.CLUBS_DB_NAME;
+  const result = spawnSync(process.execPath, ["scripts/migrations/backfill-original-gg-world.mjs"], {
+    encoding: "utf8",
+    env,
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Clubs MongoDB database name is missing/i);
+  assert.doesNotMatch(result.stdout + result.stderr, /private\.example/);
 });
