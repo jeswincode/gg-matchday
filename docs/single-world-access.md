@@ -51,9 +51,9 @@ token cannot preserve revoked access.
 ## World role capabilities
 
 - **Owner/Admin:** full World administration, map/facility administration, Matchday editing, own-profile management, community chat, rating disputes and Club administration.
-- **Editor:** Matchday recording/editing, own-profile management, community chat, rating disputes and normal Clubs participation; cannot administer World membership or the private map.
-- **Member:** own-profile management, community chat, rating disputes, normal Clubs participation and own training workflows; cannot record/edit Matchday results or administer Clubs.
-- **Viewer:** read-only World access; cannot create or change a player profile, submit profile-change requests, send chat messages or submit rating disputes, and has no Clubs navigation or Clubs API access.
+- **Editor:** Matchday recording/editing, own-profile management, community chat, match voting, rating disputes and normal Clubs participation; cannot administer World membership or the private map.
+- **Member:** own-profile management, community chat, match voting, rating disputes, normal Clubs participation and own training workflows; cannot record/edit Matchday results or administer Clubs.
+- **Viewer:** read-only World access; cannot create or change a player profile, submit profile-change requests, send chat messages, vote on matches or submit rating disputes, and has no Clubs navigation or Clubs API access.
 
 The Clubs API checks `clubs:participate` for every private Clubs route and
 checks `clubs:manage` for administrative Club operations. The client hides
@@ -114,7 +114,7 @@ credentials, production URLs or production data for these checks.
 | Configured platform admin | Owner access, World access management, Matchday and Club administration | No access if current Firebase email is unverified or UID/email does not match the persisted account |
 | Invited Editor | Matchday record/edit, own profile, Clubs participation, chat and rating disputes | World membership administration, map editing and Club administration |
 | Invited Member | Own profile, Clubs participation, chat and rating disputes | Matchday record/edit, map editing and Club administration |
-| Invited Viewer | Read-only World and private map projection | Player-profile create/link/change, profile-change requests, chat send, rating disputes and all private Clubs APIs |
+| Invited Viewer | Read-only World and private map projection | Player-profile create/link/change, profile-change requests, chat send, match voting, rating disputes and all private Clubs APIs |
 | Uninvited Gmail | Public shell and safe Global Map projection | Private map, Matchday, Clubs and other private World APIs |
 | Revoked Gmail | Public shell and safe Global Map projection | Every subsequent private API request, including with a previously valid Firebase token |
 | Unverified or non-Gmail identity | Public shell and safe Global Map projection | Invitation activation and all private World APIs |
