@@ -323,6 +323,21 @@ export default function GlobalMapPage({
     setLoadError("");
   }, [onWorldMembershipChange]);
 
+  const clearPrivateWorld = useCallback(({ clearSelector = true, messageText = "" } = {}) => {
+    if (clearSelector) setApiActiveWorld(null);
+    setEnteredWorld(null);
+    setEnteredMap(null);
+    setPlayerProfile(null);
+    setProfileModalOpen(false);
+    setProfileCreating(false);
+    setEnteringWorld(false);
+    setInteriorError("");
+    setWorldMembershipLocal(null);
+    onWorldMembershipChange?.(null);
+    setAccessManagerOpen(false);
+    if (messageText) onMessage?.(messageText);
+  }, [onMessage, onWorldMembershipChange]);
+
   const loadMap = useCallback(async ({ silent = false } = {}) => {
     if (silent) setRefreshing(true);
     try {
@@ -355,19 +370,26 @@ export default function GlobalMapPage({
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+
+    // Never keep a previously rendered private interior on screen while the
+    // current Firebase identity is being checked. Preserve the selector only
+    // during a signed-in identity change so the new account can be revalidated.
+    clearPrivateWorld({ clearSelector: !isSignedIn });
+
     fetchWorldData(isSignedIn)
       .then(async result => {
         if (cancelled) return;
         applyWorldData(result);
 
-        // Restore the one shared World after returning from Matchday pages.
-        // The server revalidates the current Gmail grant on this request.
         const activeSlug = isSignedIn ? getActiveWorldSlug() : null;
         if (!activeSlug) return;
 
         const world = result.worlds.find(item => item.slug === activeSlug);
         if (!world || result.membershipStates[activeSlug] !== "active") {
-          setApiActiveWorld(null);
+          clearPrivateWorld({
+            messageText: "This Gmail account no longer has active access to the GG football World.",
+          });
           return;
         }
 
@@ -383,21 +405,82 @@ export default function GlobalMapPage({
             console.warn("World player profile could not be loaded:", profileError?.message || profileError);
             if (!cancelled) setPlayerProfile(null);
           }
-        } catch {
+        } catch (error) {
           if (!cancelled) {
-            setApiActiveWorld(null);
-            setInteriorError("Could not restore the GG football World. Select it again from the Global Map.");
+            clearPrivateWorld({
+              messageText: error?.message || "Could not restore the GG football World. Please check access and try again.",
+            });
+            setLoadError(error?.message || "Could not restore the GG football World.");
           }
         }
       })
       .catch(error => {
-        if (!cancelled) setLoadError(error?.message || "Could not load the Global Map.");
+        if (!cancelled) {
+          clearPrivateWorld({
+            messageText: isSignedIn ? "Your GG World access could not be verified. Please sign in again." : "",
+          });
+          setLoadError(error?.message || "Could not load the Global Map.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [isSignedIn, applyWorldData]);
+  }, [isSignedIn, authUser?.uid, applyWorldData, clearPrivateWorld]);
+
+  // Re-check membership whenever a signed-in user returns to the app. This
+  // makes an administrator's revocation take effect in an already-open tab.
+  useEffect(() => {
+    const slug = enteredWorld?.slug;
+    if (!isSignedIn || !slug) return undefined;
+
+    let active = true;
+    const revalidate = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const result = await api("/worlds/me", { cacheResponse: false });
+        if (!active) return;
+        const membership = result?.worlds?.find(item => item.slug === slug)?.membership || null;
+        setWorldMembershipLocal(membership);
+        onWorldMembershipChange?.(membership);
+        setMembershipStates(current => ({
+          ...current,
+          [slug]: membership?.status || "none",
+        }));
+        if (membership?.status !== "active") {
+          clearPrivateWorld({
+            messageText: "Access to the GG football World is no longer active. Contact the platform administrator.",
+          });
+        }
+      } catch (error) {
+        if (!active) return;
+        if (error?.status === 401 || error?.status === 403) {
+          clearPrivateWorld({
+            messageText: "Your GG World access could not be verified. Please sign in again.",
+          });
+        }
+      }
+    };
+
+    window.addEventListener("focus", revalidate);
+    document.addEventListener("visibilitychange", revalidate);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", revalidate);
+      document.removeEventListener("visibilitychange", revalidate);
+    };
+  }, [isSignedIn, enteredWorld?.slug, onWorldMembershipChange, clearPrivateWorld]);
+
+  useEffect(() => {
+    const handleAccessLost = event => {
+      clearPrivateWorld({
+        messageText: event?.detail?.message ||
+          "Your GG World access could not be verified. Please sign in again.",
+      });
+    };
+    window.addEventListener("gg-world-access-lost", handleAccessLost);
+    return () => window.removeEventListener("gg-world-access-lost", handleAccessLost);
+  }, [clearPrivateWorld]);
 
   const enterWorld = async world => {
     if (!isSignedIn) {
@@ -433,6 +516,7 @@ export default function GlobalMapPage({
       }
     } catch (error) {
       setInteriorError(error?.message || "Could not enter this World.");
+      onMessage?.(error?.message || "Could not enter this World.");
     } finally {
       setEnteringWorld(false);
     }

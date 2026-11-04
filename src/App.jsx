@@ -243,6 +243,18 @@ function App() {
     window.addEventListener('gg-data-changed',changed);
     return()=>window.removeEventListener('gg-data-changed',changed);
   },[]);
+
+  useEffect(() => {
+    const handleWorldAccessLost = event => {
+      setApiActiveWorld(null);
+      setWorldMembership(null);
+      setActiveTab(TABS.HOME);
+      setProductMode("matchday");
+      setMessage(event?.detail?.message || "Your GG World access could not be verified. Please sign in again.");
+    };
+    window.addEventListener("gg-world-access-lost", handleWorldAccessLost);
+    return () => window.removeEventListener("gg-world-access-lost", handleWorldAccessLost);
+  }, []);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
 
@@ -1061,23 +1073,13 @@ function App() {
 
   async function logout() {
     try {
-      setApiActiveWorld(null);
-      await signOut(auth);
+      if (auth) await signOut(auth);
 
+      setApiActiveWorld(null);
       setBackendUser(null);
       setWorldMembership(null);
-
-      if (
-        activeTab ===
-          TABS.RECORD ||
-        activeTab ===
-          TABS.ADMIN
-      ) {
-        setActiveTab(
-          TABS.HOME
-        );
-      }
-
+      setActiveTab(TABS.HOME);
+      setProductMode("matchday");
       setExperience("entry");
       setMessage(
         "Signed out."

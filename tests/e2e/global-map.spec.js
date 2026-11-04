@@ -1,3 +1,57 @@
+test("signing out clears the private World interior before returning to public entry", async ({ page }) => {
+  await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
+  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("button", { name: "Explore the Global Map as Guest" })).toBeVisible();
+  await expect(page.locator(".gg-world-screen-interior")).toHaveCount(0);
+  await expect(page.locator(".gg-world-bottom-nav")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Explore the Global Map as Guest" }).click();
+  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
+  await expect(page.locator(".gg-world-screen-interior")).toHaveCount(0);
+  await expect(page.locator(".gg-world-bottom-nav")).toHaveCount(0);
+});
+
+test("an open private map is cleared when membership is revoked during focus revalidation", async ({ page }) => {
+  await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
+  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
+
+  await page.route("**/api/worlds/me", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      worlds: [{
+        slug: "original-gg",
+        membership: { role: "editor", status: "revoked", playerProfileId: null },
+      }],
+    }),
+  }));
+
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
+  await expect(page.locator(".gg-world-screen-interior")).toHaveCount(0);
+  await expect(page.locator(".gg-world-bottom-nav")).toHaveCount(0);
+  await expect(page.getByText("Access to the GG football World is no longer active. Contact the platform administrator.")).toBeVisible();
+});
+
+test("a protected Clubs API denial returns the user to the public World map", async ({ page }) => {
+  await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
+  await page.route("**/api/clubs/meta", route => route.fulfill({
+    status: 403,
+    contentType: "application/json",
+    body: JSON.stringify({
+      message: "This Gmail account has not been linked by the GG platform administrator.",
+      code: "WORLD_ACCESS_GRANT_REQUIRED",
+    }),
+  }));
+
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.locator(".clubs-app")).toBeVisible();
+  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
+  await expect(page.locator(".clubs-app")).toHaveCount(0);
+  await expect(page.locator(".gg-world-screen-interior")).toHaveCount(0);
+});
 import { test, expect } from "@playwright/test";
 import { openLinkedWorld } from "./helpers/world.js";
 

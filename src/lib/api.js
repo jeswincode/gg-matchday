@@ -148,6 +148,29 @@ export async function api(path, { method = 'GET', body, signal, cacheResponse = 
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const requestId = requestIdFrom(response, data);
+      const requestPath = safeRequestPath(path);
+      const publicRequest = requestPath === '/worlds/map' ||
+        requestPath === '/weather' || requestPath.startsWith('/weather/') ||
+        requestPath === '/health' || requestPath.startsWith('/health/');
+      const accessLossCodes = new Set([
+        'AUTHENTICATION_REQUIRED',
+        'WORLD_ACCESS_GRANT_REQUIRED',
+        'WORLD_MEMBERSHIP_REQUIRED',
+        'WORLD_MEMBERSHIP_PENDING',
+        'WORLD_MEMBERSHIP_SUSPENDED',
+        'WORLD_NOT_FOUND',
+      ]);
+      const accessLost = response.status === 401 ||
+        (response.status === 403 && accessLossCodes.has(data?.code));
+      if (accessLost && !publicRequest && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('gg-world-access-lost', {
+          detail: {
+            status: response.status,
+            code: data?.code || null,
+            message: typeof data?.message === 'string' ? data.message : '',
+          },
+        }));
+      }
       const serverMessage = typeof data?.message === 'string' ? data.message.trim() : '';
       const genericServerMessages = new Set(['', 'Could not complete this request.', 'The request could not be completed.']);
       let message = genericServerMessages.has(serverMessage)
