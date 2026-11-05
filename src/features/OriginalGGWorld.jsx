@@ -33,10 +33,12 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     const kit = ({black:"#17191e",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32",navy:"#172a50",teal:"#218f89",pink:"#d95d91",maroon:"#681f35"})[appearance.kitPrimary] || "#17191e";
     const trim = ({black:"#151515",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32",navy:"#172a50",teal:"#218f89",pink:"#d95d91",maroon:"#681f35"})[appearance.kitSecondary] || "#d7ad52";
     const boot = ({black:"#171717",white:"#f5f3eb",gold:"#d7ad52",red:"#c64040",blue:"#3869b5",green:"#43865a",orange:"#d97835",purple:"#71499c",pink:"#e36ca8",cyan:"#46c7d5"})[appearance.bootColor] || "#f5f3eb";
+    const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    let motionAllowed = animated && !motionQuery?.matches;
     let frame = 0, lastFrameAt = 0, animationFrame = null;
     const drawFrame = (now = 0) => {
-      if (animated && now - lastFrameAt < 115) { animationFrame = window.requestAnimationFrame(drawFrame); return; }
-      if (animated) { frame += 1; lastFrameAt = now; }
+      if (motionAllowed && now - lastFrameAt < 115) { animationFrame = window.requestAnimationFrame(drawFrame); return; }
+      if (motionAllowed) { frame += 1; lastFrameAt = now; }
       const gait = motion === "walking" ? [0, 1, 0, -1][frame % 4] : 0;
       const jump = motion === "celebrating" ? [0, -1, -2, -1][frame % 4] : motion === "idle" ? [0, 0, -1, 0][frame % 4] : 0;
       const layer = new Layer();
@@ -90,10 +92,17 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     }
     context.clearRect(0,0,N,N);
       context.putImageData(image,0,0);
-      if(animated) animationFrame = window.requestAnimationFrame(drawFrame);
+      if(motionAllowed) animationFrame = window.requestAnimationFrame(drawFrame);
     };
+    const onMotionPreferenceChange = (event) => {
+      motionAllowed = animated && !event.matches;
+      if (!motionAllowed && animationFrame!==null) { window.cancelAnimationFrame(animationFrame); animationFrame=null; }
+      if (motionAllowed && animationFrame===null) animationFrame=window.requestAnimationFrame(drawFrame);
+      if (!motionAllowed) drawFrame(0);
+    };
+    motionQuery?.addEventListener?.("change",onMotionPreferenceChange);
     drawFrame();
-    return () => { if(animationFrame!==null) window.cancelAnimationFrame(animationFrame); };
+    return () => { motionQuery?.removeEventListener?.("change",onMotionPreferenceChange); if(animationFrame!==null) window.cancelAnimationFrame(animationFrame); };
   },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,motion,direction,animated]);
   return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer facing "+direction+", "+motion}/>;
 }
