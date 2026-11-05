@@ -12,7 +12,7 @@ Add a cosmetic in `shared/worldCustomization.js` with:
 - `rarity`, `collection`, and `sortOrder` metadata.
 - A validated `appearancePatch` containing only supported avatar appearance fields.
 
-The catalogue drives API responses, purchase validation, avatar unlock validation, slot-based equipping and shop filtering. The frontend does not own prices or unlock requirements. New categories should be added to `WORLD_COSMETIC_CATEGORIES`; new appearance fields must be added to the shared options, free-option policy, avatar Mongoose schema and pixel renderer before being sold.
+The catalogue drives API responses, purchase validation, avatar unlock validation, slot-based equipping, furniture placement and shop filtering. Furniture items use a `furniturePlacement` definition with allowed room IDs and a stable furniture key; placement consumes one owned inventory unit and writes a ledger event transactionally. The frontend does not own prices or unlock requirements. New categories should be added to `WORLD_COSMETIC_CATEGORIES`; new appearance fields must be added to the shared options, free-option policy, avatar Mongoose schema and pixel renderer before being sold.
 
 Do not delete or recycle an item ID that appears in an inventory or ledger. Retire old catalogue entries by marking them unavailable in a future catalogue status field while preserving inventory history.
 
