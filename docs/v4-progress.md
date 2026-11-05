@@ -6,7 +6,7 @@
 - Baseline: restored V3 main branch at c78e25c.
 - Production main and the current Render production service have not been changed by V4 work.
 - Vercel branch previews are isolated from the Render production API. The Express API remains on the production branch, so a complete browser end-to-end preview still requires a separate safe V4 API deployment/configuration.
-- The V4 JSX build error in `src/features/WorldSocialPanel.jsx` was corrected on the branch. The follow-up Vercel deployment/check is currently blocked by the Hobby plan deployment API rate limit; the previous READY preview is from an older commit and does not validate the latest V4 head.
+- The V4 JSX build error in `src/features/WorldSocialPanel.jsx` was corrected on the branch. Vercel automatically produced a READY preview at `gg-matchday-n7cninonx-jeswincode.vercel.app` from commit `f7eb2d3`, which includes the sprite-animation and realtime-interaction implementation. The final presence GET-response, test and progress-note commits were added after that preview, so the exact latest branch head still needs a fresh build. An explicit Vercel deployment API request is currently blocked by the Hobby plan's daily deployment API limit.
 - No V4 data collections have been seeded in the production Clubs database by this implementation work.
 
 ## Existing database boundary
