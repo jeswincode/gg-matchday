@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useOriginalGGRealtime } from "./useOriginalGGRealtime";
 import { api } from "../lib/api";
 import "./original-gg.css";
 import { G, Layer, N, rgba } from "./companion/leaflet-pip-engine.js";
@@ -21,7 +22,7 @@ const places = [
 const exercises = [["pushups","Push-ups"],["pullups","Pull-ups"],["squats","Squats"],["planks","Plank holds"]];
 const emptyTraining = { pushups:"", pullups:"", squats:"", planks:"" };
 
-export function PlayerSprite({ appearance = {} }) {
+export function PlayerSprite({ appearance = {}, motion = "idle", direction = "down", animated = false }) {
   const canvasRef = useRef(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -32,9 +33,14 @@ export function PlayerSprite({ appearance = {} }) {
     const kit = ({black:"#17191e",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32",navy:"#172a50",teal:"#218f89",pink:"#d95d91",maroon:"#681f35"})[appearance.kitPrimary] || "#17191e";
     const trim = ({black:"#151515",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32",navy:"#172a50",teal:"#218f89",pink:"#d95d91",maroon:"#681f35"})[appearance.kitSecondary] || "#d7ad52";
     const boot = ({black:"#171717",white:"#f5f3eb",gold:"#d7ad52",red:"#c64040",blue:"#3869b5",green:"#43865a",orange:"#d97835",purple:"#71499c",pink:"#e36ca8",cyan:"#46c7d5"})[appearance.bootColor] || "#f5f3eb";
-    const layer = new Layer();
+    let frame = 0, lastFrameAt = 0, animationFrame = null;
+    const drawFrame = (now = 0) => {
+      if (animated && now - lastFrameAt >= 115) { frame += 1; lastFrameAt = now; }
+      const gait = motion === "walking" ? [0, 1, 0, -1][frame % 4] : 0;
+      const jump = motion === "celebrating" ? [0, -1, -2, -1][frame % 4] : motion === "idle" ? [0, 0, -1, 0][frame % 4] : 0;
+      const layer = new Layer();
     const g = new G(layer,{outline:"#211b17"},0);
-    g.stamp((l)=>l.ell(16,8,5,6,skin));
+    g.stamp((l)=>l.ell(16,8+jump,5,6,skin));
     if (appearance.hairStyle!=="bald") {
       const style=appearance.hairStyle||"short";
       if (style==="afro") g.stamp((l)=>l.ell(16,4,7,5,hair));
@@ -55,17 +61,20 @@ export function PlayerSprite({ appearance = {} }) {
         if (style==="fade") { g.rect(11,6,2,2,hair);g.rect(19,6,2,2,hair); }
       }
     }
-    g.rect(14,13,4,3,skin);
+    g.rect(14,13+jump,4,3,skin);
     const left = appearance.bodyType==="slim"?13:appearance.bodyType==="stocky"?9:11;
     const width = appearance.bodyType==="slim"?6:appearance.bodyType==="stocky"?14:10;
-    g.stamp((l)=>l.rect(left,15,width,10,kit));
+    g.stamp((l)=>l.rect(left,15+jump,width,10,kit));
     g.rect(14,15,4,2,trim);g.rect(15,17,2,6,trim);
-    g.stamp((l)=>l.rect(left-3,16,3,8,skin));
-    g.stamp((l)=>l.rect(left+width,16,3,8,skin));
-    g.rect(12,25,3,5,skin);g.rect(17,25,3,5,skin);
-    g.rect(10,29,5,2,boot);g.rect(17,29,5,2,boot);
-    g.rect(14,7,1,1,"#241a16");g.rect(18,7,1,1,"#241a16");
-    g.rect(15,10,2,1,"#71402f");
+    const armLift = motion === "celebrating" ? [0, -3, -5, -3][frame % 4] : motion === "walking" ? gait * 2 : 0;
+    g.stamp((l)=>l.rect(left-3,16+jump+armLift,3,8,skin));
+    g.stamp((l)=>l.rect(left+width,16+jump-armLift,3,8,skin));
+    g.rect(12,25+jump-gait,3,5,skin);g.rect(17,25+jump+gait,3,5,skin);
+    g.rect(10,29+jump-gait,5,2,boot);g.rect(17,29+jump+gait,5,2,boot);
+    if(direction==="left") g.rect(14,7+jump,1,1,"#241a16");
+    else if(direction==="right") g.rect(18,7+jump,1,1,"#241a16");
+    else {g.rect(14,7+jump,1,1,"#241a16");g.rect(18,7+jump,1,1,"#241a16");}
+    g.rect(15,10+jump,2,1,"#71402f");
     const accessory=appearance.headAccessory||"none";
     if(accessory!=="none"){
       const accessoryColor=accessory==="gold-headband"?"#d7ad52":accessory==="red-headband"?"#bd3545":"#3476c5";
@@ -79,9 +88,13 @@ export function PlayerSprite({ appearance = {} }) {
       image.data[i*4]=red;image.data[i*4+1]=green;image.data[i*4+2]=blue;image.data[i*4+3]=alpha;
     }
     context.clearRect(0,0,N,N);
-    context.putImageData(image,0,0);
-  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory]);
-  return <canvas ref={canvasRef} width="32" height="32" className="gg-player-sprite" role="img" aria-label="Your pixel footballer"/>;
+      context.putImageData(image,0,0);
+      if(animated) animationFrame = window.requestAnimationFrame(drawFrame);
+    };
+    drawFrame();
+    return () => { if(animationFrame!==null) window.cancelAnimationFrame(animationFrame); };
+  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,motion,direction,animated]);
+  return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer facing "+direction+", "+motion}/>;
 }
 function RoomScene({room}) {
   const id=room.id||"lounge";
