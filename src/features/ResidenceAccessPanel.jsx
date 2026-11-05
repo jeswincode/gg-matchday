@@ -24,7 +24,7 @@ export default function ResidenceAccessPanel({ onClose }) {
 
   useEffect(() => {
     const text = query.trim();
-    if (text.length < 2) { setResults([]); return undefined; }
+    if (text.length < 2) return undefined;
     let active = true;
     const timer = window.setTimeout(() => {
       api("/world/residence-directory/players?search=" + encodeURIComponent(text)).then((result) => {
@@ -66,7 +66,7 @@ export default function ResidenceAccessPanel({ onClose }) {
           </select>
         </label>
         <div className="gg-access-explain">{privacy==="private"?"Your home interior is visible only to you.":privacy==="friends"?"Only you and the players in your visitor list can enter.":"Any signed-in GG player can enter your home."}</div>
-        <div className="gg-access-search"><label htmlFor="gg-residence-search">Invite a player</label><input id="gg-residence-search" value={query} maxLength={32} onChange={(event)=>setQuery(event.target.value)} placeholder="Search player names…"/>{results.length>0&&<div className="gg-access-results">{results.map((visitor)=><button type="button" key={visitor.playerId} onClick={()=>addVisitor(visitor)}><span>{visitor.displayName}</span><b>+ Invite</b></button>)}</div>}</div>
+        <div className="gg-access-search"><label htmlFor="gg-residence-search">Invite a player</label><input id="gg-residence-search" value={query} maxLength={32} onChange={(event)=>setQuery(event.target.value)} placeholder="Search player names…"/>{query.trim().length>=2&&results.length>0&&<div className="gg-access-results">{results.map((visitor)=><button type="button" key={visitor.playerId} onClick={()=>addVisitor(visitor)}><span>{visitor.displayName}</span><b>+ Invite</b></button>)}</div>}</div>
         <div className="gg-access-visitors"><div><strong>Invited visitors</strong><small>{visitors.length}/30</small></div>{visitors.length?visitors.map((visitor)=><div className="gg-access-visitor" key={visitor.playerId}><span>{visitor.displayName}</span><button type="button" onClick={()=>removeVisitor(visitor.playerId)} aria-label={"Remove "+visitor.displayName}>Remove</button></div>):<p>No visitors invited yet.</p>}</div>
         <div className="gg-access-actions"><button type="button" className="gg-world-back" onClick={onClose}>Cancel</button><button type="button" className="gg-world-primary" onClick={save} disabled={saving}>{saving?"Saving…":"Save access settings"}</button></div>
       </>}
