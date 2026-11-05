@@ -128,7 +128,7 @@ export function WelcomeScreen({ onEnter }) {
       <h1>ENTER<br/><em>MATCHDAY.</em></h1>
       <p className="gg-welcome-lead">Your matches. Your players. Your legacy.</p>
       <p className="gg-welcome-description">Your football city is waiting. Meet the community, visit the grounds and build your story.</p>
-      <button type="button" className="gg-welcome-enter" onClick={onEnter} aria-label="Enter Original GG"><span>ENTER ORIGINAL GG</span><b>→</b></button>
+      <button type="button" className="gg-welcome-enter" onClick={onEnter} aria-label="Enter Matchday"><span>ENTER MATCHDAY</span><b>→</b></button>
       <div className="gg-welcome-quick-notes">
         <div><span>01</span><strong>THE CITY</strong><small>Explore Original GG.</small></div>
         <div><span>02</span><strong>YOUR PLAYER</strong><small>Build your footballer.</small></div>
