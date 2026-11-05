@@ -48,7 +48,7 @@ export default function TrainingChallenge(){
   const inputSnapshotRef=useRef("0000");
   const inputQueueRef=useRef(Promise.resolve());
   const inputFailureRef=useRef(null);
-  const finish=useCallback(async(now)=>{
+  const finish=useCallback(async()=>{
     const game=stateRef.current;
     if(!game.running)return;
     game.running=false;game.over=true;game.elapsed=game.engine?.elapsed||0;
@@ -113,7 +113,7 @@ export default function TrainingChallenge(){
           collided=stepChallenge(game.engine,input,CHALLENGE_STEP_SECONDS);
           game.accumulator-=CHALLENGE_STEP_SECONDS;
           game.elapsed=game.engine.elapsed;
-          if(collided){finish(now);break;}
+          if(collided){finish();break;}
         }
         if(Math.floor(game.elapsed*5)!==Math.floor((game.elapsed-dt)*5))setElapsed(game.elapsed);
       }
@@ -145,8 +145,9 @@ export default function TrainingChallenge(){
   useEffect(()=>{
     const down=(event)=>{if(!stateRef.current.running)return;if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(event.key))event.preventDefault();keysRef.current.add(event.key);syncInput();};
     const up=(event)=>{keysRef.current.delete(event.key);syncInput();};
-    window.addEventListener("keydown",down);window.addEventListener("keyup",up);
-    return ()=>{window.removeEventListener("keydown",down);window.removeEventListener("keyup",up);};
+    const blur=()=>{keysRef.current.clear();touchDirection.current="";syncInput();};
+    window.addEventListener("keydown",down);window.addEventListener("keyup",up);window.addEventListener("blur",blur);
+    return ()=>{window.removeEventListener("keydown",down);window.removeEventListener("keyup",up);window.removeEventListener("blur",blur);};
   },[]);
   return <section className="gg-training-challenge">
     <div className="gg-training-challenge-heading"><div><span>ARCADE TRAINING</span><h2>Ball Control Challenge</h2><p>Guide your ball around the moving hurdles. One collision ends the run.</p></div><div className="gg-training-best"><small>VERIFIED PERSONAL BEST</small><strong>{best.toFixed(1)}s</strong></div></div>
