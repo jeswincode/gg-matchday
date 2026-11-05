@@ -349,7 +349,7 @@ function Building({ kind }) {
   </svg>;
 }
 
-export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
+export default function OriginalGGWorld({ onExit, onOpenChat }) {
   const [data,setData] = useState(null);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
@@ -362,7 +362,12 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   const [interiorLoading,setInteriorLoading] = useState(false);
   const [avatar,setAvatar] = useState({displayName:"",appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"}});
   const [training,setTraining] = useState(emptyTraining);
-  const [exerciseNames,setExerciseNames] = useState(()=>Object.fromEntries(exercises));
+  const [exerciseNames,setExerciseNames] = useState(()=>{
+    try {
+      const stored=JSON.parse(window.localStorage.getItem("gg-v4-training-labels")||"{}");
+      return stored&&typeof stored==="object" ? {...Object.fromEntries(exercises),...stored} : Object.fromEntries(exercises);
+    } catch { return Object.fromEntries(exercises); }
+  });
   const [duration,setDuration] = useState("900");
   const [saving,setSaving] = useState(false);
   const [notice,setNotice] = useState("");
@@ -398,12 +403,6 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
     finally { setLoading(false); }
   }
   useEffect(() => () => { if(inertiaFrame.current)window.cancelAnimationFrame(inertiaFrame.current); }, []);
-  useEffect(()=>{
-    try {
-      const stored=JSON.parse(window.localStorage.getItem("gg-v4-training-labels")||"{}");
-      if(stored&&typeof stored==="object")setExerciseNames((current)=>({...current,...stored}));
-    } catch { /* Workout labels safely fall back to their defaults. */ }
-  },[]);
   useEffect(()=>{
     try { window.localStorage.setItem("gg-v4-training-labels",JSON.stringify(exerciseNames)); }
     catch { /* Browser storage can be disabled; labels remain editable for this session. */ }
@@ -539,16 +538,9 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
       }
     }
   }
-  function changeAppearance(key,value){setAvatar((v)=>({...v,appearance:{...v.appearance,[key]:value}}));}
   async function saveAvatar(event) {
     event.preventDefault(); setSaving(true); setNotice("");
-    try { const result=await api("/world/avatar",{method:"PUT",body:avatar}); setAvatar(result.avatar); setNotice("Your player character has been saved."); }
-    catch(cause){setNotice(cause.message||"Could not save character.");}
-    finally{setSaving(false);}
-  }
-  async function openClubGround(place) {
-    setInteriorLoading(true);setNotice("");
-    try { const result=await api("/world/club-grounds/"+place.clubId+"/interior"); setInterior(result.interior); setActiveLocationId("club-"+place.clubId); setSelected(null); }
+    try { =await api("/world/club-grounds/"+place.clubId+"/interior"); setInterior(result.interior); setActiveLocationId("club-"+place.clubId); setSelected(null); }
     catch(error){setNotice(error.message||"Only club members can enter this ground.");}
     finally{setInteriorLoading(false);}
   }
