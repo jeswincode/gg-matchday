@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { PlayerSprite } from "./OriginalGGWorld";
-import { AVATAR_OPTIONS, WORLD_COSMETIC_CATALOG } from "../../shared/worldCustomization.js";
+import { WORLD_COSMETIC_CATALOG } from "../../shared/worldCustomization.js";
 import { FREE_AVATAR_OPTIONS } from "../../shared/worldAvatarOptions.js";
 import "./original-gg.css";
 
 const defaults = { displayName:"", appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"} };
-const choices = AVATAR_OPTIONS;
 const labels = {skinTone:"Skin tone",bodyType:"Body build",hairStyle:"Hair style",hairColor:"Hair colour",kitPrimary:"Kit colour",kitSecondary:"Kit trim",bootColor:"Boots",headAccessory:"Headwear"};
 
 export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
