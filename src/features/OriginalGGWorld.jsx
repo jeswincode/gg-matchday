@@ -16,7 +16,7 @@ const places = [
 const exercises = [["pushups","Push-ups"],["pullups","Pull-ups"],["squats","Squats"],["planks","Plank holds"]];
 const emptyTraining = { pushups:"", pullups:"", squats:"", planks:"" };
 
-function PlayerSprite({ appearance = {} }) {
+export function PlayerSprite({ appearance = {} }) {
   const canvasRef = useRef(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -211,7 +211,7 @@ export default function OriginalGGWorld({ onExit }) {
   function handleMapKeyDown(event){const directions={ArrowUp:[0,-24],w:[0,-24],ArrowDown:[0,24],s:[0,24],ArrowLeft:[-24,0],a:[-24,0],ArrowRight:[24,0],d:[24,0]};const move=directions[event.key]||directions[event.key.toLowerCase()];if(move){event.preventDefault();movePlayer(move[0],move[1]);}}
   const liveCount=data && data.presence ? data.presence.length : 0;
   return <main className="gg-world">
-    <header className="gg-world-header"><div className="gg-world-brand"><span className="gg-world-crest">GG</span><div><p>THE ORIGINAL GG WORLD</p><h1>Football City</h1></div></div><button className="gg-world-back" onClick={onExit}>← Matchday</button></header>
+    <header className="gg-world-header"><div className="gg-world-brand"><span className="gg-world-crest">GG</span><div><p>THE ORIGINAL GG WORLD</p><h1>Football City</h1></div></div><div className="gg-world-header-actions"><button className="gg-world-back" onClick={onProfile}>♙ My Player</button><button className="gg-world-back" onClick={onExit}>← Matchday</button></div></header>
     <section className="gg-world-intro"><div><span className="gg-world-kicker">ONE CITY. EVERY PLAYER. ONE FOOTBALL COMMUNITY.</span><h2>Welcome to your football kingdom.</h2><p>Explore the city, visit its landmarks and build your place in Original GG.</p></div><div className="gg-world-live"><i/> {liveCount} players in the city</div></section>
     {error && <div className="gg-world-error" role="alert">{error}<button onClick={load}>Try again</button></div>}
     {loading ? <div className="gg-world-loading">Opening the city gates…</div> : <>

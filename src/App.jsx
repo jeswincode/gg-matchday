@@ -16,6 +16,7 @@ const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
 const OriginalGGWorld = lazy(()=>import('./features/OriginalGGWorld'));
+const OriginalGGProfile = lazy(()=>import('./features/OriginalGGProfile'));
 import {
   useEffect,
   useMemo,
@@ -85,6 +86,7 @@ function localDateString(
 function App() {
   const [experience,setExperience]=useState('startup');
   const [worldOpen,setWorldOpen]=useState(false);
+  const [profileOpen,setProfileOpen]=useState(false);
   // Product mode is intentionally session-only. A full reload always starts
   // in the main Matchday Home experience, including when the previous mode was Clubs.
   const [productMode,setProductMode]=useState("matchday");
@@ -2401,8 +2403,12 @@ function App() {
     return <WelcomeScreen onEnter={() => setExperience("app")} />;
   }
 
+  if (profileOpen) {
+    return <Suspense fallback={<div className="loading-panel">Opening your player profile…</div>}><OriginalGGProfile authUser={authUser} backendUser={backendUser} onBack={()=>setProfileOpen(false)} /></Suspense>;
+  }
+
   if (worldOpen) {
-    return <Suspense fallback={<div className="loading-panel">Opening Original GG…</div>}><OriginalGGWorld onExit={()=>setWorldOpen(false)} /></Suspense>;
+    return <Suspense fallback={<div className="loading-panel">Opening Original GG…</div>}><OriginalGGWorld onExit={()=>setWorldOpen(false)} onProfile={()=>{setWorldOpen(false);setProfileOpen(true);}} /></Suspense>;
   }
 
   return (
@@ -2434,7 +2440,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions">{isSignedIn&&<button className="secondary-button" type="button" onClick={()=>setWorldOpen(true)}>Enter Original GG</button>}<button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions">{isSignedIn&&<button className="secondary-button gg-profile-trigger" type="button" onClick={()=>setProfileOpen(true)} aria-label="Open my player profile" title="My player profile">♙</button>}{isSignedIn&&<button className="secondary-button" type="button" onClick={()=>setWorldOpen(true)}>Enter Original GG</button>}<button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
