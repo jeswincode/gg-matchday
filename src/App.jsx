@@ -17,6 +17,7 @@ const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
 const OriginalGGWorld = lazy(()=>import('./features/OriginalGGWorld'));
 const OriginalGGProfile = lazy(()=>import('./features/OriginalGGProfile'));
+const GGCompanion = lazy(()=>import('./features/GGCompanion'));
 import {
   useEffect,
   useMemo,
@@ -2816,6 +2817,7 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
       </Suspense>
+      {isSignedIn&&<GGCompanion onEnterWorld={()=>setWorldOpen(true)} playerName={authUser?.displayName}/>} 
       {modeTransitionLayer}
     </main>
     </Suspense>
