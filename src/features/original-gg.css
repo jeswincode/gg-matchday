@@ -94,3 +94,12 @@
 .gg-avatar-preset-list button:disabled{opacity:.5}
 .gg-avatar-presets-empty{color:#b9c6b6;font-size:10px}
 @media(max-width:520px){.gg-avatar-preset-save{grid-template-columns:1fr}.gg-avatar-preset-save button{width:100%}}
+
+.gg-economy-furnish-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.55fr);gap:14px;align-items:center;margin:14px 0;padding:15px;border:1px solid #d9b86a44;border-radius:14px;background:#d8b86a0d}
+.gg-economy-furnish-tools>div{display:grid;gap:5px}
+.gg-economy-furnish-tools>div>span{color:#dfbd70;font-size:9px;font-weight:850;letter-spacing:.14em}
+.gg-economy-furnish-tools>div>strong{font-size:14px}
+.gg-economy-furnish-tools>div>small{color:#b9c6b6;font-size:10px;line-height:1.45}
+.gg-economy-furnish-tools label{display:grid;gap:5px;color:#dfbd70;font-size:9px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.gg-economy-furnish-tools select{width:100%;min-height:38px;padding:8px 10px;border:1px solid #ffffff25;border-radius:9px;color:#f5f0df;background:#14251b;font-size:11px}
+@media(max-width:560px){.gg-economy-furnish-tools{grid-template-columns:1fr}}
