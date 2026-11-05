@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
+import { CHARACTER_DIRECTIONS } from "../../../shared/characterAnimation.js";
 
 const worldPresenceSchema = new mongoose.Schema(
   {
@@ -8,6 +9,7 @@ const worldPresenceSchema = new mongoose.Schema(
     locationId: { type: String, trim: true, maxlength: 64, default: "city-plaza" },
     x: { type: Number, min: 0, max: 1800, default: 900 },
     y: { type: Number, min: 0, max: 1200, default: 600 },
+    direction: { type: String, enum: CHARACTER_DIRECTIONS, default: "down" },
     lastSeenAt: { type: Date, required: true, default: Date.now },
   },
   { timestamps: true, collection: "worldPresence" },
