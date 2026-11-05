@@ -8,16 +8,17 @@ const WIDTH=CHALLENGE_WIDTH,HEIGHT=CHALLENGE_HEIGHT,PLAYER_R=13;
 export default function TrainingChallenge({onCelebrate}={}){
   const canvasRef=useRef(null);
   const frameRef=useRef(null);
-  const stateRef=useRef({running:false,startedAt:0,lastAt:0,engine:null,accumulator:0,elapsed:0,over:false});
+  const stateRef=useRef({running:false,startedAt:0,lastAt:0,engine:null,accumulator:0,elapsed:0,over:false,inputSequence:0,inputSnapshot:"0000",inputQueue:Promise.resolve(),inputFailure:null});
   const keysRef=useRef(new Set());
+  const runIdRef=useRef(null);
+  const touchDirection=useRef("");
   const [status,setStatus]=useState("ready");
   const [elapsed,setElapsed]=useState(0);
   const [best,setBest]=useState(0);
   const [leaderboard,setLeaderboard]=useState([]);
   const [attempts,setAttempts]=useState(0);
-  const runIdRef=useRef(null);
   const [message,setMessage]=useState("Dodge the training hurdles and stay on the pitch for as long as you can.");
-  function readInput(){
+  const readInput=useCallback(()=>{
     const keys=keysRef.current;
     return normalizeChallengeInput({
       up:keys.has("ArrowUp")||keys.has("w")||touchDirection.current==="up",
@@ -25,29 +26,24 @@ export default function TrainingChallenge({onCelebrate}={}){
       left:keys.has("ArrowLeft")||keys.has("a")||touchDirection.current==="left",
       right:keys.has("ArrowRight")||keys.has("d")||touchDirection.current==="right",
     });
-  }
-  function syncInput(){
+  },[]);
+  const syncInput=useCallback(()=>{
     const runId=runIdRef.current;
     if(!runId||!stateRef.current.running)return;
     const direction=readInput();
     const snapshot=[direction.up,direction.down,direction.left,direction.right].map(Boolean).map(Number).join("");
-    if(snapshot===inputSnapshotRef.current)return;
-    inputSnapshotRef.current=snapshot;
-    const seq=++inputSequenceRef.current;
-    inputQueueRef.current=inputQueueRef.current.then(()=>api("/world/training/challenges/"+runId+"/input",{method:"POST",body:{seq,direction}})).catch((error)=>{
-      inputFailureRef.current=error;
+    if(snapshot===stateRef.current.inputSnapshot)return;
+    stateRef.current.inputSnapshot=snapshot;
+    const seq=++stateRef.current.inputSequence;
+    stateRef.current.inputQueue=stateRef.current.inputQueue.then(()=>api("/world/training/challenges/"+runId+"/input",{method:"POST",body:{seq,direction}})).catch((error)=>{
+      stateRef.current.inputFailure=error;
     });
-  }
-  function updateTouchDirection(direction){
+  },[readInput]);
+  const updateTouchDirection=useCallback((direction)=>{
     touchDirection.current=direction;
     syncInput();
-  }
+  },[syncInput]);
 
-  const touchDirection=useRef("");
-  const inputSequenceRef=useRef(0);
-  const inputSnapshotRef=useRef("0000");
-  const inputQueueRef=useRef(Promise.resolve());
-  const inputFailureRef=useRef(null);
   const finish=useCallback(async()=>{
     const game=stateRef.current;
     if(!game.running)return;
@@ -56,8 +52,8 @@ export default function TrainingChallenge({onCelebrate}={}){
     const runId=runIdRef.current;
     setMessage("Full time · replaying your inputs on the server…");
     try{
-      await inputQueueRef.current;
-      if(inputFailureRef.current)throw inputFailureRef.current;
+      await stateRef.current.inputQueue;
+      if(stateRef.current.inputFailure)throw stateRef.current.inputFailure;
       const result=await api("/world/training/challenges/finish",{method:"POST",body:{runId}});
       runIdRef.current=null;
       setBest(result.bestSeconds||0);setAttempts(result.attempts||0);
@@ -79,9 +75,9 @@ export default function TrainingChallenge({onCelebrate}={}){
     try{
       const run=await api("/world/training/challenges/start",{method:"POST"});
       runIdRef.current=run.runId;
-      inputSequenceRef.current=0;inputSnapshotRef.current="0000";inputFailureRef.current=null;inputQueueRef.current=Promise.resolve();
+
       const now=performance.now();
-      stateRef.current={running:true,startedAt:now,lastAt:now,engine:createChallengeState(run.seed),accumulator:0,elapsed:0,over:false};
+      stateRef.current={running:true,startedAt:now,lastAt:now,engine:createChallengeState(run.seed),accumulator:0,elapsed:0,over:false,inputSequence:0,inputSnapshot:"0000",inputQueue:Promise.resolve(),inputFailure:null};
       keysRef.current.clear();touchDirection.current="";setElapsed(0);setStatus("playing");setMessage("Keep moving. The hurdles get faster as your run continues.");
     }catch(error){
       setStatus("ready");setMessage(error.message||"Could not start a verified training run.");
@@ -111,7 +107,7 @@ export default function TrainingChallenge({onCelebrate}={}){
         const input=readInput();
         let collided=false;
         while(game.accumulator>=CHALLENGE_STEP_SECONDS&&game.running){
-          collided=stepChallenge(game.engine,input,CHALLENGE_STEP_SECONDS);
+          const collided=stepChallenge(game.engine,input,CHALLENGE_STEP_SECONDS);
           game.accumulator-=CHALLENGE_STEP_SECONDS;
           game.elapsed=game.engine.elapsed;
           if(collided){finish();break;}
@@ -142,14 +138,14 @@ export default function TrainingChallenge({onCelebrate}={}){
     };
     frameRef.current=requestAnimationFrame(draw);
     return ()=>{mounted=false;if(frameRef.current)cancelAnimationFrame(frameRef.current);};
-  },[finish]);
+  },[finish,readInput]);
   useEffect(()=>{
     const down=(event)=>{if(!stateRef.current.running)return;if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(event.key))event.preventDefault();keysRef.current.add(event.key);syncInput();};
     const up=(event)=>{keysRef.current.delete(event.key);syncInput();};
     const blur=()=>{keysRef.current.clear();touchDirection.current="";syncInput();};
     window.addEventListener("keydown",down);window.addEventListener("keyup",up);window.addEventListener("blur",blur);
     return ()=>{window.removeEventListener("keydown",down);window.removeEventListener("keyup",up);window.removeEventListener("blur",blur);};
-  },[]);
+  },[syncInput]);
   return <section className="gg-training-challenge">
     <div className="gg-training-challenge-heading"><div><span>ARCADE TRAINING</span><h2>Ball Control Challenge</h2><p>Guide your ball around the moving hurdles. One collision ends the run.</p></div><div className="gg-training-best"><small>VERIFIED PERSONAL BEST</small><strong>{best.toFixed(1)}s</strong></div></div>
     <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Football training arena. Use arrow keys or the touch controls to dodge obstacles."/>
