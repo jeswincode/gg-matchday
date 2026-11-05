@@ -16,9 +16,9 @@ const router = express.Router();
 router.use(requireAuth);
 
 const CATALOG = Object.freeze([
-  { id: "boots-gold", name: "Golden Boots", category: "boots", price: 120, description: "A bright pair of matchday boots.", rarity: "rare" },
-  { id: "kit-neon", name: "Neon Training Kit", category: "kit", price: 180, description: "A vivid training look.", rarity: "rare" },
-  { id: "hair-silver", name: "Silver Hair", category: "hair", price: 90, description: "A cool silver hairstyle colour.", rarity: "common" },
+  { id: "boots-gold", name: "Golden Boots", category: "boots", price: 120, minLevel: 2, description: "A bright pair of matchday boots.", rarity: "rare" },
+  { id: "kit-neon", name: "Neon Training Kit", category: "kit", price: 180, minLevel: 3, description: "A vivid training look.", rarity: "rare" },
+  { id: "hair-silver", name: "Silver Hair", category: "hair", price: 90, minLevel: 1, description: "A cool silver hairstyle colour.", rarity: "common" },
 ]);
 
 function playerIdFor(req, res) {
@@ -31,7 +31,7 @@ function playerIdFor(req, res) {
 }
 
 function publicItem(item) {
-  return { id: item.id, name: item.name, category: item.category, price: item.price, description: item.description, rarity: item.rarity };
+  return { id: item.id, name: item.name, category: item.category, price: item.price, minLevel: item.minLevel || 1, description: item.description, rarity: item.rarity };
 }
 
 router.get("/", async (req, res, next) => {
@@ -86,6 +86,11 @@ router.post("/purchase", async (req, res, next) => {
         { $setOnInsert: { playerId, coins: 0, xp: 0, level: 1 } },
         { upsert: true, new: true, setDefaultsOnInsert: true, session },
       ).lean();
+      if ((wallet.level || 1) < (item.minLevel || 1)) {
+        const error = new Error("Reach player level "+item.minLevel+" to unlock this cosmetic.");
+        error.status = 409;
+        throw error;
+      }
       const charged = await WorldEconomy.findOneAndUpdate(
         { playerId, coins: { $gte: item.price } },
         { $inc: { coins: -item.price } },
@@ -198,6 +203,12 @@ router.post("/residence-upgrade", async (req, res, next) => {
       }
       const nextLevel = home.level + 1;
       const cost = Math.round(100 * Math.pow(nextLevel, 1.55));
+      const currentWallet = await WorldEconomy.findOne({ playerId }).session(session).lean();
+      if ((currentWallet?.level || 1) < nextLevel) {
+        const error = new Error("Reach player level "+nextLevel+" before upgrading your home to level "+nextLevel+".");
+        error.status = 409;
+        throw error;
+      }
       const wallet = await WorldEconomy.findOneAndUpdate(
         { playerId, coins: { $gte: cost } },
         { $inc: { coins: -cost } },
