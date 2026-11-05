@@ -1,34 +1,38 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 
 const fallback = { coins: 0, xp: 0, level: 1, progressPercent: 0, xpIntoLevel: 0, xpForNextLevel: 100, xpRemaining: 100 };
-export default function WorldEconomyPanel() {
+export default function WorldEconomyPanel({ onEquipped }) {
   const [data,setData] = useState(null);
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState("");
   const [message,setMessage] = useState("");
+  const requestKeys = useRef(new Map());
   const load = useCallback(async () => {
     try { setData(await api("/world/economy?refresh="+Date.now())); }
     catch(error) { setMessage(error.message || "Your GG wallet could not be loaded."); }
     finally { setLoading(false); }
   },[]);
   useEffect(()=>{load();},[load]);
+  useEffect(()=>{const refresh=()=>load();window.addEventListener("gg-data-changed",refresh);return()=>window.removeEventListener("gg-data-changed",refresh);},[load]);
   async function equip(item) {
     setBusy("equip:"+item.id);setMessage("");
-    try { await api("/world/economy/equip",{method:"POST",body:{itemId:item.id}}); await load(); setMessage(item.name+" equipped to your character."); }
+    try { const result=await api("/world/economy/equip",{method:"POST",body:{itemId:item.id}}); if(result.avatar?.appearance)onEquipped?.(result.avatar.appearance); await load(); setMessage(item.name+" equipped to your character."); }
     catch(error) { setMessage(error.message || "Could not equip this cosmetic."); }
     finally { setBusy(""); }
   }
   async function upgradeHome() {
     setBusy("home");setMessage("");
-    try { const result=await api("/world/economy/residence-upgrade",{method:"POST",body:{}}); await load(); setMessage("Your home is now level "+result.residence.level+"."); }
+    try { const key=requestKeys.current.get("home")||crypto.randomUUID();requestKeys.current.set("home",key);const result=await api("/world/economy/residence-upgrade",{method:"POST",body:{idempotencyKey:key}});requestKeys.current.delete("home");await load();setMessage("Your home is now level "+result.residence.level+"."); }
     catch(error) { setMessage(error.message || "Your home could not be upgraded."); }
     finally { setBusy(""); }
   }
   async function purchase(item) {
     setBusy(item.id);setMessage("");
     try {
-      const result=await api("/world/economy/purchase",{method:"POST",body:{itemId:item.id,idempotencyKey:crypto.randomUUID()}});
+      const key=requestKeys.current.get(item.id)||crypto.randomUUID();requestKeys.current.set(item.id,key);
+      const result=await api("/world/economy/purchase",{method:"POST",body:{itemId:item.id,idempotencyKey:key}});
+      requestKeys.current.delete(item.id);
       await load();
       setMessage(result.duplicate ? "Purchase already processed. Your balance is safe." : item.name+" added to your inventory.");
     } catch(error) { setMessage(error.message || "Purchase could not be completed."); }
