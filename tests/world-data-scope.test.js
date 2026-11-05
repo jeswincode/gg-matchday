@@ -1,4 +1,4 @@
-import test, { before, after } from "node:test";
+import test, { before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
@@ -17,6 +17,10 @@ before(async () => {
   await mongoose.connect(database.getUri("world-data-scope"));
   await Player.init();
 }, { timeout: 120_000 });
+
+beforeEach(async () => {
+  await Player.deleteMany({});
+});
 
 after(async () => {
   await mongoose.disconnect();
