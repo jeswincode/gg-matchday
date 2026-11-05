@@ -52,7 +52,6 @@ export function attachWorldStream({ response, request, playerId, locationId = "w
     clearInterval(heartbeat);
     subscribers.delete(id);
   };
-  request.on("close", cleanup);
   response.on("close", cleanup);
   return cleanup;
 }
