@@ -169,10 +169,22 @@ router.post("/residence-upgrade", async (req, res, next) => {
   if (getClubsConnection().readyState !== 1) return res.status(503).json({ message: "Original GG is temporarily unavailable." });
   const playerId = playerIdFor(req, res);
   if (!playerId) return;
+  const requestKey = String(req.body?.idempotencyKey || "").trim();
+  if (!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestKey)) return res.status(400).json({ message: "A valid upgrade request key is required." });
+  const idempotencyKey = "home:" + requestKey;
   const session = await getClubsConnection().startSession();
   try {
     let result;
     await session.withTransaction(async () => {
+      const prior = await WorldEconomyLedger.findOne({ playerId, idempotencyKey }).session(session).lean();
+      if (prior) {
+        const [currentHome, currentWallet] = await Promise.all([
+          PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session).lean(),
+          WorldEconomy.findOne({ playerId }).session(session).lean(),
+        ]);
+        result = { success: true, duplicate: true, residence: { level: currentHome?.level || 1, name: currentHome?.name }, economy: currentWallet };
+        return;
+      }
       const home = await PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session);
       if (!home) {
         const error = new Error("Your residence has not been created yet.");
@@ -199,7 +211,7 @@ router.post("/residence-upgrade", async (req, res, next) => {
       home.level = nextLevel;
       await home.save({ session });
       await WorldEconomyLedger.create([{
-        playerId, idempotencyKey: "home-upgrade:"+nextLevel+":"+home._id,
+        playerId, idempotencyKey,
         type: "upgrade", itemId: "residence-level-"+nextLevel, coinsDelta: -cost,
         xpDelta: 0, balanceAfter: wallet.coins, xpAfter: wallet.xp,
         metadata: { residenceLevel: nextLevel },
