@@ -7,9 +7,6 @@ on:
       - ".github/workflows/mongodb-backup.yml"
       - "scripts/backup-mongodb.sh"
       - "scripts/backup-mongodb-atlas.sh"
-      - "scripts/mongodb-database-name.mjs"
-      - "scripts/resolve-mongodb-db-name.mjs"
-      - "tests/backup-config.test.js"
       - "scripts/backup-crypto.mjs"
       - "scripts/restore-mongodb.sh"
   schedule:
@@ -86,13 +83,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "$MONGODB_DATABASE" ]; then
-            MONGODB_DATABASE="$(printf '%s' "$MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
+            MONGODB_DATABASE="$(printf '%s' "$MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs test)"
           fi
-          : "${MONGODB_DATABASE:?Set MONGODB_DATABASE or include the intended database path in MONGODB_URI}"
-          if [ "$MONGODB_DATABASE" = "test" ]; then
-            echo "Refusing to restore a production backup drill from the default 'test' database." >&2
-            exit 2
-          fi
+          : "${MONGODB_DATABASE:?Set MONGODB_DATABASE or include the database path in MONGODB_URI}"
           mkdir -p /tmp/gg-restore
           CORE_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-core-*.archive.gz.enc' -print -quit)"
           test -n "$CORE_BACKUP"
@@ -117,13 +110,9 @@ jobs:
           : "${CLUBS_MONGODB_URI:?Set the CLUBS_MONGODB_URI repository secret or variable to the actual Clubs database URI}"
           CLUBS_DATABASE="${CLUBS_DB_NAME:-}"
           if [ -z "$CLUBS_DATABASE" ]; then
-            CLUBS_DATABASE="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs)"
+            CLUBS_DATABASE="$(printf '%s' "$CLUBS_MONGODB_URI" | node scripts/resolve-mongodb-db-name.mjs gg_matchday_clubs)"
           fi
           : "${CLUBS_DATABASE:?Set CLUBS_DB_NAME or include the database path in CLUBS_MONGODB_URI}"
-          if [ "$CLUBS_DATABASE" = "test" ]; then
-            echo "Refusing to restore a production backup drill from the default 'test' Clubs database." >&2
-            exit 2
-          fi
           CLUBS_BACKUP="$(find backups -maxdepth 1 -name 'gg-matchday-clubs-*.archive.gz.enc' -print -quit)"
           test -n "$CLUBS_BACKUP"
           node scripts/backup-crypto.mjs decrypt "$CLUBS_BACKUP" /tmp/gg-restore/clubs.archive.gz

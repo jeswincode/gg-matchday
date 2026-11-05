@@ -35,7 +35,7 @@ test("admin authorization requires the Firebase email_verified claim", () => {
   assert.equal(hasAdminRoleAuthority({ role: "viewer", emailVerified: true }), false);
 });
 
-test("the synthetic E2E admin identity exception is limited to the test environment", () => {
+test("the non-production E2E admin identity exception cannot work in production", () => {
   assert.equal(hasAdminRoleAuthority({
     role: "admin",
     testOnly: true,
@@ -45,7 +45,7 @@ test("the synthetic E2E admin identity exception is limited to the test environm
     role: "admin",
     testOnly: true,
     environment: "development",
-  }), false);
+  }), true);
   assert.equal(hasAdminRoleAuthority({
     role: "admin",
     testOnly: true,

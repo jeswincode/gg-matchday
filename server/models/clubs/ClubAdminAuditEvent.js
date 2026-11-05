@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
-import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const clubAdminAuditEventSchema = new mongoose.Schema(
   {
-    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     actorUserId: { type: mongoose.Schema.Types.ObjectId, default: null },
     actorName: { type: String, trim: true, maxlength: 120, default: "Administrator" },
     actorEmail: { type: String, trim: true, lowercase: true, maxlength: 254, default: "" },
@@ -29,7 +27,5 @@ const clubAdminAuditEventSchema = new mongoose.Schema(
 
 clubAdminAuditEventSchema.index({ createdAt: -1, _id: -1 });
 clubAdminAuditEventSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
-
-clubAdminAuditEventSchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("ClubAdminAuditEvent", clubAdminAuditEventSchema);

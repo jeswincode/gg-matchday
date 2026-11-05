@@ -1,7 +1,6 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { requireAuth } from '../middleware/auth.js';
-import { requireOptionalWorldMembership, domainWorldFilter, withWorldDataScope, requireDomainCapability } from '../middleware/domainWorldContext.js';
 import User from '../models/User.js';
 import ChatMessage from '../models/ChatMessage.js';
 import { chatMonth, messageText } from '../services/validation.js';
@@ -11,11 +10,7 @@ const clients = new Map();
 const lifetime = 5 * 24 * 60 * 60 * 1000;
 const monthlyLimit = 3;
 
-router.use(requireOptionalWorldMembership);
-router.use(withWorldDataScope);
 router.use(requireAuth);
-const worldFilter = req => domainWorldFilter(req);
-const worldStreamKey = req => req.worldId ? String(req.worldId) : "legacy";
 router.use((req, res, next) =>
   process.env.CHAT_ENABLED === 'true'
     ? next()
@@ -27,11 +22,9 @@ function usageFor(user, month) {
   return { used, remaining: Math.max(0, monthlyLimit - used) };
 }
 
-function broadcast(message, worldId = null) {
-  const target = worldId == null ? "legacy" : String(worldId);
+function broadcast(message) {
   const payload = `data: ${JSON.stringify(message)}\n\n`;
   for (const [clientId, client] of clients) {
-    if (client.worldId !== target) continue;
     try {
       client.res.write(payload);
     } catch (error) {
@@ -57,7 +50,7 @@ router.get('/', async (req, res) => {
   try {
     const monthKey = chatMonth();
     const usage = usageFor(req.user, monthKey);
-    const history = await ChatMessage.find({ ...worldFilter(req), expiresAt: { $gt: new Date() } })
+    const history = await ChatMessage.find({ expiresAt: { $gt: new Date() } })
       .sort({ createdAt: 1 })
       .limit(200)
       .lean();
@@ -91,7 +84,7 @@ router.get('/stream', async (req, res) => {
   res.flushHeaders();
 
   const clientId = randomUUID();
-  clients.set(clientId, { user: key, worldId: worldStreamKey(req), res });
+  clients.set(clientId, { user: key, res });
 
   try {
     const history = await ChatMessage.find({ expiresAt: { $gt: new Date() } })
@@ -130,7 +123,7 @@ router.get('/stream', async (req, res) => {
   });
 });
 
-router.post('/', requireDomainCapability('chat:send'), async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const text = messageText(req.body.message);
     const month = chatMonth();
@@ -161,14 +154,13 @@ router.post('/', requireDomainCapability('chat:send'), async (req, res) => {
       name: req.user.name,
       photo: req.user.profileImage || '',
       text,
-      worldId: req.worldId || null,
       createdAt: now,
       expiresAt: new Date(now.getTime() + lifetime),
     });
 
     const message = serializeMessage(created);
     const usage = usageFor(claimed, month);
-    broadcast(message, req.worldId || null);
+    broadcast(message);
 
     res.status(201).json({
       message,

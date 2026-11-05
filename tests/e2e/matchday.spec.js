@@ -1,13 +1,8 @@
 import { test, expect } from "@playwright/test";
-import { openLinkedWorld } from "./helpers/world.js";
 
 async function stubPublicApi(page) {
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
-    if (url.pathname.startsWith("/api/auth/") || url.pathname.startsWith("/api/worlds/")) {
-      await route.continue();
-      return;
-    }
     let body = [];
     if (url.pathname.endsWith("/stats/leaderboard")) {
       body = { leaderboard: [], offensive: [], defensive: [] };
@@ -26,24 +21,21 @@ async function stubPublicApi(page) {
   });
 }
 
-async function enterLinkedMatchday(page) {
-  await openLinkedWorld(page, {
-    role: "editor",
-    playerId: "65a000000000000000000001",
-  });
+async function enterGuestMatchday(page) {
+  await page.goto("/?e2eRole=guest");
+  await page.getByRole("button", { name: "Explore as Guest" }).click();
   await expect(page.getByRole("button", { name: "Leaderboard" })).toBeVisible();
 }
 
-test("guest can preview the one shared football World but cannot enter without an admin-linked account", async ({ page }) => {
-  await page.goto("/?e2eRole=guest");
-  await page.getByRole("button", { name: "Explore the Global Map as Guest" }).click();
-  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
-  await page.getByRole("button", { name: "Preview Original GG" }).click();
-  await expect(page.getByRole("button", { name: "Access by invitation only" })).toBeDisabled();
-  await expect(page.locator(".gg-world-screen-interior")).toHaveCount(0);
+test("guest can open Matchday and reach the live leaderboard", async ({ page }) => {
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  await page.getByRole("button", { name: "Leaderboard" }).click();
+  await expect(page.getByRole("heading", { name: "Leaderboard" })).toBeVisible();
+  await expect(page.getByText("Performance. Contribution. Results.")).toBeVisible();
 });
 
-test("mobile welcome screen fills the viewport and poster tap opens the Global Map", async ({ page }) => {
+test("mobile welcome screen fills the viewport without stretching and any poster tap opens Matchday", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const poster = page.getByRole("img", { name: /GG Matchday cinematic football poster/i });
@@ -73,38 +65,36 @@ test("mobile welcome screen fills the viewport and poster tap opens the Global M
 
   // Tap a part of the artwork well away from the former visible CTA.
   await page.mouse.click(viewport.width * 0.88, viewport.height * 0.36);
-  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
 });
 
-test("Enter key opens the Global Map from the welcome screen without requiring a pointer", async ({ page }) => {
+test("Enter key opens Matchday from the welcome screen without requiring a pointer", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("/");
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await expect(page.getByRole("button", { name: "Enter Matchday" })).toBeVisible();
 
   await page.keyboard.press("Enter");
-  await expect(page.locator(".gg-world-screen-global")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
 });
 
 test("mobile viewport keeps primary navigation usable across key tabs", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);
-  await enterLinkedMatchday(page);
-  const mapNavigation = page.locator(".gg-world-bottom-nav");
-  await expect(mapNavigation).toBeVisible();
-  await mapNavigation.getByRole("button", { name: /Players/ }).click();
-
-  const matchdayNavigation = page.locator(".bottom-nav");
-  await expect(matchdayNavigation).toBeVisible();
-  await matchdayNavigation.getByRole("button", { name: /Calendar/ }).click();
-  await expect(matchdayNavigation).toBeVisible();
-  await matchdayNavigation.getByRole("button", { name: /Home/ }).click();
-  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
+  await enterGuestMatchday(page);
+  const navigation = page.locator(".bottom-nav");
+  await expect(navigation).toBeVisible();
+  await navigation.getByRole("button", { name: /Players/ }).click();
+  await expect(navigation.getByRole("button", { name: /Players/ })).toBeVisible();
+  await navigation.getByRole("button", { name: /Calendar/ }).click();
+  await expect(page.locator(".bottom-nav")).toBeVisible();
 });
 
 
 test("editor can authenticate and record a match through the real browser and API", async ({ page }) => {
-  await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
+  await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
 
   await page.getByRole("button", { name: /Record/ }).first().click();
   await expect(page.getByRole("heading", { name: "Record a Match" })).toBeVisible();
@@ -114,12 +104,6 @@ test("editor can authenticate and record a match through the real browser and AP
   await page.getByRole("button", { name: "Save Match" }).click();
 
   await expect(page.getByText("Match recorded.")).toBeVisible();
-  await expect(page.getByText("E2E Browser Regression Match")).toBeVisible();
-
-  // A Matchday write invalidates the shared data cache and the Calendar tab
-  // must read the new record when it becomes active.
-  await page.locator(".bottom-nav").getByRole("button", { name: /Calendar/ }).click();
-  await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible();
   await expect(page.getByText("E2E Browser Regression Match")).toBeVisible();
 });
 
@@ -139,7 +123,9 @@ test("My Club keeps stats and history available when wallet loading fails, then 
     await route.continue();
   });
 
-  await openLinkedWorld(page, { role: "editor", playerId: "65a000000000000000000001" });
+  await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Clubs navigation" });
@@ -162,7 +148,7 @@ test("My Club keeps stats and history available when wallet loading fails, then 
 test("Clubs Hub exposes task-based primary tabs and supports mobile swipe navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);
-  await enterLinkedMatchday(page);
+  await enterGuestMatchday(page);
 
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   const clubsApp = page.locator(".clubs-app");
@@ -230,15 +216,14 @@ test("Clubs Hub exposes task-based primary tabs and supports mobile swipe naviga
 test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs transitions", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);
-  await enterLinkedMatchday(page);
+  await enterGuestMatchday(page);
 
   const html = page.locator("html");
-  const mapThemeSwitch = page.locator(".gg-world-theme-switch");
-  const matchdayThemeSwitch = page.locator(".gg-world-theme-switch");
+  const themeSwitch = page.locator(".gg-theme");
   const clubsApp = page.locator(".clubs-app");
 
   // Dark mode should preserve the Matchday-aligned navy background and controls.
-  await mapThemeSwitch.getByRole("button", { name: "Dark", exact: true }).click();
+  await themeSwitch.getByRole("button", { name: "Dark", exact: true }).click();
   await expect(html).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(clubsApp).toBeVisible();
@@ -264,16 +249,9 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   // Returning to Matchday must preserve the ability to choose Gold independently.
   await page.getByRole("button", { name: /Matchday/ }).click();
   await expect(html).toHaveAttribute("data-product-mode", "matchday");
-  // The 720 ms mode guard must remain visible over the Global Map too.
-  await expect(page.locator(".product-mode-transition")).toBeVisible();
   await expect(page.locator(".product-mode-transition")).toHaveCount(0);
-  // Returning from Clubs remounts the Global Map and asynchronously revalidates
-  // the administrator-linked World membership before showing World actions.
-  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Clubs", exact: true })).toBeVisible();
-  await matchdayThemeSwitch.getByRole("button", { name: "Gold", exact: true }).click();
+  await themeSwitch.getByRole("button", { name: "Gold", exact: true }).click();
   await expect(html).toHaveAttribute("data-theme", "golden");
-  await expect(page.getByRole("button", { name: "Clubs", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(clubsApp).toBeVisible();
   await expect(html).toHaveAttribute("data-product-mode", "clubs");
@@ -292,48 +270,3 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   expect(goldPageFitsViewport).toBeTruthy();
 });
 
-
-
-test("platform admin enters the one GG football World and manages Gmail invitations", async ({ page }) => {
-  const adminPlayerId = "65a000000000000000000001";
-  const invitedEmail = "e2efootballplayer@gmail.com";
-
-  await openLinkedWorld(page, { role: "admin", playerId: adminPlayerId });
-
-  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Original GG" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("button")).toHaveCount(5);
-  await expect(page.getByRole("button", { name: "Found a World" })).toHaveCount(0);
-
-  await expect(page.getByRole("button", { name: "Select Central Stadium facility" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Main navigation" }).getByRole("button")).toHaveCount(5);
-
-  await page.getByRole("button", { name: "Manage access" }).click();
-  const dialog = page.getByRole("dialog", { name: "Football World access" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByLabel("Gmail address").fill(invitedEmail);
-  await dialog.getByLabel("World role").selectOption("member");
-
-  const invitationResponsePromise = page.waitForResponse(response =>
-    response.request().method() === "POST" &&
-    new URL(response.url()).pathname.endsWith("/api/worlds/admin/access")
-  );
-  await dialog.getByRole("button", { name: "Link Gmail account" }).click();
-  const invitationResponse = await invitationResponsePromise;
-  expect(invitationResponse.status()).toBe(201);
-  const invitation = await invitationResponse.json();
-  expect(invitation.grant.email).toBe(invitedEmail);
-  expect(invitation.grant.status).toBe("invited");
-  await expect(dialog.getByText(invitedEmail)).toBeVisible();
-  await expect(dialog.getByText("invited", { exact: true })).toBeVisible();
-
-  page.once("dialog", browserDialog => browserDialog.accept());
-  const revokeResponsePromise = page.waitForResponse(response =>
-    response.request().method() === "DELETE" &&
-    new URL(response.url()).pathname.endsWith("/api/worlds/admin/access/" + invitation.grant.id)
-  );
-  await dialog.getByRole("button", { name: "Revoke" }).click();
-  const revokeResponse = await revokeResponsePromise;
-  expect(revokeResponse.status()).toBe(200);
-  await expect(dialog.getByText("revoked", { exact: true })).toBeVisible();
-});

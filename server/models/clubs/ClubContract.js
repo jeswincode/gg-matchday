@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
-import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const contractSchema = new mongoose.Schema(
   {
-    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true },
     startAt: { type: Date, required: true },
@@ -18,13 +16,11 @@ const contractSchema = new mongoose.Schema(
 );
 
 contractSchema.index(
-  { worldId: 1, playerId: 1 },
-  { unique: true, partialFilterExpression: { status: "active" }, name: "active_contract_world_player_unique" }, 
+  { playerId: 1 },
+  { unique: true, partialFilterExpression: { status: "active" } },
 );
 contractSchema.index(
-  { worldId: 1, clubId: 1, playerId: 1, status: 1 },
+  { clubId: 1, playerId: 1, status: 1 },
 );
-
-contractSchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("ClubContract", contractSchema);

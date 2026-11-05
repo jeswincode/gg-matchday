@@ -20,20 +20,12 @@ import {
   requireAuth,
   requireEditor,
 } from "../middleware/auth.js";
-import {
-  requireOptionalWorldMembership,
-  domainWorldFilter, withWorldDataScope,
-  requireDomainCapability,
-} from "../middleware/domainWorldContext.js";
 
 import {
   generateMatchNews,
 } from "../services/aiNews.js";
 
 const router = express.Router();
-router.use(requireOptionalWorldMembership);
-router.use(withWorldDataScope);
-const worldFilter = req => domainWorldFilter(req);
 
 async function hasLinkedClubMatch(mainMatchId, { settledOnly = false } = {}) {
   const connection = getClubsConnection();
@@ -66,7 +58,7 @@ async function syncClubsOrQueue(mainMatch) {
 // VALIDATION
 // ==================================================
 
-async function validateMatchData(body, { allowLegacyStoredScore = false, worldId = null } = {}) {
+async function validateMatchData(body, { allowLegacyStoredScore = false } = {}) {
   const {
     teamA,
     teamB,
@@ -125,7 +117,6 @@ async function validateMatchData(body, { allowLegacyStoredScore = false, worldId
   }
 
   const validPlayers = await Player.find({
-    worldId: worldId || null,
     _id: {
       $in: uniqueParticipantIds,
     },
@@ -268,7 +259,6 @@ async function createNewsForMatch(
     // Save a fresh replacement before cleaning up the previous article.
     // If insert fails, the existing match report remains available.
     const news = await News.create({
-      worldId: populatedMatch.worldId || null,
       type: "match",
       match: populatedMatch._id,
       featuredPlayer: firstGoal?.player || null,
@@ -279,7 +269,7 @@ async function createNewsForMatch(
       tags: ["match", "football"],
       generatedBy: "fallback",
     });
-    await News.deleteMany({ worldId: populatedMatch.worldId || null, match: populatedMatch._id, _id: { $ne: news._id } });
+    await News.deleteMany({ match: populatedMatch._id, _id: { $ne: news._id } });
 
     console.log("📰 Fallback news created");
 
@@ -369,7 +359,7 @@ router.get(
   ) => {
     try {
       const matches =
-        await Match.find(worldFilter(req))
+        await Match.find()
           .populate(
             "participants.player",
             "name profileImage"
@@ -410,7 +400,7 @@ router.get(
 router.post(
   "/",
   requireAuth,
-  requireDomainCapability("football:record", requireEditor),
+  requireEditor,
   async (
     req,
     res
@@ -419,8 +409,7 @@ router.post(
       try { prepareMatch(req.body); } catch (error) { return res.status(400).json({ message: error.message }); }
       const validationError =
         await validateMatchData(
-          req.body,
-          { worldId: req.worldId || null }
+          req.body
         );
 
       if (validationError) {
@@ -446,7 +435,6 @@ router.post(
 
       const match =
         await Match.create({
-          worldId: req.worldId || null,
           date: date
             ? new Date(
                 `${date}T12:00:00.000Z`
@@ -537,16 +525,16 @@ router.post(
 router.put(
   "/:id",
   requireAuth,
-  requireDomainCapability("football:edit", requireEditor),
+  requireEditor,
   async (
     req,
     res
   ) => {
     try {
-      const previous = await Match.findOne({ _id: req.params.id, ...worldFilter(req) });
+      const previous = await Match.findById(req.params.id);
       if (!previous) return res.status(404).json({message:"Match not found."});
       if (!ensureClubsMutationSafety(res)) return;
-      if (await Vote.exists({match:previous._id,worldId:req.worldId || null})) return res.status(409).json({message:"Matches with votes are locked to preserve final votes and recognition."});
+      if (await Vote.exists({match:previous._id})) return res.status(409).json({message:"Matches with votes are locked to preserve final votes and recognition."});
       const linkedSettled = await hasLinkedClubMatch(previous._id, { settledOnly: true });
       if (linkedSettled === true) {
         return res.status(409).json({ message: "This Match Record is locked because it has a linked Club Match. The Club Match must remain linked to its Match Record." });
@@ -555,7 +543,7 @@ router.put(
       const validationError =
         await validateMatchData(
           req.body,
-          { allowLegacyStoredScore: preservesLegacyStoredScore(req.body, previous), worldId: req.worldId || null }
+          { allowLegacyStoredScore: preservesLegacyStoredScore(req.body, previous) }
         );
 
       if (validationError) {
@@ -570,7 +558,9 @@ router.put(
       }
 
       const match =
-        await Match.findOne({ _id: req.params.id, ...worldFilter(req) });
+        await Match.findById(
+          req.params.id
+        );
 
       if (!match) {
         return res
@@ -688,20 +678,22 @@ router.put(
 router.delete(
   "/:id",
   requireAuth,
-  requireDomainCapability("football:edit", requireEditor),
+  requireEditor,
   async (
     req,
     res
   ) => {
     try {
       if (!ensureClubsMutationSafety(res)) return;
-      if (await Vote.exists({match:req.params.id,worldId:req.worldId || null})) return res.status(409).json({message:"Matches with votes cannot be deleted."});
+      if (await Vote.exists({match:req.params.id})) return res.status(409).json({message:"Matches with votes cannot be deleted."});
       const linked = await hasLinkedClubMatch(req.params.id);
       if (linked === true) {
         return res.status(409).json({ message: "This Match Record cannot be deleted because it has a linked Club Match. The Club Match must remain linked to its Match Record." });
       }
       const match =
-        await Match.findOneAndDelete({ _id: req.params.id, ...worldFilter(req) });
+        await Match.findByIdAndDelete(
+          req.params.id
+        );
 
       if (!match) {
         return res
@@ -717,8 +709,8 @@ router.delete(
       // Remove news tied to this match, then rebuild affected player snapshots
       // because deleting history can lower Career/Current OVR.
       await News.deleteMany({
-        worldId: req.worldId || null,
-        match: match._id,
+        match:
+          match._id,
       });
 
       try {

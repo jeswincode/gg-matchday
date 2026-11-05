@@ -16,6 +16,6 @@ export function hasAdminRoleAuthority({
   environment = process.env.NODE_ENV,
 } = {}) {
   if (role !== "admin") return false;
-  if (testOnly) return environment === "test";
+  if (testOnly) return environment !== "production";
   return emailVerified === true;
 }

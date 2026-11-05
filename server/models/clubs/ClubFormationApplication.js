@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import { CLUB_MIN_MEMBERS, CLUB_MAX_MEMBERS } from "../../config/clubsRules.js";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
-import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const approvalSchema = new mongoose.Schema(
   {
@@ -22,7 +21,6 @@ const voteSchema = new mongoose.Schema(
 
 const applicationSchema = new mongoose.Schema(
   {
-    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     founderPlayerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true },
     memberIds: {
       type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Player" }],
@@ -85,7 +83,5 @@ applicationSchema.pre("validate", function validateCaptainMembership() {
 });
 applicationSchema.index({ founderPlayerId: 1, status: 1 });
 applicationSchema.index({ proposedNameNormalized: 1 });
-
-applicationSchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("ClubFormationApplication", applicationSchema);
