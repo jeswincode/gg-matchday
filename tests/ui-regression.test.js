@@ -80,7 +80,9 @@ test('Refined startup flow replaces the account-bar login with startup, entry, a
   assert.match(startup,/Continue with Google/);
   assert.match(startup,/Explore as Guest/);
   assert.match(startup,/aria-label="Enter Matchday"/);
-  assert.doesNotMatch(startup,/gg-welcome-button-visual|>ENTER MATCHDAY/);
+  assert.match(startup,/gg-welcome-coded-screen/);
+  assert.match(startup,/gg-welcome-stadium-art/);
+  assert.doesNotMatch(startup,/gg-welcome-button-visual|enter-matchday-mobile\\.png/);
   assert.match(app,/Read-only access/);
 });
 
