@@ -20,7 +20,7 @@ export const WORLD_COSMETIC_CATEGORIES = Object.freeze([
   { id: "furniture", label: "Home furniture", slot: "furniture" },
 ]);
 
-export const WORLD_COSMETIC_CATALOG = Object.freeze([
+export const WORLD_MARKET_CATALOG = Object.freeze([
   { id: "hair-silver", name: "Silver Hair", category: "hairColor", slot: "hairColor", price: 90, minLevel: 1, description: "A cool silver hairstyle colour.", rarity: "common", collection: "classic", sortOrder: 10, appearancePatch: { hairColor: "silver" } },
   { id: "hair-teal", name: "Teal Hair", category: "hairColor", slot: "hairColor", price: 115, minLevel: 2, description: "A bold teal colour for your footballer.", rarity: "rare", collection: "neon-nights", sortOrder: 20, appearancePatch: { hairColor: "teal" } },
   { id: "hair-pink", name: "Pink Hair", category: "hairColor", slot: "hairColor", price: 115, minLevel: 2, description: "A bright pink hair colour.", rarity: "rare", collection: "neon-nights", sortOrder: 30, appearancePatch: { hairColor: "pink" } },
@@ -41,6 +41,13 @@ export const WORLD_COSMETIC_CATALOG = Object.freeze([
   { id: "furniture-training-rack", name: "Home Training Rack", category: "furniture", slot: "furniture", itemType: "furniture", price: 175, minLevel: 3, description: "A compact training station for your home gym corner.", rarity: "rare", collection: "training-club", sortOrder: 180, furniturePlacement: { roomIds: ["training-corner"], displayName: "Home Training Rack", furnitureKey: "training-rack" } },
 ]);
 
+// Backward-compatible name retained for code that only needs appearance cosmetics.
+export const WORLD_COSMETIC_CATALOG = WORLD_MARKET_CATALOG;
+
 export function getWorldCosmetic(itemId) {
-  return WORLD_COSMETIC_CATALOG.find((item) => item.id === itemId) || null;
+  return WORLD_MARKET_CATALOG.find((item) => item.id === itemId && item.appearancePatch) || null;
+}
+
+export function getWorldMarketItem(itemId) {
+  return WORLD_MARKET_CATALOG.find((item) => item.id === itemId) || null;
 }
