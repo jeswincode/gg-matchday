@@ -28,7 +28,7 @@ function playerIdFor(req, res) {
 }
 
 function publicItem(item) {
-  return { id: item.id, name: item.name, category: item.category, slot: item.slot, price: item.price, minLevel: item.minLevel || 1, description: item.description, rarity: item.rarity, collection: item.collection, sortOrder: item.sortOrder };
+  return { id: item.id, name: item.name, category: item.category, slot: item.slot, itemType: item.itemType || "cosmetic", furniturePlacement: item.furniturePlacement || null, appearancePatch: item.appearancePatch || null, price: item.price, minLevel: item.minLevel || 1, description: item.description, rarity: item.rarity, collection: item.collection, sortOrder: item.sortOrder };
 }
 
 router.get("/", async (req, res, next) => {
@@ -40,7 +40,7 @@ router.get("/", async (req, res, next) => {
       WorldEconomy.findOne({ playerId }).lean(),
       WorldInventoryItem.find({ playerId }).sort({ acquiredAt: -1 }).lean(),
       WorldEconomyLedger.find({ playerId }).sort({ createdAt: -1 }).limit(20).lean(),
-      PlayerResidence.findOne({ ownerPlayerId: playerId }).select("level").lean(),
+      PlayerResidence.findOne({ ownerPlayerId: playerId }).select("level interior.rooms").lean(),
       WorldDailyProgress.findOne({ playerId, dayKey: utcDayKey() }).lean(),
       WorldAchievement.find({ playerId }).lean(),
     ]);
@@ -50,7 +50,7 @@ router.get("/", async (req, res, next) => {
       categories: WORLD_COSMETIC_CATEGORIES,
       inventory,
       recentTransactions: ledger,
-      residence: { level: residence?.level || 1, maxLevel: 10, nextUpgradeCost: residence && residence.level < 10 ? Math.round(100 * Math.pow(residence.level + 1, 1.55)) : null },
+      residence: { level: residence?.level || 1, maxLevel: 10, rooms: (residence?.interior?.rooms || []).map((room) => ({ id: room.id, name: room.name, furniture: room.furniture || [] })), nextUpgradeCost: residence && residence.level < 10 ? Math.round(100 * Math.pow(residence.level + 1, 1.55)) : null },
       dailyProgress: { xpEarned: daily?.xpEarned || 0, xpRemaining: Math.max(0, WORLD_ECONOMY_RULES.dailyXpCap - (daily?.xpEarned || 0)), coinsEarned: daily?.coinsEarned || 0, coinsRemaining: Math.max(0, WORLD_ECONOMY_RULES.dailyCoinCap - (daily?.coinsEarned || 0)), trainingXpRemaining: Math.max(0, WORLD_ECONOMY_RULES.dailyTrainingXpCap - (daily?.trainingXpEarned || 0)), trainingCoinsRemaining: Math.max(0, WORLD_ECONOMY_RULES.dailyTrainingCoinCap - (daily?.trainingCoinsEarned || 0)), resetsAt: "00:00 UTC" },
       achievements: WORLD_ACHIEVEMENTS.map((achievement) => ({ id: achievement.id, name: achievement.name, description: achievement.description, xp: achievement.xp, coins: achievement.coins, unlocked: unlocked.some((entry) => entry.achievementId === achievement.id), unlockedAt: unlocked.find((entry) => entry.achievementId === achievement.id)?.unlockedAt || null })),
       nextLevelXp: levelProgress(wallet?.xp || 0).nextLevelXp,
@@ -168,6 +168,72 @@ router.post("/equip", async (req, res, next) => {
       avatar = avatarDoc.toObject();
     });
     return res.json({ success: true, itemId, avatar: { appearance: avatar.appearance } });
+  } catch(error) {
+    if(error?.status) return res.status(error.status).json({ message: error.message });
+    return next(error);
+  } finally { await session.endSession(); }
+});
+
+router.post("/furnish", async (req, res, next) => {
+  if (getClubsConnection().readyState !== 1) return res.status(503).json({ message: "Original GG is temporarily unavailable." });
+  const playerId = playerIdFor(req, res);
+  if (!playerId) return;
+  const itemId = String(req.body?.itemId || "").trim();
+  const roomId = String(req.body?.roomId || "").trim();
+  const requestKey = String(req.body?.idempotencyKey || "").trim();
+  if (!/^[a-zA-Z0-9:_-]{12,90}$/.test(requestKey)) return res.status(400).json({ message: "A valid furnishing request key is required." });
+  const idempotencyKey = "furnish:" + requestKey;
+  const item = CATALOG.find((entry) => entry.id === itemId && entry.itemType === "furniture");
+  if (!item) return res.status(404).json({ message: "That furniture item is not available." });
+  if (!item.furniturePlacement.roomIds.includes(roomId)) return res.status(400).json({ message: "That item cannot be placed in this room." });
+  const session = await getClubsConnection().startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const prior = await WorldEconomyLedger.findOne({ playerId, idempotencyKey }).session(session).lean();
+      if (prior) {
+        if (prior.type !== "furnish" || prior.itemId !== item.id || prior.metadata?.roomId !== roomId) {
+          const error = new Error("This request key was already used for another economy action.");
+          error.status = 409;
+          throw error;
+        }
+        const home = await PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session).lean();
+        result = { success: true, duplicate: true, residence: home };
+        return;
+      }
+      const home = await PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session);
+      if (!home) {
+        const error = new Error("Your residence has not been created yet.");
+        error.status = 404;
+        throw error;
+      }
+      const room = (home.interior?.rooms || []).find((entry) => entry.id === roomId);
+      if (!room) {
+        const error = new Error("That room does not exist in your residence.");
+        error.status = 404;
+        throw error;
+      }
+      const owned = await WorldInventoryItem.findOne({ playerId, itemId, quantity: { $gt: 0 } }).session(session);
+      if (!owned) {
+        const error = new Error("Purchase this furniture item before placing it.");
+        error.status = 409;
+        throw error;
+      }
+      const wallet = await WorldEconomy.findOne({ playerId }).session(session).lean();
+      room.furniture = Array.isArray(room.furniture) ? room.furniture : [];
+      room.furniture.push({ itemId, name: item.furniturePlacement.displayName, furnitureKey: item.furniturePlacement.furnitureKey, placedAt: new Date() });
+      home.markModified("interior");
+      await home.save({ session });
+      if (owned.quantity === 1) await WorldInventoryItem.deleteOne({ _id: owned._id }, { session });
+      else { owned.quantity -= 1; await owned.save({ session }); }
+      await WorldEconomyLedger.create([{
+        playerId, idempotencyKey, type: "furnish", itemId,
+        coinsDelta: 0, xpDelta: 0, balanceAfter: wallet?.coins || 0, xpAfter: wallet?.xp || 0,
+        metadata: { roomId, furnitureName: item.furniturePlacement.displayName },
+      }], { session });
+      result = { success: true, duplicate: false, room: { id: room.id, name: room.name, furniture: room.furniture }, residence: { level: home.level, name: home.name } };
+    });
+    return res.json(result);
   } catch(error) {
     if(error?.status) return res.status(error.status).json({ message: error.message });
     return next(error);
