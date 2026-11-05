@@ -13,13 +13,14 @@ test("cosmetic catalogue is data-driven, uniquely keyed and category-complete", 
     assert.ok(item.slot);
     assert.ok(Number.isInteger(item.price) && item.price > 0);
     assert.ok(Number.isInteger(item.minLevel) && item.minLevel >= 1);
-    assert.ok(item.appearancePatch && Object.keys(item.appearancePatch).length > 0);
-    for (const [field, value] of Object.entries(item.appearancePatch)) {
+    assert.ok((item.appearancePatch && Object.keys(item.appearancePatch).length > 0) || item.furniturePlacement);
+    for (const [field, value] of Object.entries(item.appearancePatch || {})) {
       assert.ok(AVATAR_OPTIONS[field]?.includes(value), item.id+" uses a valid "+field+" option");
     }
   }
   assert.equal(getWorldCosmetic("kit-neon").appearancePatch.kitPrimary, "teal");
   assert.equal(getWorldCosmetic("not-a-real-item"), null);
+  assert.ok(WORLD_COSMETIC_CATALOG.filter((item)=>item.itemType==="furniture").length >= 3);
 });
 
 test("shop-only appearance variants are not included in the free avatar editor", () => {
