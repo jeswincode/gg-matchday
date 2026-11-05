@@ -1,4 +1,5 @@
 import { AVATAR_OPTIONS } from "../../shared/worldCustomization.js";
+import { normalizeCharacterDirection } from "../../shared/characterAnimation.js";
 export const WORLD_MAP_SLUG = "original-gg";
 
 export const DEFAULT_WORLD_LAYOUT = Object.freeze({
@@ -121,5 +122,6 @@ export function normalizePresencePayload(input = {}) {
   if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > DEFAULT_WORLD_LAYOUT.width || y < 0 || y > DEFAULT_WORLD_LAYOUT.height) {
     throw new TypeError("Character position is outside the Original GG world.");
   }
-  return { locationId, x: Math.round(x), y: Math.round(y) };
+  const direction = normalizeCharacterDirection(input.direction);
+  return { locationId, x: Math.round(x), y: Math.round(y), direction };
 }
