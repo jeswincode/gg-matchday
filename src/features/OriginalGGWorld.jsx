@@ -125,9 +125,17 @@ export default function OriginalGGWorld({ onExit }) {
   const hasAvatar = Boolean(data?.avatar);
   useEffect(() => {
     if (!hasAvatar) return;
-    const heartbeat = () => api("/world/presence",{method:"POST",body:{locationId:"city-plaza",...playerPosition}}).catch(()=>{});
+    const heartbeat = async () => {
+      try {
+        await api("/world/presence",{method:"POST",body:{locationId:"city-plaza",...playerPosition}});
+        const latest = await api("/world/presence?refresh="+Date.now());
+        setData((current)=>current?({...current,presence:latest.presence||[]}):current);
+      } catch {
+        // A temporary network issue should not interrupt map exploration.
+      }
+    };
     heartbeat();
-    const timer = window.setInterval(heartbeat,30000);
+    const timer = window.setInterval(heartbeat,12000);
     return () => window.clearInterval(timer);
   },[hasAvatar,playerPosition]);
   const appearance = avatar.appearance || {};
