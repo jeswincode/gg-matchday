@@ -74,8 +74,61 @@ function Building({ kind }) {
     <path d="M90 86 L155 54 L155 79 L90 111Z" fill="#253a31" stroke="#1b3027" strokeWidth="2"/>
     <path d="M49 53 L89 33 L132 53 L90 73Z" fill="#d4b36a" opacity=".42"/>
     <path d="M79 82 L101 73 L101 108 L79 117Z" fill="#17251f"/>
-    {kind==="hq" && <path d="M74 28 L89 7 L105 29Z" fill="#e1bd68" stroke="#694f28" strokeWidth="2"/>}
-    {kind==="stadium" && <path d="M37 53 Q89 4 143 49" fill="none" stroke="#e4e8dc" strokeWidth="8"/>}
+    {kind==="hq" && <>
+      <path d="M65 43 L89 5 L114 44 L90 58Z" fill="#d9b45d" stroke="#674c25" strokeWidth="3"/>
+      <path d="M79 34 L89 19 L100 35 L90 42Z" fill="#f3d78e"/>
+      <path d="M86 8 L89 0 L93 8" fill="none" stroke="#f4dc9b" strokeWidth="3"/>
+      <path d="M89 48 L89 72" stroke="#f4d88e" strokeWidth="3"/>
+      <path d="M54 46 L54 26 L64 31 L64 41 M115 45 L115 24 L125 29 L125 40" fill="#b23b36" stroke="#e4c16c" strokeWidth="2"/>
+      <rect x="84" y="88" width="12" height="22" fill="#d6b36a"/>
+    </>}
+    {kind==="stadium" && <>
+      <path d="M22 55 Q88 -2 158 52 L151 66 Q88 25 29 68Z" fill="#c1c8b3" stroke="#273b30" strokeWidth="3"/>
+      <path d="M35 55 Q88 13 145 53" fill="none" stroke="#e7e8d9" strokeWidth="5"/>
+      <path d="M44 49 L44 61 M58 40 L58 54 M73 34 L73 48 M89 30 L89 44 M105 33 L105 47 M121 39 L121 53 M136 46 L136 59" stroke="#e0d5b5" strokeWidth="3"/>
+      <path d="M64 58 L90 46 L117 58 L90 70Z" fill="#3b8750" stroke="#e6e6d5" strokeWidth="2"/>
+      <path d="M90 46 L90 70 M64 58 L117 58" stroke="#e6e6d5" strokeWidth="1.5"/>
+      <rect x="78" y="9" width="22" height="9" rx="2" fill="#202c26" stroke="#e4c16c" strokeWidth="2"/>
+    </>}
+    {kind==="training" && <>
+      <path d="M50 49 L50 28 L126 28 L126 48" fill="none" stroke="#e2e6d8" strokeWidth="5"/>
+      <path d="M59 30 L59 43 M117 30 L117 43 M59 30 L117 30" stroke="#e2c67e" strokeWidth="3"/>
+      <path d="M57 59 L89 44 L124 60 L90 77Z" fill="#3e8a4f" stroke="#d6e0c8" strokeWidth="2"/>
+      <path d="M90 44 L90 77 M57 59 L124 60" stroke="#d6e0c8" strokeWidth="1.5"/>
+      <circle cx="90" cy="60" r="5" fill="none" stroke="#d6e0c8" strokeWidth="1.5"/>
+    </>}
+    {kind==="club" && <>
+      <path d="M46 45 L46 17 L48 17 L48 45" fill="#cbb889"/>
+      <path d="M49 18 L70 22 L49 29Z" fill="#d7ad52" stroke="#332c20" strokeWidth="1.5"/>
+      <path d="M112 54 L112 39 L138 39 L138 54" fill="#3e8051" stroke="#1c3024" strokeWidth="2"/>
+      <path d="M119 42 L131 42 M125 39 L125 53" stroke="#e8e3d2" strokeWidth="2"/>
+    </>}
+    {kind==="home" && <>
+      <path d="M42 55 L88 23 L137 54 L90 80Z" fill="#9a6249" stroke="#2c2923" strokeWidth="3"/>
+      <path d="M42 55 L42 70 L90 96 L90 80Z" fill="#6c4d3a"/>
+      <path d="M90 80 L137 54 L137 70 L90 96Z" fill="#5a4536"/>
+      <rect x="58" y="62" width="10" height="10" fill="#e8d18e"/><rect x="113" y="65" width="10" height="10" fill="#e8d18e"/>
+      <path d="M82 78 L98 70 L98 94 L82 102Z" fill="#2a211b"/>
+    </>}
+    {kind==="academy" && <>
+      <path d="M57 40 L57 15 L122 15 L122 40" fill="#82917d" stroke="#1d3025" strokeWidth="3"/>
+      <path d="M80 15 L90 2 L100 15" fill="#d6b56e" stroke="#3d3928" strokeWidth="2"/>
+      <path d="M90 4 L90 -5" stroke="#d6b56e" strokeWidth="2"/>
+      <path d="M91 -4 L108 0 L91 7Z" fill="#a93d37"/>
+      <rect x="66" y="48" width="13" height="10" fill="#e6d69d"/><rect x="101" y="48" width="13" height="10" fill="#e6d69d"/>
+    </>}
+    {kind==="market" && <>
+      <path d="M50 43 L129 43 L137 57 L44 57Z" fill="#d8c49a" stroke="#382e22" strokeWidth="2"/>
+      <path d="M49 44 L65 44 L65 56 L44 56Z M81 44 L97 44 L97 56 L81 56Z M113 44 L129 44 L137 56 L113 56Z" fill="#b64a3f"/>
+      <path d="M57 59 L57 72 M121 59 L121 72" stroke="#e4d6b2" strokeWidth="3"/>
+    </>}
+    {kind==="park" && <>
+      <path d="M52 68 L52 44 M80 67 L80 38 M117 67 L117 43" stroke="#735538" strokeWidth="6"/>
+      <circle cx="52" cy="38" r="18" fill="#55945b" stroke="#264a31" strokeWidth="2"/>
+      <circle cx="80" cy="31" r="21" fill="#3e8050" stroke="#264a31" strokeWidth="2"/>
+      <circle cx="117" cy="37" r="17" fill="#5c9b5d" stroke="#264a31" strokeWidth="2"/>
+      <path d="M61 80 L104 80" stroke="#d5c8a1" strokeWidth="5"/>
+    </>}
   </svg>;
 }
 
