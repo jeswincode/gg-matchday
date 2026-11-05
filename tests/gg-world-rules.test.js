@@ -8,7 +8,7 @@ import {
 } from "../server/config/ggWorldRules.js";
 
 test("Original GG map blueprint has stable dimensions and unique locations", () => {
-  assert.equal(DEFAULT_WORLD_LAYOUT.version, 7);
+  assert.equal(DEFAULT_WORLD_LAYOUT.version, 8);
   assert.equal(DEFAULT_WORLD_LAYOUT.width, 1800);
   assert.equal(DEFAULT_WORLD_LAYOUT.height, 1200);
   assert.equal(DEFAULT_WORLD_LAYOUT.orientation, "isometric");
@@ -26,7 +26,9 @@ test("Original GG map blueprint has stable dimensions and unique locations", () 
   assert.ok(ids.includes("community-pitches"));
   assert.deepEqual(DEFAULT_WORLD_LAYOUT.districts.map((district)=>district.id),["crown-quarter","stadium-quarter","training-quarter","club-quarter","residential-quarter","transit-quarter","supporters-quarter","community-quarter"]);
   assert.equal(DEFAULT_WORLD_LAYOUT.plots.length, 6);
-  assert.ok(DEFAULT_WORLD_LAYOUT.plots.every((plot) => plot.status === "planned"));
+  const residentialPlots = DEFAULT_WORLD_LAYOUT.plots.filter((plot) => plot.category === "residential");
+  assert.deepEqual(residentialPlots.map((plot) => plot.status), ["available", "available"]);
+  assert.ok(DEFAULT_WORLD_LAYOUT.plots.filter((plot) => plot.category !== "residential").every((plot) => plot.status === "planned"));
   const hq = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "gg-hq");
   const training = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "training-centre");
   assert.ok(hq.interior.rooms.some((room) => room.id === "trophy-gallery"));
