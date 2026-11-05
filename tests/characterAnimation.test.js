@@ -41,10 +41,19 @@ test("social gestures have finite playback durations while idle and walking loop
   assert.equal(getCharacterAnimationProfile("unknown"), CHARACTER_ANIMATION_PROFILES.idle);
 });
 
+import { normalizePresencePayload } from "../server/config/ggWorldRules.js";
+
 test("animation frame selection wraps deterministically", () => {
   assert.equal(getCharacterAnimationFrame("wave", 0), 0);
   assert.equal(getCharacterAnimationFrame("wave", 125), 1);
   assert.equal(getCharacterAnimationFrame("wave", 750), 0);
   assert.equal(getCharacterAnimationFrame("dance", -100), 0);
   assert.equal(getCharacterAnimationFrame("dance", Number.NaN), 0);
+});
+
+test("world presence accepts and normalizes facing direction", () => {
+  assert.deepEqual(normalizePresencePayload({ x: 128.7, y: 64.2, direction: "LEFT" }), {
+    locationId: "city-plaza", x: 129, y: 64, direction: "left",
+  });
+  assert.equal(normalizePresencePayload({ x: 10, y: 20, direction: "diagonal" }).direction, "down");
 });
