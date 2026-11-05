@@ -79,7 +79,7 @@ function Building({ kind }) {
   </svg>;
 }
 
-export default function OriginalGGWorld({ onExit }) {
+export default function OriginalGGWorld({ onExit, onProfile }) {
   const [data,setData] = useState(null);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
