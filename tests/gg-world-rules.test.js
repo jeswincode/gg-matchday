@@ -8,7 +8,7 @@ import {
 } from "../server/config/ggWorldRules.js";
 
 test("Original GG map blueprint has stable dimensions and unique locations", () => {
-  assert.equal(DEFAULT_WORLD_LAYOUT.version, 5);
+  assert.equal(DEFAULT_WORLD_LAYOUT.version, 6);
   assert.equal(DEFAULT_WORLD_LAYOUT.width, 1800);
   assert.equal(DEFAULT_WORLD_LAYOUT.height, 1200);
   assert.equal(DEFAULT_WORLD_LAYOUT.orientation, "isometric");
