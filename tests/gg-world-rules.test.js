@@ -10,6 +10,9 @@ import {
 test("Original GG map blueprint has stable dimensions and unique locations", () => {
   assert.equal(DEFAULT_WORLD_LAYOUT.width, 1800);
   assert.equal(DEFAULT_WORLD_LAYOUT.height, 1200);
+  assert.equal(DEFAULT_WORLD_LAYOUT.orientation, "isometric");
+  assert.equal(DEFAULT_WORLD_LAYOUT.tileWidth / DEFAULT_WORLD_LAYOUT.tileHeight, 2);
+  assert.deepEqual(DEFAULT_WORLD_LAYOUT.layers.map((layer) => layer.order), [0,1,2,3,4,5]);
   const ids = DEFAULT_WORLD_LAYOUT.locations.map((location) => location.id);
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(ids.includes("gg-hq"));

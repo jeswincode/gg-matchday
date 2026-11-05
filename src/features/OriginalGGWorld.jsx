@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import "./original-gg.css";
 
@@ -59,6 +59,8 @@ export default function OriginalGGWorld({ onExit }) {
   const [scale,setScale] = useState(.72);
   const [offset,setOffset] = useState({x:0,y:0});
   const [drag,setDrag] = useState(null);
+  const pointers = useRef(new Map());
+  const pinch = useRef(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -83,14 +85,42 @@ export default function OriginalGGWorld({ onExit }) {
   const selectedPlace = mapPlaces.find((p)=>p.id===selected);
   function startPan(event) {
     if (event.button!==undefined && event.button!==0) return;
-    setDrag({x:event.clientX,y:event.clientY,ox:offset.x,oy:offset.y});
+    pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (pointers.current.size===2) {
+      const pair=Array.from(pointers.current.values());
+      const distance=Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y);
+      pinch.current={distance,scale};
+      setDrag(null);
+      return;
+    }
+    setDrag({x:event.clientX,y:event.clientY,ox:offset.x,oy:offset.y});
   }
   function movePan(event) {
+    if (!pointers.current.has(event.pointerId)) return;
+    pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});
+    if (pointers.current.size>=2) {
+      const pair=Array.from(pointers.current.values());
+      const distance=Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y);
+      if (pinch.current && pinch.current.distance>0) {
+        setScale(Math.min(1.45,Math.max(.42,pinch.current.scale*distance/pinch.current.distance)));
+      }
+      return;
+    }
     if (!drag) return;
-    setOffset({x:drag.ox+event.clientX-drag.x,y:drag.oy+event.clientY-drag.y});
+    setOffset({x:Math.min(420,Math.max(-420,drag.ox+event.clientX-drag.x)),y:Math.min(300,Math.max(-300,drag.oy+event.clientY-drag.y))});
   }
-  function stopPan(){setDrag(null);}
+  function stopPan(event) {
+    pointers.current.delete(event.pointerId);
+    if (pointers.current.size===1) {
+      const remaining=Array.from(pointers.current.values())[0];
+      setDrag({x:remaining.x,y:remaining.y,ox:offset.x,oy:offset.y});
+      pinch.current=null;
+    } else {
+      setDrag(null);
+      pinch.current=null;
+    }
+  }
   function changeAppearance(key,value){setAvatar((v)=>({...v,appearance:{...v.appearance,[key]:value}}));}
   async function saveAvatar(event) {
     event.preventDefault(); setSaving(true); setNotice("");
@@ -128,7 +158,8 @@ export default function OriginalGGWorld({ onExit }) {
               {Array.from({length:30},(_,i)=><g key={i} transform={"translate("+(80+(i*197)%1640)+" "+(100+(i*137)%970)+")"}><path d="M0 0 L27 -14 L54 0 L27 15Z" fill="#47784f"/><path d="M27 14 L27 36" stroke="#765b3d" strokeWidth="7"/><circle cx="27" cy="-5" r="22" fill="#3f8050"/><circle cx="17" cy="-12" r="12" fill="#55925b"/></g>)}
               <g transform="translate(460 570)"><path d="M-195 -105 L0 -195 L195 -105 L0 -15Z" fill="#1d362b" stroke="#c5aa70" strokeWidth="5"/><path d="M-145 -107 L0 -174 L145 -107 L0 -40Z" fill="#39814c" stroke="#d6d4b8" strokeWidth="4"/><path d="M-110 -108 L0 -158 L110 -108 L0 -58Z" fill="none" stroke="#e5e8ce" strokeWidth="3"/><path d="M0 -158 L0 -58 M-110 -108 L110 -108" fill="none" stroke="#e5e8ce" strokeWidth="2"/></g>
               {mapPlaces.map((place)=><g key={place.id} transform={"translate("+place.x+" "+place.y+")"} className="gg-map-place" onPointerDown={(e)=>e.stopPropagation()} onClick={()=>setSelected(place.id)} role="button" tabIndex="0" aria-label={"Open "+place.name} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelected(place.id);}}}><ellipse cy="45" rx={place.kind==="stadium"?190:125} ry="40" fill="#10291d" opacity=".35"/><g transform="translate(-90 -85)"><Building kind={place.kind}/></g><rect x="-116" y="54" width="232" height="38" rx="19" fill="#12281e" stroke="#d5b76b" strokeOpacity=".65"/><text y="79" textAnchor="middle" fill="#f7f0db" fontSize="19" fontWeight="700">{place.name}</text><circle cy="-84" r="12" fill="#e7c16a" stroke="#263c2b" strokeWidth="5"/></g>)}
-              {(data.presence||[]).map((p)=><g key={p.playerId} transform={"translate("+p.x+" "+p.y+")"} pointerEvents="none"><circle cy="-24" r="17" fill="#e5bf68" opacity=".5"/><text y="10" textAnchor="middle" fill="#fff5dd" fontSize="14" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{p.displayName.slice(0,12)}</text></g>)}
+              {(data.presence||[]).filter((p)=>p.playerId!==data.playerId).map((p)=><g key={p.playerId} transform={"translate("+p.x+" "+p.y+")"} pointerEvents="none"><circle cy="-24" r="17" fill="#e5bf68" opacity=".5"/><text y="10" textAnchor="middle" fill="#fff5dd" fontSize="14" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{p.displayName.slice(0,12)}</text></g>)}
+              {data.playerId && <g transform={"translate(900 600)"} pointerEvents="none"><circle cy="-24" r="20" fill="#e5bf68" opacity=".4"/><circle cy="-24" r="10" fill="#f0d28d"/><path d="M-11 -10 L11 -10 L16 16 L-16 16Z" fill="#d5ae59" stroke="#263c2b" strokeWidth="2"/><text y="35" textAnchor="middle" fill="#fff5dd" fontSize="14" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">YOU</text></g>}
             </g>
           </svg>
         </div>

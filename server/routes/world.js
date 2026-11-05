@@ -98,6 +98,7 @@ router.get("/bootstrap", async (req, res, next) => {
     const appearanceByPlayer = new Map(avatars.map((item) => [String(item.playerId), item.appearance]));
     return res.json({
       world: { slug: world.slug, title: world.title, version: world.version, layout: world.layout },
+      playerId: playerId ? String(playerId) : null,
       clubs: clubs.map((club) => ({ id: String(club._id), name: club.name, logoUrl: club.logoUrl, memberCount: club.memberIds?.length || 0 })),
       avatar,
       training,

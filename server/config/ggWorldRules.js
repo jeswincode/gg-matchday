@@ -2,6 +2,18 @@ export const WORLD_MAP_SLUG = "original-gg";
 
 export const DEFAULT_WORLD_LAYOUT = Object.freeze({
   version: 1,
+  orientation: "isometric",
+  tileWidth: 128,
+  tileHeight: 64,
+  renderOrder: "right-down",
+  layers: [
+    { id: "terrain", type: "tile", order: 0 },
+    { id: "roads", type: "path", order: 1 },
+    { id: "landscaping", type: "decoration", order: 2 },
+    { id: "buildings", type: "object", order: 3 },
+    { id: "interactive-zones", type: "object", order: 4 },
+    { id: "characters", type: "entity", order: 5 },
+  ],
   width: 1800,
   height: 1200,
   districts: [
@@ -35,6 +47,7 @@ function enumValue(value, allowed, fallback) {
 }
 
 export function normalizeAvatarPayload(input = {}) {
+  input = input && typeof input === "object" ? input : {};
   const displayName = String(input.displayName || "").trim().replace(/\s+/g, " ");
   if (displayName.length > 24) throw new TypeError("Character name must be 24 characters or fewer.");
   return {
@@ -54,6 +67,7 @@ export function normalizeAvatarPayload(input = {}) {
 const EXERCISES = ["pushups", "pullups", "squats", "planks"];
 
 export function normalizeTrainingSession(input = {}) {
+  input = input && typeof input === "object" ? input : {};
   const sessionId = String(input.sessionId || "").trim();
   if (!/^[a-zA-Z0-9-]{12,80}$/.test(sessionId)) {
     throw new TypeError("A valid workout session ID is required.");
@@ -81,6 +95,7 @@ export function normalizeTrainingSession(input = {}) {
 }
 
 export function normalizePresencePayload(input = {}) {
+  input = input && typeof input === "object" ? input : {};
   const locationId = String(input.locationId || "city-plaza").trim().slice(0, 64);
   const x = Number(input.x);
   const y = Number(input.y);
