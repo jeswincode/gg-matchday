@@ -183,10 +183,8 @@ router.post("/residence-upgrade", async (req, res, next) => {
     await session.withTransaction(async () => {
       const prior = await WorldEconomyLedger.findOne({ playerId, idempotencyKey }).session(session).lean();
       if (prior) {
-        const [currentHome, currentWallet] = await Promise.all([
-          PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session).lean(),
-          WorldEconomy.findOne({ playerId }).session(session).lean(),
-        ]);
+        const currentHome = await PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session).lean();
+        const currentWallet = await WorldEconomy.findOne({ playerId }).session(session).lean();
         result = { success: true, duplicate: true, residence: { level: currentHome?.level || 1, name: currentHome?.name }, economy: currentWallet };
         return;
       }
