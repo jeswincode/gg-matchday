@@ -922,7 +922,9 @@ router.post("/social/messages", async (req, res, next) => {
   const playerId = linkedPlayerId(req, res);
   if (!playerId) return;
   const locationId = String(req.body?.locationId || "city-plaza").trim();
-  // Strip control characters from untrusted chat text before validation and storage.\n  // eslint-disable-next-line no-control-regex\n  const message = String(req.body?.text || "").replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  // Strip control characters from untrusted chat text before validation and storage.
+  // eslint-disable-next-line no-control-regex
+  const message = String(req.body?.text || "").replace(/[\u0000-\u001f\u007f]/g, "").trim();
   if (!/^[a-z0-9-]{1,64}$/i.test(locationId)) return res.status(400).json({ message: "Invalid chat location." });
   if (!message || message.length > 240) return res.status(400).json({ message: "Write a message between 1 and 240 characters." });
   try {
