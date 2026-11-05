@@ -357,3 +357,16 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
   .gg-world-facility-overlay{backdrop-filter:none}
   .gg-world-training-gate{transition:none}
 }
+
+
+.gg-account-avatar-trigger{
+  display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;
+  padding:0;overflow:hidden;border:1px solid #d9b86a55;border-radius:50%;
+  background:#16281c;cursor:pointer;transition:transform .18s,border-color .18s,box-shadow .18s;
+}
+.gg-account-avatar-trigger img,.gg-account-avatar-trigger span{
+  display:grid;place-items:center;width:100%;height:100%;border:0;border-radius:50%;
+  object-fit:cover;color:#f3e2b5;background:linear-gradient(145deg,#355b32,#20351f);font-weight:850;
+}
+.gg-account-avatar-trigger:hover{transform:translateY(-1px);border-color:#f0d28b;box-shadow:0 0 0 4px #d9b86a1a}
+.gg-account-avatar-trigger:focus-visible{outline:2px solid #f0d28b;outline-offset:3px}
