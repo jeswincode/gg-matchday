@@ -25,6 +25,7 @@ function makeObstacle(state, previousX = CHALLENGE_WIDTH + 80) {
 }
 
 export function normalizeChallengeInput(input = {}) {
+  input = input && typeof input === "object" ? input : {};
   return {
     up: input.up === true,
     down: input.down === true,
