@@ -21,11 +21,70 @@ async function stubPublicApi(page) {
   });
 }
 
+async function stubWorldApi(page) {
+  const playerId = "65a000000000000000000001";
+  const layout = {
+    width: 1800,
+    height: 1200,
+    locations: [{
+      id: "gg-hq",
+      name: "GG Headquarters",
+      kind: "headquarters",
+      x: 900,
+      y: 310,
+      description: "The golden heart of Original GG.",
+      interior: { rooms: [{ id: "grand-hall", name: "Grand Hall", description: "The community meeting place.", theme: "gold", items: ["golden-doors","community-board"] }] }
+    }]
+  };
+  await page.route("**/api/world/**", async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/world/bootstrap")) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        world: { slug: "original-gg", title: "Original GG", version: 2, layout },
+        playerId,
+        canCreateCharacter: true,
+        avatar: { displayName: "E2E Footballer", appearance: { skinTone: "medium", bodyType: "athletic", hairStyle: "short", hairColor: "black", kitPrimary: "black", kitSecondary: "gold", bootColor: "white" }, tutorialComplete: true },
+        training: { totals: { pushups: 0, pullups: 0, squats: 0, planks: 0, totalCounts: 0, sessions: 0 }, personalBests: { pushups: 0, pullups: 0, squats: 0, planks: 0 } },
+        clubs: [],
+        clubGrounds: [],
+        residence: null,
+        residences: [],
+        presence: []
+      }) });
+      return;
+    }
+    if (url.pathname.endsWith("/world/interiors/gg-hq")) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        interior: { type: "public", name: "GG Headquarters", level: 1, interior: layout.locations[0].interior }
+      }) });
+      return;
+    }
+    if (url.pathname.endsWith("/world/presence")) {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true, presence: [] }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ success: true }) });
+  });
+}
+
 async function enterGuestMatchday(page) {
   await page.goto("/?e2eRole=guest");
   await page.getByRole("button", { name: "Explore as Guest" }).click();
   await expect(page.getByRole("button", { name: "Leaderboard" })).toBeVisible();
 }
+
+test("signed-in player can enter Original GG and explore a stored HQ interior", async ({ page }) => {
+  await stubWorldApi(page);
+  await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: "Enter Original GG" }).click();
+  await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Your pixel footballer" })).toBeVisible();
+  await page.getByRole("button", { name: "Open GG Headquarters" }).click();
+  await page.getByRole("button", { name: "Enter GG Headquarters" }).click();
+  await expect(page.getByRole("heading", { name: "Grand Hall" })).toBeVisible();
+});
 
 test("guest can open Matchday and reach the live leaderboard", async ({ page }) => {
   await stubPublicApi(page);
