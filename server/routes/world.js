@@ -521,11 +521,6 @@ router.post("/training/challenges/:runId/input", async (req, res, next) => {
           const error = new Error("This run has reached its input-event limit.");
           error.status = 429; throw error;
         }
-        const lastEvent = run.inputEvents[run.inputEvents.length - 1];
-        if (lastEvent && now.getTime() - new Date(lastEvent.receivedAt).getTime() < 25) {
-          const error = new Error("Training inputs are arriving too quickly.");
-          error.status = 429; throw error;
-        }
         run.inputEvents.push({ seq, direction, receivedAt: now });
         await run.save({ session });
         result = { success: true, seq };
