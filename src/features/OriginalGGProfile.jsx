@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { PlayerSprite } from "./OriginalGGWorld";
-import { AVATAR_OPTIONS } from "../../shared/worldCustomization.js";
+import { AVATAR_OPTIONS, WORLD_COSMETIC_CATALOG } from "../../shared/worldCustomization.js";
+import { FREE_AVATAR_OPTIONS } from "../../shared/worldAvatarOptions.js";
 import "./original-gg.css";
 
 const defaults = { displayName:"", appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"} };
@@ -12,17 +13,19 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
   const [avatar,setAvatar] = useState(defaults);
   const [player,setPlayer] = useState(null);
   const [linked,setLinked] = useState(false);
+  const [ownedCosmetics,setOwnedCosmetics] = useState([]);
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [message,setMessage] = useState("");
   useEffect(() => {
     let active = true;
-    Promise.all([api("/world/bootstrap"),api("/players")]).then(([world,players]) => {
+    Promise.all([api("/world/bootstrap"),api("/players"),api("/world/economy")]).then(([world,players,economy]) => {
       if (!active) return;
       const linkedPlayer = Array.isArray(players) ? players.find((item)=>String(item._id)===String(backendUser?.playerProfile)) : null;
       setPlayer(linkedPlayer||null);
       setLinked(Boolean(backendUser?.playerProfile));
       if (world.avatar) setAvatar(world.avatar);
+      setOwnedCosmetics((economy.inventory||[]).filter((entry)=>entry.quantity>0).map((entry)=>entry.itemId));
     }).catch((error) => {
       if (active) setMessage(error.message||"Could not load your profile.");
     }).finally(() => {
@@ -47,6 +50,7 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
     }
   }
   const appearance=avatar.appearance||defaults.appearance;
+  const editableChoices = Object.fromEntries(Object.entries(FREE_AVATAR_OPTIONS).map(([field,values])=>[field,[...values,...WORLD_COSMETIC_CATALOG.filter((item)=>ownedCosmetics.includes(item.id)&&item.appearancePatch?.[field]).map((item)=>item.appearancePatch[field])].filter((value,index,array)=>array.indexOf(value)===index)]));
   return <main className="gg-world gg-profile-page">
     <header className="gg-world-header"><div className="gg-world-brand"><span className="gg-world-crest">GG</span><div><p>YOUR PLAYER SPACE</p><h1>My Profile</h1></div></div><button className="gg-world-back" onClick={onBack}>← Matchday</button></header>
     <section className="gg-world-intro"><div><span className="gg-world-kicker">YOUR ACCOUNT · YOUR FOOTBALL IDENTITY</span><h2>Welcome, {authUser?.displayName||authUser?.email?.split("@")[0]||"GG Player"}.</h2><p>Your Matchday account and your Original GG character in one place.</p></div></section>
@@ -62,7 +66,7 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
           <div className="gg-world-avatar-preview"><PlayerSprite appearance={appearance}/><strong>{avatar.displayName||player?.name||"Your player"}</strong><small>YOUR GG CHARACTER</small></div>
           <form className="gg-world-form" onSubmit={save}>
             <label>Character name<input maxLength="24" value={avatar.displayName||""} onChange={(event)=>setAvatar((v)=>({...v,displayName:event.target.value}))} placeholder={player?.name||"Name your footballer"}/></label>
-            <div className="gg-world-select-grid">{Object.entries(choices).map(([key,values])=><label key={key}>{labels[key]}<select value={appearance[key]||defaults.appearance[key]} onChange={(event)=>updateAppearance(key,event.target.value)}>{values.map((value)=><option key={value}>{value}</option>)}</select></label>)}</div>
+            <div className="gg-world-select-grid">{Object.entries(editableChoices).map(([key,values])=><label key={key}>{labels[key]}<select value={appearance[key]||defaults.appearance[key]} onChange={(event)=>updateAppearance(key,event.target.value)}>{values.map((value)=><option key={value}>{value}</option>)}</select></label>)}</div>
             <button className="gg-world-primary" disabled={saving||!linked}>{!linked?"Link your player profile first":saving?"Saving…":"Save character"}</button>
           </form>
         </div>
