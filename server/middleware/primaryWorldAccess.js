@@ -8,7 +8,7 @@ export function requirePrimaryWorldAccess(req, res, next) {
   return requireAuth(req, res, () =>
     resolveWorldContext(req, res, () =>
       requireActiveWorldMembership(req, res, () =>
-        runWithWorldDataScope(req.worldId, next),
+        runWithWorldDataScope(req.worldId, next, { includeLegacy: true }),
       ),
     ),
   );
