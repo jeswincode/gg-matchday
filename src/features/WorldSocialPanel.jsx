@@ -39,7 +39,7 @@ export default function WorldSocialPanel({ playerId, locationId = "city-plaza" }
 
   useEffect(() => {
     let active = true;
-    Promise.all([api("/world/social/messages?locationId=" + encodeURIComponent(locationId),api("/world/social/interactions")]).then(([result,interactionResult]) => {
+    Promise.all([api("/world/social/messages?locationId=" + encodeURIComponent(locationId)),api("/world/social/interactions")]).then(([result,interactionResult]) => {
       if (active) { setMessages(result.messages || []); setIncoming((interactionResult.interactions||[]).map((item)=>({...item,receivedAt:Date.now()}))); }
     }).catch((error) => { if (active) setNotice(error.message || "City chat could not be loaded."); })
       .finally(() => { if (active) setLoading(false); });
