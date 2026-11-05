@@ -255,7 +255,8 @@ test("Admin invitation activates only the exact verified Gmail identity and unlo
   const players = await request("/players", { token: "member" });
   assert.equal(players.status, 200, JSON.stringify(players.data));
   assert.ok(players.data.some(player => player.name === "World Player"));
-  assert.ok(!players.data.some(player => player.name === "Legacy Unscoped Player"));
+  // The canonical Original GG World must keep pre-World Matchday records visible.
+  assert.ok(players.data.some(player => player.name === "Legacy Unscoped Player"));
 });
 
 test("An invitation cannot activate for an unverified Firebase email", async () => {
