@@ -15,6 +15,9 @@ import TrainingSession from "../models/clubs/TrainingSession.js";
 import WorldPresence from "../models/clubs/WorldPresence.js";
 import TrainingChallengeRun from "../models/clubs/TrainingChallengeRun.js";
 import TrainingChallengeProfile from "../models/clubs/TrainingChallengeProfile.js";
+import WorldEconomy from "../models/clubs/WorldEconomy.js";
+import { grantWorldReward, unlockTrainingAchievements } from "../services/worldProgression.js";
+import { trainingRewardForSession, levelProgress } from "../config/worldProgression.js";
 import {
   DEFAULT_WORLD_LAYOUT,
   WORLD_MAP_SLUG,
@@ -215,6 +218,41 @@ router.get("/bootstrap", async (req, res, next) => {
   }
 });
 
+router.post("/tutorial/complete", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const session = await getClubsConnection().startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const avatar = await PlayerAvatar.findOne({ playerId }).session(session);
+      if (!avatar) {
+        const error = new Error("Create your player character before claiming the welcome reward.");
+        error.status = 409;
+        throw error;
+      }
+      if (avatar.tutorialComplete) {
+        result = { success: true, duplicate: true, reward: null };
+        return;
+      }
+      avatar.tutorialComplete = true;
+      await avatar.save({ session });
+      const reward = await grantWorldReward({
+        playerId, sourceKey: "tutorial:original-gg-v1", sourceType: "tutorial",
+        xp: 40, coins: 20, metadata: { reason: "Completed the Original GG welcome tour" }, session,
+      });
+      result = { success: true, duplicate: reward.duplicate, reward };
+    });
+    return res.json(result);
+  } catch (error) {
+    if (error?.status) return res.status(error.status).json({ message: error.message });
+    return next(error);
+  } finally {
+    await session.endSession();
+  }
+});
+
 router.put("/avatar", async (req, res, next) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = linkedPlayerId(req, res);
@@ -297,7 +335,19 @@ router.post("/training/sessions", async (req, res, next) => {
           { $inc: increment, $max: maximum, $set: { lastWorkoutAt: recordedAt } },
           { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true, session },
         ).lean();
-        result = { session: saved.toObject(), profile, duplicate: false };
+        const rewardAmounts = trainingRewardForSession(payload);
+        const reward = await grantWorldReward({
+          playerId,
+          sourceKey: "training:" + payload.sessionId,
+          sourceType: "training-session",
+          xp: rewardAmounts.xp,
+          coins: rewardAmounts.coins,
+          metadata: { sessionId: payload.sessionId, totalCounts: payload.totalCounts, durationSeconds: payload.durationSeconds },
+          session,
+        });
+        const achievements = await unlockTrainingAchievements(playerId, profile, session);
+        const economy = await WorldEconomy.findOne({ playerId }).session(session).lean();
+        result = { session: saved.toObject(), profile, duplicate: false, reward, achievements, economy: economy ? { ...economy, ...levelProgress(economy.xp) } : null };
       });
     } finally {
       await session.endSession();
