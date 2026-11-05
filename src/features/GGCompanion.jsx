@@ -19,6 +19,9 @@ export default function GGCompanion({ onEnterWorld, playerName }) {
   const [transitioning,setTransitioning] = useState(false);
   const [position,setPosition] = useState({x:0,y:0});
   const [dragging,setDragging] = useState(false);
+  const [motion,setMotion] = useState("idle");
+  const [direction,setDirection] = useState("down");
+  const [thrown,setThrown] = useState(false);
   const drag = useRef(null);
   const suppressClick = useRef(false);
   const timer = useRef(null);
@@ -42,7 +45,7 @@ export default function GGCompanion({ onEnterWorld, playerName }) {
   }
   function startDrag(event){
     if(event.button!==undefined&&event.button!==0)return;
-    drag.current={x:event.clientX,y:event.clientY,startX:position.x,startY:position.y,moved:false};
+    drag.current={x:event.clientX,y:event.clientY,startX:position.x,startY:position.y,moved:false,lastX:event.clientX,lastY:event.clientY,lastAt:performance.now(),vx:0,vy:0};
     suppressClick.current=false;
     setDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -50,20 +53,27 @@ export default function GGCompanion({ onEnterWorld, playerName }) {
   function moveDrag(event){
     if(!drag.current)return;
     const dx=event.clientX-drag.current.x,dy=event.clientY-drag.current.y;
-    if(Math.abs(dx)>4||Math.abs(dy)>4)drag.current.moved=true;
+    const now=performance.now(),elapsed=Math.max(1,now-drag.current.lastAt);
+    drag.current.vx=(event.clientX-drag.current.lastX)/elapsed;drag.current.vy=(event.clientY-drag.current.lastY)/elapsed;
+    drag.current.lastX=event.clientX;drag.current.lastY=event.clientY;drag.current.lastAt=now;
+    if(Math.abs(dx)>4||Math.abs(dy)>4){drag.current.moved=true;setMotion("walking");if(Math.abs(dx)>Math.abs(dy))setDirection(dx<0?"left":"right");else setDirection(dy<0?"up":"down");}
     const maxX=Math.max(30,window.innerWidth/2-50),maxY=Math.max(30,window.innerHeight/2-65);
     setPosition({x:Math.max(-maxX,Math.min(maxX,drag.current.startX+dx)),y:Math.max(-maxY,Math.min(maxY,drag.current.startY+dy))});
   }
   function stopDrag(){
-    if(drag.current?.moved){suppressClick.current=true;window.setTimeout(()=>{suppressClick.current=false;},0);}
+    const didMove=Boolean(drag.current?.moved);
+    const speed=Math.hypot(drag.current?.vx||0,drag.current?.vy||0);
+    if(didMove){suppressClick.current=true;window.setTimeout(()=>{suppressClick.current=false;},0);}
     drag.current=null;setDragging(false);
+    if(didMove&&speed>.65){setThrown(true);setMotion("celebrating");window.setTimeout(()=>{setThrown(false);setMotion("idle");},720);}
+    else setMotion("idle");
   }
   return <>
     <div className={"gg-companion-dim"+(transitioning?" is-active":"")} aria-hidden="true"/>
-    <div className={"gg-companion"+(transitioning?" is-entering":"")+(dragging?" is-dragging":"")} style={{"--gg-companion-x":position.x+"px","--gg-companion-y":position.y+"px"}}>
+    <div className={"gg-companion"+(transitioning?" is-entering":"")+(dragging?" is-dragging":"")+(thrown?" is-thrown":"")} style={{"--gg-companion-x":position.x+"px","--gg-companion-y":position.y+"px"}}>
       <div className="gg-companion-bubble"><span>{avatar.displayName||playerName||"Your teammate"}</span><p>{idleLines[line]}</p></div>
       <button type="button" className="gg-companion-button" onClick={enterWorld} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={stopDrag} onPointerCancel={stopDrag} aria-label={"Enter Original GG with "+(avatar.displayName||playerName||"your player")} title="Tap your player to enter Original GG">
-        <span className="gg-companion-ring"/><PlayerSprite appearance={avatar.appearance||{}}/>
+        <span className="gg-companion-ring"/><PlayerSprite appearance={avatar.appearance||{}} motion={motion} direction={direction} animated/>
       </button>
       <small className="gg-companion-hint">TAP TO ENTER THE CITY</small>
     </div>
