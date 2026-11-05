@@ -6,6 +6,13 @@ import { getClubsConnection } from "../config/clubsDatabase.js";
 import Player from "../models/Player.js";
 import Club from "../models/clubs/Club.js";
 import ClubGround from "../models/clubs/ClubGround.js";
+import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
+import WorldMessage from "../models/clubs/WorldMessage.js";
+import WorldMessageReport from "../models/clubs/WorldMessageReport.js";
+import WorldInteraction from "../models/clubs/WorldInteraction.js";
+import WorldSocialRateLimit from "../models/clubs/WorldSocialRateLimit.js";
+import { debitClubWallet } from "../services/clubsEconomy.js";
+import { attachWorldStream, publishWorldEvent } from "../services/worldRealtime.js";
 import PlayerResidence from "../models/clubs/PlayerResidence.js";
 import WorldPlot from "../models/clubs/WorldPlot.js";
 import WorldMap from "../models/clubs/WorldMap.js";
@@ -571,13 +578,16 @@ router.get("/club-grounds/:clubId/interior", async (req, res, next) => {
     ]);
     if (!club || !ground) return res.status(404).json({ message: "This club ground is not available." });
     const isMember = (club.memberIds || []).some((memberId) => String(memberId) === String(playerId));
-    if (!isMember) return res.status(403).json({ message: "Only members of this club can enter its ground interior." });
+    const isCaptain = (club.captainIds || []).some((captainId) => String(captainId) === String(playerId));
+    const isAdmin = req.user?.role === "admin";
+    if (!isMember && ground.interiorAccess !== "public" && !isAdmin) return res.status(403).json({ message: "This club ground is for club members." });
     return res.json({
       interior: {
         type: "club",
         name: ground.name,
         level: ground.level,
         interior: ground.layout || { rooms: [] },
+        permissions: { isMember, isCaptain: isCaptain || isAdmin, interiorAccess: ground.interiorAccess || "members" },
       },
     });
   } catch (error) {
@@ -606,7 +616,8 @@ router.get("/residences/:playerId", async (req, res, next) => {
     const residence = await PlayerResidence.findOne({ ownerPlayerId: req.params.playerId }).lean();
     if (!residence) return res.status(404).json({ message: "This residence has not been created yet." });
     const isOwner = String(residence.ownerPlayerId) === String(viewerPlayerId);
-    if (!isOwner && residence.privacy !== "public") {
+    const isVisitor = (residence.visitorPlayerIds || []).some((id) => String(id) === String(viewerPlayerId));
+    if (!isOwner && residence.privacy !== "public" && !(residence.privacy === "friends" && isVisitor)) {
       return res.status(403).json({ message: "This player's home interior is private." });
     }
     return res.json({
@@ -615,6 +626,7 @@ router.get("/residences/:playerId", async (req, res, next) => {
         name: residence.name,
         level: residence.level,
         interior: residence.interior,
+        ...(isOwner ? { access: { privacy: residence.privacy, visitorPlayerIds: (residence.visitorPlayerIds || []).map(String) } } : {}),
       },
     });
   } catch (error) {
@@ -637,7 +649,9 @@ router.post("/presence", async (req, res, next) => {
       { $set: { ...position, displayName: avatar?.displayName || player?.name || "GG Player", lastSeenAt: new Date() } },
       { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true },
     ).lean();
-    return res.json({ success: true, presence: { playerId: String(playerId), displayName: presence.displayName, locationId: presence.locationId, x: presence.x, y: presence.y } });
+    const payload = { playerId: String(playerId), displayName: presence.displayName, locationId: presence.locationId, x: presence.x, y: presence.y };
+    publishWorldEvent("presence:update", payload, { locationId: "world", exceptPlayerId: playerId });
+    return res.json({ success: true, presence: payload });
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ message: error.message });
     return next(error);
@@ -667,6 +681,305 @@ router.get("/presence", async (req, res, next) => {
   } catch (error) {
     return next(error);
   }
+});
+
+
+// One authenticated event stream carries movement, chat and character interactions.
+// The stream is process-local; a shared pub/sub adapter can be added before horizontal API scaling.
+router.get("/stream", async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const locationId = String(req.query.locationId || "world").trim();
+  if (!/^[a-z0-9-]{1,64}$/i.test(locationId)) return res.status(400).json({ message: "Invalid world stream location." });
+  const cleanup = attachWorldStream({ response: res, request: req, playerId, locationId });
+  if (!cleanup) return res.status(429).json({ message: "Too many active world connections." });
+});
+
+router.get("/residences/me/access", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const home = await PlayerResidence.findOne({ ownerPlayerId: playerId }).select("name privacy visitorPlayerIds").lean();
+    if (!home) return res.status(404).json({ message: "Your residence has not been created yet." });
+    const ids = home.visitorPlayerIds || [];
+    const [players, avatars] = await Promise.all([
+      Player.find({ _id: { $in: ids } }).select("name").lean(),
+      PlayerAvatar.find({ playerId: { $in: ids } }).select("playerId displayName").lean(),
+    ]);
+    const names = new Map(players.map((item) => [String(item._id), item.name]));
+    const displayNames = new Map(avatars.map((item) => [String(item.playerId), item.displayName]));
+    return res.json({
+      residence: { name: home.name, privacy: home.privacy || "private" },
+      visitors: ids.map((id) => ({ playerId: String(id), displayName: displayNames.get(String(id)) || names.get(String(id)) || "GG Player" })),
+    });
+  } catch (error) { return next(error); }
+});
+
+router.get("/residences/players", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const search = String(req.query.search || "").trim().replace(/[^a-zA-Z0-9 _.'-]/g, "").slice(0, 32);
+  if (search.length < 2) return res.json({ players: [] });
+  try {
+    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\
+export default router;");
+    const players = await Player.find({ _id: { $ne: playerId }, name: { $regex: escaped, $options: "i" } }).select("name").limit(12).lean();
+    const ids = players.map((item) => item._id);
+    const avatars = await PlayerAvatar.find({ playerId: { $in: ids } }).select("playerId displayName").lean();
+    const displayNames = new Map(avatars.map((item) => [String(item.playerId), item.displayName]));
+    return res.json({ players: players.map((item) => ({ playerId: String(item._id), displayName: displayNames.get(String(item._id)) || item.name })) });
+  } catch (error) { return next(error); }
+});
+
+router.patch("/residences/me/access", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const privacy = String(req.body?.privacy || "");
+  if (!["private", "friends", "public"].includes(privacy)) return res.status(400).json({ message: "Choose private, visitors or public access." });
+  const rawVisitors = Array.isArray(req.body?.visitorPlayerIds) ? req.body.visitorPlayerIds : [];
+  const unique = [...new Set(rawVisitors.map((id) => String(id).trim()))];
+  if (unique.length > 30 || unique.some((id) => !mongoose.isValidObjectId(id) || id === String(playerId))) {
+    return res.status(400).json({ message: "Choose up to 30 valid visitors, excluding your own player." });
+  }
+  try {
+    const existing = await PlayerResidence.findOne({ ownerPlayerId: playerId }).select("_id").lean();
+    if (!existing) return res.status(404).json({ message: "Your residence has not been created yet." });
+    const count = unique.length ? await Player.countDocuments({ _id: { $in: unique } }) : 0;
+    if (count !== unique.length) return res.status(400).json({ message: "One or more selected visitors are no longer available." });
+    const home = await PlayerResidence.findOneAndUpdate(
+      { ownerPlayerId: playerId },
+      { $set: { privacy, visitorPlayerIds: unique } },
+      { new: true, runValidators: true },
+    ).select("name privacy visitorPlayerIds").lean();
+    return res.json({ success: true, residence: { name: home.name, privacy: home.privacy, visitorPlayerIds: (home.visitorPlayerIds || []).map(String) } });
+  } catch (error) { return next(error); }
+});
+
+router.patch("/club-grounds/:clubId/manage", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ message: "Invalid club ground." });
+  const name = String(req.body?.name || "").trim();
+  const interiorAccess = String(req.body?.interiorAccess || "");
+  if (name.length < 2 || name.length > 100) return res.status(400).json({ message: "Ground names must be between 2 and 100 characters." });
+  if (!["members", "public"].includes(interiorAccess)) return res.status(400).json({ message: "Choose member-only or public interior access." });
+  try {
+    const club = await Club.findById(req.params.clubId).select("memberIds captainIds status").lean();
+    if (!club || club.status !== "approved") return res.status(404).json({ message: "This approved club is not available." });
+    const isCaptain = (club.captainIds || []).some((id) => String(id) === String(playerId));
+    const isAdmin = req.user?.role === "admin";
+    if (!isCaptain && !isAdmin) return res.status(403).json({ message: "Only club captains can manage this ground." });
+    const ground = await ClubGround.findOneAndUpdate(
+      { clubId: req.params.clubId },
+      { $set: { name, interiorAccess } },
+      { new: true, runValidators: true },
+    ).lean();
+    if (!ground) return res.status(404).json({ message: "Club ground not found." });
+    return res.json({ success: true, ground: { name: ground.name, level: ground.level, interiorAccess: ground.interiorAccess } });
+  } catch (error) { return next(error); }
+});
+
+router.post("/club-grounds/:clubId/upgrade", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ message: "Invalid club ground." });
+  const requestKey = String(req.body?.idempotencyKey || "").trim();
+  if (!/^[a-zA-Z0-9:_-]{12,90}$/.test(requestKey)) return res.status(400).json({ message: "A valid ground upgrade request key is required." });
+  const idempotencyKey = "world-ground:" + String(req.params.clubId) + ":" + requestKey;
+  const session = await getClubsConnection().startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const prior = await ClubWalletTransaction.findOne({ idempotencyKey }).session(session).lean();
+      const [club, ground] = await Promise.all([
+        Club.findById(req.params.clubId).select("captainIds status").session(session),
+        ClubGround.findOne({ clubId: req.params.clubId }).session(session),
+      ]);
+      if (!club || !ground || club.status !== "approved") {
+        const error = new Error("This club ground is not available.");
+        error.status = 404; throw error;
+      }
+      const isCaptain = (club.captainIds || []).some((id) => String(id) === String(playerId));
+      if (!isCaptain && req.user?.role !== "admin") {
+        const error = new Error("Only club captains can upgrade this ground.");
+        error.status = 403; throw error;
+      }
+      if (prior) {
+        if (prior.type !== "expense" || !String(prior.description || "").includes("ground upgrade")) {
+          const error = new Error("This upgrade key was already used for another club transaction.");
+          error.status = 409; throw error;
+        }
+        result = { success: true, duplicate: true, level: ground.level };
+        return;
+      }
+      if (ground.level >= 20) {
+        const error = new Error("This ground has reached its current level cap.");
+        error.status = 409; throw error;
+      }
+      const nextLevel = ground.level + 1;
+      const cost = Math.round(250 * Math.pow(nextLevel, 1.45));
+      await debitClubWallet({
+        clubId: req.params.clubId, amount: cost, type: "expense",
+        description: "Original GG ground upgrade to level " + nextLevel,
+        idempotencyKey, session,
+      });
+      ground.level = nextLevel;
+      await ground.save({ session });
+      result = { success: true, duplicate: false, level: nextLevel, cost };
+    });
+    return res.json(result);
+  } catch (error) {
+    if (error?.status) return res.status(error.status).json({ message: error.message });
+    if (error?.code === 11000) return res.status(409).json({ message: "This ground upgrade was already processed." });
+    return next(error);
+  } finally { await session.endSession(); }
+});
+
+router.get("/social/messages", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const locationId = String(req.query.locationId || "city-plaza").trim();
+  if (!/^[a-z0-9-]{1,64}$/i.test(locationId)) return res.status(400).json({ message: "Invalid chat location." });
+  try {
+    const messages = await WorldMessage.find({ locationId, expiresAt: { $gt: new Date() }, moderationStatus: "visible" })
+      .sort({ createdAt: -1 }).limit(60).lean();
+    return res.json({ messages: messages.reverse().map((item) => ({
+      id: String(item._id), locationId, senderPlayerId: String(item.senderPlayerId),
+      displayName: item.displayName, text: item.text, createdAt: item.createdAt,
+    })) });
+  } catch (error) { return next(error); }
+});
+
+router.post("/social/messages", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const locationId = String(req.body?.locationId || "city-plaza").trim();
+  const message = String(req.body?.text || "").replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  if (!/^[a-z0-9-]{1,64}$/i.test(locationId)) return res.status(400).json({ message: "Invalid chat location." });
+  if (!message || message.length > 240) return res.status(400).json({ message: "Write a message between 1 and 240 characters." });
+  try {
+    const now = new Date();
+    const windowStart = new Date(now.getTime() - 15000);
+    const rate = await WorldSocialRateLimit.findOneAndUpdate(
+      { playerId },
+      [
+        { $set: {
+          playerId: { $ifNull: ["$playerId", playerId] },
+          messageWindowStart: { $cond: [
+            { $or: [{ $eq: [{ $ifNull: ["$messageWindowStart", null] }, null] }, { $lte: ["$messageWindowStart", windowStart] }] },
+            now,
+            "$messageWindowStart",
+          ] },
+          messageCount: { $cond: [
+            { $or: [{ $eq: [{ $ifNull: ["$messageWindowStart", null] }, null] }, { $lte: ["$messageWindowStart", windowStart] }] },
+            1,
+            { $add: [{ $ifNull: ["$messageCount", 0] }, 1] },
+          ] },
+        } },
+      ],
+      { new: true, upsert: true },
+    ).lean();
+    if ((rate?.messageCount || 0) > 5) return res.status(429).json({ message: "You're sending messages too quickly. Take a short breather." });
+    const [player, avatar] = await Promise.all([
+      Player.findById(playerId).select("name").lean(),
+      PlayerAvatar.findOne({ playerId }).select("displayName").lean(),
+    ]);
+    const [saved] = await WorldMessage.create([{
+      locationId, senderPlayerId: playerId,
+      displayName: avatar?.displayName || player?.name || "GG Player",
+      text: message,
+      expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+    }]);
+    const payload = { id: String(saved._id), locationId, senderPlayerId: String(playerId), displayName: saved.displayName, text: saved.text, createdAt: saved.createdAt };
+    publishWorldEvent("social:message", payload, { locationId: "world" });
+    return res.status(201).json({ success: true, message: payload });
+  } catch (error) { return next(error); }
+});
+
+router.post("/social/messages/:messageId/report", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.messageId)) return res.status(400).json({ message: "Invalid message." });
+  const reason = String(req.body?.reason || "other");
+  if (!["spam", "harassment", "inappropriate", "other"].includes(reason)) return res.status(400).json({ message: "Choose a valid report reason." });
+  try {
+    const message = await WorldMessage.findOne({ _id: req.params.messageId, expiresAt: { $gt: new Date() } });
+    if (!message || message.moderationStatus === "hidden") return res.status(404).json({ message: "Message not found." });
+    if (String(message.senderPlayerId) === String(playerId)) return res.status(400).json({ message: "You cannot report your own message." });
+    await WorldMessageReport.create([{ messageId: message._id, playerId, reason }]);
+    message.reportCount += 1;
+    if (message.reportCount >= 3) message.moderationStatus = "pending_review";
+    if (message.reportCount >= 5) message.moderationStatus = "hidden";
+    await message.save();
+    if (message.moderationStatus === "hidden") publishWorldEvent("social:message_hidden", { id: String(message._id), locationId: message.locationId }, { locationId: "world" });
+    return res.status(201).json({ success: true, moderationStatus: message.moderationStatus });
+  } catch (error) {
+    if (error?.code === 11000) return res.status(409).json({ message: "You have already reported this message." });
+    return next(error);
+  }
+});
+
+router.post("/social/interactions", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const fromPlayerId = linkedPlayerId(req, res);
+  if (!fromPlayerId) return;
+  const toPlayerId = String(req.body?.toPlayerId || "");
+  const type = String(req.body?.type || "");
+  if (!mongoose.isValidObjectId(toPlayerId) || toPlayerId === String(fromPlayerId)) return res.status(400).json({ message: "Choose another active player." });
+  if (!["wave", "high-five", "cheer", "dance"].includes(type)) return res.status(400).json({ message: "Choose a supported character interaction." });
+  try {
+    const activeTarget = await WorldPresence.findOne({ playerId: toPlayerId, lastSeenAt: { $gte: new Date(Date.now() - 45000) } }).select("playerId locationId").lean();
+    if (!activeTarget) return res.status(404).json({ message: "That player is no longer in the city." });
+    const now = new Date();
+    const rate = await WorldSocialRateLimit.findOneAndUpdate(
+      { playerId: fromPlayerId, $or: [{ lastInteractionAt: null }, { lastInteractionAt: { $lte: new Date(now.getTime() - 2500) } }] },
+      { $set: { lastInteractionAt: now }, $setOnInsert: { playerId: fromPlayerId } },
+      { new: true, upsert: true },
+    ).lean();
+    if (!rate) return res.status(429).json({ message: "Wait a moment before sending another interaction." });
+    const [player, avatar] = await Promise.all([
+      Player.findById(fromPlayerId).select("name").lean(),
+      PlayerAvatar.findOne({ playerId: fromPlayerId }).select("displayName").lean(),
+    ]);
+    const interaction = await WorldInteraction.create({
+      fromPlayerId, toPlayerId, fromName: avatar?.displayName || player?.name || "GG Player",
+      type, locationId: activeTarget.locationId,
+      expiresAt: new Date(now.getTime() + 5 * 60 * 1000),
+    });
+    const payload = { id: String(interaction._id), fromPlayerId: String(fromPlayerId), toPlayerId, fromName: interaction.fromName, type, locationId: interaction.locationId, createdAt: interaction.createdAt };
+    publishWorldEvent("social:interaction", payload, { locationId: "world" });
+    return res.status(201).json({ success: true, interaction: payload });
+  } catch (error) { return next(error); }
+});
+
+router.get("/social/interactions", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const rows = await WorldInteraction.find({ toPlayerId: playerId, expiresAt: { $gt: new Date() } }).sort({ createdAt: -1 }).limit(20).lean();
+    return res.json({ interactions: rows.map((item) => ({ id: String(item._id), fromPlayerId: String(item.fromPlayerId), fromName: item.fromName, type: item.type, createdAt: item.createdAt })) });
+  } catch (error) { return next(error); }
+});
+
+router.post("/social/interactions/:interactionId/acknowledge", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.interactionId)) return res.status(400).json({ message: "Invalid interaction." });
+  try {
+    const result = await WorldInteraction.deleteOne({ _id: req.params.interactionId, toPlayerId: playerId });
+    return res.json({ success: true, acknowledged: result.deletedCount === 1 });
+  } catch (error) { return next(error); }
 });
 
 export default router;
