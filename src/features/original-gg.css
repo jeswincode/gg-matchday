@@ -66,3 +66,14 @@
 .gg-economy-achievements small{color:#b9c6b6;font-size:9px;line-height:1.4}
 .gg-economy-achievements article>span{flex:none;color:#e6ce91;font-size:9px;text-align:right}
 @media(max-width:620px){.gg-economy-achievements{grid-template-columns:1fr}.gg-economy-daily{align-items:start}}
+
+.gg-market-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,.4fr);gap:10px;margin:14px 0}
+.gg-market-tools label{display:grid;gap:6px;color:#dfbd70;font-size:9px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.gg-market-tools input,.gg-market-tools select{width:100%;min-height:40px;padding:9px 11px;border:1px solid #ffffff25;border-radius:10px;color:#f5f0df;background:#14251b;font:inherit;font-size:12px;letter-spacing:normal;text-transform:none}
+.gg-market-tools input:focus,.gg-market-tools select:focus{outline:2px solid #dfbd70;outline-offset:2px}
+.gg-market-categories{display:flex;gap:7px;overflow-x:auto;padding:3px 0 12px;scrollbar-width:thin}
+.gg-market-categories button{flex:none;padding:8px 12px;border:1px solid #ffffff24;border-radius:999px;color:#c9d2c2;background:#ffffff08;font-size:10px;cursor:pointer}
+.gg-market-categories button.is-active{border-color:#dfbd70;color:#f7e6b9;background:#d8b86a20}
+.gg-economy-catalog article>div>span{display:inline-flex;align-items:center;gap:6px}
+.gg-economy-catalog article>div>span::after{content:attr(data-collection);color:#b7c4b0}
+@media(max-width:560px){.gg-market-tools{grid-template-columns:1fr}.gg-market-categories{margin-right:-4px}}
