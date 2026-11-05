@@ -17,6 +17,7 @@ const playerAvatarSchema = new mongoose.Schema(
     displayName: { type: String, trim: true, maxlength: 24, default: "" },
     appearance: { type: appearanceSchema, default: () => ({}) },
     tutorialComplete: { type: Boolean, default: false },
+    equippedCosmetics: { type: [String], default: [] },
   },
   { timestamps: true, collection: "playerAvatars" },
 );
