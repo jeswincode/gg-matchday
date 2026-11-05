@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { normalizePresencePayload } from "../server/config/ggWorldRules.js";
 import {
   CHARACTER_ANIMATION_PROFILES,
   CHARACTER_DIRECTIONS,
@@ -40,8 +41,6 @@ test("social gestures have finite playback durations while idle and walking loop
   assert.equal(normalizeCharacterMotion("unknown"), "idle");
   assert.equal(getCharacterAnimationProfile("unknown"), CHARACTER_ANIMATION_PROFILES.idle);
 });
-
-import { normalizePresencePayload } from "../server/config/ggWorldRules.js";
 
 test("animation frame selection wraps deterministically", () => {
   assert.equal(getCharacterAnimationFrame("wave", 0), 0);
