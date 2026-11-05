@@ -378,6 +378,8 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   const playerPositionRef = useRef({x:900,y:600});
   const [offset,setOffset] = useState({x:0,y:0});
   const [drag,setDrag] = useState(null);
+  const mapGestureMoved = useRef(false);
+  const walkFrame = useRef(null);
   const pointers = useRef(new Map());
   const pinch = useRef(null);
   const mapViewportRef = useRef(null);
@@ -470,6 +472,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
     return ()=>window.clearInterval(timer);
   },[hasAvatar,activeLocationId,characterDirection]);
   useEffect(()=>()=>{
+    if(walkFrame.current)window.cancelAnimationFrame(walkFrame.current);
     if(motionTimer.current)window.clearTimeout(motionTimer.current);
     for(const timer of playerMotionTimers.current.values())window.clearTimeout(timer);
     playerMotionTimers.current.clear();
@@ -481,6 +484,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   function startPan(event) {
     if (event.button!==undefined && event.button!==0) return;
     if(inertiaFrame.current)window.cancelAnimationFrame(inertiaFrame.current);
+    mapGestureMoved.current=false;
     dragVelocity.current={vx:0,vy:0,lastX:event.clientX,lastY:event.clientY,lastAt:Date.now()};
     pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -506,6 +510,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
       return;
     }
     if (!drag) return;
+    if(Math.abs(event.clientX-drag.x)>6||Math.abs(event.clientY-drag.y)>6)mapGestureMoved.current=true;
     const now=Date.now();
     const elapsed=Math.max(1,now-dragVelocity.current.lastAt);
     dragVelocity.current.vx=(event.clientX-dragVelocity.current.lastX)/elapsed;
@@ -604,20 +609,47 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
     setScale(nextScale);
   }
   function zoom(amount){const next=Math.min(1.45,Math.max(.42,Number((scale+amount).toFixed(2))));const bounds=mapViewportRef.current?.getBoundingClientRect();if(bounds)zoomAt(next,bounds.left+bounds.width/2,bounds.top+bounds.height/2);else setScale(next);}
+  function walkPlayerTo(target){
+    if(walkFrame.current)window.cancelAnimationFrame(walkFrame.current);
+    const start={...(playerPositionRef.current||playerPosition)};
+    const destination={x:Math.max(30,Math.min(1770,target.x)),y:Math.max(30,Math.min(1170,target.y))};
+    const dx=destination.x-start.x,dy=destination.y-start.y;
+    const distance=Math.hypot(dx,dy);
+    if(distance<2){setCharacterMotion("idle");return;}
+    if(Math.abs(dx)>Math.abs(dy))setCharacterDirection(dx<0?"left":"right");
+    else setCharacterDirection(dy<0?"up":"down");
+    setCharacterMotion("walking");
+    if(motionTimer.current)window.clearTimeout(motionTimer.current);
+    const duration=Math.min(1500,Math.max(300,distance*.52));
+    const began=Date.now();
+    const animate=()=>{
+      const progress=Math.min(1,(Date.now()-began)/duration);
+      const eased=1-Math.pow(1-progress,3);
+      const position={x:Math.round(start.x+dx*eased),y:Math.round(start.y+dy*eased)};
+      playerPositionRef.current=position;
+      setPlayerPosition(position);
+      if(progress<1)walkFrame.current=window.requestAnimationFrame(animate);
+      else {walkFrame.current=null;setCharacterMotion("idle");}
+    };
+    walkFrame.current=window.requestAnimationFrame(animate);
+  }
+  function handleMapBackgroundClick(event){
+    if(mapGestureMoved.current){mapGestureMoved.current=false;return;}
+    const svg=event.currentTarget;
+    const matrix=svg.getScreenCTM?.();
+    if(!matrix)return;
+    const point=svg.createSVGPoint();
+    point.x=event.clientX;point.y=event.clientY;
+    const local=point.matrixTransform(matrix.inverse());
+    const x=(local.x-900-offset.x)/scale+900;
+    const y=(local.y-600-offset.y)/scale+600;
+    walkPlayerTo({x,y});
+  }
   function focusPlace(place){
     const next=Math.max(scale,.84);
     setScale(next);
     setOffset({x:(900-place.x)*next,y:(600-place.y)*next});
-    const current=playerPositionRef.current||playerPosition;
-    const target={x:Math.max(30,Math.min(1770,place.x)),y:Math.max(30,Math.min(1170,place.y+92))};
-    const dx=target.x-current.x,dy=target.y-current.y;
-    if(Math.abs(dx)>Math.abs(dy))setCharacterDirection(dx<0?"left":"right");
-    else if(dy!==0)setCharacterDirection(dy<0?"up":"down");
-    playerPositionRef.current=target;
-    setPlayerPosition(target);
-    setCharacterMotion("walking");
-    if(motionTimer.current)window.clearTimeout(motionTimer.current);
-    motionTimer.current=window.setTimeout(()=>setCharacterMotion("idle"),420);
+    walkPlayerTo({x:place.x,y:place.y+92});
     setSelected(null);
     if(place.kind==="hq"){
       setActiveLocationId(place.id);
@@ -674,7 +706,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
       <section className="gg-world-map-shell">
         <div className="gg-world-map-topline"><div><span>THE CITY MAP</span><strong>Original GG · 1800 × 1200</strong></div><div className="gg-world-map-tools"><button onClick={()=>zoom(-.12)} aria-label="Zoom out">−</button><span>{Math.round(scale*100)}%</span><button onClick={()=>zoom(.12)} aria-label="Zoom in">+</button><button onClick={()=>{setScale(.72);setOffset({x:0,y:0});}}>Reset</button></div></div>
         <div ref={mapViewportRef} className="gg-world-map-viewport" tabIndex="0" onKeyDown={handleMapKeyDown} aria-label="Map controls: use arrow keys or WASD to move your footballer" onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onWheel={(e)=>{e.preventDefault();zoomAt(Math.min(1.45,Math.max(.42,Number((scale+(e.deltaY<0?.06:-.06)).toFixed(2)))),e.clientX,e.clientY);}} style={{cursor:drag?"grabbing":"grab"}}>
-          <svg className="gg-world-map-art" viewBox="0 0 1800 1200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Interactive isometric football city map">
+          <svg className="gg-world-map-art" viewBox="0 0 1800 1200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Interactive isometric football city map" onClick={handleMapBackgroundClick}>
             <defs><pattern id="gg-grid" width="120" height="60" patternUnits="userSpaceOnUse"><path d="M60 0 L120 30 L60 60 L0 30Z" fill="none" stroke="#d3e0bf" strokeOpacity=".1"/></pattern><linearGradient id="gg-ground" x2="0" y2="1"><stop stopColor="#315c43"/><stop offset="1" stopColor="#1d3e30"/></linearGradient></defs>
             <g transform={"translate("+offset.x+" "+offset.y+") translate(900 600) scale("+scale+") translate(-900 -600)"}>
               <g data-layer="terrain"><rect width="1800" height="1200" fill="url(#gg-ground)"/><rect width="1800" height="1200" fill="url(#gg-grid)"/></g>
@@ -699,8 +731,8 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
                 <g transform="translate(350 700)"><path d="M-85 0 L0 -40 L85 0 L0 40Z" fill="#3a7e49" stroke="#d7e3ca" strokeWidth="3"/><path d="M0 -40 L0 40 M-85 0 L85 0" stroke="#e7eddc" strokeWidth="2"/><ellipse rx="16" ry="8" fill="none" stroke="#e7eddc" strokeWidth="2"/><path d="M-73 -5 L-73 5 L-54 14 L-54 -14Z M73 -5 L73 5 L54 14 L54 -14Z" fill="none" stroke="#e7eddc" strokeWidth="2"/></g>
                 <g transform="translate(1030 1040)"><path d="M-88 0 L0 -43 L88 0 L0 43Z" fill="#477e4c" stroke="#c4d3ad" strokeWidth="3"/><path d="M0 -43 L0 43 M-88 0 L88 0" stroke="#dce7d0" strokeWidth="2"/><ellipse rx="18" ry="9" fill="none" stroke="#dce7d0" strokeWidth="2"/></g>
               </g><g data-layer="buildings"><g transform="translate(460 570)"><path d="M-195 -105 L0 -195 L195 -105 L0 -15Z" fill="#1d362b" stroke="#c5aa70" strokeWidth="5"/><path d="M-145 -107 L0 -174 L145 -107 L0 -40Z" fill="#39814c" stroke="#d6d4b8" strokeWidth="4"/><path d="M-110 -108 L0 -158 L110 -108 L0 -58Z" fill="none" stroke="#e5e8ce" strokeWidth="3"/><path d="M0 -158 L0 -58 M-110 -108 L110 -108" fill="none" stroke="#e5e8ce" strokeWidth="2"/></g>
-              </g><g data-layer="interactive-zones">{mapPlaces.map((place)=><g key={place.id} transform={"translate("+place.x+" "+place.y+")"} className="gg-map-place" onPointerDown={(e)=>e.stopPropagation()} onClick={()=>focusPlace(place)} role="button" tabIndex="0" aria-label={"Open "+place.name} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();focusPlace(place);}}}><ellipse cy="45" rx={place.kind==="stadium"?190:125} ry="40" fill="#10291d" opacity=".35"/><g transform="translate(-90 -85)"><Building kind={place.kind}/></g><rect x="-116" y="54" width="232" height="38" rx="19" fill="#12281e" stroke="#d5b76b" strokeOpacity=".65"/><text y="79" textAnchor="middle" fill="#f7f0db" fontSize="19" fontWeight="700">{place.name}</text><circle cy="-84" r="12" fill="#e7c16a" stroke="#263c2b" strokeWidth="5"/></g>)}
-              </g><g data-layer="characters">{(data.presence||[]).filter((p)=>p.playerId!==data.playerId).map((p)=><g key={p.playerId} transform={"translate("+p.x+" "+p.y+")"} className="gg-world-player-marker" role="button" tabIndex="0" aria-label={"View "+p.displayName} onPointerDown={(e)=>e.stopPropagation()} onClick={()=>setSelectedPlayer(p)} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedPlayer(p);}}}><circle cy="-23" r="23" fill="#e5bf68" opacity=".18"/><foreignObject x="-20" y="-58" width="40" height="46"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={p.appearance||{}} motion={playerMotions[p.playerId]||"idle"} direction={p.direction||"down"} animated={Boolean(playerMotions[p.playerId])}/></div></foreignObject><text y="12" textAnchor="middle" fill="#fff5dd" fontSize="13" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{p.displayName.slice(0,12)}</text></g>)}
+              </g><g data-layer="interactive-zones">{mapPlaces.map((place)=><g key={place.id} transform={"translate("+place.x+" "+place.y+")"} className="gg-map-place" onPointerDown={(e)=>e.stopPropagation()} onClick={(event)=>{event.stopPropagation();mapGestureMoved.current=false;focusPlace(place);}} role="button" tabIndex="0" aria-label={"Open "+place.name} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();focusPlace(place);}}}><ellipse cy="45" rx={place.kind==="stadium"?190:125} ry="40" fill="#10291d" opacity=".35"/><g transform="translate(-90 -85)"><Building kind={place.kind}/></g><rect x="-116" y="54" width="232" height="38" rx="19" fill="#12281e" stroke="#d5b76b" strokeOpacity=".65"/><text y="79" textAnchor="middle" fill="#f7f0db" fontSize="19" fontWeight="700">{place.name}</text><circle cy="-84" r="12" fill="#e7c16a" stroke="#263c2b" strokeWidth="5"/></g>)}
+              </g><g data-layer="characters">{(data.presence||[]).filter((p)=>p.playerId!==data.playerId).map((p)=><g key={p.playerId} transform={"translate("+p.x+" "+p.y+")"} className="gg-world-player-marker" role="button" tabIndex="0" aria-label={"View "+p.displayName} onPointerDown={(e)=>e.stopPropagation()} onClick={(event)=>{event.stopPropagation();mapGestureMoved.current=false;setSelectedPlayer(p);}} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedPlayer(p);}}}><circle cy="-23" r="23" fill="#e5bf68" opacity=".18"/><foreignObject x="-20" y="-58" width="40" height="46"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={p.appearance||{}} motion={playerMotions[p.playerId]||"idle"} direction={p.direction||"down"} animated={Boolean(playerMotions[p.playerId])}/></div></foreignObject><text y="12" textAnchor="middle" fill="#fff5dd" fontSize="13" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{p.displayName.slice(0,12)}</text></g>)}
               {data.playerId && <g pointerEvents="none"><foreignObject x={playerPosition.x-24} y={playerPosition.y-62} width="48" height="58"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={appearance} motion={characterMotion} direction={characterDirection} animated/></div></foreignObject><text x={playerPosition.x} y={playerPosition.y+8} textAnchor="middle" fill="#fff5dd" fontSize="14" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{avatar.displayName||"YOU"}</text></g>}
             </g>
             </g>
@@ -711,6 +743,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
       {facility==="hq" && <div className="gg-world-facility-overlay gg-world-hq-overlay" role="dialog" aria-modal="true" aria-labelledby="gg-world-hq-title">
         <section className="gg-world-facility-window">
           <header className="gg-world-facility-heading"><div><span>THE GOLDEN GOONER HEADQUARTERS</span><h2 id="gg-world-hq-title">Welcome to the clubhouse.</h2><p>{liveCount} players are exploring Original GG right now.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
+          <div className="gg-world-hq-visitors"><div><span>AT THE HEADQUARTERS</span><strong>{(data.presence||[]).filter((player)=>player.locationId===activeLocationId).length} players here</strong></div><div>{(data.presence||[]).filter((player)=>player.locationId===activeLocationId).length ? (data.presence||[]).filter((player)=>player.locationId===activeLocationId).map((player)=><article key={player.playerId}><PlayerSprite appearance={player.appearance||{}} motion={playerMotions[player.playerId]||"idle"} direction={player.direction||"down"} animated={Boolean(playerMotions[player.playerId])}/><span>{player.displayName}</span></article>) : <p>It's quiet in the clubhouse. Be the first to arrive.</p>}</div></div>
           <div className="gg-world-hq-stage"><div className="gg-world-hq-curtains" aria-hidden="true"><span/><span/></div><div className="gg-world-hq-wall"><span>GOLDEN GOONERS · ORIGINAL GG</span><h3>THE PLACE WHERE THE COMMUNITY MEETS.</h3><p>Show your player card, celebrate your records, meet other characters and chat with the city.</p><div className="gg-world-hq-plaques"><small>WEAK PEOPLE START</small><small>LUBRICATE AND KEEP</small><small>GOOD VIBES. GOLDEN RULES.</small></div></div></div>
           {data.playerId&&<WorldSocialPanel playerId={data.playerId} locationId={activeLocationId}/>}
         </section>
