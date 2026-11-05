@@ -1,6 +1,7 @@
 import express from "express";
 import mongoose from "mongoose";
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
+import { normalizeChallengeInput, simulateChallengeRun } from "../../shared/trainingChallengeEngine.js";
 import { requireAuth } from "../middleware/auth.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import Player from "../models/Player.js";
@@ -469,15 +470,70 @@ router.post("/training/challenges/start", async (req, res, next) => {
   if (!playerId) return;
   try {
     const now = new Date();
+    const recentAttempts = await TrainingChallengeRun.countDocuments({ playerId, challengeId: "ball-control-v2", startedAt: { $gte: new Date(now.getTime() - 60 * 60 * 1000) } });
+    if (recentAttempts >= 30) return res.status(429).json({ message: "You have reached the hourly challenge limit. Try again later." });
+    const seed = randomInt(1, 0x7fffffff);
     const run = await TrainingChallengeRun.create({
       runId: randomUUID(),
       playerId,
-      challengeId: "ball-control-v1",
+      challengeId: "ball-control-v2",
+      seed,
+      inputEvents: [],
       startedAt: now,
       expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
     });
-    return res.status(201).json({ success: true, runId: run.runId, startedAt: run.startedAt, expiresAt: run.expiresAt });
+    return res.status(201).json({ success: true, runId: run.runId, seed: run.seed, startedAt: run.startedAt, expiresAt: run.expiresAt });
   } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/training/challenges/:runId/input", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const runId = String(req.params.runId || "").trim();
+  const seq = Number(req.body?.seq);
+  if (!runId || runId.length > 80 || !Number.isInteger(seq) || seq < 1 || seq > 400) {
+    return res.status(400).json({ message: "Invalid training input sequence." });
+  }
+  const direction = normalizeChallengeInput(req.body?.direction);
+  try {
+    const session = await getClubsConnection().startSession();
+    let result;
+    try {
+      await session.withTransaction(async () => {
+        const now = new Date();
+        const run = await TrainingChallengeRun.findOne({
+          runId, playerId, challengeId: "ball-control-v2",
+          completedAt: null, expiresAt: { $gt: now },
+        }).session(session);
+        if (!run) {
+          const error = new Error("This challenge run is no longer accepting inputs.");
+          error.status = 409; throw error;
+        }
+        const expected = run.inputEvents.length + 1;
+        if (seq !== expected) {
+          const error = new Error("Training input arrived out of order. Restart the run to keep the replay in sync.");
+          error.status = 409; throw error;
+        }
+        if (run.inputEvents.length >= 400) {
+          const error = new Error("This run has reached its input-event limit.");
+          error.status = 429; throw error;
+        }
+        const lastEvent = run.inputEvents[run.inputEvents.length - 1];
+        if (lastEvent && now.getTime() - new Date(lastEvent.receivedAt).getTime() < 25) {
+          const error = new Error("Training inputs are arriving too quickly.");
+          error.status = 429; throw error;
+        }
+        run.inputEvents.push({ seq, direction, receivedAt: now });
+        await run.save({ session });
+        result = { success: true, seq };
+      });
+      return res.json(result);
+    } finally { await session.endSession(); }
+  } catch (error) {
+    if (error?.status) return res.status(error.status).json({ message: error.message });
     return next(error);
   }
 });
@@ -487,10 +543,7 @@ router.post("/training/challenges/finish", async (req, res, next) => {
   const playerId = linkedPlayerId(req, res);
   if (!playerId) return;
   const runId = String(req.body?.runId || "").trim();
-  const clientScore = Number(req.body?.scoreSeconds);
-  if (!runId || runId.length > 80 || !Number.isFinite(clientScore) || clientScore < 1 || clientScore > 600) {
-    return res.status(400).json({ message: "A valid training run and score are required." });
-  }
+  if (!runId || runId.length > 80) return res.status(400).json({ message: "A valid training run is required." });
   const session = await getClubsConnection().startSession();
   let profile = null;
   let verifiedScore = 0;
@@ -500,7 +553,7 @@ router.post("/training/challenges/finish", async (req, res, next) => {
       const run = await TrainingChallengeRun.findOne({
         runId,
         playerId,
-        challengeId: "ball-control-v1",
+        challengeId: "ball-control-v2",
         completedAt: null,
         expiresAt: { $gt: now },
       }).session(session);
@@ -509,18 +562,23 @@ router.post("/training/challenges/finish", async (req, res, next) => {
         conflict.status = 409;
         throw conflict;
       }
-      const serverElapsed = (now.getTime() - run.startedAt.getTime()) / 1000;
-      if (Math.abs(serverElapsed - clientScore) > 4) {
-        const invalid = new Error("The run time could not be verified. Please try again.");
+      if (!run.seed || run.inputEvents.length > 400) {
+        const invalid = new Error("This run is missing a valid challenge replay.");
         invalid.status = 400;
         throw invalid;
       }
-      verifiedScore = Number(serverElapsed.toFixed(1));
+      const replay = simulateChallengeRun(run.seed, run.inputEvents, run.startedAt, now, { graceMs: 300 });
+      if (!replay.collided || !Number.isFinite(replay.scoreSeconds) || replay.scoreSeconds < 0.4 || replay.scoreSeconds > 600) {
+        const invalid = new Error("The server replay did not verify a completed collision. Keep playing until full time, then try again.");
+        invalid.status = 400;
+        throw invalid;
+      }
+      verifiedScore = Number(replay.scoreSeconds.toFixed(1));
       run.completedAt = now;
       run.scoreSeconds = verifiedScore;
       await run.save({ session });
       profile = await TrainingChallengeProfile.findOneAndUpdate(
-        { playerId, challengeId: "ball-control-v1" },
+        { playerId, challengeId: "ball-control-v2" },
         { $min: { bestSeconds: verifiedScore }, $inc: { attempts: 1 }, $set: { lastPlayedAt: now } },
         { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true, session },
       ).lean();
@@ -528,6 +586,7 @@ router.post("/training/challenges/finish", async (req, res, next) => {
     return res.status(201).json({ success: true, verifiedScore, bestSeconds: profile.bestSeconds, attempts: profile.attempts });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ message: "This training run has already been submitted." });
+    if (error?.status) return res.status(error.status).json({ message: error.message });
     return next(error);
   } finally {
     await session.endSession();
@@ -540,8 +599,8 @@ router.get("/training/challenges/leaderboard", async (req, res, next) => {
     const playerId = linkedPlayerId(req, res);
     if (!playerId) return;
     const [personal, rows] = await Promise.all([
-      TrainingChallengeProfile.findOne({ playerId, challengeId: "ball-control-v1" }).select("bestSeconds attempts").lean(),
-      TrainingChallengeProfile.find({ challengeId: "ball-control-v1" })
+      TrainingChallengeProfile.findOne({ playerId, challengeId: "ball-control-v2" }).select("bestSeconds attempts").lean(),
+      TrainingChallengeProfile.find({ challengeId: "ball-control-v2" })
       .sort({ bestSeconds: 1, lastPlayedAt: 1 })
       .limit(10)
       .select("playerId bestSeconds attempts lastPlayedAt")
