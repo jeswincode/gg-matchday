@@ -11,7 +11,7 @@ import WorldDailyProgress from "../models/clubs/WorldDailyProgress.js";
 import WorldAchievement from "../models/clubs/WorldAchievement.js";
 import { WORLD_ACHIEVEMENTS, WORLD_ECONOMY_RULES, utcDayKey } from "../config/worldProgression.js";
 import { levelProgress } from "../config/worldProgression.js";
-import { WORLD_COSMETIC_CATALOG, WORLD_COSMETIC_CATEGORIES, getWorldCosmetic } from "../../shared/worldCustomization.js";
+import { WORLD_COSMETIC_CATALOG, WORLD_COSMETIC_CATEGORIES } from "../../shared/worldCustomization.js";
 
 const router = express.Router();
 router.use(requireAuth);
