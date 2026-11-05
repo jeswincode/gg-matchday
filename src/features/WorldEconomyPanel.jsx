@@ -13,8 +13,7 @@ export default function WorldEconomyPanel({ onEquipped }) {
     catch(error) { setMessage(error.message || "Your GG wallet could not be loaded."); }
     finally { setLoading(false); }
   },[]);
-  useEffect(()=>{load();},[load]);
-  useEffect(()=>{const refresh=()=>load();window.addEventListener("gg-data-changed",refresh);return()=>window.removeEventListener("gg-data-changed",refresh);},[load]);
+  useEffect(()=>{const refresh=()=>load();window.addEventListener("gg-data-changed",refresh);Promise.resolve().then(load);return()=>window.removeEventListener("gg-data-changed",refresh);},[load]);
   async function equip(item) {
     setBusy("equip:"+item.id);setMessage("");
     try { const result=await api("/world/economy/equip",{method:"POST",body:{itemId:item.id}}); if(result.avatar?.appearance)onEquipped?.(result.avatar.appearance); await load(); setMessage(item.name+" equipped to your character."); }
