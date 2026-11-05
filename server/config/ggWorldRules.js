@@ -1,3 +1,4 @@
+import { AVATAR_OPTIONS } from "../../shared/worldCustomization.js";
 export const WORLD_MAP_SLUG = "original-gg";
 
 export const DEFAULT_WORLD_LAYOUT = Object.freeze({
@@ -50,12 +51,7 @@ export const DEFAULT_WORLD_LAYOUT = Object.freeze({
   ],
 });
 
-const HAIR_STYLES = new Set(["short", "fade", "curly", "long", "afro", "mohawk", "bald"]);
-const BODY_TYPES = new Set(["slim", "athletic", "stocky"]);
-const HAIR_COLORS = new Set(["black", "brown", "blonde", "red", "silver", "blue"]);
-const SKIN_TONES = new Set(["deep", "dark", "medium", "tan", "light", "fair"]);
-const KIT_COLORS = new Set(["black", "white", "gold", "red", "blue", "green", "purple", "orange"]);
-const BOOT_COLORS = new Set(["black", "white", "gold", "red", "blue", "green", "orange"]);
+const AVATAR_OPTION_SETS = Object.fromEntries(Object.entries(AVATAR_OPTIONS).map(([key, values]) => [key, new Set(values)]));
 
 function enumValue(value, allowed, fallback) {
   const candidate = String(value || "").trim().toLowerCase();
@@ -69,13 +65,14 @@ export function normalizeAvatarPayload(input = {}) {
   return {
     displayName,
     appearance: {
-      skinTone: enumValue(input.appearance?.skinTone, SKIN_TONES, "medium"),
-      bodyType: enumValue(input.appearance?.bodyType, BODY_TYPES, "athletic"),
-      hairStyle: enumValue(input.appearance?.hairStyle, HAIR_STYLES, "short"),
-      hairColor: enumValue(input.appearance?.hairColor, HAIR_COLORS, "black"),
-      kitPrimary: enumValue(input.appearance?.kitPrimary, KIT_COLORS, "black"),
-      kitSecondary: enumValue(input.appearance?.kitSecondary, KIT_COLORS, "gold"),
-      bootColor: enumValue(input.appearance?.bootColor, BOOT_COLORS, "white"),
+      skinTone: enumValue(input.appearance?.skinTone, AVATAR_OPTION_SETS.skinTone, "medium"),
+      bodyType: enumValue(input.appearance?.bodyType, AVATAR_OPTION_SETS.bodyType, "athletic"),
+      hairStyle: enumValue(input.appearance?.hairStyle, AVATAR_OPTION_SETS.hairStyle, "short"),
+      hairColor: enumValue(input.appearance?.hairColor, AVATAR_OPTION_SETS.hairColor, "black"),
+      kitPrimary: enumValue(input.appearance?.kitPrimary, AVATAR_OPTION_SETS.kitPrimary, "black"),
+      kitSecondary: enumValue(input.appearance?.kitSecondary, AVATAR_OPTION_SETS.kitSecondary, "gold"),
+      bootColor: enumValue(input.appearance?.bootColor, AVATAR_OPTION_SETS.bootColor, "white"),
+      headAccessory: enumValue(input.appearance?.headAccessory, AVATAR_OPTION_SETS.headAccessory, "none"),
     },
     tutorialComplete: input.tutorialComplete === true,
   };
