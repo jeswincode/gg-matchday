@@ -256,7 +256,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   const [interior,setInterior] = useState(null);
   const [selectedPlayer,setSelectedPlayer] = useState(null);
   const [interiorLoading,setInteriorLoading] = useState(false);
-  const [avatar,setAvatar] = useState({displayName:"",appearance:{skinTone:"medium",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"}});
+  const [avatar,setAvatar] = useState({displayName:"",appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"}});
   const [training,setTraining] = useState(emptyTraining);
   const [duration,setDuration] = useState("900");
   const [saving,setSaving] = useState(false);
