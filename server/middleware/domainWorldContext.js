@@ -42,5 +42,5 @@ export function withWorldDataScope(req, res, next) {
       requestId: req.requestId || null,
     });
   }
-  return runWithWorldDataScope(req.worldId || null, next);
+  return runWithWorldDataScope(req.worldId || null, next, { includeLegacy: true });
 }
