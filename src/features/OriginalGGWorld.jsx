@@ -56,6 +56,8 @@ export default function OriginalGGWorld({ onExit }) {
   const [duration,setDuration] = useState("900");
   const [saving,setSaving] = useState(false);
   const [notice,setNotice] = useState("");
+  const [tutorialStep,setTutorialStep] = useState(0);
+  const [tutorialClosed,setTutorialClosed] = useState(false);
   const [scale,setScale] = useState(.72);
   const [offset,setOffset] = useState({x:0,y:0});
   const [drag,setDrag] = useState(null);
@@ -140,6 +142,16 @@ export default function OriginalGGWorld({ onExit }) {
     catch(cause){setNotice(cause.message||"Could not save character.");}
     finally{setSaving(false);}
   }
+  async function completeTutorial() {
+    try {
+      const result = await api("/world/avatar",{method:"PUT",body:{...avatar,tutorialComplete:true}});
+      setAvatar(result.avatar);
+      setData((current)=>({...current,avatar:result.avatar}));
+    } catch (cause) {
+      setNotice(cause.message || "Could not save tutorial progress.");
+    }
+    setTutorialClosed(true);
+  }
   async function saveWorkout(event) {
     event.preventDefault(); setSaving(true); setNotice("");
     try {
@@ -190,6 +202,7 @@ export default function OriginalGGWorld({ onExit }) {
       {notice && <p className="gg-world-notice" role="status">{notice}</p>}
     </>}
     {selectedPlace && <div className="gg-world-modal-backdrop" onClick={()=>setSelected(null)}><section className="gg-world-building-modal" role="dialog" aria-modal="true" onClick={(e)=>e.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelected(null)} aria-label="Close">×</button><span>ORIGINAL GG LANDMARK</span><div className="gg-world-modal-art"><Building kind={selectedPlace.kind}/></div><h2>{selectedPlace.name}</h2><p>{selectedPlace.desc}</p>{selectedPlace.kind==="training" ? <button className="gg-world-primary" onClick={()=>{setSelected(null);document.querySelector(".gg-world-training-form")?.scrollIntoView({behavior:"smooth"});}}>Open training counters</button> : <p className="gg-world-coming">Detailed building interiors are in the next build phase.</p>}</section></div>}
+    {data?.avatar && !data.avatar.tutorialComplete && !tutorialClosed && <div className="gg-world-guide" role="dialog" aria-modal="true" aria-labelledby="gg-world-guide-title"><div className="gg-world-guide-character"><PlayerSprite appearance={appearance}/></div><div className="gg-world-guide-copy"><span>YOUR GG COMPANION · QUICK TOUR {tutorialStep+1}/3</span><h2 id="gg-world-guide-title">{["Welcome to Original GG!","Meet your player character.","Your training journey starts here."][tutorialStep]}</h2><p>{["This is your football city. Drag the map, pinch to zoom on mobile, and tap a landmark to explore its building.","Customise your footballer with a name, hairstyle, skin tone, kit and boots. Your look is saved to your player account.","Visit the Training Centre to record push-ups, pull-ups, squats and plank holds. Your totals and personal bests are saved in the Clubs database."][tutorialStep]}</p><div><button className="gg-world-guide-skip" onClick={completeTutorial}>Skip tour</button><button className="gg-world-primary" onClick={()=>tutorialStep===2?completeTutorial():setTutorialStep((step)=>step+1)}>{tutorialStep===2?"Finish tour":"Next tip →"}</button></div></div></div>}
     <footer className="gg-world-footer">GG MATCHDAY · ORIGINAL GG WORLD <span>Built for the players, by the players.</span></footer>
   </main>;
 }
