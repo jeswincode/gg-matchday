@@ -2408,7 +2408,7 @@ function App() {
   }
 
   if (worldOpen) {
-    return <Suspense fallback={<div className="loading-panel">Opening Original GG…</div>}><OriginalGGWorld onExit={()=>setWorldOpen(false)} onProfile={()=>{setWorldOpen(false);setProfileOpen(true);}} /></Suspense>;
+    return <Suspense fallback={<div className="loading-panel">Opening Original GG…</div>}><OriginalGGWorld onExit={()=>setWorldOpen(false)} onProfile={()=>{setWorldOpen(false);setProfileOpen(true);}} onOpenChat={()=>{setWorldOpen(false);setModal("chat");}} /></Suspense>;
   }
 
   return (
