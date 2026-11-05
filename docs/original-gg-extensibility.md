@@ -4,7 +4,7 @@ The Original GG world is designed as a platform that can accept new content with
 
 ## Shop content
 
-Add a cosmetic in `shared/worldCustomization.js` with:
+Add a cosmetic in `shared/worldCustomization.js` (`WORLD_MARKET_CATALOG`) with:
 
 - Stable unique `id` (never reuse an ID after release).
 - `name`, `description`, `category`, and appearance `slot`.
