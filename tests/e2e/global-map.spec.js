@@ -41,8 +41,9 @@ test("a protected Clubs API denial returns the user to the public World map", as
     status: 403,
     contentType: "application/json",
     body: JSON.stringify({
-      message: "This Gmail account has not been linked by the GG platform administrator.",
-      code: "WORLD_ACCESS_GRANT_REQUIRED",
+      message: "Your GG World role no longer permits Clubs access.",
+      code: "WORLD_CAPABILITY_REQUIRED",
+      capability: "clubs:participate",
     }),
   }));
 
