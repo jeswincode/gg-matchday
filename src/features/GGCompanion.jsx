@@ -35,7 +35,8 @@ export default function GGCompanion({ onEnterWorld, playerName }) {
   },[]);
   useEffect(()=>()=>window.clearTimeout(timer.current),[]);
   function enterWorld(){
-    if(transitioning||suppressClick.current)return;
+    if(transitioning)return;
+    if(suppressClick.current){suppressClick.current=false;return;}
     setTransitioning(true);
     timer.current=window.setTimeout(()=>onEnterWorld(),720);
   }
@@ -54,7 +55,7 @@ export default function GGCompanion({ onEnterWorld, playerName }) {
     setPosition({x:Math.max(-maxX,Math.min(maxX,drag.current.startX+dx)),y:Math.max(-maxY,Math.min(maxY,drag.current.startY+dy))});
   }
   function stopDrag(){
-    if(drag.current?.moved)suppressClick.current=true;
+    if(drag.current?.moved){suppressClick.current=true;window.setTimeout(()=>{suppressClick.current=false;},0);}
     drag.current=null;setDragging(false);
   }
   return <>
