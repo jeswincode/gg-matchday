@@ -100,7 +100,7 @@ export async function resolveWorldContext(req, res, next) {
     ) {
       const matchingPlayer = await Player.exists({
         _id: req.user.playerProfile,
-        worldId: world._id,
+        $or: [{ worldId: world._id }, { worldId: null }],
       });
       if (matchingPlayer) {
         membership = await WorldMembership.findOneAndUpdate(
