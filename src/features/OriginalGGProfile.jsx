@@ -14,18 +14,22 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
   const [player,setPlayer] = useState(null);
   const [linked,setLinked] = useState(false);
   const [ownedCosmetics,setOwnedCosmetics] = useState([]);
+  const [presets,setPresets] = useState([]);
+  const [presetName,setPresetName] = useState("");
+  const [presetBusy,setPresetBusy] = useState(false);
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [message,setMessage] = useState("");
   useEffect(() => {
     let active = true;
-    Promise.all([api("/world/bootstrap"),api("/players"),api("/world/economy")]).then(([world,players,economy]) => {
+    Promise.all([api("/world/bootstrap"),api("/players"),api("/world/economy"),api("/world/avatar/presets")]).then(([world,players,economy,presetResult]) => {
       if (!active) return;
       const linkedPlayer = Array.isArray(players) ? players.find((item)=>String(item._id)===String(backendUser?.playerProfile)) : null;
       setPlayer(linkedPlayer||null);
       setLinked(Boolean(backendUser?.playerProfile));
       if (world.avatar) setAvatar(world.avatar);
       setOwnedCosmetics((economy.inventory||[]).filter((entry)=>entry.quantity>0).map((entry)=>entry.itemId));
+      setPresets(presetResult.presets||[]);
     }).catch((error) => {
       if (active) setMessage(error.message||"Could not load your profile.");
     }).finally(() => {
@@ -49,6 +53,29 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
       setSaving(false);
     }
   }
+  async function savePreset() {
+    if (!presetName.trim()) { setMessage("Name your preset before saving."); return; }
+    setPresetBusy(true);
+    try {
+      const result=await api("/world/avatar/presets",{method:"POST",body:{name:presetName,appearance}});
+      setPresets(result.presets||[]);setPresetName("");setMessage("Character preset saved.");
+    } catch(error) { setMessage(error.message||"Could not save this preset."); }
+    finally { setPresetBusy(false); }
+  }
+  async function applyPreset(id) {
+    setPresetBusy(true);
+    try {
+      const result=await api("/world/avatar/presets/"+id+"/apply",{method:"POST",body:{}});
+      setAvatar((current)=>({...current,...result.avatar}));setMessage("Character preset applied.");
+    } catch(error) { setMessage(error.message||"Could not apply this preset."); }
+    finally { setPresetBusy(false); }
+  }
+  async function deletePreset(id) {
+    setPresetBusy(true);
+    try { const result=await api("/world/avatar/presets/"+id,{method:"DELETE"});setPresets(result.presets||[]);setMessage("Character preset deleted."); }
+    catch(error) { setMessage(error.message||"Could not delete this preset."); }
+    finally { setPresetBusy(false); }
+  }
   const appearance=avatar.appearance||defaults.appearance;
   const editableChoices = Object.fromEntries(Object.entries(FREE_AVATAR_OPTIONS).map(([field,values])=>[field,[...values,...WORLD_COSMETIC_CATALOG.filter((item)=>ownedCosmetics.includes(item.id)&&item.appearancePatch?.[field]).map((item)=>item.appearancePatch[field])].filter((value,index,array)=>array.indexOf(value)===index)]));
   return <main className="gg-world gg-profile-page">
@@ -69,6 +96,11 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
             <div className="gg-world-select-grid">{Object.entries(editableChoices).map(([key,values])=><label key={key}>{labels[key]}<select value={appearance[key]||defaults.appearance[key]} onChange={(event)=>updateAppearance(key,event.target.value)}>{values.map((value)=><option key={value}>{value}</option>)}</select></label>)}</div>
             <button className="gg-world-primary" disabled={saving||!linked}>{!linked?"Link your player profile first":saving?"Saving…":"Save character"}</button>
           </form>
+          <div className="gg-avatar-presets">
+            <div><span>YOUR LOOKBOOK</span><strong>Saved character presets · {presets.length}/5</strong></div>
+            <div className="gg-avatar-preset-save"><input aria-label="Preset name" maxLength="24" value={presetName} onChange={(event)=>setPresetName(event.target.value)} placeholder="Name this look"/><button type="button" className="gg-world-primary" disabled={presetBusy||presets.length>=5||!linked} onClick={savePreset}>Save current look</button></div>
+            {presets.length>0?<div className="gg-avatar-preset-list">{presets.map((preset)=><article key={preset._id}><div><PlayerSprite appearance={preset.appearance}/><strong>{preset.name}</strong></div><button type="button" disabled={presetBusy} onClick={()=>applyPreset(preset._id)}>Apply</button><button type="button" disabled={presetBusy} onClick={()=>deletePreset(preset._id)} aria-label={"Delete "+preset.name}>×</button></article>)}</div>:<small className="gg-avatar-presets-empty">Save up to five favourite looks and switch between them whenever you like.</small>}
+          </div>
         </div>
       </section>
       <section className="gg-profile-notes"><div><span>YOUR MATCHDAY</span><strong>History that stays yours</strong><small>Your existing player profile, match records and statistics remain part of your account.</small></div><div><span>YOUR ORIGINAL GG</span><strong>A character that follows you</strong><small>Your saved look is shared by your profile and the football city.</small></div></section>
