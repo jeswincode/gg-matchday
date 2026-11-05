@@ -86,6 +86,8 @@ function RoomScene({room}) {
   const trophy=/trophy|gallery|hall-of-fame/.test(id);
   const tactics=/tactics|meeting|class|press/.test(id);
   const market=/market|locker/.test(id);
+  const esports=/arena|esports/.test(id);
+  const supporters=/supporters|fan/.test(id);
   const accent=room.theme?.includes("gold")?"#d8b66c":training?"#75a46c":market?"#d2a66c":"#88a78b";
   return <svg className="gg-world-room-scene" viewBox="0 0 640 320" aria-hidden="true">
     <defs><linearGradient id="gg-room-left" x2="1" y2="1"><stop stopColor="#6c806b"/><stop offset="1" stopColor="#304a38"/></linearGradient><linearGradient id="gg-room-right" x2="0" y2="1"><stop stopColor="#4e6854"/><stop offset="1" stopColor="#20382a"/></linearGradient><linearGradient id="gg-room-floor" x2="0" y2="1"><stop stopColor="#b49a6b"/><stop offset="1" stopColor="#6d5b43"/></linearGradient></defs>
@@ -121,13 +123,27 @@ function RoomScene({room}) {
       <path d="M240 186 L370 148 L442 175 L312 214Z" fill="#6b5138" stroke="#d1b77c" strokeWidth="3"/>
       <path d="M276 201 L276 228 M410 188 L410 215" stroke="#493927" strokeWidth="8"/>
     </g>}
+    {esports && <g>
+      <path d="M188 118 L438 54 L470 70 L220 150Z" fill="#392c65" stroke="#d7bd83" strokeWidth="4"/>
+      <path d="M222 150 L438 92 L438 176 L222 236Z" fill="#1c2743" stroke="#8bcbd1" strokeWidth="3"/>
+      <path d="M248 157 L412 116 L412 166 L248 207Z" fill="#5357a2" stroke="#9de0df" strokeWidth="3"/>
+      <path d="M330 137 L330 186 M248 182 L412 141" stroke="#d8c17d" strokeWidth="3"/>
+      <circle cx="330" cy="162" r="14" fill="#e1c16e"/>
+    </g>}
+    {supporters && <g>
+      <path d="M184 127 L425 46 L458 64 L216 146Z" fill="#8f3948" stroke="#e0c18a" strokeWidth="4"/>
+      <path d="M217 146 L425 77 L425 172 L217 241Z" fill="#26392b" stroke="#d7bd83" strokeWidth="3"/>
+      <path d="M246 159 L294 143 L294 205 L246 221Z" fill="#b43d49"/>
+      <path d="M315 136 L363 120 L363 182 L315 198Z" fill="#d5b76b"/>
+      <path d="M380 115 L408 106 L408 168 L380 177Z" fill="#3d72ae"/>
+    </g>}
     {market && <g>
       <path d="M194 124 L420 48 L452 64 L225 142Z" fill="#a14c3d" stroke="#e0c18a" strokeWidth="3"/>
       <path d="M220 145 L420 78 L420 147 L220 214Z" fill="#26392b" stroke="#d7bd83" strokeWidth="3"/>
       <path d="M242 157 L295 139 L295 188 L242 206Z M328 128 L382 110 L382 160 L328 178Z" fill="#d7b875"/>
       <path d="M242 157 L295 139 M328 128 L382 110" stroke="#f3e4c2" strokeWidth="3"/>
     </g>}
-    {!training&&!trophy&&!tactics&&!market && <g>
+    {!training&&!trophy&&!tactics&&!market&&!esports&&!supporters && <g>
       <path d="M196 160 L276 132 L356 160 L276 189Z" fill="#a66f50" stroke="#e0c38e" strokeWidth="3"/>
       <path d="M216 157 L216 180 M336 157 L336 180" stroke="#563c2d" strokeWidth="8"/>
       <path d="M375 169 L429 151 L461 164 L407 183Z" fill="#c5a26c" stroke="#6d5435" strokeWidth="3"/>
