@@ -21,12 +21,20 @@ async function startServer(){
       console.warn('Clubs MongoDB unavailable; core Matchday will continue without Clubs:', clubsError.message);
     }
 
-    scheduleHistory();
-    setInterval(scheduleHistory,86400000).unref();
+    // The V4 preview shares the existing Core and Clubs databases with V3.
+    // Do not run legacy scheduled jobs or sync/maintenance workers from this
+    // second API process; they remain owned by the established production API.
+    const previewMode = process.env.V4_PREVIEW_MODE === "true";
+    if (previewMode) {
+      console.log("V4 preview mode enabled; legacy background workers are disabled.");
+    } else {
+      scheduleHistory();
+      setInterval(scheduleHistory,86400000).unref();
 
-    startClubSyncWorker();
-    startClubsMaintenanceWorker();
-    startStatisticsMaintenanceWorker();
+      startClubSyncWorker();
+      startClubsMaintenanceWorker();
+      startStatisticsMaintenanceWorker();
+    }
 
     const port=Number(process.env.PORT)||5000;
     const server=app.listen(port,'0.0.0.0',()=>console.log(`GG Matchday API is ready on port ${port}`));
