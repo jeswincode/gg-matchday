@@ -8,15 +8,27 @@ import Player from "../server/models/Player.js";
 import Match from "../server/models/Match.js";
 import PlayerStats from "../server/models/PlayerStats.js";
 import SeasonStats from "../server/models/SeasonStats.js";
+import World from "../server/models/World.js";
+
+process.env.NODE_ENV = "test";
+process.env.GG_PRIMARY_WORLD_SLUG = "original-gg";
+process.env.E2E_TEST_AUTH_SECRET = "leaderboard-test-secret-never-for-production";
 import Award from "../server/models/Award.js";
 import Achievement from "../server/models/Achievement.js";
 
 let database;
 let server;
 let origin;
+let primaryWorld;
 
 async function get(path) {
-  const response = await fetch(origin + path);
+  const response = await fetch(origin + path, {
+    headers: {
+      "X-E2E-Test-Token": process.env.E2E_TEST_AUTH_SECRET,
+      "X-E2E-Test-Role": "viewer",
+      "X-World-Slug": "original-gg",
+    },
+  });
   return { status: response.status, data: await response.json() };
 }
 
@@ -26,7 +38,15 @@ before(async () => {
     replSet: { count: 1 },
   });
   await mongoose.connect(database.getUri("leaderboard-overview-regression"));
-  await Promise.all([Player, Match, PlayerStats, SeasonStats, Award, Achievement].map(model => model.init()));
+  await Promise.all([Player, Match, PlayerStats, SeasonStats, Award, Achievement, World].map(model => model.init()));
+  primaryWorld = await World.create({
+    name: "Original GG",
+    slug: "original-gg",
+    ownerUserId: new mongoose.Types.ObjectId(),
+    visibility: "public",
+    joinPolicy: "approval",
+    globalMap: { mapId: "gg-main-v1", slotIndex: 0, x: 0, y: 0 },
+  });
 
   const app = express();
   app.use("/api/stats", statsRoutes);
@@ -43,12 +63,13 @@ after(async () => {
 });
 
 test("overview counts detailed goal events and own goals", async () => {
-  const scorer = await Player.create({ name: "Overview Regression Scorer" });
-  const opponent = await Player.create({ name: "Overview Regression Opponent" });
+  const scorer = await Player.create({ worldId: primaryWorld._id, name: "Overview Regression Scorer" });
+  const opponent = await Player.create({ worldId: primaryWorld._id, name: "Overview Regression Opponent" });
   const before = await get("/api/stats/overview");
   assert.equal(before.status, 200);
 
   await Match.create({
+    worldId: primaryWorld._id,
     date: new Date("2026-10-09T12:00:00.000Z"),
     name: "Overview goal aggregation regression",
     teamA: { label: "A", score: 0 },
@@ -69,11 +90,12 @@ test("overview counts detailed goal events and own goals", async () => {
 });
 
 test("leaderboard globally sorts ratings and assigns unique table ranks", async () => {
-  const leader = await Player.create({ name: "Leaderboard Regression Leader", position: "ST" });
-  const runnerUp = await Player.create({ name: "Leaderboard Regression Runner Up", position: "CB" });
+  const leader = await Player.create({ worldId: primaryWorld._id, name: "Leaderboard Regression Leader", position: "ST" });
+  const runnerUp = await Player.create({ worldId: primaryWorld._id, name: "Leaderboard Regression Runner Up", position: "CB" });
 
   for (let index = 0; index < 5; index++) {
     await Match.create({
+      worldId: primaryWorld._id,
       date: new Date(Date.UTC(2026, 7, index + 1, 12)),
       name: `Leaderboard rank regression ${index + 1}`,
       teamA: { label: "A", score: 0 },
@@ -106,13 +128,14 @@ test("leaderboard globally sorts ratings and assigns unique table ranks", async 
 });
 
 test("overview preserves legacy stored scores when a match only has assist events", async () => {
-  const scorer = await Player.create({ name: "Legacy Assist Only Scorer" });
-  const teammate = await Player.create({ name: "Legacy Assist Only Teammate" });
+  const scorer = await Player.create({ worldId: primaryWorld._id, name: "Legacy Assist Only Scorer" });
+  const teammate = await Player.create({ worldId: primaryWorld._id, name: "Legacy Assist Only Teammate" });
   const before = await get("/api/stats/overview");
   assert.equal(before.status, 200);
 
   await Match.collection.insertOne({
     _id: new mongoose.Types.ObjectId(),
+    worldId: primaryWorld._id,
     date: new Date("2024-03-15T12:00:00.000Z"),
     name: "Legacy score with assist event only",
     teamA: { label: "A", score: 2 },

@@ -73,12 +73,13 @@ test('mobile Record rows collapse non-participants and expose rating points on d
 test('Refined startup flow replaces the account-bar login with startup, entry, and welcome gates',()=>{
   const app=read('src/App.jsx');
   const startup=read('src/components/StartupExperience.jsx');
-  assert.match(app,/experience\s*,\s*setExperience\s*\]\s*=useState\('startup'\)/);
+  assert.match(app,/const \[experience,setExperience\]=useState\(\(\) => \{/);
+  assert.match(app,/e2eRole === "guest" \? "entry" : "startup"/);
   assert.match(app,/activeExperience === "entry"/);
   assert.match(app,/activeExperience === "welcome"/);
   assert.match(app,/setExperience\("entry"\)/);
   assert.match(startup,/Continue with Google/);
-  assert.match(startup,/Explore as Guest/);
+  assert.ok(startup.includes("Explore the Global Map as Guest"));
   assert.match(startup,/aria-label="Enter Matchday"/);
   assert.doesNotMatch(startup,/gg-welcome-button-visual|>ENTER MATCHDAY/);
   assert.match(app,/Read-only access/);
@@ -97,7 +98,7 @@ test('Player profile supports cinematic video, image, and global background fall
 test('Player background video management is admin-only at the API boundary',()=>{
   const route=read('server/routes/players.js');
   const admin=read('src/features/admin/AdminPage.jsx');
-  assert.match(route,/router\.patch\("\/:id\/background-video", requireAuth, requireAdmin/);
+  assert.ok(route.includes('router.patch("/:id/background-video", requireAuth, requireDomainCapability("world:manage", requireAdmin)'));
   assert.match(route,/backgroundVideoUrl/);
   assert.match(route,/valid http\(s\) URL/);
   assert.match(admin,/Background Videos/);
@@ -140,15 +141,122 @@ test('guest mode keeps an explicit sign-in path after entering the app',()=>{con
 test('admin player video inputs fall back to loaded player video URLs',()=>{const source=read('src/features/admin/AdminPage.jsx');assert.match(source,/videoDrafts\[id\] \?\? player\.backgroundVideoUrl \?\? ""/);});
 
 
-test('mobile navigation supports ordered horizontal tab swipes without wrapping',()=>{
+test('mobile navigation keeps exactly five Matchday destinations and leaves Global Map on Home',()=>{
   const app=read('src/App.jsx');
+  const map=read('src/features/globalMap/GlobalMapPage.jsx');
+  const css=read('src/features/globalMap/immersive-world-map.css');
   assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*\]/);
-  assert.match(app,/touchStartRef=useRef\(null\)/);
-  assert.match(app,/const threshold=Math\.min\(92, Math\.max\(56, window\.innerWidth\*0\.16\)\)/);
-  assert.match(app,/deltaX<0 \? currentIndex\+1 : currentIndex-1/);
-  assert.match(app,/nextIndex<0 \|\| nextIndex>=TAB_ORDER\.length/);
+  assert.doesNotMatch(app,/TABS\.GLOBAL_MAP/);
+  assert.match(app,/if \(activeTab === TABS\.HOME\)[\s\S]*?<GlobalMapPage/);
+  assert.match(map,/const items = \[\s*\{ id: "home"[\s\S]*?\{ id: "players"/);
+  assert.match(css,/\.gg-world-bottom-nav\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.gg-world-screen\{[^}]*position:fixed/);
   assert.match(app,/onTouchStart=\{handleAppTouchStart\}/);
   assert.match(app,/onTouchEnd=\{handleAppTouchEnd\}/);
+});
+
+test('entering a World activates app-wide API context and logout clears it',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const app=read('src/App.jsx');
+  assert.match(page,/setApiActiveWorld\(world\.slug\)/);
+  assert.match(app,/setApiActiveWorld\(null\)/);
+  assert.match(app,/async function logout\(\)/);
+});
+
+test('immersive Home restores an active World and preserves admin access',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  assert.match(page,/getActiveWorldSlug\(\)/);
+  assert.match(page,/result\.membershipStates\[activeSlug\] !== "active"/);
+  assert.match(page,/setEnteredWorld\(world\)/);
+  assert.match(page,/setApiActiveWorld\(null\)/);
+  assert.match(page,/isAdmin && <button[^>]*gg-world-admin-link/);
+  assert.ok(page.includes('onNavigateAdmin={visibleEnteredWorld ? () => onNavigateTab?.("admin") : null}'));
+  assert.ok(page.includes('{isAdmin && onNavigateAdmin && <button'));
+});
+
+test('Global Map always projects one kingdom and never exposes claimable World plots',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const scene=read('src/features/globalMap/GlobalMapScene.jsx');
+  const routes=read('server/routes/worlds.js');
+  assert.ok(page.includes("slice(0, 1)"));
+  assert.ok(!["availablePlots","claimPlot","globalMapSlotIndex","createModalOpen"].some(value => page.includes(value)));
+  assert.ok(!["availablePlots","ClaimPlot","onClaimPlot"].some(value => scene.includes(value)));
+  assert.ok(routes.includes("worlds: [safeWorld(world)]"));
+  assert.ok(!routes.includes("availablePlots"));
+});
+
+test('GG sign-in supports Google, email/password, account creation and password reset',()=>{
+  const login=read('src/components/StartupExperience.jsx');
+  const app=read('src/App.jsx');
+  const firebase=read('src/firebase.js');
+  assert.match(login,/Continue with Google/);
+  assert.match(login,/onEmailSignIn/);
+  assert.match(login,/onCreateAccount/);
+  assert.match(login,/onPasswordReset/);
+  assert.match(login,/Create your GG account/);
+  assert.match(login,/Forgot password\?/);
+  assert.match(app,/signInWithEmailAndPassword/);
+  assert.match(app,/createUserWithEmailAndPassword/);
+  assert.match(app,/sendEmailVerification/);
+  assert.match(app,/sendPasswordResetEmail/);
+  assert.match(firebase,/getAuth\(initializeApp\(firebaseConfig\)\)/);
+});
+
+test('single-World entry is grant-gated and preserves one player identity inside Original GG',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const routes=read('server/routes/worlds.js');
+  const player=read('server/models/Player.js');
+  assert.ok(page.includes("slice(0, 1)"));
+  assert.doesNotMatch(page,/function WorldSwitcher|Your Worlds/);
+  assert.ok(page.includes('accessStatus !== "active"'));
+  assert.match(page,/function PlayerProfileModal/);
+  assert.ok(page.includes("/player-profiles"));
+  assert.ok(routes.includes("/:slug/player-profiles"));
+  assert.ok(routes.includes("worldId: req.worldId"));
+  assert.ok(routes.includes("playerProfileId = created._id"));
+  assert.match(player,/player_world_name_unique/);
+  assert.match(player,/worldId: 1, nameNormalized: 1/);
+});
+
+test('Original GG map shows decorative open land markers without claim interactions',()=>{
+  const view=read('src/features/globalMap/WorldMapView.jsx');
+  const css=read('src/features/globalMap/world-map-view.css');
+  assert.match(view,/LOCAL_OPEN_LAND_MARKERS/);
+  assert.match(view,/function LocalOpenLandMarker/);
+  assert.match(view,/const openLandMarkers = LOCAL_OPEN_LAND_MARKERS\.filter/);
+  assert.match(view,/openLandMarkers\.map\(plot/);
+  assert.match(css,/\.gg-world-open-land-marker/);
+  assert.match(view,/aria-hidden="true"/);
+  assert.doesNotMatch(view,/gg-world-open-land-marker[^>]*role="button"/);
+});
+
+test('Global Map administrator links and revokes Gmail access instead of creating Worlds',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const routes=read('server/routes/worlds.js');
+  assert.ok(page.includes("function WorldAccessManager"));
+  assert.ok(page.includes('api("/worlds/admin/access")'));
+  assert.ok(page.includes('method: "POST"') && page.includes('method: "DELETE"'));
+  assert.ok(page.includes('method: "POST"') && page.includes('method: "DELETE"'));
+  assert.ok(routes.includes('router.post("/admin/access"'));
+  assert.ok(routes.includes('router.delete("/admin/access/:grantId"'));
+  assert.ok(routes.includes("SINGLE_WORLD_ONLY"));
+  assert.ok(routes.includes("WORLD_INVITATION_REQUIRED"));
+  assert.ok(!["globalMapSlotIndex","onClaimPlot","claimPlot"].some(value => page.includes(value)));
+});
+
+test('World navigation separates public discovery, member entry, and owner map editing',()=>{
+  const page=read('src/features/globalMap/GlobalMapPage.jsx');
+  const scene=read('src/features/globalMap/WorldMapView.jsx');
+  const routes=read('server/routes/worlds.js');
+  assert.ok(page.includes('api("/worlds/admin/access")'));
+  assert.match(page,/\/map"\)/);
+  assert.match(page,/onEnterWorld=\{enterWorld\}/);
+  assert.match(scene,/permissions\?\.canEditMap/);
+  assert.match(scene,/expectedLayoutVersion/);
+  assert.match(scene,/quarterTurn/);
+  assert.match(scene,/rotate\(" \+ rotation \+ "\)/);
+  assert.match(routes,/requireActiveWorldMembership/);
+  assert.match(routes,/requireWorldCapability\("map:edit"\)/);
 });
 
 test('mobile calendar hides hover match popovers while preserving day details',()=>{

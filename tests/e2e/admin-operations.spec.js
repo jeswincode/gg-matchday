@@ -1,9 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { openLinkedWorld } from "./helpers/world.js";
 
 test("Clubs operations queue drives an administrator approval and records the action", async ({ page }) => {
-  await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await openLinkedWorld(page, { role: "admin" });
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Clubs admin navigation" });

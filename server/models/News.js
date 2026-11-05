@@ -1,7 +1,14 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const newsSchema = new mongoose.Schema(
   {
+    worldId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "World",
+      default: null,
+      index: true,
+    },
     type: {
       type: String,
       enum: [
@@ -64,13 +71,11 @@ const newsSchema = new mongoose.Schema(
   }
 );
 
-newsSchema.index({
-  createdAt: -1,
-});
+newsSchema.index({ worldId: 1, createdAt: -1 });
 
-newsSchema.index({
-  match: 1,
-});
+newsSchema.index({ worldId: 1, match: 1 });
+
+newsSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.model(
   "News",

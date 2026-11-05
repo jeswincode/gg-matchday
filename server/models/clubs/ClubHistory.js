@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
+import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const clubHistorySchema = new mongoose.Schema(
   {
+    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     clubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     eventType: {
       type: String,
@@ -36,5 +38,7 @@ const clubHistorySchema = new mongoose.Schema(
 
 clubHistorySchema.index({ clubId: 1, occurredAt: -1 });
 clubHistorySchema.index({ playerId: 1, occurredAt: -1 });
+
+clubHistorySchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("ClubHistory", clubHistorySchema);

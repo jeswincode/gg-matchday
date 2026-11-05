@@ -20,8 +20,8 @@ export function createCorsOptions(nodeEnv = process.env.NODE_ENV) {
     },
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: nodeEnv === "production"
-      ? ["Content-Type", "Authorization"]
-      : ["Content-Type", "Authorization", "X-E2E-Test-Token", "X-E2E-Test-Role", "X-E2E-Test-Player-Id"],
+      ? ["Content-Type", "Authorization", "X-World-Slug"]
+      : ["Content-Type", "Authorization", "X-World-Slug", "X-E2E-Test-Token", "X-E2E-Test-Role", "X-E2E-Test-Player-Id"],
     exposedHeaders: ["X-Request-ID"],
     maxAge: 86400,
   };

@@ -1,4 +1,5 @@
 import {auth} from '../firebase';
+import { getActiveWorldSlug, setActiveWorldSlug, worldContextHeaders } from './worldContext.js';
 
 const VITE_ENV = import.meta.env || {};
 export const API_URL = VITE_ENV.VITE_API_URL || 'http://localhost:5000/api';
@@ -79,34 +80,56 @@ export function invalidate() {
   window.dispatchEvent(new Event('gg-data-changed'));
 }
 
+export function setApiActiveWorld(slug) {
+  const normalized = setActiveWorldSlug(slug);
+  invalidate();
+  return normalized;
+}
+
 export async function authenticatedFetch(url, options = {}) {
+  const worldHeaders = worldContextHeaders();
   if (VITE_ENV.VITE_E2E_TEST_AUTH_SECRET) {
-    return fetch(url, { ...options, headers: { ...(options.headers || {}), ...e2eAuthHeaders() } });
+    return fetch(url, {
+      ...options,
+      headers: { ...(options.headers || {}), ...e2eAuthHeaders(), ...worldHeaders },
+    });
   }
   if (!auth?.currentUser) throw new Error('Authentication required.');
   const token = await auth.currentUser.getIdToken();
-  return fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      ...worldHeaders,
+      Authorization: 'Bearer ' + token,
+    },
+  });
 }
 
-export async function api(path, { method = 'GET', body, signal, ...options } = {}) {
+export async function api(path, { method = 'GET', body, signal, cacheResponse = true, ...options } = {}) {
   const normalizedMethod = String(method || 'GET').toUpperCase();
-  const key = `${auth?.currentUser?.uid || 'public'}:${path}`;
+  const activeWorldSlug = getActiveWorldSlug();
+  // The World selector is part of the cache and in-flight request identity.
+  // A response from one World can never satisfy the same path in another.
+  const key = (auth?.currentUser?.uid || 'public') + ':' +
+    (activeWorldSlug || 'global') + ':' + path;
   const hit = cache.get(key);
-  if (normalizedMethod === 'GET' && !signal && hit && hit.until > Date.now()) return hit.data;
-  if (normalizedMethod === 'GET' && !signal && pending.has(key)) return pending.get(key);
+  if (normalizedMethod === 'GET' && cacheResponse && !signal && hit && hit.until > Date.now()) return hit.data;
+  if (normalizedMethod === 'GET' && cacheResponse && !signal && pending.has(key)) return pending.get(key);
 
   const task = (async () => {
     const token = await auth?.currentUser?.getIdToken();
     let response;
     try {
-      response = await fetch(`${API_URL}${path}`, {
+      response = await fetch(API_URL + path, {
         ...options,
         method: normalizedMethod,
         signal,
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
           ...e2eAuthHeaders(),
+          ...worldContextHeaders(activeWorldSlug),
         },
         ...(body !== undefined ? { body: typeof body === 'string' ? body : JSON.stringify(body) } : {}),
       });
@@ -125,12 +148,48 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const requestId = requestIdFrom(response, data);
+      const requestPath = safeRequestPath(path);
+      const publicRequest = requestPath === '/worlds/map' ||
+        requestPath === '/weather' || requestPath.startsWith('/weather/') ||
+        requestPath === '/health' || requestPath.startsWith('/health/');
+      const accessLossCodes = new Set([
+        'AUTHENTICATION_REQUIRED',
+        'WORLD_ACCESS_GRANT_REQUIRED',
+        'WORLD_MEMBERSHIP_REQUIRED',
+        'WORLD_MEMBERSHIP_PENDING',
+        'WORLD_MEMBERSHIP_SUSPENDED',
+        'WORLD_NOT_FOUND',
+      ]);
+      const accessLost = response.status === 401 ||
+        (response.status === 403 && accessLossCodes.has(data?.code));
+      const clubsAccessLost = response.status === 403 &&
+        data?.code === 'WORLD_CAPABILITY_REQUIRED' &&
+        data?.capability === 'clubs:participate';
+      if (clubsAccessLost && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('gg-clubs-access-lost', {
+          detail: {
+            status: response.status,
+            code: data?.code || null,
+            capability: data?.capability || null,
+            message: typeof data?.message === 'string' ? data.message : '',
+          },
+        }));
+      }
+      if (accessLost && !publicRequest && typeof window !== 'undefined' && typeof CustomEvent !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('gg-world-access-lost', {
+          detail: {
+            status: response.status,
+            code: data?.code || null,
+            message: typeof data?.message === 'string' ? data.message : '',
+          },
+        }));
+      }
       const serverMessage = typeof data?.message === 'string' ? data.message.trim() : '';
       const genericServerMessages = new Set(['', 'Could not complete this request.', 'The request could not be completed.']);
       let message = genericServerMessages.has(serverMessage)
         ? genericMessageForStatus(response.status)
         : serverMessage;
-      if (response.status >= 500 && requestId) message += ` Reference ID: ${requestId}`;
+      if (response.status >= 500 && requestId) message += ' Reference ID: ' + requestId;
       const error = new ApiError(message, {
         status: response.status,
         method: normalizedMethod,
@@ -143,11 +202,11 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
       throw error;
     }
 
-    if (normalizedMethod === 'GET') cache.set(key, { data, until: Date.now() + 15_000 });
+    if (normalizedMethod === 'GET' && cacheResponse) cache.set(key, { data, until: Date.now() + 15_000 });
     else invalidate();
     return data;
   })().finally(() => pending.delete(key));
 
-  if (normalizedMethod === 'GET' && !signal) pending.set(key, task);
+  if (normalizedMethod === 'GET' && cacheResponse && !signal) pending.set(key, task);
   return task;
 }

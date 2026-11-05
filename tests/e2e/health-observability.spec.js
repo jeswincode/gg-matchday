@@ -1,9 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { openLinkedWorld } from "./helpers/world.js";
 
 async function enterMatchday(page) {
-  await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await openLinkedWorld(page, { role: "admin" });
 }
 
 test("admin health view shows live database pings, bounded API observations and honest backup limitations", async ({ page }) => {

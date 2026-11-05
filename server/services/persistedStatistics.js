@@ -5,13 +5,21 @@ import PlayerStats from "../models/PlayerStats.js";
 import SeasonStats from "../models/SeasonStats.js";
 import { buildStatistics, dateQuery, id } from "./statistics.js";
 
-const MATCH_FIELDS = "_id date createdAt updatedAt teamA teamB participants events";
+const MATCH_FIELDS = "_id worldId date createdAt updatedAt teamA teamB participants events";
 const PLAYER_BATCH_SIZE = 20;
 
 function chunks(values, size = PLAYER_BATCH_SIZE) {
   const batches = [];
   for (let index = 0; index < values.length; index += size) batches.push(values.slice(index, index + size));
   return batches;
+}
+
+function worldKey(value) {
+  return value == null ? "legacy" : String(value);
+}
+
+function worldValue(player) {
+  return player?.worldId || null;
 }
 
 function latestSourceTime(matches) {
@@ -43,11 +51,13 @@ function decorateStats(stats, player) {
 }
 
 async function rebuildPlayer(player, history) {
+  const worldId = worldValue(player);
   const matches = matchesForPlayer(history, player._id);
   const stats = buildStatistics([player], matches)[0];
+
   await PlayerStats.findOneAndUpdate(
-    { playerId: player._id },
-    { $set: { stats, matchCount: matches.length, sourceLatestMatchAt: latestSourceTime(matches) } },
+    { worldId, playerId: player._id },
+    { $set: { worldId, stats, matchCount: matches.length, sourceLatestMatchAt: latestSourceTime(matches) } },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
@@ -59,14 +69,14 @@ async function rebuildPlayer(player, history) {
     byYear.get(year).push(match);
   }
   const years = [...byYear.keys()];
-  if (years.length) await SeasonStats.deleteMany({ playerId: player._id, year: { $nin: years } });
-  else await SeasonStats.deleteMany({ playerId: player._id });
+  if (years.length) await SeasonStats.deleteMany({ worldId, playerId: player._id, year: { $nin: years } });
+  else await SeasonStats.deleteMany({ worldId, playerId: player._id });
 
   for (const [year, seasonMatches] of byYear) {
     const seasonStats = buildStatistics([player], seasonMatches)[0];
     await SeasonStats.findOneAndUpdate(
-      { playerId: player._id, year },
-      { $set: { stats: seasonStats, matchCount: seasonMatches.length, sourceLatestMatchAt: latestSourceTime(seasonMatches) } },
+      { worldId, playerId: player._id, year },
+      { $set: { worldId, stats: seasonStats, matchCount: seasonMatches.length, sourceLatestMatchAt: latestSourceTime(seasonMatches) } },
       { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     );
   }
@@ -84,13 +94,29 @@ export async function rebuildPlayerStatistics(playerIds) {
     SeasonStats.deleteMany({ playerId: { $in: removed } }),
   ]);
 
+  // A batch may contain players from several Worlds. Split it before loading
+  // match history so no snapshot can be calculated from another World.
+  const grouped = new Map();
+  for (const player of players) {
+    const key = worldKey(worldValue(player));
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(player);
+  }
+
   let rebuilt = 0;
-  for (const batch of chunks(players)) {
-    const history = await Match.find({ "participants.player": { $in: batch.map(player => player._id) } })
-      .select(MATCH_FIELDS).lean();
-    for (const player of batch) {
-      await rebuildPlayer(player, history);
-      rebuilt++;
+  for (const batchPlayers of grouped.values()) {
+    for (const batch of chunks(batchPlayers)) {
+      const worldId = worldValue(batch[0]);
+      const history = await Match.find({
+        worldId,
+        "participants.player": { $in: batch.map(player => player._id) },
+      })
+        .select(MATCH_FIELDS)
+        .lean();
+      for (const player of batch) {
+        await rebuildPlayer(player, history);
+        rebuilt++;
+      }
     }
   }
   return { rebuilt };
@@ -119,17 +145,21 @@ export async function loadPlayerStatistics(players, { year = null } = {}) {
     throw new Error("Choose a valid year.");
   }
 
+  const worldIds = new Set(list.map(player => worldKey(worldValue(player))));
+  if (worldIds.size > 1) {
+    throw new Error("A statistics snapshot can only contain players from one World.");
+  }
+  const worldId = worldValue(list[0]);
   const ids = list.map(player => player._id).filter(Boolean);
   const period = numericYear === null ? {} : dateQuery(numericYear);
   const snapshots = numericYear === null
-    ? await PlayerStats.find({ playerId: { $in: ids } }).lean()
-    : await SeasonStats.find({ playerId: { $in: ids }, year: numericYear }).lean();
+    ? await PlayerStats.find({ worldId, playerId: { $in: ids } }).lean()
+    : await SeasonStats.find({ worldId, playerId: { $in: ids }, year: numericYear }).lean();
   const snapshotById = new Map(snapshots.map(snapshot => [String(snapshot.playerId), snapshot]));
 
-  // Validate snapshot freshness using indexed aggregation metadata instead of
-  // trusting persisted rows indefinitely or loading all history for every read.
+  // Freshness is checked against matches from the same World only.
   const sourceRows = await Match.aggregate([
-    { $match: { "participants.player": { $in: ids }, ...period } },
+    { $match: { worldId, "participants.player": { $in: ids }, ...period } },
     { $unwind: "$participants" },
     { $match: { "participants.player": { $in: ids } } },
     {
@@ -165,10 +195,11 @@ export async function loadPlayerStatistics(players, { year = null } = {}) {
   const rows = new Map(
     [...snapshotById.entries()].map(([playerId, snapshot]) => [playerId, snapshot.stats]),
   );
-  // Missing or stale rows are calculated from only affected-player history.
+  // Missing or stale rows are calculated from the same-World match history.
   // This read path stays read-only; normal mutations/maintenance persist repairs.
   for (const batch of chunks(stalePlayers)) {
     const history = await Match.find({
+      worldId,
       "participants.player": { $in: batch.map(player => player._id) },
       ...period,
     }).select(MATCH_FIELDS).lean();

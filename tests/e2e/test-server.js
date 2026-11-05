@@ -3,7 +3,8 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 process.env.NODE_ENV = "test";
 process.env.E2E_TEST_AUTH_SECRET ||= "gg-matchday-e2e-only-secret";
-process.env.ADMIN_EMAIL = "admin@example.invalid";
+process.env.ADMIN_EMAIL = "admin@gmail.com";
+process.env.GG_PRIMARY_WORLD_SLUG = "original-gg";
 process.env.GEMINI_API_KEY = "";
 process.env.CHAT_ENABLED = "false";
 
@@ -23,6 +24,9 @@ const { default: Player } = await import("../../server/models/Player.js");
 const { default: Match } = await import("../../server/models/Match.js");
 const { default: RatingDispute } = await import("../../server/models/RatingDispute.js");
 const { default: User } = await import("../../server/models/User.js");
+const { default: World } = await import("../../server/models/World.js");
+const { default: WorldMapLayout } = await import("../../server/models/WorldMapLayout.js");
+const { default: WorldMapFacility } = await import("../../server/models/WorldMapFacility.js");
 const { default: Club } = await import("../../server/models/clubs/Club.js");
 const { default: ClubContract } = await import("../../server/models/clubs/ClubContract.js");
 const { default: ClubFormationApplication } = await import("../../server/models/clubs/ClubFormationApplication.js");
@@ -38,6 +42,9 @@ await Promise.all([
   Match.init(),
   RatingDispute.init(),
   User.init(),
+  World.init(),
+  WorldMapLayout.init(),
+  WorldMapFacility.init(),
   Club.init(),
   ClubContract.init(),
   ClubFormationApplication.init(),
@@ -104,20 +111,44 @@ const allPlayers = [
 ];
 await Player.insertMany(allPlayers);
 
+const worldOwner = await User.create({
+  firebaseUid: "e2e-primary-world-owner",
+  name: "GG Test Platform Owner",
+  email: "gg-e2e-owner@gmail.com",
+  emailVerified: true,
+  role: "viewer",
+  platformRole: "user",
+});
+const primaryWorld = await World.create({
+  name: "Original GG",
+  slug: "original-gg",
+  description: "The one shared GG football World.",
+  ownerUserId: worldOwner._id,
+  visibility: "public",
+  joinPolicy: "approval",
+  globalMap: { mapId: "gg-main-v1", slotIndex: 0, x: 0, y: 0 },
+});
+await Player.collection.updateMany(
+  { worldId: null },
+  { $set: { worldId: primaryWorld._id } },
+);
+
 // Formation requires every invitee to already have a linked GG account. These
 // test identities mirror the role/player mapping used by requireAuth's
 // test-only header path and remain confined to this in-memory database.
-await User.insertMany(workflowPlayers.map(({ id }) => ({
+await User.insertMany([...basePlayers, ...workflowPlayers].map(({ id, name }) => ({
   firebaseUid: `e2e-test:editor:${id}`,
-  name: "Playwright editor",
+  name: name || "Playwright editor",
   email: `playwright-editor-${id}@test.invalid`,
   profileImage: "",
   role: "editor",
+  platformRole: "user",
   accessRequest: "none",
   playerProfile: new mongoose.Types.ObjectId(id),
 })));
 
 await Club.create({
+  worldId: primaryWorld._id,
   name: "E2E My Club Regression FC",
   description: "Isolated browser regression fixture.",
   memberIds: basePlayers.map(player => new mongoose.Types.ObjectId(player.id)),
@@ -129,6 +160,7 @@ await Club.create({
 
 async function seedAuctionClub(name, squad) {
   return Club.create({
+    worldId: primaryWorld._id,
     name,
     description: "Isolated Playwright auction workflow fixture.",
     memberIds: squad.slice(0, 4).map(player => new mongoose.Types.ObjectId(player.id)),
@@ -145,6 +177,7 @@ await Promise.all([
 ]);
 
 const ratingExplanationMatch = await Match.create({
+  worldId: primaryWorld._id,
   date: new Date(),
   name: "E2E Rating Explanation Match",
   teamA: { label: "E2E Rating Side A", score: 1 },
@@ -172,16 +205,11 @@ const ratingExplanationMatch = await Match.create({
   events: [{ player: new mongoose.Types.ObjectId(basePlayers[0].id), type: "goal" }],
 });
 
-const ratingDisputeReporter = await User.create({
-  firebaseUid: `e2e-test:viewer:${basePlayers[1].id}`,
-  name: "E2E Dispute Reporter",
-  email: "e2e-rating-dispute-reporter@test.invalid",
-  profileImage: "",
-  role: "viewer",
-  accessRequest: "none",
-  playerProfile: new mongoose.Types.ObjectId(basePlayers[1].id),
+const ratingDisputeReporter = await User.findOne({
+  firebaseUid: `e2e-test:editor:${basePlayers[1].id}`,
 });
 await RatingDispute.create({
+  worldId: primaryWorld._id,
   match: ratingExplanationMatch._id,
   player: new mongoose.Types.ObjectId(basePlayers[1].id),
   submittedBy: ratingDisputeReporter._id,
@@ -213,6 +241,7 @@ await RatingDispute.create({
 
 const adminApplicationMembers = adminOperationsPlayers.map(player => new mongoose.Types.ObjectId(player.id));
 await ClubFormationApplication.create({
+  worldId: primaryWorld._id,
   founderPlayerId: adminApplicationMembers[0],
   memberIds: adminApplicationMembers,
   memberApprovals: adminApplicationMembers.map(playerId => ({ playerId, status: "accepted", respondedAt: new Date() })),

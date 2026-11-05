@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const profileChangeRequestSchema =
   new mongoose.Schema(
     {
+      worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
       requestedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -60,7 +62,8 @@ const profileChangeRequestSchema =
     }
   );
 
-profileChangeRequestSchema.index({ requestedBy: 1 }, { name: "profile_request_pending_unique", unique: true, partialFilterExpression: { status: "pending" } });
+profileChangeRequestSchema.index({ worldId: 1, requestedBy: 1 }, { name: "profile_request_world_pending_unique", unique: true, partialFilterExpression: { status: "pending" } });
+profileChangeRequestSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.model(
   "ProfileChangeRequest",

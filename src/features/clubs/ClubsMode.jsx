@@ -166,6 +166,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [nameSavingId, setNameSavingId] = useState(null);
   const [error, setError] = useState("");
   const [myClubLoadFailed, setMyClubLoadFailed] = useState(false);
+  const [myClubLoadError, setMyClubLoadError] = useState("");
   const [myClubLoadKey, setMyClubLoadKey] = useState(0);
   const [selectedPlayers, setSelectedPlayers] = useState(["", "", "", ""]);
   const [formation, setFormation] = useState("1-2-1");
@@ -649,7 +650,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     if (!authUser) return;
     try {
       setAuctionLoading(true);
-      const data = await api("/clubs/auction/me");
+      const data = await api("/clubs/auction/me", { cacheResponse: false });
       setAuctionState(data || null);
     } catch (e) {
       setError(e.message);
@@ -984,16 +985,21 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           const requestId = failures.map(item => item.error?.requestId).find(Boolean);
           const detail = failures[0].error?.message;
           const reference = requestId && !String(detail || "").includes(requestId) ? ` Reference ID: ${requestId}.` : "";
-          setError(`Couldn’t load ${labels.join(", ").toLowerCase()}. ${detail || "Retry to try again."}${reference}`);
+          const loadError = `Couldn’t load ${labels.join(", ").toLowerCase()}. ${detail || "Retry to try again."}${reference}`;
+          setMyClubLoadError(loadError);
+          setError(loadError);
         } else {
           setMyClubLoadFailed(false);
+          setMyClubLoadError("");
           setError("");
         }
       })
       .catch(requestError => {
         if (!active) return;
         setMyClubLoadFailed(true);
-        setError(requestError.message || "Club details could not be loaded.");
+        const loadError = requestError.message || "Club details could not be loaded.";
+        setMyClubLoadError(loadError);
+        setError(loadError);
       });
 
     return () => {
@@ -1218,7 +1224,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   useEffect(() => {
     if (!authUser || activeSection !== "market") return undefined;
     let active = true;
-    api("/clubs/auction/me")
+    api("/clubs/auction/me", { cacheResponse: false })
       .then(data => {
         if (active) setAuctionState(data || null);
       })
@@ -1308,15 +1314,16 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         </>
       )}
 
-      {error && (
+      {(error || (activeSection === "myClub" && myClubLoadError)) && (
         <div className="clubs-error" role="alert">
-          <span>{error}</span>
-          {activeSection === "myClub" && myClubLoadFailed && (
+          <span>{activeSection === "myClub" && myClubLoadError ? myClubLoadError : error}</span>
+          {activeSection === "myClub" && myClubLoadFailed && myClubLoadError && (
             <button
               type="button"
               className="clubs-error-retry"
               onClick={() => {
                 setError("");
+                setMyClubLoadError("");
                 setMyClubLoadFailed(false);
                 setMyClubLoadKey(key => key + 1);
               }}

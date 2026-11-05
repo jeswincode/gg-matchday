@@ -5,6 +5,7 @@ import { syncClubStatsForMatch } from "./clubsMatchSync.js";
 import { settleClubMatchRewards } from "./clubsMatchSettlement.js";
 import { settleClubMatchBets } from "./clubsBetting.js";
 import { recordProviderObservation } from "./providerHealth.js";
+import { runWithWorldDataScope } from "./worldDataScope.js";
 
 export const CLUB_SYNC_RETRY_BASE_MS = 30_000;
 export const CLUB_SYNC_RETRY_MAX_MS = 60 * 60_000;
@@ -41,8 +42,11 @@ export async function syncMainMatchToClubs(mainMatch) {
 
   const startedAt = Date.now();
   try {
-    const result = await syncClubStatsForMatch(mainMatch);
-    await settleLinkedClubMatches(result);
+    const result = await runWithWorldDataScope(mainMatch?.worldId || null, async () => {
+      const syncResult = await syncClubStatsForMatch(mainMatch);
+      await settleLinkedClubMatches(syncResult);
+      return syncResult;
+    });
     recordProviderObservation("clubs.match-sync", {
       outcome: "success",
       durationMs: Date.now() - startedAt,
@@ -60,25 +64,30 @@ export async function syncMainMatchToClubs(mainMatch) {
 
 export async function enqueueClubSyncJob(mainMatchId, lastError = "") {
   if (!clubsIntegrationConfigured() || !mainMatchId) return null;
+  const mainMatch = await Match.findById(mainMatchId).select("_id worldId").lean();
+  if (!mainMatch) return null;
+
+  const worldId = mainMatch.worldId || null;
   return ClubSyncJob.findOneAndUpdate(
-    { mainMatchId },
+    { worldId, mainMatchId },
     {
       $set: {
+        worldId,
         status: "pending",
         nextAttemptAt: new Date(),
         lockedUntil: null,
         lastError: String(lastError || "").slice(0, 1000),
         completedAt: null,
       },
-      $setOnInsert: { mainMatchId, attempts: 0 },
+      $setOnInsert: { worldId, mainMatchId, attempts: 0 },
     },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 }
 
-export async function completeClubSyncJob(mainMatchId) {
+export async function completeClubSyncJob(mainMatchId, worldId = null) {
   await ClubSyncJob.updateOne(
-    { mainMatchId },
+    { mainMatchId, worldId: worldId || null },
     { $set: { status: "completed", lockedUntil: null, lastError: "", completedAt: new Date() } },
   );
 }
@@ -88,6 +97,7 @@ async function claimClubSyncJob(job) {
   return ClubSyncJob.findOneAndUpdate(
     {
       _id: job._id,
+      worldId: job.worldId || null,
       $or: [
         { status: "pending", nextAttemptAt: { $lte: now } },
         { status: "processing", lockedUntil: { $lte: now } },
@@ -107,17 +117,18 @@ export async function processClubSyncJob(job) {
   if (!claimed) return { claimed: false };
 
   try {
-    const mainMatch = await Match.findById(claimed.mainMatchId).lean();
+    const worldId = claimed.worldId || null;
+    const mainMatch = await Match.findOne({ _id: claimed.mainMatchId, worldId }).lean();
     if (!mainMatch) {
-      await completeClubSyncJob(claimed.mainMatchId);
+      await completeClubSyncJob(claimed.mainMatchId, worldId);
       return { completed: true, missingMatch: true };
     }
     const result = await syncMainMatchToClubs(mainMatch);
-    await completeClubSyncJob(claimed.mainMatchId);
+    await completeClubSyncJob(claimed.mainMatchId, worldId);
     return { completed: true, result };
   } catch (error) {
     await ClubSyncJob.updateOne(
-      { _id: claimed._id, status: "processing" },
+      { _id: claimed._id, worldId: claimed.worldId || null, status: "processing" },
       {
         $set: {
           status: "pending",
@@ -129,6 +140,7 @@ export async function processClubSyncJob(job) {
     );
     console.error("Clubs sync job failed.", {
       mainMatchId: String(claimed.mainMatchId),
+      worldId: claimed.worldId ? String(claimed.worldId) : null,
       errorName: error?.name || "Error",
     });
     return { completed: false, error: error?.message || String(error) };

@@ -31,15 +31,16 @@ The repository contains:
 - `scripts/backup-mongodb-atlas.sh`
 - `scripts/restore-mongodb.sh`
 - `scripts/resolve-mongodb-db-name.mjs`
+- `scripts/mongodb-database-name.mjs`
 - `.github/workflows/mongodb-backup.yml`
 
-The workflow runs daily at **02:30 UTC** and can also be started manually. It backs up both the configured core Matchday database and the separate Clubs database. The core database resolves from `MONGODB_DATABASE`, or from the database path in `MONGODB_URI`, with `test` as the application-consistent fallback. Clubs resolves from `CLUBS_DB_NAME`, or its URI database path, with `gg_matchday_clubs` as the application-consistent fallback. A separate Clubs URI is required unless both connections intentionally share a cluster.
+The workflow runs daily at **02:30 UTC** and can also be started manually. It backs up both the configured core Matchday database and the separate Clubs database. Each database name must be supplied explicitly through `MONGODB_DATABASE` / `CLUBS_DB_NAME` or be present in its corresponding MongoDB URI path. The scripts never guess a database and never silently fall back to MongoDB's `test` default or a guessed Clubs database name. Production backup jobs refuse the `test` database; the explicit `ALLOW_TEST_DATABASE_BACKUP=true` override is not configured in GitHub Actions and should be used only for controlled non-production test backups. A separate Clubs URI is required unless both connections intentionally share a cluster.
 
 The current workflow:
 1. installs MongoDB Database Tools 100.19.0;
 2. temporarily authorizes the GitHub runner IP in Atlas and removes the temporary entry on exit (with an expiry safety net);
 3. creates a compressed `mongodump` archive for each configured database;
-4. encrypts each archive using AES-256-CBC with PBKDF2 (200,000 iterations);
+4. encrypts each archive using the authenticated versioned AES-256-GCM format (with backward-compatible decryption for retained legacy CBC archives);
 5. decrypts and validates gzip integrity;
 6. restores core and Clubs archives into separate temporary databases using explicit namespace remapping;
 7. verifies restored collections/documents and uploads encrypted artifacts only after both isolated restores succeed.
@@ -53,9 +54,9 @@ The isolated restore workflow pins MongoDB to `mongo:8.0.34`. GitHub Actions art
 Configure these required names under **Settings → Secrets and variables → Actions**. Do not put actual values in this document, the repository, or `.env.example`.
 
 - `MONGODB_URI`: core Atlas URI.
-- `MONGODB_DATABASE` (optional): explicit core database name when URI path/default inference is not the intended name.
+- `MONGODB_DATABASE` (optional): explicit core database name when the URI has no database path or the path is not the intended database.
 - `CLUBS_MONGODB_URI`: actual Clubs database URI; use the core URI only when the two application connections intentionally share a cluster.
-- `CLUBS_DB_NAME` (optional): explicit Clubs database name.
+- `CLUBS_DB_NAME` (optional): explicit Clubs database name when the Clubs URI has no database path or its path is not the intended database.
 - `BACKUP_ENCRYPTION_KEY`: strong secret used to encrypt/decrypt backups.
 - `ATLAS_CLIENT_ID`, `ATLAS_CLIENT_SECRET`, `ATLAS_PROJECT_ID`: dedicated Atlas service-account credentials/project ID for temporary network allowlist updates.
 
@@ -73,7 +74,7 @@ Start with an encrypted artifact from a successful backup workflow run and inspe
 
 ```bash
 export MONGODB_URI='mongodb+srv://<credential-redacted-host>/<auth-database>?retryWrites=true&w=majority'
-export MONGODB_DATABASE='test' # source namespace inside this core backup
+export MONGODB_DATABASE='<source-core-database>' # exact source namespace stored in this core backup
 export BACKUP_ENCRYPTION_KEY='<load from an approved secret manager>'
 
 # Step 1: decrypt, validate, and inspect the mapping only.
@@ -89,7 +90,7 @@ bash scripts/restore-mongodb.sh ./backups/gg-matchday-core-<timestamp>.archive.g
   --execute --drop --confirm-target gg_matchday_restore_test
 ```
 
-For a Clubs archive, set `MONGODB_DATABASE` (or `SOURCE_DATABASE`) to the archived Clubs database name, usually `gg_matchday_clubs`, and use the matching verified encrypted Clubs artifact.
+For a Clubs archive, set `MONGODB_DATABASE` (or `SOURCE_DATABASE`) to the exact archived Clubs database name configured for that backup, and use the matching verified encrypted Clubs artifact.
 
 **Production disaster recovery:** verify the artifact, the intended cluster, archived source namespace and target database independently. For an intentional production restore, add `--target-environment production --allow-production --confirm-production <exact-target-db>`; if replacing target collections, also add `--drop --confirm-target <exact-target-db>`. These flags record deliberate operator acknowledgement; they do not identify or certify the safety of the remote cluster. Review the sanitized connection host and namespace mapping before executing. Prefer recovery to a separate cluster first, then use a separately reviewed cutover procedure.
 

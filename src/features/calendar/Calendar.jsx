@@ -1,4 +1,5 @@
 import {useEffect,useState} from "react";
+import { api } from "../../lib/api.js";
 import MatchHistoryCard from "../../components/ui/MatchHistoryCard";
 import SectionHeading from "../../components/ui/SectionHeading";
 
@@ -15,7 +16,7 @@ function monthName(month){
   return new Date(2026,month-1,1).toLocaleString(undefined,{month:"long"});
 }
 
-export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshKey}){
+export default function Calendar({canEdit,onOpen,onEdit,onDelete,refreshKey}){
   const today=new Date();
   const [calendarMonth,setCalendarMonth]=useState(today.getMonth()+1);
   const [calendarYear,setCalendarYear]=useState(today.getFullYear());
@@ -29,9 +30,9 @@ export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshK
     async function loadCalendar(){
       try{
         setCalendarLoading(true);
-        const response=await fetch(`${apiUrl}/stats/calendar?year=${calendarYear}&month=${calendarMonth}`);
-        if(!response.ok) throw new Error("Could not load calendar.");
-        const data=await response.json();
+        const data=await api(`/stats/calendar?year=${calendarYear}&month=${calendarMonth}`, {
+          cacheResponse: false,
+        });
         if(!cancelled) setCalendarMatches(Array.isArray(data.matches)?data.matches:[]);
       }catch(error){
         console.error(error);
@@ -42,7 +43,7 @@ export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshK
     }
     loadCalendar();
     return()=>{cancelled=true;};
-  },[apiUrl,calendarYear,calendarMonth,refreshKey]);
+  },[calendarYear,calendarMonth,refreshKey]);
 
   function matchesForDay(day){
     if(!day) return [];

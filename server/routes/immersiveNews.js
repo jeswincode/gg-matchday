@@ -1,4 +1,5 @@
 import { requireAuth } from "../middleware/auth.js";
+import { requireOptionalWorldMembership, withWorldDataScope } from "../middleware/domainWorldContext.js";
 import { limitAI } from "../services/editorial.js";
 import dotenv from "dotenv";
 import express from "express";
@@ -12,6 +13,7 @@ import { recordProviderObservation, safeProviderFailureReason } from "../service
 dotenv.config();
 
 const router = express.Router();
+router.use(requireOptionalWorldMembership, withWorldDataScope);
 
 const MODEL =
   process.env.GEMINI_MODEL ||

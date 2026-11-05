@@ -6,7 +6,8 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 const TEST_SECRET = "clubs-integration-secret-never-for-production";
 process.env.NODE_ENV = "test";
 process.env.E2E_TEST_AUTH_SECRET = TEST_SECRET;
-process.env.ADMIN_EMAIL = "admin@example.invalid";
+process.env.ADMIN_EMAIL = "admin@gmail.com";
+process.env.GG_PRIMARY_WORLD_SLUG = "original-gg";
 process.env.GEMINI_API_KEY = "";
 process.env.CHAT_ENABLED = "true";
 
@@ -14,6 +15,7 @@ const { default: app } = await import("../server/app.js");
 const { connectClubsDatabase, disconnectClubsDatabase } = await import("../server/config/clubsDatabase.js");
 const { default: Player } = await import("../server/models/Player.js");
 const { default: User } = await import("../server/models/User.js");
+const { default: World } = await import("../server/models/World.js");
 const { default: Club } = await import("../server/models/clubs/Club.js");
 const { default: ClubContract } = await import("../server/models/clubs/ClubContract.js");
 const { default: AuctionOffer } = await import("../server/models/clubs/AuctionOffer.js");
@@ -42,10 +44,11 @@ let auctionClub = null;
 let formedClub = null;
 let formationApplicationId = null;
 
-async function request(path, { role = "viewer", playerId = null, token = TEST_SECRET, method = "GET", body = undefined } = {}) {
+async function request(path, { role = "viewer", worldRole = role === "admin" ? "owner" : role === "editor" ? "editor" : "member", playerId = null, token = TEST_SECRET, method = "GET", body = undefined } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token !== null) headers["X-E2E-Test-Token"] = token;
   if (role) headers["X-E2E-Test-Role"] = role;
+  if (worldRole) headers["X-E2E-Test-World-Role"] = worldRole;
   if (playerId) headers["X-E2E-Test-Player-Id"] = String(playerId);
   const response = await fetch(`${origin}/api${path}`, {
     method,
@@ -62,14 +65,35 @@ before(async () => {
   await connectClubsDatabase();
 
   await Promise.all([
-    Player.init(), User.init(), Club.init(), ClubContract.init(), AuctionOffer.init(),
+    Player.init(), User.init(), World.init(), Club.init(), ClubContract.init(), AuctionOffer.init(),
     ClubWalletTransaction.init(), PlayerWallet.init(), PlayerWalletTransaction.init(), ClubMatch.init(),
     ClubFormationApplication.init(), ClubHistory.init(), ClubAdminAuditEvent.init(), Match.init(), PlayerStats.init(), SeasonStats.init(),
   ]);
 
+  await World.create({
+    name: "Original GG",
+    slug: "original-gg",
+    ownerUserId: new mongoose.Types.ObjectId(),
+    visibility: "public",
+    joinPolicy: "approval",
+    globalMap: { mapId: "gg-main-v1", slotIndex: 0, x: 0, y: 0 },
+  });
+
   players = await Player.create(Array.from({ length: 10 }, (_, index) => ({
     name: `Club Integration Player ${index + 1}`,
     position: "CM",
+  })));
+  // Club formation requires every invited Player to resolve to one GG account.
+  // Each fixture Player receives one unique editor identity, matching the
+  // HMAC-authenticated browser identity used by the integration request helper.
+  await User.insertMany(players.map(player => ({
+    firebaseUid: `e2e-test:editor:${String(player._id)}`,
+    name: player.name,
+    email: `club-fixture-${String(player._id)}@test.invalid`,
+    role: "editor",
+    platformRole: "user",
+    accessRequest: "none",
+    playerProfile: player._id,
   })));
 
   server = app.listen(0, "127.0.0.1");

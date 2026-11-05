@@ -1,12 +1,12 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
-import {api, invalidate} from './lib/api';
+import {api, invalidate, setApiActiveWorld} from './lib/api';
+import {getActiveWorldSlug, worldContextHeaders} from './lib/worldContext.js';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 const LeaderboardView = lazy(() => import('./components/Leaderboard'));
 const Clasico = lazy(() => import('./components/Clasico'));
 const MatchHistoryCard = lazy(() => import('./components/ui/MatchHistoryCard'));
 const PlayersDirectory = lazy(() => import('./features/players/PlayersDirectory'));
 const PlayerProfile = lazy(() => import('./features/players/PlayerProfile'));
-const HomePage = lazy(() => import('./features/home/HomePage'));
 const Calendar = lazy(() => import('./features/calendar/Calendar'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const MatchRecordForm = lazy(() => import('./features/matches/MatchRecordForm'));
@@ -15,9 +15,10 @@ const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
+const GlobalMapPage = lazy(() => import('./features/globalMap/GlobalMapPage'));
+const HomePage = lazy(() => import('./features/home/HomePage'));
 import {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -26,6 +27,10 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   signInWithRedirect,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
   signOut,
 } from "firebase/auth";
 
@@ -40,6 +45,7 @@ const API_URL =
 
 const TABS = {
   HOME: "home",
+  JOURNAL: "journal",
   RECORD: "record",
   LEADERBOARD: "leaderboard",
   CALENDAR: "calendar",
@@ -54,11 +60,6 @@ const TAB_ORDER = [
   TABS.CALENDAR,
   TABS.PLAYERS,
 ];
-
-function toNumber(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
-}
 
 function sameId(a, b) {
   return String(a) === String(b);
@@ -82,7 +83,13 @@ function localDateString(
 }
 
 function App() {
-  const [experience,setExperience]=useState('startup');
+  const [experience,setExperience]=useState(() => {
+    const e2eEnabled = Boolean(import.meta.env.VITE_E2E_TEST_AUTH_SECRET);
+    const e2eRole = new URLSearchParams(window.location.search).get("e2eRole") ||
+      import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
+    // Only the explicit HMAC guest fixture bypasses the branded startup gate.
+    return e2eEnabled && e2eRole === "guest" ? "entry" : "startup";
+  });
   // Product mode is intentionally session-only. A full reload always starts
   // in the main Matchday Home experience, including when the previous mode was Clubs.
   const [productMode,setProductMode]=useState("matchday");
@@ -90,6 +97,7 @@ function App() {
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
   const [refreshKey,setRefreshKey]=useState(0);
+  const [activeWorldSlug,setActiveWorldSlug]=useState(()=>getActiveWorldSlug());
   const [overview,setOverview]=useState(null);
   const [archivePage,setArchivePage]=useState(1);
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
@@ -122,6 +130,9 @@ function App() {
     if (!(target instanceof Element)) return false;
 
     if (target.closest('[role="dialog"]')) return true;
+    if (target.closest("button, a, input, textarea, select, [role='button']")) return true;
+    // The Global Map owns its touch gestures for isometric camera panning.
+    if (target.closest(".gg-global-map-viewport, .gg-world-map-viewport")) return true;
 
     let current=target;
     while (current && current !== document.body) {
@@ -224,8 +235,34 @@ function App() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
-  useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
-  useEffect(()=>{api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey]);
+  useEffect(()=>{
+    const changed=()=>{
+      setActiveWorldSlug(getActiveWorldSlug());
+      setRefreshKey(n=>n+1);
+    };
+    window.addEventListener('gg-data-changed',changed);
+    return()=>window.removeEventListener('gg-data-changed',changed);
+  },[]);
+
+  useEffect(() => {
+    const handleWorldAccessLost = event => {
+      setApiActiveWorld(null);
+      setWorldMembership(null);
+      setActiveTab(TABS.HOME);
+      setProductMode("matchday");
+      setMessage(event?.detail?.message || "Your GG World access could not be verified. Please sign in again.");
+    };
+    const handleClubsAccessLost = event => {
+      setProductMode("matchday");
+      setMessage(event?.detail?.message || "Your GG World role no longer permits Clubs access.");
+    };
+    window.addEventListener("gg-world-access-lost", handleWorldAccessLost);
+    window.addEventListener("gg-clubs-access-lost", handleClubsAccessLost);
+    return () => {
+      window.removeEventListener("gg-world-access-lost", handleWorldAccessLost);
+      window.removeEventListener("gg-clubs-access-lost", handleClubsAccessLost);
+    };
+  }, []);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
 
@@ -237,6 +274,11 @@ function App() {
     activeTab,
     setActiveTab,
   ] = useState(TABS.HOME);
+
+  useEffect(() => {
+    if (activeTab === TABS.HOME) return;
+    api("/stats/overview").then(setOverview).catch(() => {});
+  }, [refreshKey, activeTab]);
 
   // =========================================================
   // AUTH
@@ -253,14 +295,22 @@ function App() {
   ] = useState(null);
 
   const [
+    worldMembership,
+    setWorldMembership,
+  ] = useState(null);
+
+  const [
     authLoading,
     setAuthLoading,
-  ] = useState(
-    Boolean(auth) || Boolean(
-      import.meta.env.VITE_E2E_TEST_AUTH_SECRET &&
-      new URLSearchParams(window.location.search).get("e2eRole") !== "guest",
-    ),
-  );
+  ] = useState(() => {
+    const hasE2EAuth = Boolean(import.meta.env.VITE_E2E_TEST_AUTH_SECRET);
+    const e2eRole = new URLSearchParams(window.location.search).get("e2eRole") ||
+      import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
+    // Explicit HMAC guest mode must bypass Firebase session restoration,
+    // even when the CI environment also has Firebase configuration.
+    if (hasE2EAuth) return e2eRole !== "guest";
+    return Boolean(auth);
+  });
 
   const [
     message,
@@ -281,10 +331,7 @@ function App() {
     setMatches,
   ] = useState([]);
 
-  const [
-    news,
-    setNews,
-  ] = useState([]);
+  const [news, setNews] = useState([]);
 
   const [
     leaderboard,
@@ -301,10 +348,7 @@ function App() {
     setLoadingMatches,
   ] = useState(true);
 
-  const [
-    newsLoading,
-    setNewsLoading,
-  ] = useState(true);
+  const [newsLoading, setNewsLoading] = useState(true);
 
   const [
     ,
@@ -489,18 +533,65 @@ function App() {
   const isSignedIn =
     Boolean(authUser);
 
-  const isAdmin =
-    backendUser?.role ===
-    "admin";
+  // Revalidate the World membership when a signed-in user returns to any
+  // private Matchday or Clubs surface. The Global Map performs this check
+  // itself while Home is mounted; this covers the other product surfaces.
+  useEffect(() => {
+    if (!isSignedIn || !activeWorldSlug || (activeTab === TABS.HOME && productMode !== "clubs")) {
+      return undefined;
+    }
 
-  const isEditor =
-    backendUser?.role ===
-      "editor" ||
-    isAdmin;
+    let active = true;
+    const revalidate = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const result = await api("/worlds/me", { cacheResponse: false });
+        if (!active) return;
+        const membership = result?.worlds?.find(item => item.slug === activeWorldSlug)?.membership || null;
+        setWorldMembership(membership);
+        if (membership?.status !== "active") {
+          window.dispatchEvent(new CustomEvent("gg-world-access-lost", {
+            detail: {
+              code: "WORLD_MEMBERSHIP_REQUIRED",
+              message: "Access to the GG football World is no longer active. Contact the platform administrator.",
+            },
+          }));
+          return;
+        }
+        if (productMode === "clubs" &&
+            !["owner", "admin", "editor", "member"].includes(membership.role)) {
+          window.dispatchEvent(new CustomEvent("gg-clubs-access-lost", {
+            detail: {
+              code: "WORLD_CAPABILITY_REQUIRED",
+              capability: "clubs:participate",
+              message: "Your GG World role no longer permits Clubs access.",
+            },
+          }));
+        }
+      } catch (error) {
+        if (!active) return;
+        if (error?.status === 401 || error?.status === 403) {
+          // api() also emits the global access-loss event for these statuses.
+          setProductMode("matchday");
+        }
+      }
+    };
 
-  const hasPendingRequest =
-    backendUser?.accessRequest ===
-    "pending";
+    window.addEventListener("focus", revalidate);
+    document.addEventListener("visibilitychange", revalidate);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", revalidate);
+      document.removeEventListener("visibilitychange", revalidate);
+    };
+  }, [isSignedIn, activeWorldSlug, activeTab, productMode]);
+
+  const isAdmin = backendUser?.platformRole === "platform_admin";
+
+  const isEditor = isAdmin || (
+    worldMembership?.status === "active" &&
+    ["editor", "owner", "admin"].includes(worldMembership.role)
+  );
 
   // =========================================================
   // AUTH STATE
@@ -535,11 +626,13 @@ function App() {
             getIdToken: async () => "",
           });
           setBackendUser(data.user || null);
+          setWorldMembership(null);
           setMessage("");
         })
         .catch(error => {
           if (!active) return;
           setBackendUser(null);
+          setWorldMembership(null);
           setMessage(`Test authentication failed: ${error.message}`);
         })
         .finally(() => {
@@ -559,6 +652,7 @@ function App() {
 
       if (!firebaseUser) {
         setBackendUser(null);
+        setWorldMembership(null);
         setAuthLoading(false);
         return;
       }
@@ -582,12 +676,14 @@ function App() {
 
         if (!active) return;
         setBackendUser(data.user || null);
+        setWorldMembership(null);
         setMessage("");
       } catch (error) {
         console.error("Auth sync error:", error);
 
         if (!active) return;
         setBackendUser(null);
+        setWorldMembership(null);
         setMessage(`Could not sync your account: ${error.message}`);
       } finally {
         if (active) setAuthLoading(false);
@@ -630,17 +726,6 @@ function App() {
     setExperience("app");
   }
 
-  // =========================================================
-  // INITIAL LOAD
-  // =========================================================
-
-  useEffect(() => {
-    loadPlayers();
-    loadMatches();
-    loadNews();
-    loadLeaderboard("all");
-    loadAwards();
-}, []);
 
   // =========================================================
   // LOADERS
@@ -650,10 +735,7 @@ function App() {
     try {
       setLoadingPlayers(true);
 
-      const response =
-        await fetch(
-          `${API_URL}/players`
-        );
+      const response = await authenticatedFetch(`${API_URL}/players`);
 
       if (!response.ok) {
         throw new Error(
@@ -683,10 +765,7 @@ function App() {
     try {
       setLoadingMatches(true);
 
-      const response =
-        await fetch(
-          `${API_URL}/matches?page=${page}&limit=50`
-        );
+      const response = await authenticatedFetch(`${API_URL}/matches?page=${page}&limit=50`);
 
       if (!response.ok) {
         throw new Error(
@@ -722,10 +801,7 @@ function App() {
     try {
       setNewsLoading(true);
 
-      const response =
-        await fetch(
-          `${API_URL}/news?limit=12`
-        );
+      const response = await authenticatedFetch(`${API_URL}/news?limit=12`);
 
       if (!response.ok) {
         throw new Error(
@@ -778,8 +854,7 @@ function App() {
           `&month=${now.getMonth() + 1}`;
       }
 
-      const response =
-        await fetch(url);
+      const response = await authenticatedFetch(url);
 
       if (!response.ok) {
         throw new Error(
@@ -820,12 +895,8 @@ function App() {
         yearResponse,
         monthResponse,
       ] = await Promise.all([
-        fetch(
-          `${API_URL}/stats/awards?year=${year}`
-        ),
-        fetch(
-          `${API_URL}/stats/awards?year=${year}&month=${month}`
-        ),
+        authenticatedFetch(`${API_URL}/stats/awards?year=${year}`),
+        authenticatedFetch(`${API_URL}/stats/awards?year=${year}&month=${month}`),
       ]);
 
       if (
@@ -879,6 +950,7 @@ function App() {
         ...options,
         headers: {
           ...(options.headers || {}),
+          ...worldContextHeaders(),
           "X-E2E-Test-Token": import.meta.env.VITE_E2E_TEST_AUTH_SECRET,
           "X-E2E-Test-Role": role,
           ...(playerId ? { "X-E2E-Test-Player-Id": playerId } : {}),
@@ -905,6 +977,7 @@ function App() {
         headers: {
           ...(options.headers ||
             {}),
+          ...worldContextHeaders(),
 
           Authorization:
             `Bearer ${token}`,
@@ -912,6 +985,21 @@ function App() {
       }
     );
   }
+
+  // =========================================================
+  // INITIAL LOAD
+  // =========================================================
+
+  const initialFootballDataLoaded = useRef(false);
+  useEffect(() => {
+    if (activeTab === TABS.HOME || initialFootballDataLoaded.current) return;
+    initialFootballDataLoaded.current = true;
+    loadPlayers();
+    loadMatches();
+    loadNews();
+    loadLeaderboard("all");
+    loadAwards();
+  }, [activeTab, loadPlayers, loadMatches, loadNews, loadLeaderboard, loadAwards]);
 
   // =========================================================
   // LOGIN / LOGOUT
@@ -967,23 +1055,92 @@ function App() {
     }
   }
 
+  function authErrorMessage(error) {
+    const messages = {
+      "auth/invalid-email": "Enter a valid email address.",
+      "auth/user-not-found": "No account was found with that email.",
+      "auth/wrong-password": "The password is incorrect.",
+      "auth/invalid-credential": "The email or password is incorrect.",
+      "auth/email-already-in-use": "An account already exists with this email. Try signing in.",
+      "auth/weak-password": "Choose a stronger password with at least 6 characters.",
+      "auth/too-many-requests": "Too many attempts. Wait a moment and try again.",
+      "auth/network-request-failed": "A network error interrupted sign-in. Check your connection.",
+      "auth/operation-not-allowed": "Email and password sign-in is not enabled in the Firebase project yet.",
+    };
+    return messages[error?.code] || "Authentication could not be completed. Please try again.";
+  }
+
+  async function signInWithEmail(email, password) {
+    if (!auth) {
+      setMessage("Sign-in is not configured for this environment yet.");
+      return false;
+    }
+    try {
+      setMessage("");
+      setAuthLoading(true);
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
+    } catch (error) {
+      console.error("Email sign-in error:", error);
+      setAuthLoading(false);
+      setMessage(authErrorMessage(error));
+      return false;
+    }
+  }
+
+  async function createEmailAccount(email, password) {
+    if (!auth) {
+      setMessage("Sign-in is not configured for this environment yet.");
+      return false;
+    }
+    try {
+      setMessage("");
+      setAuthLoading(true);
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      try {
+        await sendEmailVerification(credential.user);
+        setMessage("Your GG account is ready. Check your inbox to verify your email address.");
+      } catch (verificationError) {
+        console.warn("Email verification could not be sent:", verificationError);
+        setMessage("Your GG account is ready. You can request an email verification link from your account settings later.");
+      }
+      return true;
+    } catch (error) {
+      console.error("Email account creation error:", error);
+      setAuthLoading(false);
+      setMessage(authErrorMessage(error));
+      return false;
+    }
+  }
+
+  async function resetEmailPassword(email) {
+    if (!auth) {
+      setMessage("Sign-in is not configured for this environment yet.");
+      return false;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (error) {
+      console.error("Password reset request error:", error);
+      setMessage(authErrorMessage(error));
+      return false;
+    }
+  }
+
   async function logout() {
     try {
-      await signOut(auth);
+      if (auth) await signOut(auth);
 
+      // Clear the in-memory identity immediately as well as relying on
+      // Firebase's observer. This also covers the isolated E2E auth adapter,
+      // which deliberately has no Firebase Auth instance.
+      setAuthUser(null);
+      setApiActiveWorld(null);
       setBackendUser(null);
-
-      if (
-        activeTab ===
-          TABS.RECORD ||
-        activeTab ===
-          TABS.ADMIN
-      ) {
-        setActiveTab(
-          TABS.HOME
-        );
-      }
-
+      setWorldMembership(null);
+      setActiveTab(TABS.HOME);
+      setProductMode("matchday");
       setExperience("entry");
       setMessage(
         "Signed out."
@@ -993,60 +1150,6 @@ function App() {
 
       setMessage(
         "Could not sign out."
-      );
-    }
-  }
-
-  // =========================================================
-  // EDITOR REQUEST
-  // =========================================================
-
-  async function requestEditorAccess() {
-    if (!isSignedIn) {
-      setMessage(
-        "Sign in first."
-      );
-      return;
-    }
-
-    try {
-      const response =
-        await authenticatedFetch(
-          `${API_URL}/auth/request-editor`,
-          {
-            method:
-              "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Could not submit request."
-        );
-      }
-
-      setBackendUser(
-        data.user ||
-          backendUser
-      );
-
-      setMessage(
-        "Editor access request submitted."
-      );
-    } catch (error) {
-      console.error(error);
-
-      setMessage(
-        error.message ||
-          "Could not submit editor request."
       );
     }
   }
@@ -1670,56 +1773,9 @@ function App() {
     });
   }
 
-  const teamAPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-            "A"
-        ),
-      [players, teams]
-    );
-
-  const teamBPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-            "B"
-        ),
-      [players, teams]
-    );
-
-  const assignedPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-              "A" ||
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-              "B"
-        ),
-      [players, teams]
-    );
+  const teamAPlayers = players.filter(player => teams[String(player._id)] === "A");
+  const teamBPlayers = players.filter(player => teams[String(player._id)] === "B");
+  const assignedPlayers = players.filter(player => ["A", "B"].includes(teams[String(player._id)]));
 
   const teamANormalScore =
     teamAPlayers.reduce(
@@ -2286,74 +2342,26 @@ function App() {
   // HOME
   // =========================================================
 
-  const latestMatch =
-    matches[0] ||
-    null;
+  // =========================================================
+  // MATCHDAY JOURNAL
+  // =========================================================
 
-  const latestGoals =
-    latestMatch?.events?.filter(
-      (event) =>
-        event.type ===
-        "goal"
-    ) || [];
-
-  const latestScorers =
-    Object.values(
-      latestGoals.reduce(
-        (
-          result,
-          event
-        ) => {
-          const id =
-            String(
-              event.player?._id ||
-                event.player
-            );
-
-          if (
-            !result[id]
-          ) {
-            result[id] = {
-              name:
-                event.player?.name ||
-                "Player",
-              goals:
-                0,
-            };
-          }
-
-          result[id].goals +=
-            1;
-
-          return result;
-        },
-        {}
-      )
-    ).sort(
-      (a, b) =>
-        b.goals -
-        a.goals
-    );
-
-  const latestTopScorer =
-    latestScorers[0] ||
-    null;
-
-  const totalAllTimeGoals =
-    matches.reduce(
-      (
-        total,
-        match
-      ) =>
-        total +
-        toNumber(
-          match.teamA?.score
-        ) +
-        toNumber(
-          match.teamB?.score
-        ),
-      0
-    );
+  const latestMatch = matches[0] || null;
+  const latestTopScorer = latestMatch
+    ? Object.values((latestMatch.events || [])
+      .filter(event => event.type === "goal")
+      .reduce((result, event) => {
+        const playerId = String(event.player?._id || event.player);
+        if (!result[playerId]) {
+          result[playerId] = { name: event.player?.name || "Player", goals: 0 };
+        }
+        result[playerId].goals += 1;
+        return result;
+      }, {}))
+      .sort((first, second) => second.goals - first.goals)[0] || null
+    : null;
+  const totalAllTimeGoals = matches.reduce((total, match) =>
+    total + (Number(match.teamA?.score) || 0) + (Number(match.teamB?.score) || 0), 0);
 
   // =========================================================
   // RENDER
@@ -2363,6 +2371,8 @@ function App() {
     experience === "entry" && authUser && !authLoading
       ? "welcome"
       : experience;
+  const canAccessClubs = isAdmin ||
+    ["owner", "admin", "editor", "member"].includes(worldMembership?.role);
 
   const modeTransitionLayer = modeTransition ? (
     <div className={`product-mode-transition product-mode-transition--${modeTransition}`} aria-hidden="true">
@@ -2380,7 +2390,7 @@ function App() {
     return (
       <>
         <Suspense fallback={<div className="loading-panel">Opening Clubs…</div>}>
-          <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
+          <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={{ ...backendUser, playerProfile: worldMembership?.playerProfileId || backendUser?.playerProfile || null }} isAdmin={isAdmin} />
         </Suspense>
         {modeTransitionLayer}
       </>
@@ -2392,11 +2402,113 @@ function App() {
   }
 
   if (activeExperience === "entry") {
-    return <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} message={message} />;
+    return (
+      <LoginDashboard
+        onSignIn={signIn}
+        onEmailSignIn={signInWithEmail}
+        onCreateAccount={createEmailAccount}
+        onPasswordReset={resetEmailPassword}
+        onGuest={enterGuestMode}
+        busy={authLoading}
+        message={message}
+      />
+    );
   }
 
   if (activeExperience === "welcome") {
     return <WelcomeScreen onEnter={() => setExperience("app")} />;
+  }
+
+  // Home is the full-screen Global Map / current World's local map.
+  // The remaining five destinations stay in the existing Matchday shell.
+  if (activeTab !== TABS.HOME && !activeWorldSlug) {
+    return (
+      <main className="gg-world-required-screen">
+        <div className="gg-world-required-card">
+          <span className="gg-refined-eyebrow">CHOOSE YOUR FOOTBALL WORLD</span>
+          <h1>Your Matchday starts inside a World.</h1>
+          <p>GG keeps players, matches, ratings, Clubs and community activity separate for every World. Choose one before opening these sections.</p>
+          <button type="button" onClick={() => setActiveTab(TABS.HOME)}>Explore the Global Map</button>
+          <nav className="gg-world-required-nav" aria-label="Main navigation">
+            <button type="button" className="active" onClick={() => setActiveTab(TABS.HOME)}>🌍 <span>Home</span></button>
+            <button type="button" onClick={() => setActiveTab(TABS.RECORD)}>＋ <span>Record</span></button>
+            <button type="button" onClick={() => setActiveTab(TABS.LEADERBOARD)}>🏆 <span>Leaderboard</span></button>
+            <button type="button" onClick={() => setActiveTab(TABS.CALENDAR)}>📅 <span>Calendar</span></button>
+            <button type="button" onClick={() => setActiveTab(TABS.PLAYERS)}>👥 <span>Players</span></button>
+          </nav>
+        </div>
+      </main>
+    );
+  }
+
+  if (activeTab === TABS.HOME) {
+    return (
+      <>
+        <Suspense fallback={<div className="gg-map-loading">Opening the football universe…</div>}>
+          <GlobalMapPage
+            isSignedIn={isSignedIn}
+            authUser={authUser}
+            backendUser={backendUser}
+            onWorldMembershipChange={setWorldMembership}
+            onMessage={setMessage}
+            onSignIn={() => setExperience("entry")}
+            onSignOut={logout}
+            onNavigateTab={setActiveTab}
+            theme={theme}
+            onThemeChange={setTheme}
+            isAdmin={isAdmin}
+            message={message}
+            onClearMessage={() => setMessage("")}
+            onOpenClubs={() => switchProductMode("clubs")}
+            onTouchStart={handleAppTouchStart}
+            onTouchMove={handleAppTouchMove}
+            onTouchEnd={handleAppTouchEnd}
+          />
+        </Suspense>
+        {modeTransitionLayer}
+      </>
+    );
+  }
+
+  if (activeTab === TABS.JOURNAL) {
+    return (
+      <Suspense fallback={<div className="loading-panel">Opening the Matchday Journal…</div>}>
+        <main className="app">
+          <header className="topbar">
+            <div>
+              <p className="eyebrow">GG MATCHDAY</p>
+              <h1>Matchday Journal</h1>
+            </div>
+            <button type="button" className="secondary-button" onClick={() => {
+              setApiActiveWorld(null);
+              setActiveWorldSlug(null);
+              setActiveTab(TABS.HOME);
+            }}>
+              ← Back to World Map
+            </button>
+          </header>
+          <HomePage
+            latestMatch={latestMatch}
+            latestTopScorer={latestTopScorer}
+            players={players}
+            matches={matches}
+            overview={overview}
+            totalAllTimeGoals={totalAllTimeGoals}
+            news={news}
+            newsLoading={newsLoading}
+            leaderboard={leaderboard}
+            onHallOfFame={() => setModal("hall")}
+            onPlayer={showPlayer}
+            onLeaderboard={() => setActiveTab(TABS.LEADERBOARD)}
+            onOpenPlayer={player => {
+              openPlayerProfile(player);
+              setActiveTab(TABS.PLAYERS);
+            }}
+          />
+          {modal === "hall" && <HallOfFame onClose={closeModal} onPlayer={showPlayer} />}
+        </main>
+      </Suspense>
+    );
   }
 
   return (
@@ -2428,7 +2540,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions">{canAccessClubs && <button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button>}<div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2483,25 +2595,6 @@ function App() {
             </div>
 
             <div className="account-actions">
-
-              {!isEditor &&
-                !hasPendingRequest && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={
-                      requestEditorAccess
-                    }
-                  >
-                    Request Editor Access
-                  </button>
-                )}
-
-              {hasPendingRequest && (
-                <span className="request-pending">
-                  Request pending
-                </span>
-              )}
 
               {isAdmin && (
                 <button
@@ -2575,26 +2668,7 @@ function App() {
           HOME
       ===================================================== */}
 
-      {activeTab === TABS.HOME && (
-        <HomePage
-          latestMatch={latestMatch}
-          latestTopScorer={latestTopScorer}
-          players={players}
-          matches={matches}
-          overview={overview}
-          totalAllTimeGoals={totalAllTimeGoals}
-          news={news}
-          newsLoading={newsLoading}
-          leaderboard={leaderboard}
-          onHallOfFame={() => setModal('hall')}
-          onPlayer={showPlayer}
-          onLeaderboard={() => setActiveTab(TABS.LEADERBOARD)}
-          onOpenPlayer={(player) => {
-            openPlayerProfile(player);
-            setActiveTab(TABS.PLAYERS);
-          }}
-        />
-      )}
+      {/* Home is rendered as the full-screen Global Map above. */}
 
       {/* =====================================================
           RECORD
@@ -2802,7 +2876,7 @@ function App() {
       {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer}/>}
       {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer}/>}
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
-      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
+      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={worldMembership?.playerProfileId || backendUser?.playerProfile}/>}
       </Suspense>
       {modeTransitionLayer}
     </main>

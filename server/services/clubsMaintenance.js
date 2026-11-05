@@ -3,8 +3,9 @@ import ClubMatch from "../models/clubs/ClubMatch.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { CLUB_MATCH_REQUEST_TTL_HOURS } from "../config/clubsRules.js";
+import { runWithWorldDataScope } from "./worldDataScope.js";
 
-export async function runClubsMaintenance(now = new Date()) {
+async function runClubsMaintenanceForWorld(now = new Date()) {
   const connection = getClubsConnection();
   if (connection.readyState !== 1) return { skipped: true };
 
@@ -97,6 +98,32 @@ export async function runClubsMaintenance(now = new Date()) {
   }
 
   return { expiredClubMatches: expiredMatches.modifiedCount || 0, expiredAuctionOffers: (expiredOffers.modifiedCount || 0) + (legacyChosenOffers.modifiedCount || 0) + (legacyActiveOffers.modifiedCount || 0), clubsReconciled };
+}
+
+export async function runClubsMaintenance(now = new Date()) {
+  const connection = getClubsConnection();
+  if (connection.readyState !== 1) return { skipped: true };
+
+  const worldIds = await Club.distinct("worldId", {});
+  const scopes = worldIds.length ? worldIds : [null];
+  const totals = {
+    expiredClubMatches: 0,
+    expiredAuctionOffers: 0,
+    clubsReconciled: 0,
+    worldsProcessed: 0,
+  };
+
+  for (const worldId of scopes) {
+    const result = await runWithWorldDataScope(worldId || null, () =>
+      runClubsMaintenanceForWorld(now),
+    );
+    if (result?.skipped) continue;
+    totals.worldsProcessed += 1;
+    totals.expiredClubMatches += result.expiredClubMatches || 0;
+    totals.expiredAuctionOffers += result.expiredAuctionOffers || 0;
+    totals.clubsReconciled += result.clubsReconciled || 0;
+  }
+  return totals;
 }
 
 export function startClubsMaintenanceWorker(intervalMs = 60_000) {

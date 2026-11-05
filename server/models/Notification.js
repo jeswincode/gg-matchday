@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
+import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const notificationSchema = new mongoose.Schema(
   {
+    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     title: {
       type: String,
       required: true,
@@ -45,6 +47,8 @@ notificationSchema.index(
   { expiresAt: 1 },
   { expireAfterSeconds: 0 }
 );
-notificationSchema.index({ createdAt: -1 });
+notificationSchema.index({ worldId: 1, createdAt: -1 });
+
+notificationSchema.plugin(worldDataScopePlugin);
 
 export default mongoose.model("Notification", notificationSchema);

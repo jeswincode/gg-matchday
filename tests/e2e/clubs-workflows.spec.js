@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { enterWorldFromGlobalMap, openLinkedWorld } from "./helpers/world.js";
 
 const FORMATION_PLAYERS = [
   { id: "65a000000000000000000011", name: "E2E Formation Founder" },
@@ -50,6 +51,7 @@ async function loadClubs(page, actor) {
   await page.goto(actorUrl(actor));
   await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterWorldFromGlobalMap(page);
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   const linkedPlayerId = actor.playerId || actor.id;
@@ -326,4 +328,72 @@ test("auction signing reserves budget and settles only after player choice and b
   } finally {
     await Promise.allSettled(pages.map(page => page.close()));
   }
+});
+
+test("viewer can enter the shared World but cannot navigate to or call private Clubs APIs", async ({ page }) => {
+  await openLinkedWorld(page, { role: "viewer" });
+
+  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
+
+  const membershipResponse = await page.request.get("http://127.0.0.1:5000/api/worlds/me", {
+    headers: {
+      "X-E2E-Test-Token": "gg-matchday-e2e-only-secret",
+      "X-E2E-Test-Role": "viewer",
+      "X-World-Slug": "original-gg",
+    },
+  });
+  const membershipPayload = await membershipResponse.json().catch(() => ({}));
+  expect(membershipResponse.status(), JSON.stringify(membershipPayload)).toBe(200);
+  expect(membershipPayload.worlds?.[0]?.membership?.role).toBe("viewer");
+  expect(membershipPayload.worlds?.[0]?.membership?.status).toBe("active");
+  await expect(page.getByRole("button", { name: "Clubs", exact: true })).toHaveCount(0);
+
+  const response = await page.request.get("http://127.0.0.1:5000/api/clubs/meta", {
+    headers: {
+      "X-E2E-Test-Token": "gg-matchday-e2e-only-secret",
+      "X-E2E-Test-Role": "viewer",
+      "X-World-Slug": "original-gg",
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  expect(response.status(), JSON.stringify(payload)).toBe(403);
+  expect(payload.code).toBe("WORLD_CAPABILITY_REQUIRED");
+  expect(payload.capability).toBe("clubs:participate");
+
+  const historyResponse = await page.request.get(
+    "http://127.0.0.1:5000/api/clubs/player/65a000000000000000000001/history",
+    {
+      headers: {
+        "X-E2E-Test-Token": "gg-matchday-e2e-only-secret",
+        "X-E2E-Test-Role": "viewer",
+        "X-World-Slug": "original-gg",
+      },
+    },
+  );
+  const historyPayload = await historyResponse.json().catch(() => ({}));
+  expect(historyResponse.status(), JSON.stringify(historyPayload)).toBe(403);
+  expect(historyPayload.code).toBe("WORLD_CAPABILITY_REQUIRED");
+  expect(historyPayload.capability).toBe("clubs:participate");
+});
+
+test("an open Clubs session returns to Matchday when membership loses Clubs capability", async ({ page }) => {
+  await openLinkedWorld(page, { role: "editor" });
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.locator(".clubs-app")).toBeVisible();
+
+  await page.route("**/api/worlds/me", route => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      worlds: [{
+        slug: "original-gg",
+        membership: { role: "viewer", status: "active", playerProfileId: null },
+      }],
+    }),
+  }));
+
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.locator(".clubs-app")).toHaveCount(0);
+  await expect(page.locator(".gg-world-screen-interior")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clubs", exact: true })).toHaveCount(0);
 });

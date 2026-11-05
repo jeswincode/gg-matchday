@@ -335,10 +335,10 @@ test("Clubs admin dashboard uses the persisted operations API and exposes queue/
   assert.match(component, /data-severity=\{item\.severity\}/);
   assert.match(component, /Review & settle/);
   assert.match(component, /Retry canonical sync/);
-  assert.match(routes, /router\.get\("\/admin\/operations\/summary", requireAuth, requireAdmin/);
-  assert.match(routes, /router\.get\("\/admin\/operations\/queue", requireAuth, requireAdmin/);
-  assert.match(routes, /router\.get\("\/admin\/operations\/activity", requireAuth, requireAdmin/);
-  assert.match(routes, /router\.post\("\/admin\/operations\/sync\/:jobId\/retry", requireAuth, requireAdmin/);
+  assert.ok(routes.includes('router.get("/admin/operations/summary", requireAuth, requireDomainCapability("clubs:manage", requireAdmin)'));
+  assert.ok(routes.includes('router.get("/admin/operations/queue", requireAuth, requireDomainCapability("clubs:manage", requireAdmin)'));
+  assert.ok(routes.includes('router.get("/admin/operations/activity", requireAuth, requireDomainCapability("clubs:manage", requireAdmin)'));
+  assert.ok(routes.includes('router.post("/admin/operations/sync/:jobId/retry", requireAuth, requireDomainCapability("clubs:manage", requireAdmin)'));
   assert.match(routes, /writeClubAdminAudit/);
   assert.match(auditModel, /collection: "clubAdminAuditEvents"/);
   assert.match(auditModel, /outcome: \{ type: String, enum: \["success", "failed", "requested"\]/);
