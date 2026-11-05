@@ -5,6 +5,12 @@ import { WORLD_COSMETIC_CATALOG } from "../../shared/worldCustomization.js";
 import { FREE_AVATAR_OPTIONS } from "../../shared/worldAvatarOptions.js";
 import "./original-gg.css";
 
+function formatProfileDate(value) {
+  if (!value) return "Not set";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Not set" : date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
+
 const defaults = { displayName:"", appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"} };
 const labels = {skinTone:"Skin tone",bodyType:"Body build",hairStyle:"Hair style",hairColor:"Hair colour",kitPrimary:"Kit colour",kitSecondary:"Kit trim",bootColor:"Boots",headAccessory:"Headwear"};
 
@@ -92,6 +98,27 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
         <div className="gg-profile-account-avatar">{authUser?.photoURL?<img src={authUser.photoURL} alt=""/>:<span>{(authUser?.displayName||authUser?.email||"G").charAt(0).toUpperCase()}</span>}</div>
         <div className="gg-profile-account-copy"><span>GG MATCHDAY ACCOUNT</span><h2>{authUser?.displayName||"GG Matchday Player"}</h2><p>{authUser?.email||"Signed-in account"}</p><div><small>{backendUser?.role||"player"}</small><small>{linked?"GG player profile linked":"Player profile not linked"}</small></div></div>
         <div className="gg-profile-stat"><span>PLAYER IDENTITY</span><strong>{player?.name|| (linked?"Linked":"Not linked")}</strong><small>{player?.position||"Footballer"}</small></div>
+      </section>
+      <section className="gg-world-panel gg-profile-player-details">
+        <div className="gg-world-section-title"><span>YOUR MATCHDAY PLAYER PROFILE</span><h2>{player?.name||"Link your player profile"}</h2><p>Football details and profile information from your existing GG player record.</p></div>
+        {player ? <>
+          <div className="gg-profile-player-hero">
+            {player.profileImage ? <img src={player.profileImage} alt={player.name+" profile"} /> : <div className="gg-profile-player-monogram">{player.name?.charAt(0)||"G"}</div>}
+            <div><span>LINKED GG PLAYER</span><h3>{player.name}</h3><p>{player.bio||"Your football story starts here. Your player profile remains linked to your Matchday history."}</p></div>
+          </div>
+          <div className="gg-profile-player-grid">
+            <article><span>PRIMARY POSITION</span><strong>{player.position||"Not set"}</strong></article>
+            <article><span>PREFERRED POSITIONS</span><strong>{player.preferredPositions?.length?player.preferredPositions.join(" · "):"Not set"}</strong></article>
+            <article><span>JERSEY NUMBER</span><strong>{player.jerseyNumber===null||player.jerseyNumber===undefined?"Not set":"#"+player.jerseyNumber}</strong></article>
+            <article><span>PREFERRED FOOT</span><strong>{player.preferredFoot||"Not set"}</strong></article>
+            <article><span>HEIGHT</span><strong>{player.height?player.height+" cm":"Not set"}</strong></article>
+            <article><span>WEIGHT</span><strong>{player.weight?player.weight+" kg":"Not set"}</strong></article>
+            <article><span>DATE OF BIRTH</span><strong>{formatProfileDate(player.dateOfBirth)}</strong></article>
+            <article><span>PLAYER SINCE</span><strong>{formatProfileDate(player.createdAt)}</strong></article>
+            {player.ovrSnapshot?.matchesPlayed!==undefined&&<article><span>MATCHES PLAYED</span><strong>{player.ovrSnapshot.matchesPlayed}</strong></article>}
+            {player.ovrSnapshot?.currentOvr!==null&&player.ovrSnapshot?.currentOvr!==undefined&&<article><span>CURRENT OVR</span><strong>{player.ovrSnapshot.currentOvr}</strong></article>}
+          </div>
+        </> : <p className="gg-profile-player-empty">Your Matchday account is signed in, but no GG player profile is linked yet. Link your player profile to unlock the full football identity and character studio.</p>}
       </section>
       <section className="gg-world-panel">
         <div className="gg-world-section-title"><span>ORIGINAL GG AVATAR STUDIO</span><h2>Design your footballer</h2><p>This character represents you around the GG website and shared football city.</p></div>
