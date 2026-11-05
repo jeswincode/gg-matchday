@@ -218,3 +218,15 @@ test("training challenge is playable, responsive and labels local best honestly"
   assert.match(game,/global leaderboard will be server-verified/);
   assert.match(styles,/@media\(max-width:700px\)/);
 });
+
+test("football city map exposes district, pitch and layered scene design",()=>{
+  const world=read("src/features/OriginalGGWorld.jsx");
+  const rules=read("server/config/ggWorldRules.js");
+  assert.match(world,/data-layer="district-zones"/);
+  assert.match(world,/data-layer="sports-facilities"/);
+  assert.match(world,/data-layer="interactive-zones"/);
+  assert.match(world,/data-layer="characters"/);
+  assert.match(rules,/stadium-quarter/);
+  assert.match(rules,/training-quarter/);
+  assert.match(rules,/residential-quarter/);
+});

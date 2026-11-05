@@ -19,6 +19,7 @@ test("Original GG map blueprint has stable dimensions and unique locations", () 
   assert.ok(ids.includes("gg-hq"));
   assert.ok(ids.includes("training-centre"));
   assert.ok(ids.includes("city-plaza"));
+  assert.deepEqual(DEFAULT_WORLD_LAYOUT.districts.map((district)=>district.id),["crown-quarter","stadium-quarter","training-quarter","club-quarter","residential-quarter"]);
   assert.equal(DEFAULT_WORLD_LAYOUT.plots.length, 6);
   assert.ok(DEFAULT_WORLD_LAYOUT.plots.every((plot) => plot.status === "planned"));
   const hq = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "gg-hq");
