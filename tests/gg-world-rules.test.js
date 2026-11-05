@@ -65,6 +65,6 @@ test("training session validates counts, duration and idempotency key", () => {
 });
 
 test("world presence rejects coordinates outside the map", () => {
-  assert.deepEqual(normalizePresencePayload({ locationId: "gg-hq", x: 900.2, y: 310 }), { locationId: "gg-hq", x: 900, y: 310 });
+  assert.deepEqual(normalizePresencePayload({ locationId: "gg-hq", x: 900.2, y: 310 }), { locationId: "gg-hq", x: 900, y: 310, direction: "down" });
   assert.throws(() => normalizePresencePayload({ x: -1, y: 10 }), /outside the Original GG world/);
 });
