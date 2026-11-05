@@ -21,7 +21,7 @@ export default function TrainingChallenge(){
   const [elapsed,setElapsed]=useState(0);
   const [best,setBest]=useState(()=>{try{return Number(localStorage.getItem(STORAGE_KEY))||0;}catch{return 0;}});
   const [message,setMessage]=useState("Dodge the training hurdles and stay on the pitch for as long as you can.");
-  const [touchDirection,setTouchDirection]=useState("");
+  const touchDirection=useRef("");
   const finish=useCallback((now)=>{
     const game=stateRef.current;
     game.running=false;game.over=true;game.elapsed=Math.max(0,(now-game.startedAt)/1000);
@@ -52,10 +52,10 @@ export default function TrainingChallenge(){
         game.lastAt=now;game.elapsed=(now-game.startedAt)/1000;
         const speed=190+Math.min(190,game.elapsed*5);
         const keys=keysRef.current;
-        const up=keys.has("ArrowUp")||keys.has("w")||touchDirection==="up";
-        const down=keys.has("ArrowDown")||keys.has("s")||touchDirection==="down";
-        const left=keys.has("ArrowLeft")||keys.has("a")||touchDirection==="left";
-        const right=keys.has("ArrowRight")||keys.has("d")||touchDirection==="right";
+        const up=keys.has("ArrowUp")||keys.has("w")||touchDirection.current==="up";
+        const down=keys.has("ArrowDown")||keys.has("s")||touchDirection.current==="down";
+        const left=keys.has("ArrowLeft")||keys.has("a")||touchDirection.current==="left";
+        const right=keys.has("ArrowRight")||keys.has("d")||touchDirection.current==="right";
         if(up)game.player.y-=245*dt;if(down)game.player.y+=245*dt;
         if(left)game.player.x-=210*dt;if(right)game.player.x+=210*dt;
         game.player.x=Math.max(PLAYER_R+8,Math.min(WIDTH-PLAYER_R-8,game.player.x));
@@ -88,13 +88,13 @@ export default function TrainingChallenge(){
       ctx.fillStyle="#f0d080";ctx.beginPath();ctx.arc(p.x,p.y,PLAYER_R,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle="#fff0bd";ctx.lineWidth=2;ctx.stroke();
       ctx.fillStyle="#263b2b";ctx.beginPath();ctx.arc(p.x-3,p.y-2,4,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle="#f5eddb";ctx.font="bold 14px system-ui";ctx.fillText((game.running?game.elapsed:elapsed).toFixed(1)+"s",WIDTH-75,27);
+      ctx.fillStyle="#f5eddb";ctx.font="bold 14px system-ui";ctx.fillText((game.running||game.over?game.elapsed:0).toFixed(1)+"s",WIDTH-75,27);
       if(!game.running){ctx.fillStyle="#07160dcc";ctx.fillRect(0,0,WIDTH,HEIGHT);ctx.textAlign="center";ctx.fillStyle="#f3d68e";ctx.font="900 25px system-ui";ctx.fillText(game.over?"FULL TIME":"READY FOR KICK-OFF",WIDTH/2,HEIGHT/2-8);ctx.fillStyle="#f4f0df";ctx.font="13px system-ui";ctx.fillText(game.over?"Press Play Again to chase a new best":"Press Start Run when you're ready",WIDTH/2,HEIGHT/2+20);ctx.textAlign="left";}
       frameRef.current=requestAnimationFrame(draw);
     };
     frameRef.current=requestAnimationFrame(draw);
     return ()=>{mounted=false;if(frameRef.current)cancelAnimationFrame(frameRef.current);};
-  },[finish,touchDirection,elapsed]);
+  },[finish]);
   useEffect(()=>{
     const down=(event)=>{if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(event.key))event.preventDefault();keysRef.current.add(event.key);};
     const up=(event)=>keysRef.current.delete(event.key);
@@ -106,8 +106,8 @@ export default function TrainingChallenge(){
     <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} aria-label="Football training arena. Use arrow keys or the touch controls to dodge obstacles."/>
     <div className="gg-training-challenge-footer"><p role="status">{message}</p><div><span>RUN TIME <b>{elapsed.toFixed(1)}s</b></span><button type="button" className="gg-world-primary" onClick={start}>{status==="playing"?"Restart Run":status==="over"?"Play Again":"Start Run"}</button></div></div>
     <div className="gg-training-touch" aria-label="Touch movement controls">
-      <button type="button" onPointerDown={()=>setTouchDirection("up")} onPointerUp={()=>setTouchDirection("")} onPointerLeave={()=>setTouchDirection("")} aria-label="Move up">↑</button>
-      <div><button type="button" onPointerDown={()=>setTouchDirection("left")} onPointerUp={()=>setTouchDirection("")} onPointerLeave={()=>setTouchDirection("")} aria-label="Move left">←</button><button type="button" onPointerDown={()=>setTouchDirection("down")} onPointerUp={()=>setTouchDirection("")} onPointerLeave={()=>setTouchDirection("")} aria-label="Move down">↓</button><button type="button" onPointerDown={()=>setTouchDirection("right")} onPointerUp={()=>setTouchDirection("")} onPointerLeave={()=>setTouchDirection("")} aria-label="Move right">→</button></div>
+      <button type="button" onPointerDown={()=>{touchDirection.current="up";}} onPointerUp={()=>{touchDirection.current="";}} onPointerCancel={()=>{touchDirection.current="";}} onPointerLeave={()=>{touchDirection.current="";}} aria-label="Move up">↑</button>
+      <div><button type="button" onPointerDown={()=>{touchDirection.current="left";}} onPointerUp={()=>{touchDirection.current="";}} onPointerCancel={()=>{touchDirection.current="";}} onPointerLeave={()=>{touchDirection.current="";}} aria-label="Move left">←</button><button type="button" onPointerDown={()=>{touchDirection.current="down";}} onPointerUp={()=>{touchDirection.current="";}} onPointerCancel={()=>{touchDirection.current="";}} onPointerLeave={()=>{touchDirection.current="";}} aria-label="Move down">↓</button><button type="button" onPointerDown={()=>{touchDirection.current="right";}} onPointerUp={()=>{touchDirection.current="";}} onPointerCancel={()=>{touchDirection.current="";}} onPointerLeave={()=>{touchDirection.current="";}} aria-label="Move right">→</button></div>
     </div>
     <small className="gg-training-challenge-note">Desktop: arrow keys or WASD · Mobile: hold a direction · Local best time only in this prototype; global leaderboard will be server-verified.</small>
   </section>;
