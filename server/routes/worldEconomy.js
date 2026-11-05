@@ -6,6 +6,7 @@ import { getClubsConnection } from "../config/clubsDatabase.js";
 import WorldEconomy from "../models/clubs/WorldEconomy.js";
 import WorldEconomyLedger from "../models/clubs/WorldEconomyLedger.js";
 import WorldInventoryItem from "../models/clubs/WorldInventoryItem.js";
+import { levelProgress } from "../config/worldProgression.js";
 
 const router = express.Router();
 router.use(requireAuth);
@@ -46,11 +47,11 @@ router.get("/", async (req, res, next) => {
       WorldEconomyLedger.find({ playerId }).sort({ createdAt: -1 }).limit(20).lean(),
     ]);
     return res.json({
-      economy: wallet || { coins: 0, xp: 0, level: 1 },
+      economy: { ...(wallet || { coins: 0, xp: 0, level: 1 }), ...levelProgress(wallet?.xp || 0) },
       catalog: CATALOG.map(publicItem),
       inventory,
       recentTransactions: ledger,
-      nextLevelXp: Math.pow((wallet?.level || 1), 2) * 100,
+      nextLevelXp: levelProgress(wallet?.xp || 0).nextLevelXp,
     });
   } catch (error) { return next(error); }
 });
