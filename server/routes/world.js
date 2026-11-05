@@ -785,7 +785,7 @@ router.get("/residence-directory/players", async (req, res, next) => {
   const search = String(req.query.search || "").trim().replace(/[^a-zA-Z0-9 _.'-]/g, "").slice(0, 32);
   if (search.length < 2) return res.json({ players: [] });
   try {
-    const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escaped = [...search].map(char => ".*+?^${}()|[]\\\\".includes(char) ? `\\\\${char}` : char).join("");
     const players = await Player.find({ _id: { $ne: playerId }, name: { $regex: escaped, $options: "i" } }).select("name").limit(12).lean();
     const ids = players.map((item) => item._id);
     const avatars = await PlayerAvatar.find({ playerId: { $in: ids } }).select("playerId displayName").lean();
