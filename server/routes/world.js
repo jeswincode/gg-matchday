@@ -99,6 +99,20 @@ function residencePosition(playerId) {
   return { x: 1010 + (slot % 4) * 145, y: 955 + Math.floor(slot / 4) * 62 };
 }
 
+async function assertOwnedAvatarAppearance(playerId, appearance) {
+  const inventory = await WorldInventoryItem.find({ playerId, quantity: { $gt: 0 } }).select("itemId").lean();
+  const ownedIds = new Set(inventory.map((item) => item.itemId));
+  for (const [field, value] of Object.entries(appearance || {})) {
+    if (FREE_AVATAR_OPTIONS[field]?.includes(value)) continue;
+    const unlock = WORLD_COSMETIC_CATALOG.find((item) => item.appearancePatch?.[field] === value);
+    if (!unlock || !ownedIds.has(unlock.id)) {
+      const error = new Error("Unlock "+String(value).replaceAll("-", " ")+" in the GG Market before equipping it.");
+      error.status = 403;
+      throw error;
+    }
+  }
+}
+
 function publicAvatar(avatar, playerName = "GG Player") {
   if (!avatar) {
     return {
@@ -264,15 +278,7 @@ router.put("/avatar", async (req, res, next) => {
   if (!playerId) return;
   try {
     const payload = normalizeAvatarPayload(req.body);
-    const inventory = await WorldInventoryItem.find({ playerId, quantity: { $gt: 0 } }).select("itemId").lean();
-    const ownedIds = new Set(inventory.map((item) => item.itemId));
-    for (const [field, value] of Object.entries(payload.appearance)) {
-      if (FREE_AVATAR_OPTIONS[field]?.includes(value)) continue;
-      const unlock = WORLD_COSMETIC_CATALOG.find((item) => item.appearancePatch?.[field] === value);
-      if (!unlock || !ownedIds.has(unlock.id)) {
-        return res.status(403).json({ message: "Unlock "+String(value).replaceAll("-", " ")+" in the GG Market before equipping it." });
-      }
-    }
+    await assertOwnedAvatarAppearance(playerId, payload.appearance);
     const avatar = await PlayerAvatar.findOneAndUpdate(
       { playerId },
       { $set: payload },
@@ -283,6 +289,71 @@ router.put("/avatar", async (req, res, next) => {
     if (error instanceof TypeError) return res.status(400).json({ message: error.message });
     return next(error);
   }
+});
+
+router.get("/avatar/presets", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const avatar = await PlayerAvatar.findOne({ playerId }).select("presets").lean();
+    return res.json({ presets: avatar?.presets || [], limit: 5 });
+  } catch (error) { return next(error); }
+});
+
+router.post("/avatar/presets", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const name = String(req.body?.name || "").trim().replace(/\\s+/g, " ").slice(0, 24);
+  if (!name) return res.status(400).json({ message: "Give this character preset a name." });
+  try {
+    const payload = normalizeAvatarPayload({ appearance: req.body?.appearance });
+    await assertOwnedAvatarAppearance(playerId, payload.appearance);
+    let avatar = await PlayerAvatar.findOne({ playerId });
+    if (!avatar) avatar = new PlayerAvatar({ playerId });
+    if (avatar.presets.length >= 5) return res.status(409).json({ message: "You can save up to five character presets." });
+    avatar.presets.push({ name, appearance: payload.appearance });
+    await avatar.save();
+    return res.status(201).json({ presets: avatar.presets, limit: 5 });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
+    if (error instanceof TypeError) return res.status(400).json({ message: error.message });
+    return next(error);
+  }
+});
+
+router.post("/avatar/presets/:presetId/apply", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.presetId)) return res.status(400).json({ message: "Invalid character preset." });
+  try {
+    const avatar = await PlayerAvatar.findOne({ playerId });
+    const preset = avatar?.presets.id(req.params.presetId);
+    if (!avatar || !preset) return res.status(404).json({ message: "Character preset not found." });
+    await assertOwnedAvatarAppearance(playerId, preset.appearance);
+    avatar.appearance = preset.appearance;
+    await avatar.save();
+    return res.json({ success: true, avatar: publicAvatar(avatar.toObject(), req.user?.name) });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
+    return next(error);
+  }
+});
+
+router.delete("/avatar/presets/:presetId", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.presetId)) return res.status(400).json({ message: "Invalid character preset." });
+  try {
+    const avatar = await PlayerAvatar.findOne({ playerId });
+    if (!avatar) return res.status(404).json({ message: "Character profile not found." });
+    avatar.presets = avatar.presets.filter((preset) => String(preset._id) !== req.params.presetId);
+    await avatar.save();
+    return res.json({ success: true, presets: avatar.presets });
+  } catch (error) { return next(error); }
 });
 
 router.get("/training", async (req, res, next) => {
