@@ -333,37 +333,51 @@ router.post("/training/challenges/finish", async (req, res, next) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = linkedPlayerId(req, res);
   if (!playerId) return;
+  const runId = String(req.body?.runId || "").trim();
+  const clientScore = Number(req.body?.scoreSeconds);
+  if (!runId || runId.length > 80 || !Number.isFinite(clientScore) || clientScore < 1 || clientScore > 600) {
+    return res.status(400).json({ message: "A valid training run and score are required." });
+  }
+  const session = await getClubsConnection().startSession();
+  let profile = null;
+  let verifiedScore = 0;
   try {
-    const runId = String(req.body?.runId || "").trim();
-    const clientScore = Number(req.body?.scoreSeconds);
-    if (!runId || runId.length > 80 || !Number.isFinite(clientScore) || clientScore < 1 || clientScore > 600) {
-      return res.status(400).json({ message: "A valid training run and score are required." });
-    }
-    const now = new Date();
-    const run = await TrainingChallengeRun.findOneAndUpdate(
-      { runId, playerId, challengeId: "ball-control-v1", completedAt: null, expiresAt: { $gt: now } },
-      { $set: { completedAt: now } },
-      { new: true },
-    );
-    if (!run) return res.status(409).json({ message: "This training run is expired or has already been submitted." });
-    const serverElapsed = (now.getTime() - run.startedAt.getTime()) / 1000;
-    if (Math.abs(serverElapsed - clientScore) > 4) {
-      run.completedAt = null;
-      await run.save();
-      return res.status(400).json({ message: "The run time could not be verified. Please try again." });
-    }
-    const verifiedScore = Number(serverElapsed.toFixed(1));
-    run.scoreSeconds = verifiedScore;
-    await run.save();
-    const profile = await TrainingChallengeProfile.findOneAndUpdate(
-      { playerId, challengeId: "ball-control-v1" },
-      { $min: { bestSeconds: verifiedScore }, $inc: { attempts: 1 }, $set: { lastPlayedAt: now } },
-      { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true },
-    ).lean();
+    await session.withTransaction(async () => {
+      const now = new Date();
+      const run = await TrainingChallengeRun.findOne({
+        runId,
+        playerId,
+        challengeId: "ball-control-v1",
+        completedAt: null,
+        expiresAt: { $gt: now },
+      }).session(session);
+      if (!run) {
+        const conflict = new Error("This training run is expired or has already been submitted.");
+        conflict.status = 409;
+        throw conflict;
+      }
+      const serverElapsed = (now.getTime() - run.startedAt.getTime()) / 1000;
+      if (Math.abs(serverElapsed - clientScore) > 4) {
+        const invalid = new Error("The run time could not be verified. Please try again.");
+        invalid.status = 400;
+        throw invalid;
+      }
+      verifiedScore = Number(serverElapsed.toFixed(1));
+      run.completedAt = now;
+      run.scoreSeconds = verifiedScore;
+      await run.save({ session });
+      profile = await TrainingChallengeProfile.findOneAndUpdate(
+        { playerId, challengeId: "ball-control-v1" },
+        { $min: { bestSeconds: verifiedScore }, $inc: { attempts: 1 }, $set: { lastPlayedAt: now } },
+        { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true, session },
+      ).lean();
+    });
     return res.status(201).json({ success: true, verifiedScore, bestSeconds: profile.bestSeconds, attempts: profile.attempts });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ message: "This training run has already been submitted." });
     return next(error);
+  } finally {
+    await session.endSession();
   }
 });
 

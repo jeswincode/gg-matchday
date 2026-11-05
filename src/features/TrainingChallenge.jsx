@@ -66,7 +66,7 @@ export default function TrainingChallenge(){
       setLeaderboard(result.leaderboard||[]);
       setBest(result.personalBestSeconds||0);
       setAttempts(result.attempts||0);
-    }).catch(()=>{});
+    }).catch(()=>{/* The game remains playable if the leaderboard is temporarily unavailable. */});
     return()=>{active=false;};
   },[]);
   useEffect(()=>{
