@@ -151,7 +151,7 @@ router.get("/bootstrap", async (req, res, next) => {
     const playerId = req.user?.playerProfile || null;
     const [world, clubs] = await Promise.all([
       getWorldMap(),
-      Club.find({ status: "approved" }).select("name logoUrl memberIds").sort({ nameNormalized: 1 }).lean(),
+      Club.find({ status: "approved" }).select("name logoUrl memberIds captainIds").sort({ nameNormalized: 1 }).lean(),
     ]);
     const plots = await Promise.all(DEFAULT_WORLD_LAYOUT.plots.map((plot) => WorldPlot.findOneAndUpdate(
       { plotId: plot.id },
@@ -230,7 +230,7 @@ router.get("/bootstrap", async (req, res, next) => {
       world: { slug: world.slug, title: world.title, version: world.version, layout: world.layout },
       playerId: playerId ? String(playerId) : null,
       clubs: clubs.map((club) => ({ id: String(club._id), name: club.name, logoUrl: club.logoUrl, memberCount: club.memberIds?.length || 0 })),
-      clubGrounds: clubGrounds.map((ground) => ({ id: "ground-" + String(ground.clubId), clubId: String(ground.clubId), name: ground.name, kind: "club-ground", x: ground.x, y: ground.y, level: ground.level, accessPolicy: ground.accessPolicy })),
+      clubGrounds: clubGrounds.map((ground) => { const club = clubs.find((item) => String(item._id) === String(ground.clubId)); return { id: "ground-" + String(ground.clubId), clubId: String(ground.clubId), name: ground.name, kind: "club-ground", x: ground.x, y: ground.y, level: ground.level, accessPolicy: ground.accessPolicy, interiorAccess: ground.interiorAccess || "members", isCaptain: Boolean(playerId && (club?.captainIds || []).some((id) => String(id) === String(playerId))) }; }),
       plots: plots.map((plot) => ({ id: plot.plotId, name: plot.name, kind: "plot", x: plot.x, y: plot.y, category: plot.category, status: plot.status, description: plot.description })),
       canCreateCharacter: Boolean(playerId),
       residence: residence ? { ownerPlayerId: String(residence.ownerPlayerId), name: residence.name, x: residence.x, y: residence.y, level: residence.level, privacy: residence.privacy } : null,
