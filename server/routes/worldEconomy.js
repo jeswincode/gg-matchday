@@ -63,8 +63,9 @@ router.post("/purchase", async (req, res, next) => {
   const playerId = playerIdFor(req, res);
   if (!playerId) return;
   const itemId = String(req.body?.itemId || "").trim();
-  const idempotencyKey = String(req.body?.idempotencyKey || "").trim();
-  if (!/^[a-zA-Z0-9:_-]{12,100}$/.test(idempotencyKey)) return res.status(400).json({ message: "A valid purchase request key is required." });
+  const requestKey = String(req.body?.idempotencyKey || "").trim();
+  if (!/^[a-zA-Z0-9:_-]{12,90}$/.test(requestKey)) return res.status(400).json({ message: "A valid purchase request key is required." });
+  const idempotencyKey = "purchase:" + requestKey;
   const item = CATALOG.find((entry) => entry.id === itemId);
   if (!item) return res.status(404).json({ message: "That item is not available in the GG Market." });
 
@@ -125,7 +126,8 @@ router.post("/purchase", async (req, res, next) => {
   } catch (error) {
     if (error?.code === 11000) {
       const prior = await WorldEconomyLedger.findOne({ playerId, idempotencyKey }).lean();
-      if (prior) return res.json({ success: true, duplicate: true, transaction: prior });
+      if (prior?.type === "purchase" && prior.itemId === item.id) return res.json({ success: true, duplicate: true, transaction: prior });
+      if (prior) return res.status(409).json({ message: "This idempotency key was already used for a different economy action." });
       return res.status(409).json({ message: "This purchase request has already been processed." });
     }
     if (error?.status) return res.status(error.status).json({ message: error.message });
@@ -177,7 +179,7 @@ router.post("/residence-upgrade", async (req, res, next) => {
   const playerId = playerIdFor(req, res);
   if (!playerId) return;
   const requestKey = String(req.body?.idempotencyKey || "").trim();
-  if (!/^[a-zA-Z0-9:_-]{12,100}$/.test(requestKey)) return res.status(400).json({ message: "A valid upgrade request key is required." });
+  if (!/^[a-zA-Z0-9:_-]{12,90}$/.test(requestKey)) return res.status(400).json({ message: "A valid upgrade request key is required." });
   const idempotencyKey = "home:" + requestKey;
   const session = await getClubsConnection().startSession();
   try {
