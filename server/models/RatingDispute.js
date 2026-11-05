@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { worldDataScopePlugin } from "../services/worldDataScope.js";
 
 const historyEntrySchema = new mongoose.Schema({
   actorUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -16,7 +15,6 @@ const historyEntrySchema = new mongoose.Schema({
 }, { _id: true });
 
 const ratingDisputeSchema = new mongoose.Schema({
-  worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
   match: { type: mongoose.Schema.Types.ObjectId, ref: "Match", required: true, index: true },
   player: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, index: true },
   submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
@@ -41,12 +39,10 @@ const ratingDisputeSchema = new mongoose.Schema({
 }, { timestamps: true, collection: "ratingDisputes", versionKey: false });
 
 ratingDisputeSchema.index(
-  { worldId: 1, submittedBy: 1, match: 1, player: 1 },
-  { unique: true, partialFilterExpression: { open: true }, name: "one_open_rating_dispute_per_world_user_match_player" },
+  { submittedBy: 1, match: 1, player: 1 },
+  { unique: true, partialFilterExpression: { open: true }, name: "one_open_rating_dispute_per_user_match_player" },
 );
 ratingDisputeSchema.index({ status: 1, createdAt: -1 });
-ratingDisputeSchema.index({ worldId: 1, match: 1, player: 1, createdAt: -1 });
-
-ratingDisputeSchema.plugin(worldDataScopePlugin);
+ratingDisputeSchema.index({ match: 1, player: 1, createdAt: -1 });
 
 export default mongoose.models.RatingDispute || mongoose.model("RatingDispute", ratingDisputeSchema);

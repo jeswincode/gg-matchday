@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
-import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const playerReviewSchema = new mongoose.Schema(
   {
-    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     reviewerPlayerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, index: true },
     reviewedPlayerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, index: true },
     relationship: { type: String, enum: ["teammate", "opponent"], required: true },
@@ -17,8 +15,8 @@ const playerReviewSchema = new mongoose.Schema(
 );
 
 playerReviewSchema.index(
-  { worldId: 1, reviewerPlayerId: 1, reviewedPlayerId: 1, relationship: 1 },
-  { unique: true, name: "player_review_world_unique" },
+  { reviewerPlayerId: 1, reviewedPlayerId: 1, relationship: 1 },
+  { unique: true },
 );
 
 playerReviewSchema.pre("validate", function preventSelfReview() {
@@ -26,7 +24,5 @@ playerReviewSchema.pre("validate", function preventSelfReview() {
     this.invalidate("reviewedPlayerId", "A player cannot review themselves.");
   }
 });
-
-playerReviewSchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("PlayerReview", playerReviewSchema);

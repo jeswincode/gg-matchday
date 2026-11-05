@@ -1,8 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { openLinkedWorld } from "./helpers/world.js";
 
 async function enterMatchday(page, role, playerId) {
-  await openLinkedWorld(page, { role, playerId });
+  const query = playerId ? `?e2eRole=${role}&e2ePlayerId=${playerId}` : `?e2eRole=${role}&e2ePlayerId=unlinked`;
+  await page.goto("/" + query);
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
 }
 
 test("player can inspect canonical rating breakdown and submit a non-mutating dispute", async ({ page }) => {

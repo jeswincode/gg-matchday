@@ -12,16 +12,15 @@ test("database resolver extracts a MongoDB SRV URI path without exposing credent
   assert.doesNotMatch(result.stdout + result.stderr, /audit-user|very-secret|cluster\.example/);
 });
 
-test("database resolver refuses to guess when the URI has no database path", () => {
+test("database resolver matches the app's test default when the URI has no database path", () => {
   const uri = "mongodb+srv://audit-user:very-secret@cluster.example.mongodb.net/?retryWrites=true";
   const result = spawnSync(process.execPath, [resolver], { input: uri, encoding: "utf8" });
-  assert.equal(result.status, 2);
-  assert.equal(result.stdout, "");
-  assert.match(result.stderr, /database name is missing/i);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "test");
   assert.doesNotMatch(result.stdout + result.stderr, /audit-user|very-secret|cluster\.example/);
 });
 
-test("database resolver accepts an explicitly configured database for a URI without a path", () => {
+test("database resolver accepts an explicit fallback for a URI without a path", () => {
   const uri = "mongodb+srv://cluster.example.mongodb.net/?retryWrites=true";
   const result = spawnSync(process.execPath, [resolver, "gg_matchday_clubs"], { input: uri, encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
@@ -32,69 +31,6 @@ test("database resolver rejects malformed URIs without leaking their text", () =
   const result = spawnSync(process.execPath, [resolver], { input: "not-a-uri-with-private-data", encoding: "utf8" });
   assert.equal(result.status, 2);
   assert.equal(result.stdout, "");
-  assert.match(result.stderr, /URI is invalid or does not include a database name/);
+  assert.match(result.stderr, /Could not derive a database name from the MongoDB URI path/);
   assert.doesNotMatch(result.stderr, /private-data/);
-});
-
-test("backup refuses the implicit test database before invoking MongoDB tools", () => {
-  const result = spawnSync("bash", ["scripts/backup-mongodb.sh"], {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      MONGODB_URI: "mongodb+srv://cluster.example.mongodb.net/gg-matchday",
-      MONGODB_DATABASE: "test",
-      CLUBS_MONGODB_URI: "mongodb+srv://cluster.example.mongodb.net/gg-matchday-clubs",
-      BACKUP_ENCRYPTION_KEY: "test-key",
-    },
-  });
-  assert.equal(result.status, 2);
-  assert.match(result.stderr, /Refusing to back up the default 'test' database/);
-  assert.doesNotMatch(result.stdout + result.stderr, /cluster\.example/);
-});
-
-test("database resolver rejects an unsupported protocol without leaking URI content", () => {
-  const result = spawnSync(process.execPath, [resolver], { input: "https://private.example/database", encoding: "utf8" });
-  assert.equal(result.status, 2);
-  assert.equal(result.stdout, "");
-  assert.match(result.stderr, /URI is invalid or does not include a database name/);
-  assert.doesNotMatch(result.stderr, /private\.example/);
-});
-
-test("backup refuses to guess a Clubs database when its URI has no path", () => {
-  const result = spawnSync("bash", ["scripts/backup-mongodb.sh"], {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      MONGODB_URI: "mongodb+srv://cluster.example.mongodb.net/gg-matchday",
-      MONGODB_DATABASE: "gg-matchday",
-      CLUBS_MONGODB_URI: "mongodb+srv://cluster.example.mongodb.net/",
-      CLUBS_DB_NAME: "",
-      BACKUP_ENCRYPTION_KEY: "test-key",
-    },
-  });
-  assert.equal(result.status, 2);
-  assert.match(result.stderr, /MongoDB database name is missing/i);
-  assert.doesNotMatch(result.stdout + result.stderr, /cluster\.example/);
-});
-
-test("Atlas backup refuses ambiguous source databases before opening temporary network access", () => {
-  const result = spawnSync("bash", ["scripts/backup-mongodb-atlas.sh"], {
-    encoding: "utf8",
-    env: {
-      ...process.env,
-      MONGODB_URI: "mongodb+srv://private.example/",
-      MONGODB_DATABASE: "",
-      CLUBS_MONGODB_URI: "mongodb+srv://private.example/",
-      CLUBS_DB_NAME: "",
-      BACKUP_ENCRYPTION_KEY: "test-key",
-      ATLAS_CLIENT_ID: "test-client",
-      ATLAS_CLIENT_SECRET: "test-secret",
-      ATLAS_PROJECT_ID: "test-project",
-      RUNNER_IP: "192.0.2.10",
-    },
-  });
-  assert.equal(result.status, 2);
-  assert.match(result.stderr, /database name is missing/i);
-  assert.doesNotMatch(result.stdout, /GitHub runner public IP|Adding temporary Atlas access/);
-  assert.doesNotMatch(result.stdout + result.stderr, /private\.example|test-secret/);
 });

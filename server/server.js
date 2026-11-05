@@ -6,8 +6,6 @@ import {connectClubsDatabase,disconnectClubsDatabase} from './config/clubsDataba
 import {startClubSyncWorker} from './services/clubsSync.js';
 import {startClubsMaintenanceWorker} from './services/clubsMaintenance.js';
 import {startStatisticsMaintenanceWorker} from './services/persistedStatistics.js';
-import {ensurePrimaryWorldExists} from './services/primaryWorld.js';
-import {ensureLegacyWorldAccessInvitations} from './services/worldAccessGrants.js';
 
 async function startServer(){
   try{
@@ -16,15 +14,6 @@ async function startServer(){
     }
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB connected');
-
-    if (process.env.NODE_ENV === "production") {
-      const primaryWorld = await ensurePrimaryWorldExists();
-      console.log('Primary GG World ready:', primaryWorld.slug);
-      const legacyAccess = await ensureLegacyWorldAccessInvitations(primaryWorld);
-      console.log('Legacy account access preserved:', legacyAccess);
-    } else {
-      console.log('Production-only Original GG bootstrap skipped outside production');
-    }
 
     try {
       await connectClubsDatabase();

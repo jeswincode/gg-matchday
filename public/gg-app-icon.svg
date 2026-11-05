@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#071b29"/>
-  <rect x="18" y="18" width="476" height="476" rx="98" fill="none" stroke="#d6b465" stroke-width="10" opacity=".9"/>
-  <circle cx="256" cy="256" r="198" fill="#d6b465"/>
-  <circle cx="256" cy="256" r="176" fill="#0b2634"/>
-  <text x="256" y="324" text-anchor="middle" fill="#e9d39a" font-family="Arial, Helvetica, sans-serif" font-size="188" font-weight="900" letter-spacing="-20">GG</text>
-</svg>

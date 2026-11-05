@@ -7,7 +7,6 @@ import {
 } from "../services/adminIdentityPolicy.js";
 
 import getFirebaseAdmin from "../config/firebaseAdmin.js";
-import { activatePendingWorldAccessGrant } from "../services/worldAccessGrants.js";
 
 // ==================================================
 // REQUIRE VALID FIREBASE LOGIN
@@ -18,14 +17,13 @@ export async function requireAuth(
   res,
   next
 ) {
-  if (req.user && req.firebaseUser) return next();
   try {
     const testToken = String(req.headers["x-e2e-test-token"] || "");
     if (testToken) {
       const secret = String(process.env.E2E_TEST_AUTH_SECRET || "");
       const expected = Buffer.from(secret);
       const supplied = Buffer.from(testToken);
-      const matches = process.env.NODE_ENV === "test" && secret.length > 0 &&
+      const matches = process.env.NODE_ENV !== "production" && secret.length > 0 &&
         expected.length === supplied.length && timingSafeEqual(expected, supplied);
       if (!matches) {
         return res.status(401).json({ message: "Invalid test authentication token." });
@@ -37,39 +35,20 @@ export async function requireAuth(
       const playerProfile = mongoose.isValidObjectId(requestedPlayerId)
         ? new mongoose.Types.ObjectId(requestedPlayerId)
         : null;
-      const playerKey = playerProfile ? String(playerProfile) : "unlinked";
-      const uid = `e2e-test:${role}:${playerKey}`;
-      const email = role === "admin"
-        ? String(process.env.ADMIN_EMAIL || "admin@gmail.com").trim().toLowerCase()
-        : `playwright-${role}-${playerKey}@test.invalid`;
+      const uid = `e2e-test:${role}:${playerProfile ? String(playerProfile) : "unlinked"}`;
       const user = await User.findOneAndUpdate(
         { firebaseUid: uid },
-        {
-          $set: {
-            name: `Playwright ${role}`,
-            email,
-            emailVerified: true,
-            profileImage: "",
-            role,
-            platformRole: role === "admin" ? "platform_admin" : "user",
-            accessRequest: "none",
-            // A single editor test identity owns the persistent fixture link.
-            // Viewer/admin impersonations expose it only on this request.
-            ...(role === "editor" && playerProfile ? { playerProfile } : {}),
-          },
-          ...(role !== "editor" || !playerProfile ? { $unset: { playerProfile: "" } } : {}),
-        },
+        { $set: {
+          name: `Playwright ${role}`,
+          email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
+          profileImage: "",
+          role,
+          accessRequest: "none",
+          playerProfile,
+        } },
         { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, runValidators: true },
       );
-      if (playerProfile) {
-        Object.defineProperty(user, "playerProfile", {
-          configurable: true,
-          enumerable: true,
-          writable: true,
-          value: playerProfile,
-        });
-      }
-      req.firebaseUser = { uid, email: user.email, email_verified: true, testOnly: true };
+      req.firebaseUser = { uid, testOnly: true };
       req.user = user;
       return next();
     }
@@ -130,71 +109,80 @@ export async function requireAuth(
       configuredAdminEmail,
     );
 
-    let user = await User.findOne({ firebaseUid });
+    let user =
+      await User.findOne({
+        firebaseUid,
+      });
+
+    // ------------------------------------------------
+    // CREATE FIRST RECORD IF NEEDED
+    // ------------------------------------------------
+
     if (!user) {
       const role = isConfiguredAdmin ? "admin" : "viewer";
+
       try {
         user = await User.create({
           firebaseUid,
           email,
-          emailVerified: decoded.email_verified === true,
           name,
           profileImage: photoURL,
           role,
-          platformRole: isConfiguredAdmin ? "platform_admin" : "user",
           accessRequest: "none",
         });
       } catch (createError) {
-        const firebaseUidCollision = createError?.code === 11000 &&
+        // Several API calls can arrive immediately after the same first login.
+        // If another request inserted this Firebase UID first, reuse that row
+        // instead of turning the losing request into a spurious 401.
+        const firebaseUidCollision =
+          createError?.code === 11000 &&
           (createError?.keyPattern?.firebaseUid || String(createError?.message || "").includes("firebaseUid_1"));
         if (!firebaseUidCollision) throw createError;
+
         user = await User.findOne({ firebaseUid });
         if (!user) throw createError;
+
+        let changed = false;
+        if (email && email !== user.email) { user.email = email; changed = true; }
+        if (name && name !== user.name) { user.name = name; changed = true; }
+        if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
+        if (isConfiguredAdmin) {
+          if (user.role !== "admin") { user.role = "admin"; changed = true; }
+          if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+        } else if (user.role === "admin") {
+          // Remove stale auto-granted privilege when the current Firebase
+          // identity no longer proves ownership of the configured admin email.
+          user.role = "viewer";
+          user.accessRequest = "none";
+          changed = true;
+        }
+        if (changed) await user.save();
       }
-    }
-
-    let changed = false;
-    if (email && email !== user.email) { user.email = email; changed = true; }
-    if (name && name !== user.name) { user.name = name; changed = true; }
-    if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
-
-    const verified = decoded.email_verified === true;
-    const expectedPlatformRole = isConfiguredAdmin ? "platform_admin" : "user";
-    if (user.emailVerified !== verified) { user.emailVerified = verified; changed = true; }
-    if (user.platformRole !== expectedPlatformRole) {
-      user.platformRole = expectedPlatformRole;
-      changed = true;
-    }
-
-    if (isConfiguredAdmin) {
-      if (user.role !== "admin") { user.role = "admin"; changed = true; }
-      if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
-    } else if (user.role === "admin") {
-      user.role = "viewer";
-      user.accessRequest = "none";
-      changed = true;
-    }
-
-    if (changed) await user.save();
-
-    req.firebaseUser = decoded;
-    req.user = user;
-
-    // A pending invitation activates only after Firebase proves the exact
-    // Gmail address and UID. Failures leave the account unlinked and denied.
-    if (!isConfiguredAdmin && verified) {
-      try {
-        await activatePendingWorldAccessGrant({ user, firebaseUser: decoded });
-      } catch (activationError) {
-        console.error(JSON.stringify({
-          event: "world_access_invitation_activation_failed",
-          errorName: activationError?.name || "Error",
-          code: activationError?.code || null,
-        }));
+    } else {
+      let changed = false;
+      if (email && email !== user.email) { user.email = email; changed = true; }
+      if (name && name !== user.name) { user.name = name; changed = true; }
+      if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
+      if (isConfiguredAdmin) {
+        if (user.role !== "admin") { user.role = "admin"; changed = true; }
+        if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
+      } else if (user.role === "admin") {
+        // Remove stale auto-granted privilege when the current Firebase
+        // identity no longer proves ownership of the configured admin email.
+        user.role = "viewer";
+        user.accessRequest = "none";
+        changed = true;
       }
+      if (changed) await user.save();
     }
 
-    return next();
+    req.firebaseUser =
+      decoded;
+
+    req.user =
+      user;
+
+    next();
   } catch (error) {
     console.error(
       "Authentication error:",

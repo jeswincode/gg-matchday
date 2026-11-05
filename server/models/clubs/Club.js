@@ -1,13 +1,11 @@
 import mongoose from "mongoose";
 import { CLUB_MIN_MEMBERS, CLUB_MAX_MEMBERS, CLUB_STARTING_BALANCE, normalizeClubName } from "../../config/clubsRules.js";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
-import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const memberId = { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true };
 
 const clubSchema = new mongoose.Schema(
   {
-    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     name: { type: String, required: true, trim: true, maxlength: 80 },
     nameNormalized: { type: String, required: true, lowercase: true, trim: true },
     description: { type: String, trim: true, maxlength: 500, default: "" },
@@ -59,9 +57,7 @@ clubSchema.pre("validate", function normalizeNameAndValidateMembership() {
   if (Number(this.committedBalance || 0) > Number(this.balance || 0)) this.invalidate("committedBalance", "Committed balance cannot exceed the Club balance.");
 });
 
-clubSchema.index({ worldId: 1, nameNormalized: 1 }, { unique: true, name: "club_world_name_unique" });
+clubSchema.index({ nameNormalized: 1 }, { unique: true });
 clubSchema.index({ status: 1, createdAt: -1 });
-
-clubSchema.plugin(worldDataScopePlugin);
 
 export default getClubsConnection().model("Club", clubSchema);

@@ -15,8 +15,6 @@ router.get("/me", requireAuth, async (req, res) => {
         email: user.email,
         photoURL: user.photoURL || user.profileImage || "",
         role: user.role,
-        platformRole: user.platformRole || "user",
-        emailVerified: user.emailVerified === true,
         accessRequest: user.accessRequest || "none",
         playerProfile: user.playerProfile || null,
       },
@@ -27,11 +25,22 @@ router.get("/me", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/request-editor", requireAuth, (_req, res) => {
-  return res.status(410).json({
-    message: "GG World access is administrator-managed. Ask a platform administrator to link your verified Gmail address.",
-    code: "WORLD_ACCESS_ADMIN_MANAGED",
-  });
+router.post("/request-editor", requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    if (user.role === "admin" || user.role === "editor") {
+      return res.json({ message: "You already have editing access.", user });
+    }
+    if (user.accessRequest === "pending") {
+      return res.json({ message: "Your editor request is already pending.", user });
+    }
+    user.accessRequest = "pending";
+    await user.save();
+    res.json({ message: "Editor access request submitted.", user });
+  } catch (error) {
+    console.error("Request editor error:", error);
+    res.status(500).json({ message: "Failed to submit editor request." });
+  }
 });
 
 router.get("/admin/requests", requireAuth, requireAdmin, async (req, res) => {

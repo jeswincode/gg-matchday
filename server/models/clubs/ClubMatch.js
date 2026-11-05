@@ -1,10 +1,8 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
-import { worldDataScopePlugin } from "../../services/worldDataScope.js";
 
 const clubMatchSchema = new mongoose.Schema(
   {
-    worldId: { type: mongoose.Schema.Types.ObjectId, ref: "World", default: null, index: true },
     clubAId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     clubBId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true, index: true },
     requestedByClubId: { type: mongoose.Schema.Types.ObjectId, ref: "Club", default: null },
@@ -40,8 +38,8 @@ const clubMatchSchema = new mongoose.Schema(
   { timestamps: true, collection: "clubMatches", optimisticConcurrency: true },
 );
 
-clubMatchSchema.index({ worldId: 1, clubAId: 1, clubBId: 1, scheduledAt: 1 });
-clubMatchSchema.index({ worldId: 1, fixtureDate: 1 }, {
+clubMatchSchema.index({ clubAId: 1, clubBId: 1, scheduledAt: 1 });
+clubMatchSchema.index({ fixtureDate: 1 }, {
   unique: true,
   partialFilterExpression: {
     fixtureDate: { $type: "string" },
@@ -49,11 +47,6 @@ clubMatchSchema.index({ worldId: 1, fixtureDate: 1 }, {
     status: { $in: ["requested", "accepted", "completed"] },
   },
 });
-clubMatchSchema.index(
-  { mainMatchId: 1 },
-  { unique: true, partialFilterExpression: { mainMatchId: { $type: "objectId" } } },
-);
-
-clubMatchSchema.plugin(worldDataScopePlugin);
+clubMatchSchema.index({ mainMatchId: 1 }, { unique: true, sparse: true });
 
 export default getClubsConnection().model("ClubMatch", clubMatchSchema);

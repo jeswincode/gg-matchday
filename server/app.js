@@ -22,13 +22,11 @@ import immersiveNewsRoutes from "./routes/immersiveNews.js";
 import systemRoutes from "./routes/system.js";
 import ggAdminRoutes from "./routes/ggAdmin.js";
 import clubsRoutes from "./routes/clubs.js";
-import worldRoutes from "./routes/worlds.js";
 import { pingClubsDatabase } from "./config/clubsDatabase.js";
 import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
 import ratingExplanationRoutes from "./routes/ratingExplanations.js";
 import ratingDisputeRoutes from "./routes/ratingDisputes.js";
 import { observeRequestMiddleware } from "./services/requestHealth.js";
-import { requirePrimaryWorldAccess } from "./middleware/primaryWorldAccess.js";
 
 dotenv.config();
 
@@ -58,25 +56,10 @@ app.use((req, res, next) => {
 app.use(observeRequestMiddleware);
 app.use(cors(createCorsOptions()));
 app.use(express.json({limit:"64kb"}));
-
-// Default-deny private football-domain APIs at a shared boundary. World
-// discovery/self-status/admin endpoints enforce their own route policies;
-// auth, weather and health remain separately guarded/public.
-app.use("/api", (req, res, next) => {
-  const path = req.path || "/";
-  if (
-    path === "/health" ||
-    path === "/auth" || path.startsWith("/auth/") ||
-    path === "/worlds" || path.startsWith("/worlds/") ||
-    path === "/weather" || path.startsWith("/weather/")
-  ) return next();
-  return requirePrimaryWorldAccess(req, res, next);
-});
 app.use("/api/chat", chatRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/matches", matchDetailRoutes);
-app.use("/api/worlds", worldRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/players", playerRoutes);
@@ -153,8 +136,7 @@ app.use((error, req, res, next) => {
   }
 
   return res.status(statusCode).json({
-    message: statusCode === 413 ? "Request is too large." : error?.publicMessage || "The request could not be completed.",
-    ...(error?.code ? { code: error.code } : {}),
+    message: statusCode === 413 ? "Request is too large." : "The request could not be completed.",
     requestId: req.requestId,
   });
 });
