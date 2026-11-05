@@ -4,7 +4,9 @@ import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import User from "../server/models/User.js";
 import World from "../server/models/World.js";
+import WorldAccessGrant from "../server/models/WorldAccessGrant.js";
 import { ensurePrimaryWorldExists } from "../server/services/primaryWorld.js";
+import { ensureLegacyWorldAccessInvitations } from "../server/services/worldAccessGrants.js";
 
 let database;
 const originalEnv = {
@@ -22,7 +24,7 @@ before(async () => {
     replSet: { count: 1 },
   });
   await mongoose.connect(database.getUri("primary-world-bootstrap"));
-  await Promise.all([User.init(), World.init()]);
+  await Promise.all([User.init(), World.init(), WorldAccessGrant.init()]);
 }, { timeout: 120_000 });
 
 after(async () => {
@@ -50,6 +52,19 @@ test("bootstraps exactly one Original GG World owned by the configured existing 
   assert.equal(String(first.ownerUserId), String(admin._id));
   assert.equal(String(second._id), String(first._id));
   assert.equal(await World.countDocuments({ status: "active" }), 1);
+
+  await User.create([
+    { firebaseUid: "legacy-editor", name: "Legacy Editor", email: "legacyeditor@gmail.com", role: "editor" },
+    { firebaseUid: "legacy-viewer", name: "Legacy Viewer", email: "legacyviewer@gmail.com", role: "viewer" },
+  ]);
+  const invitations = await ensureLegacyWorldAccessInvitations(first);
+  assert.equal(invitations.existingAccountsChecked, 3);
+  assert.equal(invitations.invitationsCreated, 2);
+  const grants = await WorldAccessGrant.find({ worldId: first._id }).sort({ email: 1 }).lean();
+  assert.deepEqual(grants.map(grant => [grant.email, grant.role, grant.status]), [
+    ["legacyeditor@gmail.com", "editor", "invited"],
+    ["legacyviewer@gmail.com", "viewer", "invited"],
+  ]);
 });
 
 test("refuses to create an ownerless Original GG World", async () => {
