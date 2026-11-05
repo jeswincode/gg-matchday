@@ -139,7 +139,7 @@ function RoomScene({room}) {
 }
 
 function Building({ kind }) {
-  const colors = {hq:"#c69a45",stadium:"#758b83",training:"#668b69",market:"#b78b59",park:"#4d8057",club:"#788477",home:"#a68b70",academy:"#7b8f76",plaza:"#a89a78",plot:"#9c8e6d",museum:"#a88a57",transit:"#82928d"};
+  const colors = {hq:"#c69a45",stadium:"#758b83",training:"#668b69",market:"#b78b59",park:"#4d8057",club:"#788477",home:"#a68b70",academy:"#7b8f76",plaza:"#a89a78",plot:"#9c8e6d",museum:"#a88a57",transit:"#82928d","fan-zone":"#a64c58",esports:"#7456a8","community-pitch":"#4d9861"};
   return <svg viewBox="0 0 180 125" aria-hidden="true">
     <path d="M12 91 L89 117 L168 87 L89 60Z" fill="#1b2923" opacity=".3"/>
     <path d="M25 57 L89 25 L155 54 L90 86Z" fill={colors[kind]||"#788477"} stroke="#1b3027" strokeWidth="3"/>
@@ -163,6 +163,9 @@ function Building({ kind }) {
       <path d="M90 46 L90 70 M64 58 L117 58" stroke="#e6e6d5" strokeWidth="1.5"/>
       <rect x="78" y="9" width="22" height="9" rx="2" fill="#202c26" stroke="#e4c16c" strokeWidth="2"/>
     </>}
+    {kind==="fan-zone" && <g><path d="M42 54 L42 23 L137 23 L137 54" fill="#263b30" stroke="#d7bb76" strokeWidth="4"/><path d="M50 27 L70 27 L70 48 L50 48Z" fill="#b53d49"/><path d="M79 27 L99 27 L99 48 L79 48Z" fill="#e0c36f"/><path d="M108 27 L129 27 L129 48 L108 48Z" fill="#3f77b5"/><path d="M36 17 L89 0 L143 17" fill="none" stroke="#e3c77f" strokeWidth="4"/></g>}
+    {kind==="esports" && <g><path d="M39 54 L39 20 L141 20 L141 54Z" fill="#202a48" stroke="#d4b66d" strokeWidth="4"/><rect x="54" y="28" width="72" height="30" rx="3" fill="#4c4d9a" stroke="#8bd8df" strokeWidth="3"/><path d="M90 28 L90 58 M54 43 L126 43" stroke="#9bd7df" strokeWidth="2"/><circle cx="90" cy="43" r="8" fill="#e2bd6c"/></g>}
+    {kind==="community-pitch" && <g><path d="M39 57 L89 34 L140 57 L90 80Z" fill="#43874d" stroke="#e4e8d4" strokeWidth="3"/><path d="M90 34 L90 80 M39 57 L140 57" stroke="#e4e8d4" strokeWidth="2"/><path d="M68 50 L68 64 L80 64 L80 50 M101 50 L101 64 L113 64 L113 50" fill="none" stroke="#f1e8d3" strokeWidth="2"/></g>}
     {kind==="training" && <>
       <path d="M50 49 L50 28 L126 28 L126 48" fill="none" stroke="#e2e6d8" strokeWidth="5"/>
       <path d="M59 30 L59 43 M117 30 L117 43 M59 30 L117 30" stroke="#e2c67e" strokeWidth="3"/>
@@ -469,7 +472,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
         </div>
         <div className="gg-world-map-footer"><span>↔ Drag to explore</span><span>Scroll or + / − to zoom</span><span>Tap a landmark to enter</span><span>WASD / arrows move your player</span></div><div className="gg-world-movement"><span>MOVE YOUR PLAYER</span><div><button type="button" onClick={()=>movePlayer(0,-24)} aria-label="Move up">↑</button><div><button type="button" onClick={()=>movePlayer(-24,0)} aria-label="Move left">←</button><button type="button" onClick={()=>movePlayer(0,24)} aria-label="Move down">↓</button><button type="button" onClick={()=>movePlayer(24,0)} aria-label="Move right">→</button></div></div></div>
       </section>
-      <section className="gg-world-districts"><div className="gg-world-section-title"><span>EXPLORE THE KINGDOM</span><h2>Choose your next stop</h2></div><div className="gg-world-location-grid">{mapPlaces.map((p)=><button key={p.id} className="gg-world-location-card" onClick={()=>focusPlace(p)}><span className="gg-world-location-icon">{({hq:"♛",stadium:"⚽",training:"✦",club:"♜",home:"⌂",academy:"⚑",market:"◇",park:"♧",plaza:"◇",plot:"▧",museum:"🏆",transit:"↔"})[p.kind]}</span><span><strong>{p.name}</strong><small>{p.desc}</small></span><b>→</b></button>)}</div></section>
+      <section className="gg-world-districts"><div className="gg-world-section-title"><span>EXPLORE THE KINGDOM</span><h2>Choose your next stop</h2></div><div className="gg-world-location-grid">{mapPlaces.map((p)=><button key={p.id} className="gg-world-location-card" onClick={()=>focusPlace(p)}><span className="gg-world-location-icon">{({hq:"♛",stadium:"⚽",training:"✦",club:"♜",home:"⌂",academy:"⚑",market:"◇",park:"♧",plaza:"◇",plot:"▧",museum:"🏆",transit:"↔","fan-zone":"🎉",esports:"🎮","community-pitch":"⚽"})[p.kind]}</span><span><strong>{p.name}</strong><small>{p.desc}</small></span><b>→</b></button>)}</div></section>
       <section className="gg-world-panel"><div className="gg-world-section-title"><span>YOUR FOOTBALL IDENTITY</span><h2>Build your player character</h2><p>A pixel footballer that represents you around the city.</p></div><div className="gg-world-avatar-card"><div className="gg-world-avatar-preview"><PlayerSprite appearance={appearance}/><strong>{avatar.displayName||"Your player"}</strong><small>ORIGINAL GG PLAYER</small></div><form className="gg-world-form" onSubmit={saveAvatar}><label>Character name<input maxLength="24" value={avatar.displayName||""} onChange={(e)=>setAvatar((v)=>({...v,displayName:e.target.value}))} placeholder="Name your footballer"/></label><div className="gg-world-select-grid">
         <label>Skin tone<select value={appearance.skinTone||"medium"} onChange={(e)=>changeAppearance("skinTone",e.target.value)}>{["deep","dark","medium","tan","light","fair"].map(v=><option key={v}>{v}</option>)}</select></label>
         <label>Build<select value={appearance.bodyType||"athletic"} onChange={(e)=>changeAppearance("bodyType",e.target.value)}>{["slim","athletic","stocky"].map(v=><option key={v}>{v}</option>)}</select></label>
