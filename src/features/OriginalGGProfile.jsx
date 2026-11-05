@@ -21,14 +21,21 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
   const [message,setMessage] = useState("");
   useEffect(() => {
     let active = true;
-    Promise.all([api("/world/bootstrap"),api("/players"),api("/world/economy"),api("/world/avatar/presets")]).then(([world,players,economy,presetResult]) => {
+    Promise.all([api("/world/bootstrap"),api("/players")]).then(async ([world,players]) => {
       if (!active) return;
       const linkedPlayer = Array.isArray(players) ? players.find((item)=>String(item._id)===String(backendUser?.playerProfile)) : null;
       setPlayer(linkedPlayer||null);
       setLinked(Boolean(backendUser?.playerProfile));
       if (world.avatar) setAvatar(world.avatar);
-      setOwnedCosmetics((economy.inventory||[]).filter((entry)=>entry.quantity>0).map((entry)=>entry.itemId));
-      setPresets(presetResult.presets||[]);
+      if (backendUser?.playerProfile) {
+        const [economy,presetResult]=await Promise.all([api("/world/economy"),api("/world/avatar/presets")]);
+        if (!active) return;
+        setOwnedCosmetics((economy.inventory||[]).filter((entry)=>entry.quantity>0).map((entry)=>entry.itemId));
+        setPresets(presetResult.presets||[]);
+      } else {
+        setOwnedCosmetics([]);
+        setPresets([]);
+      }
     }).catch((error) => {
       if (active) setMessage(error.message||"Could not load your profile.");
     }).finally(() => {
