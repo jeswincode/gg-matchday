@@ -1,0 +1,47 @@
+name: Repair v3 dependency lockfile
+
+on:
+  push:
+    branches:
+      - restore-main-to-previous-stable
+
+permissions:
+  contents: write
+
+jobs:
+  repair-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out restoration branch
+        uses: actions/checkout@v7
+        with:
+          ref: restore-main-to-previous-stable
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Apply non-breaking security updates to the lockfile
+        run: npm audit fix --package-lock-only --ignore-scripts --audit-level=high
+
+      - name: Confirm no high-severity advisories remain
+        run: npm audit --audit-level=high
+
+      - name: Commit the updated lockfile and remove this temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --quiet -- package-lock.json && {
+            echo "npm audit fix did not update package-lock.json"
+            exit 1
+          }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git rm .github/workflows/v3-dependency-repair.yml
+          git commit -m "fix: patch vulnerable dependencies on v3 baseline"
+          git push origin HEAD:restore-main-to-previous-stable
