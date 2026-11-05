@@ -37,6 +37,7 @@ export function isPrimaryWorldSlug(value) {
  */
 export async function ensurePrimaryWorldExists() {
   const slug = getPrimaryWorldSlug();
+  await World.init();
   const existing = await World.findOne({ slug });
   if (existing) {
     if (existing.status !== "active") {
