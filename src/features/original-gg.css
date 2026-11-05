@@ -370,3 +370,15 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 }
 .gg-account-avatar-trigger:hover{transform:translateY(-1px);border-color:#f0d28b;box-shadow:0 0 0 4px #d9b86a1a}
 .gg-account-avatar-trigger:focus-visible{outline:2px solid #f0d28b;outline-offset:3px}
+
+
+.gg-world-hq-visitors{display:grid;grid-template-columns:minmax(150px,.55fr) minmax(0,1fr);gap:12px;align-items:center;padding:11px 13px;border:1px solid #dfbd7040;border-radius:14px;background:linear-gradient(90deg,#2d2416aa,#101b13)}
+.gg-world-hq-visitors>div:first-child{display:grid;gap:5px}
+.gg-world-hq-visitors>div:first-child span{color:#dfbd70;font-size:8px;font-weight:900;letter-spacing:.15em}
+.gg-world-hq-visitors>div:first-child strong{font-size:12px}
+.gg-world-hq-visitors>div:last-child{display:flex;align-items:center;gap:9px;min-width:0;flex-wrap:wrap}
+.gg-world-hq-visitors article{display:flex;align-items:center;gap:5px;max-width:120px;padding:4px 8px;border:1px solid #dfbd7040;border-radius:999px;background:#0b150f}
+.gg-world-hq-visitors article .gg-player-sprite{width:30px;height:30px;filter:drop-shadow(0 3px 3px #0008)}
+.gg-world-hq-visitors article span{overflow:hidden;color:#eee5d0;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+.gg-world-hq-visitors p{margin:0;color:#bdc8b8;font-size:10px}
+@media(max-width:760px){.gg-world-hq-visitors{grid-template-columns:1fr;gap:8px;padding:9px}.gg-world-hq-visitors article .gg-player-sprite{width:26px;height:26px}}
