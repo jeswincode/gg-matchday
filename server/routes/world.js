@@ -717,7 +717,7 @@ router.get("/residences/me/access", async (req, res, next) => {
   } catch (error) { return next(error); }
 });
 
-router.get("/residences/players", async (req, res, next) => {
+router.get("/residence-directory/players", async (req, res, next) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = linkedPlayerId(req, res);
   if (!playerId) return;
@@ -940,10 +940,11 @@ router.post("/social/interactions", async (req, res, next) => {
     const activeTarget = await WorldPresence.findOne({ playerId: toPlayerId, lastSeenAt: { $gte: new Date(Date.now() - 45000) } }).select("playerId locationId").lean();
     if (!activeTarget) return res.status(404).json({ message: "That player is no longer in the city." });
     const now = new Date();
+    await WorldSocialRateLimit.updateOne({ playerId: fromPlayerId }, { $setOnInsert: { playerId: fromPlayerId } }, { upsert: true });
     const rate = await WorldSocialRateLimit.findOneAndUpdate(
       { playerId: fromPlayerId, $or: [{ lastInteractionAt: null }, { lastInteractionAt: { $lte: new Date(now.getTime() - 2500) } }] },
-      { $set: { lastInteractionAt: now }, $setOnInsert: { playerId: fromPlayerId } },
-      { new: true, upsert: true },
+      { $set: { lastInteractionAt: now } },
+      { new: true },
     ).lean();
     if (!rate) return res.status(429).json({ message: "Wait a moment before sending another interaction." });
     const [player, avatar] = await Promise.all([
