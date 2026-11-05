@@ -4,6 +4,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import Player from "../models/Player.js";
 import Club from "../models/clubs/Club.js";
+import ClubGround from "../models/clubs/ClubGround.js";
 import WorldMap from "../models/clubs/WorldMap.js";
 import PlayerAvatar from "../models/clubs/PlayerAvatar.js";
 import TrainingProfile from "../models/clubs/TrainingProfile.js";
@@ -74,6 +75,18 @@ router.get("/bootstrap", async (req, res, next) => {
       getWorldMap(),
       Club.find({ status: "approved" }).select("name logoUrl memberIds").sort({ nameNormalized: 1 }).lean(),
     ]);
+    const clubGrounds = await Promise.all(clubs.map((club, index) => ClubGround.findOneAndUpdate(
+      { clubId: club._id },
+      { $setOnInsert: {
+        clubId: club._id,
+        name: club.name + " Ground",
+        x: 220 + (index % 4) * 250,
+        y: 1010 + Math.floor(index / 4) * 90,
+        level: 1,
+        accessPolicy: "public-exterior-private-interior",
+      } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).lean()));
     let avatar = null;
     let training = null;
     if (playerId) {
@@ -100,6 +113,8 @@ router.get("/bootstrap", async (req, res, next) => {
       world: { slug: world.slug, title: world.title, version: world.version, layout: world.layout },
       playerId: playerId ? String(playerId) : null,
       clubs: clubs.map((club) => ({ id: String(club._id), name: club.name, logoUrl: club.logoUrl, memberCount: club.memberIds?.length || 0 })),
+      clubGrounds: clubGrounds.map((ground) => ({ id: "ground-" + String(ground.clubId), clubId: String(ground.clubId), name: ground.name, kind: "club-ground", x: ground.x, y: ground.y, level: ground.level, accessPolicy: ground.accessPolicy })),
+      canCreateCharacter: Boolean(playerId),
       avatar,
       training,
       presence: activePresence.map((item) => ({
