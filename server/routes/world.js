@@ -970,12 +970,15 @@ router.post("/social/messages/:messageId/report", async (req, res, next) => {
     if (!message || message.moderationStatus === "hidden") return res.status(404).json({ message: "Message not found." });
     if (String(message.senderPlayerId) === String(playerId)) return res.status(400).json({ message: "You cannot report your own message." });
     await WorldMessageReport.create([{ messageId: message._id, playerId, reason }]);
-    message.reportCount += 1;
-    if (message.reportCount >= 3) message.moderationStatus = "pending_review";
-    if (message.reportCount >= 5) message.moderationStatus = "hidden";
-    await message.save();
-    if (message.moderationStatus === "hidden") publishWorldEvent("social:message_hidden", { id: String(message._id), locationId: message.locationId }, { locationId: "world" });
-    return res.status(201).json({ success: true, moderationStatus: message.moderationStatus });
+    const updated = await WorldMessage.findOneAndUpdate(
+      { _id: message._id, expiresAt: { $gt: new Date() } },
+      [{ $set: { reportCount: { $add: [{ $ifNull: ["$reportCount", 0] }, 1] } } }],
+      { new: true },
+    ).lean();
+    const moderationStatus = updated.reportCount >= 5 ? "hidden" : updated.reportCount >= 3 ? "pending_review" : "visible";
+    if (moderationStatus !== updated.moderationStatus) await WorldMessage.updateOne({ _id: message._id }, { $set: { moderationStatus } });
+    if (moderationStatus === "hidden") publishWorldEvent("social:message_hidden", { id: String(message._id), locationId: message.locationId }, { locationId: "world" });
+    return res.status(201).json({ success: true, moderationStatus });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ message: "You have already reported this message." });
     return next(error);
