@@ -18,6 +18,9 @@ import TrainingChallengeProfile from "../models/clubs/TrainingChallengeProfile.j
 import WorldEconomy from "../models/clubs/WorldEconomy.js";
 import { grantWorldReward, unlockTrainingAchievements } from "../services/worldProgression.js";
 import { trainingRewardForSession, levelProgress } from "../config/worldProgression.js";
+import WorldInventoryItem from "../models/clubs/WorldInventoryItem.js";
+import { WORLD_COSMETIC_CATALOG } from "../../shared/worldCustomization.js";
+import { FREE_AVATAR_OPTIONS } from "../../shared/worldAvatarOptions.js";
 import {
   DEFAULT_WORLD_LAYOUT,
   WORLD_MAP_SLUG,
@@ -261,6 +264,15 @@ router.put("/avatar", async (req, res, next) => {
   if (!playerId) return;
   try {
     const payload = normalizeAvatarPayload(req.body);
+    const inventory = await WorldInventoryItem.find({ playerId, quantity: { $gt: 0 } }).select("itemId").lean();
+    const ownedIds = new Set(inventory.map((item) => item.itemId));
+    for (const [field, value] of Object.entries(payload.appearance)) {
+      if (FREE_AVATAR_OPTIONS[field]?.includes(value)) continue;
+      const unlock = WORLD_COSMETIC_CATALOG.find((item) => item.appearancePatch?.[field] === value);
+      if (!unlock || !ownedIds.has(unlock.id)) {
+        return res.status(403).json({ message: "Unlock "+String(value).replaceAll("-", " ")+" in the GG Market before equipping it." });
+      }
+    }
     const avatar = await PlayerAvatar.findOneAndUpdate(
       { playerId },
       { $set: payload },
