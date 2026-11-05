@@ -218,7 +218,7 @@ router.get("/bootstrap", async (req, res, next) => {
       };
     }
     const activePresence = await WorldPresence.find({ lastSeenAt: { $gte: new Date(Date.now() - 45000) } })
-      .select("playerId displayName locationId x y lastSeenAt")
+      .select("playerId displayName locationId x y direction lastSeenAt")
       .limit(100)
       .lean();
     const presenceIds = activePresence.map((item) => item.playerId);
@@ -250,6 +250,7 @@ router.get("/bootstrap", async (req, res, next) => {
         locationId: item.locationId,
         x: item.x,
         y: item.y,
+        direction: item.direction || "down",
         appearance: appearanceByPlayer.get(String(item.playerId)) || null,
       })),
     });
@@ -701,14 +702,14 @@ router.post("/presence", async (req, res, next) => {
     const position = normalizePresencePayload(req.body);
     const [player, avatar] = await Promise.all([
       Player.findById(playerId).select("name").lean(),
-      PlayerAvatar.findOne({ playerId }).select("displayName").lean(),
+      PlayerAvatar.findOne({ playerId }).select("displayName appearance").lean(),
     ]);
     const presence = await WorldPresence.findOneAndUpdate(
       { playerId },
       { $set: { ...position, displayName: avatar?.displayName || player?.name || "GG Player", lastSeenAt: new Date() } },
       { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true },
     ).lean();
-    const payload = { playerId: String(playerId), displayName: presence.displayName, locationId: presence.locationId, x: presence.x, y: presence.y };
+    const payload = { playerId: String(playerId), displayName: presence.displayName, locationId: presence.locationId, x: presence.x, y: presence.y, direction: presence.direction || position.direction, appearance: avatar?.appearance || null };
     publishWorldEvent("presence:update", payload, { locationId: "world", exceptPlayerId: playerId });
     return res.json({ success: true, presence: payload });
   } catch (error) {
