@@ -382,3 +382,27 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 .gg-world-hq-visitors article span{overflow:hidden;color:#eee5d0;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
 .gg-world-hq-visitors p{margin:0;color:#bdc8b8;font-size:10px}
 @media(max-width:760px){.gg-world-hq-visitors{grid-template-columns:1fr;gap:8px;padding:9px}.gg-world-hq-visitors article .gg-player-sprite{width:26px;height:26px}}
+
+
+/* Reveal animation: the city emerges from the clouds when the companion opens it. */
+.gg-world{isolation:isolate}
+.gg-world:before,.gg-world:after{
+  content:"";position:fixed;z-index:60;top:-12%;bottom:-12%;width:64%;pointer-events:none;
+  opacity:.92;filter:blur(22px);
+  background:radial-gradient(ellipse at 62% 50%,#e5ebdbd9 0, #bdcdbab8 25%,#6c876d77 56%,transparent 75%);
+}
+.gg-world:before{left:-12%;animation:gg-world-cloud-left 1.25s cubic-bezier(.16,.72,.22,1) .05s both}
+.gg-world:after{right:-12%;transform:scaleX(-1);animation:gg-world-cloud-right 1.25s cubic-bezier(.16,.72,.22,1) .05s both}
+.gg-world-map-shell{animation:gg-world-map-reveal .9s cubic-bezier(.18,.72,.22,1) both}
+@keyframes gg-world-cloud-left{0%{transform:translateX(0);opacity:.96}100%{transform:translateX(-118%);opacity:0}}
+@keyframes gg-world-cloud-right{0%{transform:scaleX(-1) translateX(0);opacity:.96}100%{transform:scaleX(-1) translateX(-118%);opacity:0}}
+@keyframes gg-world-map-reveal{0%{opacity:.25;filter:blur(8px);transform:scale(.94)}100%{opacity:1;filter:blur(0);transform:scale(1)}}
+.gg-world-hq-curtains span:first-child{animation:gg-hq-curtain-left .95s cubic-bezier(.2,.7,.2,1) .15s both}
+.gg-world-hq-curtains span:last-child{animation:gg-hq-curtain-right .95s cubic-bezier(.2,.7,.2,1) .15s both}
+@keyframes gg-hq-curtain-left{0%{transform:translateX(0)}100%{transform:translateX(-110%)}}
+@keyframes gg-hq-curtain-right{0%{transform:scaleX(-1) translateX(0)}100%{transform:scaleX(-1) translateX(-110%)}}
+.gg-world-training-gate i{transform-origin:center bottom;animation:gg-training-gate-open .7s cubic-bezier(.18,.7,.25,1) .25s both}
+@keyframes gg-training-gate-open{0%{transform:scaleX(.08);opacity:.2}100%{transform:scaleX(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){
+  .gg-world:before,.gg-world:after,.gg-world-map-shell,.gg-world-hq-curtains span,.gg-world-training-gate i{animation:none!important}
+}
