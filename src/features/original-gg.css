@@ -1,4 +1,4 @@
-.gg-world{--ink:#f5f0df;--muted:#b8c0ad;--gold:#dfbd70;min-height:100vh;padding:0 clamp(12px,4vw,58px) 48px;color:var(--ink);background:radial-gradient(ellipse at 50% -20%,#294c38 0,#152a20 42%,#0c1712 100%);font-family:Inter,ui-sans-serif,system-ui,sans-serif}.gg-world button,.gg-world input,.gg-world select{font:inherit}.gg-world-header{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:1480px;margin:auto;padding:22px 0;border-bottom:1px solid #ffffff1c}.gg-world-brand{display:flex;align-items:center;gap:14px}.gg-world-brand p,.gg-world-kicker,.gg-world-section-title>span,.gg-world-map-topline span,.gg-world-building-modal>span{margin:0;color:var(--gold);font-size:10px;font-weight:800;letter-spacing:.19em}.gg-world-brand h1{margin:3px 0 0;font-size:22px}.gg-world-crest{display:grid;place-items:center;width:48px;height:48px;border:1px solid #d9b86a;border-radius:14px;color:#f0d28b;font-weight:950;background:linear-gradient(145deg,#4a3a1d,#17180f)}.gg-world-back,.gg-world-map-tools button{border:1px solid #ffffff2b;border-radius:999px;padding:9px 15px;color:#f3eddb;background:#ffffff0a;cursor:pointer}.gg-world-intro{max-width:1480px;margin:36px auto 24px;display:flex;align-items:end;justify-content:space-between;gap:18px}.gg-world-intro h2{margin:10px 0 8px;font-size:clamp(28px,4vw,48px);letter-spacing:-.055em}.gg-world-intro p,.gg-world-section-title p{margin:0;color:var(--muted);line-height:1.65}.gg-world-live{padding:10px 14px;border:1px solid #6cb77b55;border-radius:999px;color:#d4ebd5;background:#22432b77;font-size:12px}.gg-world-live i{display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#79d48a}.gg-world-map-shell,.gg-world-panel{max-width:1480px;margin:24px auto;border:1px solid #e6d5a32c;border-radius:24px;background:linear-gradient(145deg,#1b3026ee,#111f19ee);box-shadow:0 22px 60px #0003;overflow:hidden}.gg-world-map-topline{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;border-bottom:1px solid #ffffff18}.gg-world-map-topline>div:first-child{display:grid;gap:5px}.gg-world-map-topline strong{font-size:13px}.gg-world-map-tools{display:flex;align-items:center;gap:8px}.gg-world-map-tools span{font-size:11px}.gg-world-map-tools button{padding:6px 11px}.gg-world-map-viewport{height:clamp(340px,54vw,680px);overflow:hidden;touch-action:none;user-select:none;background:#214632}.gg-world-map-viewport svg{display:block;width:100%;height:100%}.gg-map-place{cursor:pointer;outline:none}.gg-map-place:hover rect,.gg-map-place:focus-visible rect{stroke:#f3d78b;stroke-width:4}.gg-world-map-footer{display:flex;justify-content:space-between;gap:12px;padding:12px 20px;color:#bdc9b6;font-size:11px;border-top:1px solid #ffffff16}.gg-world-districts{max-width:1480px;margin:auto}.gg-world-section-title{max-width:1480px;margin:42px auto 18px}.gg-world-section-title h2{margin:8px 0;font-size:clamp(24px,3vw,34px);letter-spacing:-.04em}.gg-world-location-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.gg-world-location-card{display:flex;align-items:center;gap:15px;padding:16px;border:1px solid #ffffff1e;border-radius:16px;text-align:left;color:var(--ink);background:#ffffff08;cursor:pointer}.gg-world-location-card:hover{border-color:#d9b86a88}.gg-world-location-card>span:nth-child(2){display:grid;gap:5px;flex:1}.gg-world-location-card strong{font-size:14px}.gg-world-location-card small{color:var(--muted);font-size:11px;line-height:1.5}.gg-world-location-card>b{color:var(--gold)}.gg-world-location-icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:13px;color:#e9cd8d;background:#d5b86a18;font-size:21px}.gg-world-panel{padding:6px 24px 26px}.gg-world-avatar-card{display:grid;grid-template-columns:220px 1fr;gap:24px}.gg-world-avatar-preview{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:250px;border:1px solid #d9b86a33;border-radius:18px;background:radial-gradient(circle at 50% 25%,#56704c,#172a20 70%)}.gg-player-sprite{width:128px;height:128px;image-rendering:pixelated;image-rendering:crisp-edges;filter:drop-shadow(0 10px 10px #0005)}.gg-world-avatar-preview strong{margin-top:8px}.gg-world-avatar-preview small{margin-top:4px;color:var(--gold);font-size:9px;letter-spacing:.15em}.gg-world-form{display:grid;gap:14px}.gg-world-form label,.gg-world-duration{display:grid;gap:7px;color:#d9dfd0;font-size:11px;font-weight:700}.gg-world-form input,.gg-world-form select,.gg-world-duration input,.gg-world-counter-grid input{width:100%;min-width:0;border:1px solid #ffffff2a;border-radius:10px;padding:11px 12px;color:#f4f0e5;background:#101e17;outline:none}.gg-world-form input:focus,.gg-world-form select:focus,.gg-world-duration input:focus,.gg-world-counter-grid input:focus{border-color:var(--gold)}.gg-world-select-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.gg-world-primary{justify-self:start;border:1px solid #f0d18a;border-radius:999px;padding:11px 19px;color:#1a1a10;font-weight:800;background:linear-gradient(135deg,#f0d28d,#bd8f3f);cursor:pointer}.gg-world-primary:disabled{opacity:.55;cursor:wait}.gg-world-training-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.gg-world-training-form,.gg-world-training-stats{padding:18px;border:1px solid #ffffff1c;border-radius:17px;background:#ffffff08}.gg-world-training-form h3,.gg-world-training-stats h3{margin:0 0 15px;font-size:16px}.gg-world-counter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.gg-world-counter-grid label{display:grid;gap:7px;color:#d9dfd0;font-size:12px}.gg-world-counter-grid input{font-size:18px;font-weight:750}.gg-world-duration{max-width:260px;margin:14px 0}.gg-world-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.gg-world-stat-grid>div{display:grid;gap:6px;padding:13px;border-radius:12px;background:#ffffff0b}.gg-world-stat-grid span,.gg-world-total span{color:var(--muted);font-size:10px}.gg-world-stat-grid strong{font-size:26px}.gg-world-stat-grid small,.gg-world-total small{color:var(--gold);font-size:10px}.gg-world-total{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid #d8b86a44;border-radius:12px}.gg-world-total strong{font-size:28px}.gg-world-total small{margin-left:auto}.gg-world-notice,.gg-world-error,.gg-world-loading{max-width:1480px;margin:18px auto;padding:14px 16px;border:1px solid #ffffff22;border-radius:12px;color:#e8e1d1;background:#ffffff0a;font-size:13px}.gg-world-notice{border-color:#a6d8a955;color:#d6efd5;background:#24492c88}.gg-world-error button{margin-left:12px;color:var(--gold);background:none;border:0;text-decoration:underline;cursor:pointer}.gg-world-modal-backdrop{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;padding:18px;background:#050b08c9;backdrop-filter:blur(9px)}.gg-world-building-modal{position:relative;width:min(460px,100%);padding:26px;border:1px solid #e0c17b77;border-radius:22px;text-align:center;color:var(--ink);background:linear-gradient(145deg,#20392b,#101d16);box-shadow:0 28px 100px #0009}.gg-world-modal-close{position:absolute;top:10px;right:14px;border:0;color:#f6edda;background:none;font-size:27px;cursor:pointer}.gg-world-modal-art{width:180px;margin:12px auto}.gg-world-modal-art svg{width:100%}.gg-world-building-modal h2{margin:0 0 8px}.gg-world-building-modal p{color:var(--muted);font-size:13px;line-height:1.65}.gg-world-coming{padding-top:12px;border-top:1px solid #ffffff1a;font-size:11px!important}.gg-world-footer{max-width:1480px;margin:38px auto 0;padding-top:18px;border-top:1px solid #ffffff1b;color:#c7b276;font-size:10px;letter-spacing:.13em}.gg-world-footer span{float:right;color:#9da99b;letter-spacing:0}@media(max-width:760px){.gg-world{padding:0 12px 34px}.gg-world-header{padding:16px 0}.gg-world-brand h1{font-size:18px}.gg-world-crest{width:40px;height:40px}.gg-world-intro{margin-top:26px;align-items:start;flex-direction:column}.gg-world-map-topline{padding:13px}.gg-world-map-topline strong{font-size:11px}.gg-world-map-viewport{height:390px}.gg-world-map-footer{font-size:9px;padding:11px;flex-wrap:wrap}.gg-world-location-grid{grid-template-columns:1fr}.gg-world-panel{padding:4px 14px 18px}.gg-world-avatar-card{grid-template-columns:1fr}.gg-world-avatar-preview{min-height:200px}.gg-world-select-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gg-world-training-grid{grid-template-columns:1fr}.gg-world-total{flex-wrap:wrap}.gg-world-total small{margin-left:0}.gg-world-footer span{float:none;display:block;margin-top:8px}}@media(prefers-reduced-motion:reduce){.gg-world-location-card{transition:none}}
+.gg-world{--ink:#f5f0df;--muted:#b8c0ad;--gold:#dfbd70;min-height:100vh;padding:0 clamp(12px,4vw,58px) 48px;color:var(--ink);background:radial-gradient(ellipse at 50% -20%,#294c38 0,#152a20 42%,#0c1712 100%);font-family:Inter,ui-sans-serif,system-ui,sans-serif}.gg-world button,.gg-world input,.gg-world select{font:inherit}.gg-world-header{display:flex;align-items:center;justify-content:space-between;gap:18px;max-width:1480px;margin:auto;padding:22px 0;border-bottom:1px solid #ffffff1c}.gg-world-brand{display:flex;align-items:center;gap:14px}.gg-world-brand p,.gg-world-kicker,.gg-world-section-title>span,.gg-world-map-topline span,.gg-world-building-modal>span{margin:0;color:var(--gold);font-size:10px;font-weight:800;letter-spacing:.19em}.gg-world-brand h1{margin:3px 0 0;font-size:22px}.gg-world-crest{display:grid;place-items:center;width:48px;height:48px;border:1px solid #d9b86a;border-radius:14px;color:#f0d28b;font-weight:950;background:linear-gradient(145deg,#4a3a1d,#17180f)}.gg-world-back,.gg-world-map-tools button{border:1px solid #ffffff2b;border-radius:999px;padding:9px 15px;color:#f3eddb;background:#ffffff0a;cursor:pointer}.gg-world-intro{max-width:1480px;margin:36px auto 24px;display:flex;align-items:end;justify-content:space-between;gap:18px}.gg-world-intro h2{margin:10px 0 8px;font-size:clamp(28px,4vw,48px);letter-spacing:-.055em}.gg-world-intro p,.gg-world-section-title p{margin:0;color:var(--muted);line-height:1.65}.gg-world-live{padding:10px 14px;border:1px solid #6cb77b55;border-radius:999px;color:#d4ebd5;background:#22432b77;font-size:12px}.gg-world-live i{display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#79d48a}.gg-world-map-shell,.gg-world-panel{max-width:1480px;margin:24px auto;border:1px solid #e6d5a32c;border-radius:24px;background:linear-gradient(145deg,#1b3026ee,#111f19ee);box-shadow:0 22px 60px #0003;overflow:hidden}.gg-world-map-topline{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;border-bottom:1px solid #ffffff18}.gg-world-map-topline>div:first-child{display:grid;gap:5px}.gg-world-map-topline strong{font-size:13px}.gg-world-map-tools{display:flex;align-items:center;gap:8px}.gg-world-map-tools span{font-size:11px}.gg-world-map-tools button{padding:6px 11px}.gg-world-map-viewport{height:clamp(340px,54vw,680px);overflow:hidden;touch-action:none;user-select:none;background:#214632}.gg-world-map-viewport>.gg-world-map-art{display:block;width:100%;height:100%}.gg-map-place{cursor:pointer;outline:none}.gg-map-place:hover rect,.gg-map-place:focus-visible rect{stroke:#f3d78b;stroke-width:4}.gg-world-map-footer{display:flex;justify-content:space-between;gap:12px;padding:12px 20px;color:#bdc9b6;font-size:11px;border-top:1px solid #ffffff16}.gg-world-districts{max-width:1480px;margin:auto}.gg-world-section-title{max-width:1480px;margin:42px auto 18px}.gg-world-section-title h2{margin:8px 0;font-size:clamp(24px,3vw,34px);letter-spacing:-.04em}.gg-world-location-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.gg-world-location-card{display:flex;align-items:center;gap:15px;padding:16px;border:1px solid #ffffff1e;border-radius:16px;text-align:left;color:var(--ink);background:#ffffff08;cursor:pointer}.gg-world-location-card:hover{border-color:#d9b86a88}.gg-world-location-card>span:nth-child(2){display:grid;gap:5px;flex:1}.gg-world-location-card strong{font-size:14px}.gg-world-location-card small{color:var(--muted);font-size:11px;line-height:1.5}.gg-world-location-card>b{color:var(--gold)}.gg-world-location-icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:13px;color:#e9cd8d;background:#d5b86a18;font-size:21px}.gg-world-panel{padding:6px 24px 26px}.gg-world-avatar-card{display:grid;grid-template-columns:220px 1fr;gap:24px}.gg-world-avatar-preview{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:250px;border:1px solid #d9b86a33;border-radius:18px;background:radial-gradient(circle at 50% 25%,#56704c,#172a20 70%)}.gg-player-sprite{width:128px;height:128px;image-rendering:pixelated;image-rendering:crisp-edges;filter:drop-shadow(0 10px 10px #0005)}.gg-world-avatar-preview strong{margin-top:8px}.gg-world-avatar-preview small{margin-top:4px;color:var(--gold);font-size:9px;letter-spacing:.15em}.gg-world-form{display:grid;gap:14px}.gg-world-form label,.gg-world-duration{display:grid;gap:7px;color:#d9dfd0;font-size:11px;font-weight:700}.gg-world-form input,.gg-world-form select,.gg-world-duration input,.gg-world-counter-grid input{width:100%;min-width:0;border:1px solid #ffffff2a;border-radius:10px;padding:11px 12px;color:#f4f0e5;background:#101e17;outline:none}.gg-world-form input:focus,.gg-world-form select:focus,.gg-world-duration input:focus,.gg-world-counter-grid input:focus{border-color:var(--gold)}.gg-world-select-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.gg-world-primary{justify-self:start;border:1px solid #f0d18a;border-radius:999px;padding:11px 19px;color:#1a1a10;font-weight:800;background:linear-gradient(135deg,#f0d28d,#bd8f3f);cursor:pointer}.gg-world-primary:disabled{opacity:.55;cursor:wait}.gg-world-training-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.gg-world-training-form,.gg-world-training-stats{padding:18px;border:1px solid #ffffff1c;border-radius:17px;background:#ffffff08}.gg-world-training-form h3,.gg-world-training-stats h3{margin:0 0 15px;font-size:16px}.gg-world-counter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.gg-world-counter-grid label{display:grid;gap:7px;color:#d9dfd0;font-size:12px}.gg-world-counter-grid input{font-size:18px;font-weight:750}.gg-world-duration{max-width:260px;margin:14px 0}.gg-world-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.gg-world-stat-grid>div{display:grid;gap:6px;padding:13px;border-radius:12px;background:#ffffff0b}.gg-world-stat-grid span,.gg-world-total span{color:var(--muted);font-size:10px}.gg-world-stat-grid strong{font-size:26px}.gg-world-stat-grid small,.gg-world-total small{color:var(--gold);font-size:10px}.gg-world-total{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;border:1px solid #d8b86a44;border-radius:12px}.gg-world-total strong{font-size:28px}.gg-world-total small{margin-left:auto}.gg-world-notice,.gg-world-error,.gg-world-loading{max-width:1480px;margin:18px auto;padding:14px 16px;border:1px solid #ffffff22;border-radius:12px;color:#e8e1d1;background:#ffffff0a;font-size:13px}.gg-world-notice{border-color:#a6d8a955;color:#d6efd5;background:#24492c88}.gg-world-error button{margin-left:12px;color:var(--gold);background:none;border:0;text-decoration:underline;cursor:pointer}.gg-world-modal-backdrop{position:fixed;z-index:1000;inset:0;display:grid;place-items:center;padding:18px;background:#050b08c9;backdrop-filter:blur(9px)}.gg-world-building-modal{position:relative;width:min(460px,100%);padding:26px;border:1px solid #e0c17b77;border-radius:22px;text-align:center;color:var(--ink);background:linear-gradient(145deg,#20392b,#101d16);box-shadow:0 28px 100px #0009}.gg-world-modal-close{position:absolute;top:10px;right:14px;border:0;color:#f6edda;background:none;font-size:27px;cursor:pointer}.gg-world-modal-art{width:180px;margin:12px auto}.gg-world-modal-art svg{width:100%}.gg-world-building-modal h2{margin:0 0 8px}.gg-world-building-modal p{color:var(--muted);font-size:13px;line-height:1.65}.gg-world-coming{padding-top:12px;border-top:1px solid #ffffff1a;font-size:11px!important}.gg-world-footer{max-width:1480px;margin:38px auto 0;padding-top:18px;border-top:1px solid #ffffff1b;color:#c7b276;font-size:10px;letter-spacing:.13em}.gg-world-footer span{float:right;color:#9da99b;letter-spacing:0}@media(max-width:760px){.gg-world{padding:0 12px 34px}.gg-world-header{padding:16px 0}.gg-world-brand h1{font-size:18px}.gg-world-crest{width:40px;height:40px}.gg-world-intro{margin-top:26px;align-items:start;flex-direction:column}.gg-world-map-topline{padding:13px}.gg-world-map-topline strong{font-size:11px}.gg-world-map-viewport{height:390px}.gg-world-map-footer{font-size:9px;padding:11px;flex-wrap:wrap}.gg-world-location-grid{grid-template-columns:1fr}.gg-world-panel{padding:4px 14px 18px}.gg-world-avatar-card{grid-template-columns:1fr}.gg-world-avatar-preview{min-height:200px}.gg-world-select-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gg-world-training-grid{grid-template-columns:1fr}.gg-world-total{flex-wrap:wrap}.gg-world-total small{margin-left:0}.gg-world-footer span{float:none;display:block;margin-top:8px}}@media(prefers-reduced-motion:reduce){.gg-world-location-card{transition:none}}
 .gg-world-guide{position:fixed;z-index:900;right:clamp(14px,4vw,48px);bottom:22px;display:flex;align-items:center;gap:18px;width:min(560px,calc(100vw - 28px));padding:18px;border:1px solid #e2c37b99;border-radius:20px;color:#f5f0df;background:linear-gradient(145deg,#263f2e,#101d16);box-shadow:0 22px 70px #000b}.gg-world-guide-character{display:grid;place-items:center;align-self:stretch;min-width:92px;border-radius:14px;background:radial-gradient(circle at 50% 30%,#66815a,#172a20)}.gg-world-guide-character .gg-player-sprite{width:72px;height:108px}.gg-world-guide-copy>span{color:#dfbd70;font-size:9px;font-weight:850;letter-spacing:.16em}.gg-world-guide-copy h2{margin:7px 0;font-size:19px}.gg-world-guide-copy p{margin:0;color:#c3cdbd;font-size:12px;line-height:1.55}.gg-world-guide-copy>div{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:13px}.gg-world-guide-skip{border:0;color:#c4cbbd;background:none;font-size:11px;text-decoration:underline;cursor:pointer}@media(max-width:560px){.gg-world-guide{right:10px;bottom:10px;gap:10px;padding:12px}.gg-world-guide-character{min-width:60px}.gg-world-guide-character .gg-player-sprite{width:72px;height:72px}.gg-world-guide-copy h2{font-size:16px}.gg-world-guide-copy p{font-size:11px}}
 
 .gg-world-map-viewport:focus-visible{outline:2px solid #e6c779;outline-offset:-3px}.gg-map-character{width:48px;height:58px;display:flex;align-items:center;justify-content:center;pointer-events:none}.gg-map-character .gg-player-sprite{width:44px;height:44px;filter:drop-shadow(0 3px 3px #0008)}.gg-world-movement{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 18px;border-top:1px solid #ffffff15}.gg-world-movement>span{color:#dfbd70;font-size:10px;font-weight:850;letter-spacing:.16em}.gg-world-movement>div{display:grid;gap:4px}.gg-world-movement>div>button,.gg-world-movement>div>div button{min-width:38px;min-height:34px;border:1px solid #ffffff2d;border-radius:9px;color:#f4e7c3;background:#ffffff0b;cursor:pointer}.gg-world-movement>div>div{display:flex;gap:4px}.gg-world-movement button:hover{border-color:#e6c779;background:#d8b86a1a}@media(min-width:761px){.gg-world-movement{display:none}}
@@ -179,3 +179,181 @@
 .gg-world-interior-secondary{justify-self:center;margin-top:8px;padding:9px 13px;border:1px solid #d9b86a55;border-radius:999px;color:#ead6a5;background:#d8b86a12;font-size:10px;cursor:pointer}
 @media(max-width:560px){.gg-access-actions{display:grid;grid-template-columns:1fr 1fr}.gg-access-actions>*{justify-self:stretch;text-align:center}.gg-ground-upgrade{align-items:flex-start;flex-direction:column}.gg-ground-upgrade button{width:100%}.gg-social-message-list article{max-width:96%}}
 @media(prefers-reduced-motion:reduce){.gg-world-player-marker{transition:none}.gg-companion.is-thrown .gg-companion-button{animation:none}.gg-player-sprite.is-animated{animation:none}}
+
+
+/* Original GG V4 - map-first viewport and purpose-built facility interiors. */
+html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflow:hidden}
+.gg-world{
+  position:fixed;inset:0;z-index:900;display:flex;flex-direction:column;
+  width:100%;height:100dvh;min-height:0;overflow:hidden;
+  padding:0 clamp(8px,2.5vw,36px) 4px;box-sizing:border-box;
+  background:radial-gradient(ellipse at 50% 12%,#31563a 0,#152b20 48%,#08120c 100%);
+}
+.gg-world-header{width:100%;max-width:1800px;flex:0 0 auto;min-height:58px;padding:7px 0}
+.gg-world-brand{gap:10px}
+.gg-world-brand h1{font-size:17px}
+.gg-world-brand p{font-size:8px}
+.gg-world-crest{width:38px;height:38px;border-radius:11px}
+.gg-world-header-actions{display:flex;align-items:center;gap:7px}
+.gg-world-header-actions .gg-world-back{padding:7px 12px;font-size:11px}
+.gg-world-intro,.gg-world-footer{display:none!important}
+.gg-world-map-shell{
+  display:flex;flex:1 1 auto;flex-direction:column;min-height:0;height:auto;
+  width:100%;max-width:1800px;margin:8px auto 0;border-radius:16px;
+}
+.gg-world-map-topline{flex:0 0 auto;min-height:43px;padding:7px 12px}
+.gg-world-map-topline>div:first-child{gap:2px}
+.gg-world-map-topline span{font-size:8px}
+.gg-world-map-topline strong{font-size:10px}
+.gg-world-map-tools{gap:5px}
+.gg-world-map-tools button{min-width:30px;min-height:28px;padding:4px 9px;font-size:12px}
+.gg-world-map-tools span{font-size:9px}
+.gg-world-map-viewport{
+  position:relative;flex:1 1 auto;min-height:0;height:auto;max-height:none;
+  width:100%;overflow:hidden;background:linear-gradient(145deg,#27553b,#173725);
+}
+.gg-world-map-viewport>.gg-world-map-art{
+  display:block;width:100%;height:100%;max-width:none;max-height:none;
+}
+.gg-world-map-footer{flex:0 0 auto;padding:7px 12px;font-size:9px}
+.gg-world-map-footer span:nth-child(4){display:none}
+.gg-world-movement{flex:0 0 auto;padding:5px 10px}
+.gg-world-error,.gg-world-loading{flex:0 0 auto;margin:7px auto;padding:8px 12px}
+.gg-world-notice{position:fixed;z-index:1400;left:50%;bottom:16px;transform:translateX(-50%);width:min(620px,calc(100vw - 28px));margin:0;text-align:center;box-shadow:0 12px 36px #0008}
+.gg-world-facility-overlay{
+  position:fixed;z-index:1100;inset:0;display:grid;place-items:center;
+  padding:clamp(8px,2vw,24px);overflow:hidden;
+  color:#f5f0df;background:radial-gradient(ellipse at 50% 12%,#39563cae,#050b07f2 76%);
+  backdrop-filter:blur(13px);
+}
+.gg-world-facility-window{
+  position:relative;display:flex;flex-direction:column;gap:15px;
+  width:min(1260px,100%);height:min(94dvh,1000px);min-height:0;
+  padding:clamp(13px,2.2vw,26px);overflow:auto;overscroll-behavior:contain;
+  border:1px solid #dfbd707d;border-radius:22px;
+  background:linear-gradient(145deg,#1c3628f7,#09150ef7);
+  box-shadow:0 30px 110px #000c;
+  scrollbar-width:thin;scrollbar-color:#9a8350 #122019;
+}
+.gg-world-facility-heading{
+  position:sticky;top:-1px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:15px;
+  flex:0 0 auto;padding:4px 0 13px;border-bottom:1px solid #dfbd7040;
+  background:linear-gradient(145deg,#1c3628f7,#102319f7);
+}
+.gg-world-facility-heading>div{min-width:0}
+.gg-world-facility-heading span,.gg-world-hq-wall>span,.gg-world-challenge-heading>span{
+  color:#dfbd70;font-size:9px;font-weight:900;letter-spacing:.16em
+}
+.gg-world-facility-heading h2{margin:5px 0 4px;font-size:clamp(20px,3vw,32px);letter-spacing:-.045em}
+.gg-world-facility-heading p{margin:0;color:#b8c4b5;font-size:11px;line-height:1.45}
+.gg-world-facility-heading .gg-world-back{flex:none}
+.gg-world-hq-stage{
+  position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,.85fr);
+  align-items:center;gap:20px;min-height:165px;overflow:hidden;padding:22px;
+  border:1px solid #dfbd7066;border-radius:17px;
+  background:radial-gradient(ellipse at 50% 30%,#604b27 0,#263528 54%,#101a13 100%);
+}
+.gg-world-hq-curtains{position:absolute;inset:0;display:flex;justify-content:space-between;pointer-events:none}
+.gg-world-hq-curtains span{width:14%;height:100%;background:repeating-linear-gradient(90deg,#6a2028 0 13px,#85313a 13px 24px,#4e1a20 24px 34px);border-right:2px solid #d5b266;box-shadow:0 0 40px #0008}
+.gg-world-hq-curtains span:last-child{transform:scaleX(-1)}
+.gg-world-hq-wall{position:relative;z-index:1;max-width:580px;padding:16px 20px;border:1px solid #e6c87955;background:#0c1510d9;box-shadow:0 8px 40px #0008}
+.gg-world-hq-wall h3{margin:8px 0;font-size:clamp(20px,3vw,34px);line-height:1.02;letter-spacing:-.04em}
+.gg-world-hq-wall p{margin:0;color:#c9d1c0;font-size:11px;line-height:1.55}
+.gg-world-hq-plaques{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.gg-world-hq-plaques small{padding:6px 8px;border:1px solid #d9b86a77;color:#e9d49a;background:#d9b86a13;font-size:8px;letter-spacing:.1em}
+.gg-world-hq-overlay .gg-social-panel{width:100%;max-width:none;margin:0}
+.gg-world-hq-overlay .gg-social-message-list{max-height:230px}
+.gg-world-training-scene{
+  position:relative;display:flex;align-items:center;justify-content:center;min-height:150px;overflow:hidden;
+  border:1px solid #d6c78d66;border-radius:16px;
+  background:linear-gradient(180deg,#193b29 0 40%,#255b38 40% 100%);
+}
+.gg-world-training-scene:before{
+  content:"";position:absolute;inset:0;opacity:.45;
+  background:repeating-linear-gradient(0deg,transparent 0 28px,#f2e8c4 29px 30px),linear-gradient(90deg,#ffffff0a 50%,transparent 50%);
+}
+.gg-world-training-stand{position:absolute;top:0;width:28%;height:42%;background:repeating-linear-gradient(90deg,#473c36 0 8px,#8c765b 8px 10px);border-bottom:5px solid #dfbd70;opacity:.8}
+.gg-world-training-stand-left{left:0;clip-path:polygon(0 0,100% 0,72% 100%,0 100%)}
+.gg-world-training-stand-right{right:0;clip-path:polygon(0 0,100% 0,100% 100%,28% 100%)}
+.gg-world-training-gate{
+  position:relative;z-index:1;display:grid;place-items:center;gap:7px;min-width:210px;padding:12px 30px;
+  border:4px solid #d4b66e;border-bottom-width:7px;color:#f4dfa4;
+  background:linear-gradient(90deg,#19261d,#3a3726,#19261d);
+  box-shadow:0 10px 24px #0009,inset 0 0 20px #d6ba7040;
+}
+.gg-world-training-gate span{font-size:10px;font-weight:950;letter-spacing:.18em}
+.gg-world-training-gate i{width:55px;height:30px;border:2px solid #e0c880;border-bottom:0;background:linear-gradient(90deg,transparent 48%,#e0c880 49% 51%,transparent 52%)}
+.gg-world-training-pitch{position:absolute;bottom:-32%;left:10%;width:80%;height:70%;border:2px solid #dce7d0aa;border-radius:50% 50% 0 0 / 28% 28% 0 0}
+.gg-world-training-pitch i{position:absolute;left:50%;top:0;bottom:0;border-left:2px solid #dce7d077}
+.gg-world-training-pitch b{position:absolute;left:50%;top:20%;width:70px;height:35px;transform:translateX(-50%);border:2px solid #dce7d077;border-radius:50%}
+.gg-world-training-workbench{display:grid;gap:10px}
+.gg-world-training-workbench .gg-world-section-title{margin:0 auto 3px}
+.gg-world-training-workbench .gg-world-section-title h2{font-size:22px}
+.gg-world-training-workbench .gg-world-section-title p{font-size:10px}
+.gg-world-training-workbench .gg-world-training-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.gg-world-training-workbench .gg-world-training-form,.gg-world-training-workbench .gg-world-training-stats{padding:13px}
+.gg-world-counter-grid label{grid-template-columns:minmax(0,1fr) minmax(70px,.55fr);align-items:center;gap:7px}
+.gg-world-counter-grid .gg-world-counter-name{font-size:11px;font-weight:700;padding:8px 9px}
+.gg-world-counter-grid input[type="number"]{font-size:16px;padding:8px 9px}
+.gg-world-training-workbench .gg-world-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.gg-world-training-workbench .gg-world-stat-grid>div{padding:9px}
+.gg-world-training-workbench .gg-world-stat-grid strong{font-size:20px}
+.gg-world-training-workbench .gg-world-total{margin-top:8px;padding:8px}
+.gg-world-training-workbench .gg-world-total strong{font-size:20px}
+.gg-world-training-workbench .gg-world-training-history{max-height:105px;overflow:auto}
+.gg-world-challenge-heading{margin-top:2px;padding-top:14px;border-top:1px solid #dfbd7040}
+.gg-world-challenge-heading h2{margin:4px 0;font-size:20px}
+.gg-world-challenge-heading p{margin:0;color:#b8c4b5;font-size:10px}
+.gg-world-training-overlay .gg-training-challenge{max-width:none;margin:0}
+.gg-world-market-overlay .gg-world-panel{max-width:none;width:100%;margin:0;padding:6px 14px 18px}
+.gg-world-market-overlay .gg-world-section-title{margin:12px auto}
+.gg-world-club-directory{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.gg-world-club-directory article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;border:1px solid #ffffff1c;border-radius:13px;background:#ffffff08}
+.gg-world-club-directory article>div{display:grid;gap:5px;min-width:0}
+.gg-world-club-directory strong{font-size:13px}
+.gg-world-club-directory small{color:#b8c4b5;font-size:10px}
+.gg-world-club-directory .gg-world-primary{white-space:nowrap;padding:8px 13px;font-size:10px}
+.gg-account-profile-icon{
+  display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;
+  padding:0;border:1px solid #d9b86a66;border-radius:50%;
+  color:#f0d28b;background:linear-gradient(145deg,#493a20,#171b13);
+  font-size:18px;cursor:pointer;transition:transform .18s,border-color .18s,box-shadow .18s;
+}
+.gg-account-profile-icon:hover{transform:translateY(-1px);border-color:#f0d28b;box-shadow:0 0 0 4px #d9b86a1a}
+.gg-account-profile-icon:focus-visible{outline:2px solid #f0d28b;outline-offset:3px}
+@media(max-width:760px){
+  .gg-world{padding:0 7px 3px}
+  .gg-world-header{min-height:50px;padding:5px 0}
+  .gg-world-brand h1{font-size:14px}
+  .gg-world-crest{width:34px;height:34px}
+  .gg-world-header-actions .gg-world-back{padding:6px 9px;font-size:9px}
+  .gg-world-map-shell{margin-top:5px;border-radius:12px}
+  .gg-world-map-topline{min-height:38px;padding:5px 8px}
+  .gg-world-map-tools{gap:3px}
+  .gg-world-map-tools button{min-width:25px;min-height:25px;padding:3px 6px}
+  .gg-world-map-viewport{min-height:0}
+  .gg-world-map-footer{display:none}
+  .gg-world-training-workbench .gg-world-training-grid{grid-template-columns:1fr}
+  .gg-world-training-overlay .gg-world-facility-window{height:96dvh;padding:10px;gap:10px}
+  .gg-world-facility-heading{align-items:flex-start}
+  .gg-world-facility-heading h2{font-size:19px}
+  .gg-world-hq-stage{grid-template-columns:1fr;min-height:130px;padding:12px}
+  .gg-world-hq-wall{padding:12px}
+  .gg-world-hq-wall h3{font-size:22px}
+  .gg-world-club-directory{grid-template-columns:1fr}
+  .gg-world-training-scene{min-height:110px}
+  .gg-world-training-workbench .gg-world-counter-grid{grid-template-columns:1fr}
+}
+@media(max-height:690px) and (min-width:761px){
+  .gg-world-header{min-height:45px;padding:3px 0}
+  .gg-world-map-shell{margin-top:4px}
+  .gg-world-map-topline{min-height:34px;padding:4px 10px}
+  .gg-world-map-footer{padding:4px 10px}
+  .gg-world-training-overlay .gg-world-facility-window{height:98dvh;padding:11px;gap:9px}
+  .gg-world-training-scene{min-height:85px}
+  .gg-world-training-workbench .gg-world-training-grid{gap:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  .gg-world-facility-overlay{backdrop-filter:none}
+  .gg-world-training-gate{transition:none}
+}
