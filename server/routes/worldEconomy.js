@@ -77,6 +77,11 @@ router.post("/purchase", async (req, res, next) => {
     await session.withTransaction(async () => {
       const prior = await WorldEconomyLedger.findOne({ playerId, idempotencyKey }).session(session).lean();
       if (prior) {
+        if (prior.type !== "purchase" || prior.itemId !== item.id) {
+          const conflict = new Error("This idempotency key was already used for a different economy action.");
+          conflict.status = 409;
+          throw conflict;
+        }
         response = { success: true, duplicate: true, transaction: prior };
         return;
       }
