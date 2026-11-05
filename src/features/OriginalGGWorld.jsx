@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import "./original-gg.css";
 import { G, Layer, N, rgba } from "./companion/leaflet-pip-engine.js";
 import TrainingChallenge from "./TrainingChallenge.jsx";
+import WorldEconomyPanel from "./WorldEconomyPanel.jsx";
 
 const places = [
   { id:"gg-hq", name:"GG Headquarters", kind:"hq", x:900, y:300, desc:"The golden heart of Original GG. Meet the community and explore the trophy hall." },
@@ -374,11 +375,16 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   }
   async function completeTutorial() {
     try {
-      const result = await api("/world/avatar",{method:"PUT",body:{...avatar,tutorialComplete:true}});
-      setAvatar(result.avatar);
-      setData((current)=>({...current,avatar:result.avatar}));
+      const result = await api("/world/tutorial/complete",{method:"POST",body:{}});
+      setAvatar((current)=>({...current,tutorialComplete:true}));
+      setData((current)=>({...current,avatar:{...current.avatar,tutorialComplete:true}}));
+      if (result.reward && !result.duplicate) {
+        const granted = result.reward;
+        setNotice("Welcome to Original GG! +" + (granted.claim?.xpGranted || 0) + " XP and +" + (granted.claim?.coinsGranted || 0) + " GG Coins.");
+      } else setNotice("Your Original GG welcome tour is complete.");
     } catch (cause) {
       setNotice(cause.message || "Could not save tutorial progress.");
+      return;
     }
     setTutorialClosed(true);
   }
@@ -461,6 +467,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
         <label>Boots<select value={appearance.bootColor||"white"} onChange={(e)=>changeAppearance("bootColor",e.target.value)}>{["black","white","gold","red","blue","green","orange"].map(v=><option key={v}>{v}</option>)}</select></label>
       </div><button className="gg-world-primary" disabled={saving || !data.canCreateCharacter}>{!data.canCreateCharacter?"Link your GG player profile first":saving?"Saving…":"Save player character"}</button></form></div></section>
       <section className="gg-world-panel"><div className="gg-world-section-title"><span>TRAINING GROUNDS</span><h2>Your training record</h2><p>Log completed sets and track your totals. Entries are validated and saved by the server.</p></div><div className="gg-world-training-grid"><form className="gg-world-training-form" onSubmit={saveWorkout}><h3>Record a workout</h3><div className="gg-world-counter-grid">{exercises.map(([key,label])=><label key={key}>{label}<input type="number" min="0" max="1000" step="1" value={training[key]} onChange={(e)=>setTraining((v)=>({...v,[key]:e.target.value}))} placeholder="0"/></label>)}</div><label className="gg-world-duration">Duration (seconds)<input type="number" min="1" max="28800" value={duration} onChange={(e)=>setDuration(e.target.value)}/></label><button className="gg-world-primary" disabled={saving || !data.canCreateCharacter}>{!data.canCreateCharacter?"Link your GG player profile first":saving?"Saving…":"Save workout"}</button></form><div className="gg-world-training-stats"><h3>All-time counters</h3><div className="gg-world-stat-grid">{exercises.map(([key,label])=><div key={key}><span>{label}</span><strong>{data.training?.totals?.[key]||0}</strong><small>Best {data.training?.personalBests?.[key]||0}</small></div>)}</div><div className="gg-world-total"><span>TOTAL COUNTS</span><strong>{data.training?.totals?.totalCounts||0}</strong><small>{data.training?.totals?.sessions||0} workouts logged</small></div><div className="gg-world-training-history"><h3>Recent sessions</h3>{(data.trainingHistory||[]).length===0?<p>No workouts logged yet. Your first session will appear here.</p>:(data.trainingHistory||[]).map((session)=><div key={session.sessionId}><span>{new Date(session.recordedAt).toLocaleDateString()}</span><strong>{session.totalCounts} counters</strong><small>{Math.round(session.durationSeconds/60)} min</small></div>)}</div></div></div></section>
+      <WorldEconomyPanel />
       <TrainingChallenge />
       {notice && <p className="gg-world-notice" role="status">{notice}</p>}
     </>}
