@@ -125,7 +125,7 @@ function RoomScene({room}) {
 }
 
 function Building({ kind }) {
-  const colors = {hq:"#c69a45",stadium:"#758b83",training:"#668b69",market:"#b78b59",park:"#4d8057",club:"#788477",home:"#a68b70",academy:"#7b8f76",plaza:"#a89a78",plot:"#9c8e6d"};
+  const colors = {hq:"#c69a45",stadium:"#758b83",training:"#668b69",market:"#b78b59",park:"#4d8057",club:"#788477",home:"#a68b70",academy:"#7b8f76",plaza:"#a89a78",plot:"#9c8e6d",museum:"#a88a57",transit:"#82928d"};
   return <svg viewBox="0 0 180 125" aria-hidden="true">
     <path d="M12 91 L89 117 L168 87 L89 60Z" fill="#1b2923" opacity=".3"/>
     <path d="M25 57 L89 25 L155 54 L90 86Z" fill={colors[kind]||"#788477"} stroke="#1b3027" strokeWidth="3"/>
@@ -175,6 +175,22 @@ function Building({ kind }) {
       <path d="M90 4 L90 -5" stroke="#d6b56e" strokeWidth="2"/>
       <path d="M91 -4 L108 0 L91 7Z" fill="#a93d37"/>
       <rect x="66" y="48" width="13" height="10" fill="#e6d69d"/><rect x="101" y="48" width="13" height="10" fill="#e6d69d"/>
+    </>}
+    {kind==="museum" && <>
+      <path d="M48 48 L90 15 L132 48Z" fill="#d6bd83" stroke="#51442f" strokeWidth="3"/>
+      <path d="M54 49 L126 49 L126 76 L54 76Z" fill="#d5c39a" stroke="#51442f" strokeWidth="2"/>
+      {[64,82,100,118].map((x)=><path key={x} d={"M"+x+" 51 L"+x+" 73"} stroke="#776345" strokeWidth="5"/>)}
+      <path d="M46 78 L134 78 L134 85 L46 85Z" fill="#796344" stroke="#403626" strokeWidth="2"/>
+      <path d="M76 85 L104 85 L104 109 L76 109Z" fill="#26372d" stroke="#e0c48a" strokeWidth="2"/>
+      <circle cx="90" cy="38" r="7" fill="#a83f35" stroke="#e5c982" strokeWidth="2"/>
+    </>}
+    {kind==="transit" && <>
+      <path d="M42 55 L90 22 L138 55 L90 78Z" fill="#82928d" stroke="#26382f" strokeWidth="3"/>
+      <path d="M49 56 L49 77 L90 100 L90 78Z" fill="#526a60" stroke="#26382f" strokeWidth="2"/>
+      <path d="M90 78 L138 55 L138 77 L90 100Z" fill="#3c564b" stroke="#26382f" strokeWidth="2"/>
+      <rect x="67" y="47" width="46" height="26" rx="3" fill="#20332a" stroke="#e2c47f" strokeWidth="3"/>
+      <circle cx="90" cy="60" r="9" fill="#d8c18a"/><path d="M90 53 L90 60 L96 63" stroke="#354437" strokeWidth="2" fill="none"/>
+      <path d="M54 80 L72 90 M108 90 L128 80" stroke="#d4c69f" strokeWidth="3"/>
     </>}
     {kind==="market" && <>
       <path d="M50 43 L129 43 L137 57 L44 57Z" fill="#d8c49a" stroke="#382e22" strokeWidth="2"/>
@@ -407,6 +423,11 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
               <g data-layer="roads"><path d="M-80 570 L470 320 L930 540 L1420 290 L1900 510 M-100 900 L420 660 L900 890 L1370 650 L1900 900 M620 -80 L900 240 L1180 390 L1480 610 L1780 790" fill="none" stroke="#172f24" strokeWidth="100" opacity=".8"/>
               <path d="M-80 570 L470 320 L930 540 L1420 290 L1900 510 M-100 900 L420 660 L900 890 L1370 650 L1900 900 M620 -80 L900 240 L1180 390 L1480 610 L1780 790" fill="none" stroke="#938a70" strokeWidth="68" strokeLinecap="round" strokeDasharray="5 8"/>
               <path d="M-80 570 L470 320 L930 540 L1420 290 L1900 510 M-100 900 L420 660 L900 890 L1370 650 L1900 900 M620 -80 L900 240 L1180 390 L1480 610 L1780 790" fill="none" stroke="#e6d8b4" strokeWidth="2" strokeDasharray="18 20" opacity=".65"/>
+              <path d="M900 600 L470 570 L570 820 M900 600 L1320 560 L1580 560 M470 570 L390 930" fill="none" stroke="#c5b58e" strokeWidth="24" strokeLinecap="round" opacity=".8"/>
+              <path d="M900 600 L470 570 L570 820 M900 600 L1320 560 L1580 560 M470 570 L390 930" fill="none" stroke="#efe2c4" strokeWidth="2" strokeDasharray="10 14" opacity=".75"/>
+              <g fill="#e7d9b8" opacity=".85"><path d="M770 588 l12 -8 l12 8 l-12 8Z M740 586 l12 -8 l12 8 l-12 8Z M710 584 l12 -8 l12 8 l-12 8Z M680 582 l12 -8 l12 8 l-12 8Z"/></g>
+              <g transform="translate(1200 600)"><rect x="-45" y="-18" width="90" height="36" rx="12" fill="#10291e" stroke="#dfc47d" strokeWidth="2"/><text textAnchor="middle" y="5" fill="#f1e4c5" fontSize="12" fontWeight="800">FAN WAY</text></g>
+              <g transform="translate(1460 540)"><rect x="-46" y="-18" width="92" height="36" rx="12" fill="#10291e" stroke="#dfc47d" strokeWidth="2"/><text textAnchor="middle" y="5" fill="#f1e4c5" fontSize="11" fontWeight="800">STATION RD</text></g>
               </g><g data-layer="district-zones">
                 <path d="M690 150 L900 65 L1110 165 L900 270Z" fill="#d6b46a" opacity=".08" stroke="#e1c47b" strokeOpacity=".28" strokeWidth="4"/>
                 <path d="M245 470 L470 365 L690 470 L470 590Z" fill="#9daea0" opacity=".1" stroke="#d9dfc7" strokeOpacity=".25" strokeWidth="4"/>
@@ -429,7 +450,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
         </div>
         <div className="gg-world-map-footer"><span>↔ Drag to explore</span><span>Scroll or + / − to zoom</span><span>Tap a landmark to enter</span><span>WASD / arrows move your player</span></div><div className="gg-world-movement"><span>MOVE YOUR PLAYER</span><div><button type="button" onClick={()=>movePlayer(0,-24)} aria-label="Move up">↑</button><div><button type="button" onClick={()=>movePlayer(-24,0)} aria-label="Move left">←</button><button type="button" onClick={()=>movePlayer(0,24)} aria-label="Move down">↓</button><button type="button" onClick={()=>movePlayer(24,0)} aria-label="Move right">→</button></div></div></div>
       </section>
-      <section className="gg-world-districts"><div className="gg-world-section-title"><span>EXPLORE THE KINGDOM</span><h2>Choose your next stop</h2></div><div className="gg-world-location-grid">{mapPlaces.map((p)=><button key={p.id} className="gg-world-location-card" onClick={()=>focusPlace(p)}><span className="gg-world-location-icon">{({hq:"♛",stadium:"⚽",training:"✦",club:"♜",home:"⌂",academy:"⚑",market:"◇",park:"♧",plaza:"◇",plot:"▧"})[p.kind]}</span><span><strong>{p.name}</strong><small>{p.desc}</small></span><b>→</b></button>)}</div></section>
+      <section className="gg-world-districts"><div className="gg-world-section-title"><span>EXPLORE THE KINGDOM</span><h2>Choose your next stop</h2></div><div className="gg-world-location-grid">{mapPlaces.map((p)=><button key={p.id} className="gg-world-location-card" onClick={()=>focusPlace(p)}><span className="gg-world-location-icon">{({hq:"♛",stadium:"⚽",training:"✦",club:"♜",home:"⌂",academy:"⚑",market:"◇",park:"♧",plaza:"◇",plot:"▧",museum:"🏆",transit:"↔"})[p.kind]}</span><span><strong>{p.name}</strong><small>{p.desc}</small></span><b>→</b></button>)}</div></section>
       <section className="gg-world-panel"><div className="gg-world-section-title"><span>YOUR FOOTBALL IDENTITY</span><h2>Build your player character</h2><p>A pixel footballer that represents you around the city.</p></div><div className="gg-world-avatar-card"><div className="gg-world-avatar-preview"><PlayerSprite appearance={appearance}/><strong>{avatar.displayName||"Your player"}</strong><small>ORIGINAL GG PLAYER</small></div><form className="gg-world-form" onSubmit={saveAvatar}><label>Character name<input maxLength="24" value={avatar.displayName||""} onChange={(e)=>setAvatar((v)=>({...v,displayName:e.target.value}))} placeholder="Name your footballer"/></label><div className="gg-world-select-grid">
         <label>Skin tone<select value={appearance.skinTone||"medium"} onChange={(e)=>changeAppearance("skinTone",e.target.value)}>{["deep","dark","medium","tan","light","fair"].map(v=><option key={v}>{v}</option>)}</select></label>
         <label>Build<select value={appearance.bodyType||"athletic"} onChange={(e)=>changeAppearance("bodyType",e.target.value)}>{["slim","athletic","stocky"].map(v=><option key={v}>{v}</option>)}</select></label>
