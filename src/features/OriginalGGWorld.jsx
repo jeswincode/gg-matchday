@@ -677,7 +677,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
     if(place.kind==="hq"){
       setActiveLocationId(place.id);
       setFacility("hq");
-    } else if(place.kind==="training"||place.id==="training-centre"||place.kind==="academy"){
+    } else if(place.kind==="training"||place.id==="training-centre"){
       setActiveLocationId(place.id);
       setFacility("training");
     } else if(place.kind==="market"){
