@@ -48,7 +48,7 @@ test("training session validates counts, duration and idempotency key", () => {
     counts: { pushups: 20, pullups: 5, squats: 30, planks: 2 },
     durationSeconds: 900,
   });
-  assert.equal(session.totalReps, 57);
+  assert.equal(session.totalCounts, 57);
   assert.equal(session.counts.squats, 30);
   assert.throws(() => normalizeTrainingSession({ sessionId: "bad", counts: { pushups: 1 }, durationSeconds: 60 }), /session ID/);
   assert.throws(() => normalizeTrainingSession({ sessionId: "workout-session-0002", counts: { pushups: 1001 }, durationSeconds: 60 }), /between 0 and 1,000/);

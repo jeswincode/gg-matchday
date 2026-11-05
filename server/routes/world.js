@@ -146,7 +146,7 @@ router.get("/bootstrap", async (req, res, next) => {
         { upsert: true, new: true, setDefaultsOnInsert: true },
       ).lean();
       training = savedTraining || {
-        totals: { pushups: 0, pullups: 0, squats: 0, planks: 0, totalReps: 0, sessions: 0 },
+        totals: { pushups: 0, pullups: 0, squats: 0, planks: 0, totalCounts: 0, sessions: 0 },
         personalBests: { pushups: 0, pullups: 0, squats: 0, planks: 0 },
         lastWorkoutAt: null,
       };
@@ -258,7 +258,7 @@ router.post("/training/sessions", async (req, res, next) => {
           "totals.pullups": payload.counts.pullups,
           "totals.squats": payload.counts.squats,
           "totals.planks": payload.counts.planks,
-          "totals.totalReps": payload.totalReps,
+          "totals.totalCounts": payload.totalCounts,
           "totals.sessions": 1,
         };
         const maximum = Object.fromEntries(Object.entries(payload.counts).map(([key, value]) => [`personalBests.${key}`, value]));

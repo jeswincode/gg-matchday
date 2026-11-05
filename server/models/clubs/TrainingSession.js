@@ -11,7 +11,7 @@ const trainingSessionSchema = new mongoose.Schema(
       squats: { type: Number, min: 0, default: 0 },
       planks: { type: Number, min: 0, default: 0 },
     },
-    totalReps: { type: Number, min: 1, max: 1500, required: true },
+    totalCounts: { type: Number, min: 1, max: 1500, required: true },
     durationSeconds: { type: Number, min: 1, max: 28800, required: true },
     recordedAt: { type: Date, default: Date.now, index: true },
   },

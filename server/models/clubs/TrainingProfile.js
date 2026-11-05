@@ -13,7 +13,7 @@ const trainingProfileSchema = new mongoose.Schema(
     playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, unique: true, index: true },
     totals: {
       ...exerciseFields,
-      totalReps: { type: Number, min: 0, default: 0 },
+      totalCounts: { type: Number, min: 0, default: 0 },
       sessions: { type: Number, min: 0, default: 0 },
     },
     personalBests: { ...exerciseFields },

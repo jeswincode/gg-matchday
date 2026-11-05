@@ -83,8 +83,8 @@ export function normalizeTrainingSession(input = {}) {
     }
     return [key, value];
   }));
-  const totalReps = Object.values(counts).reduce((sum, value) => sum + value, 0);
-  if (totalReps < 1 || totalReps > 1500) {
+  const totalCounts = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  if (totalCounts < 1 || totalCounts > 1500) {
     throw new TypeError("A workout must contain between 1 and 1,500 recorded reps.");
   }
 
@@ -93,7 +93,7 @@ export function normalizeTrainingSession(input = {}) {
     throw new TypeError("Workout duration must be between 1 second and 8 hours.");
   }
 
-  return { sessionId, counts, totalReps, durationSeconds };
+  return { sessionId, counts, totalCounts, durationSeconds };
 }
 
 export function normalizePresencePayload(input = {}) {
