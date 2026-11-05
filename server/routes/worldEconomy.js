@@ -157,11 +157,13 @@ router.post("/equip", async (req, res, next) => {
       await WorldInventoryItem.updateMany({ playerId, itemId: { $in: CATALOG.filter((entry) => entry.slot === item.slot).map((entry) => entry.id) } }, { $set: { equipped: false } }, { session });
       owned.equipped = true;
       await owned.save({ session });
-      avatar = await PlayerAvatar.findOneAndUpdate(
-        { playerId },
-        { $set: Object.fromEntries(Object.entries(appearancePatch).map(([key, value]) => ["appearance."+key, value])), $addToSet: { equippedCosmetics: item.id } },
-        { new: true, upsert: true, setDefaultsOnInsert: true, session, runValidators: true },
-      ).lean();
+      let avatarDoc = await PlayerAvatar.findOne({ playerId }).session(session);
+      if (!avatarDoc) avatarDoc = new PlayerAvatar({ playerId });
+      Object.assign(avatarDoc.appearance, appearancePatch);
+      const sameSlotIds = CATALOG.filter((entry) => entry.slot === item.slot).map((entry) => entry.id);
+      avatarDoc.equippedCosmetics = [...avatarDoc.equippedCosmetics.filter((id) => !sameSlotIds.includes(id)), item.id];
+      await avatarDoc.save({ session });
+      avatar = avatarDoc.toObject();
     });
     return res.json({ success: true, itemId, avatar: { appearance: avatar.appearance } });
   } catch(error) {
