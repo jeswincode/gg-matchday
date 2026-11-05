@@ -127,15 +127,15 @@ export function WelcomeScreen({ onEnter }) {
       <p className="gg-welcome-kicker"><span/> THE PITCH IS YOURS</p>
       <h1>ENTER<br/><em>MATCHDAY.</em></h1>
       <p className="gg-welcome-lead">Your matches. Your players. Your legacy.</p>
-      <p className="gg-welcome-description">Step into the home of your football story. Relive the big moments, follow the numbers, build your club and explore a world made for the GG community.</p>
-      <button type="button" className="gg-welcome-enter" onClick={onEnter} aria-label="Enter Matchday"><span>ENTER MATCHDAY</span><b>→</b></button>
+      <p className="gg-welcome-description">Your football city is waiting. Meet the community, visit the grounds and build your story.</p>
+      <button type="button" className="gg-welcome-enter" onClick={onEnter} aria-label="Enter Original GG"><span>ENTER ORIGINAL GG</span><b>→</b></button>
       <div className="gg-welcome-quick-notes">
-        <div><span>01</span><strong>THE ARCHIVE</strong><small>Matches, goals and history.</small></div>
-        <div><span>02</span><strong>THE PLAYERS</strong><small>Profiles, rankings and rivalries.</small></div>
-        <div><span>03</span><strong>THE CLUBS</strong><small>Squads, grounds and competition.</small></div>
+        <div><span>01</span><strong>THE CITY</strong><small>Explore Original GG.</small></div>
+        <div><span>02</span><strong>YOUR PLAYER</strong><small>Build your footballer.</small></div>
+        <div><span>03</span><strong>YOUR CLUB</strong><small>Meet the community.</small></div>
       </div>
     </section>
-    <aside className="gg-welcome-side-note"><span>THE ORIGINAL GG WORLD</span><strong>A new football city is taking shape.</strong><small>Explore the map, customise your player and make your mark.</small></aside>
+    <aside className="gg-welcome-side-note"><span>THE ORIGINAL GG WORLD</span><strong>One city. Every player.</strong><small>Your character is your way into Matchday.</small></aside>
     <footer className="gg-welcome-footer"><span>GG MATCHDAY</span><span>BUILT AROUND YOUR GAME.</span><span>YOUR V3 HISTORY STAYS WITH YOU.</span></footer>
   </main>;
 }
