@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
+import { WORLD_COSMETIC_CATEGORIES } from "../../shared/worldCustomization.js";
 
 const fallback = { coins: 0, xp: 0, level: 1, progressPercent: 0, xpIntoLevel: 0, xpForNextLevel: 100, xpRemaining: 100 };
 export default function WorldEconomyPanel({ onEquipped }) {
@@ -7,6 +8,9 @@ export default function WorldEconomyPanel({ onEquipped }) {
   const [loading,setLoading] = useState(true);
   const [busy,setBusy] = useState("");
   const [message,setMessage] = useState("");
+  const [category,setCategory] = useState("all");
+  const [search,setSearch] = useState("");
+  const [collection,setCollection] = useState("all");
   const requestKeys = useRef(new Map());
   const load = useCallback(async () => {
     try { setData(await api("/world/economy?refresh="+Date.now())); }
@@ -38,6 +42,8 @@ export default function WorldEconomyPanel({ onEquipped }) {
     finally { setBusy(""); }
   }
   const wallet = data?.economy || fallback;
+  const collections=[...new Set((data?.catalog||[]).map((item)=>item.collection).filter(Boolean))];
+  const visibleItems=(data?.catalog||[]).filter((item)=>(category==="all"||item.category===category)&&(collection==="all"||item.collection===collection)&&(!search.trim()||(item.name+" "+item.description).toLowerCase().includes(search.trim().toLowerCase()))).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
   return <section className="gg-world-panel gg-economy-panel">
     <div className="gg-world-section-title"><span>YOUR ORIGINAL GG PROGRESSION</span><h2>GG Coins & experience</h2><p>Earn XP by completing your welcome tour, logging training and unlocking milestones. Spend earned coins on character cosmetics.</p></div>
     {loading ? <p className="gg-world-loading">Loading your wallet…</p> : <>
@@ -50,10 +56,16 @@ export default function WorldEconomyPanel({ onEquipped }) {
       <div className="gg-economy-progress" role="progressbar" aria-label="Experience progress to next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(wallet.progressPercent||0)}><span style={{width:(wallet.progressPercent||0)+"%"}}/></div>
       <div className="gg-economy-section-heading"><div><span>THE MARKET SQUARE</span><h3>Cosmetics catalogue</h3></div><small>Earned currency only · no real-money purchases</small></div>
       <div className="gg-economy-home-upgrade"><div><span>YOUR RESIDENCE</span><strong>Home level {data?.residence?.level||1} / {data?.residence?.maxLevel||10}</strong><small>Next home level requires player level {(data?.residence?.level||1)+1}.</small></div><button type="button" className="gg-world-primary" disabled={Boolean(busy)||!data?.residence?.nextUpgradeCost||wallet.coins<data.residence.nextUpgradeCost||wallet.level<(data?.residence?.level||1)+1} onClick={upgradeHome}>{busy==="home"?"Upgrading…":data?.residence?.nextUpgradeCost?"Upgrade · ◈ "+data.residence.nextUpgradeCost:"Max level"}</button></div>
-      <div className="gg-economy-catalog">{(data?.catalog||[]).map(item=>{
+      <div className="gg-market-tools">
+        <label className="gg-market-search">Find an item<input type="search" value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search cosmetics…"/></label>
+        <label className="gg-market-collection">Collection<select value={collection} onChange={(event)=>setCollection(event.target.value)}><option value="all">All collections</option>{collections.map((entry)=><option key={entry} value={entry}>{entry.replaceAll("-"," ")}</option>)}</select></label>
+      </div>
+      <div className="gg-market-categories"><button type="button" className={category==="all"?"is-active":""} onClick={()=>setCategory("all")}>All items</button>{WORLD_COSMETIC_CATEGORIES.map((entry)=><button type="button" key={entry.id} className={category===entry.id?"is-active":""} onClick={()=>setCategory(entry.id)}>{entry.label}</button>)}</div>
+      <div className="gg-economy-catalog">{visibleItems.map(item=>{
         const owned=(data?.inventory||[]).find(entry=>entry.itemId===item.id);
         return <article key={item.id}><div><span>{item.rarity.toUpperCase()} · {item.category.toUpperCase()}</span><h4>{item.name}</h4><p>{item.description} {item.minLevel>wallet.level?"Unlocks at player level "+item.minLevel+".":""}</p></div><footer><strong>◈ {item.price}</strong>{owned && <button type="button" className="gg-world-primary" disabled={Boolean(busy)} onClick={()=>equip(item)}>{busy==="equip:"+item.id?"Equipping…":owned.equipped?"Equipped":"Equip"}</button>}<button type="button" className="gg-world-primary" disabled={Boolean(busy)||wallet.coins<item.price||wallet.level<(item.minLevel||1)} onClick={()=>purchase(item)}>{busy===item.id?"Buying…":wallet.level<(item.minLevel||1)?"Level "+item.minLevel+" required":owned?"Buy another":"Purchase"}</button></footer></article>;
       })}</div>
+      {!visibleItems.length&&<p className="gg-economy-empty">No items match these filters. Try another category or search.</p>}
       <div className="gg-economy-section-heading"><div><span>YOUR COLLECTION</span><h3>Inventory</h3></div><small>{(data?.inventory||[]).length} item types</small></div>
       {(data?.inventory||[]).length ? <div className="gg-economy-inventory">{data.inventory.map(item=><span key={item.itemId}>{(data.catalog||[]).find(entry=>entry.id===item.itemId)?.name||item.itemId} × {item.quantity}</span>)}</div> : <p className="gg-economy-empty">Your locker is empty for now. Complete training to earn your first GG Coins.</p>}
       <div className="gg-economy-section-heading"><div><span>LONG-TERM GOALS</span><h3>Training achievements</h3></div><small>{(data?.achievements||[]).filter(entry=>entry.unlocked).length} / {(data?.achievements||[]).length} unlocked</small></div>
