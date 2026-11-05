@@ -2401,7 +2401,7 @@ function App() {
   }
 
   if (activeExperience === "welcome") {
-    return <WelcomeScreen onEnter={() => setExperience("app")} />;
+    return <WelcomeScreen onEnter={() => { setExperience("app"); setWorldOpen(true); }} />;
   }
 
   if (profileOpen) {
@@ -2454,7 +2454,7 @@ function App() {
           </span>
         ) : authUser ? (
           <>
-            <button type="button" className="account-user gg-account-profile-trigger" onClick={()=>setProfileOpen(true)} aria-label="Open your player profile and character customisation" title="Player profile and customisation"><span className="gg-account-profile-icon" aria-hidden="true">♙</span>
+            <div className="account-user"><button type="button" className="gg-account-profile-icon" onClick={()=>setProfileOpen(true)} aria-label="Open your player profile and character customisation" title="Player profile and customisation">♙</button>
 
               {authUser.photoURL ? (
                 <img
@@ -2493,7 +2493,7 @@ function App() {
                 </small>
               </div>
 
-            </button>
+            </div>
 
             <div className="account-actions">
 
