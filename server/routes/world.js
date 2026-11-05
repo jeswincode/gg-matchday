@@ -342,8 +342,9 @@ router.post("/avatar/presets/:presetId/apply", async (req, res, next) => {
     const avatar = await PlayerAvatar.findOne({ playerId });
     const preset = avatar?.presets.id(req.params.presetId);
     if (!avatar || !preset) return res.status(404).json({ message: "Character preset not found." });
-    await assertOwnedAvatarAppearance(playerId, preset.appearance);
-    avatar.appearance = preset.appearance;
+    const presetAppearance = preset.appearance.toObject();
+    await assertOwnedAvatarAppearance(playerId, presetAppearance);
+    avatar.appearance = presetAppearance;
     await avatar.save();
     return res.json({ success: true, avatar: publicAvatar(avatar.toObject(), req.user?.name) });
   } catch (error) {
