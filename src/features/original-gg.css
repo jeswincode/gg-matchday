@@ -52,3 +52,17 @@
 .gg-economy-home-upgrade small{color:#b9c6b6;font-size:10px}
 .gg-economy-home-upgrade button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:560px){.gg-economy-home-upgrade{align-items:stretch;flex-direction:column}.gg-economy-home-upgrade button{width:100%}}
+
+.gg-economy-daily{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:14px 0;padding:12px 14px;border:1px solid #ffffff20;border-radius:12px;background:#ffffff08}
+.gg-economy-daily>span{flex-basis:100%;color:#dfbd70;font-size:9px;font-weight:850;letter-spacing:.14em}
+.gg-economy-daily>div{display:grid;gap:3px;min-width:120px}
+.gg-economy-daily small{color:#b9c6b6;font-size:9px}
+.gg-economy-daily strong{color:#f0dfb3;font-size:13px}
+.gg-economy-achievements{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.gg-economy-achievements article{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border:1px solid #ffffff1b;border-radius:12px;background:#ffffff06;opacity:.68}
+.gg-economy-achievements article.is-unlocked{border-color:#d9b86a66;background:#d8b86a12;opacity:1}
+.gg-economy-achievements article>div{display:grid;gap:4px}
+.gg-economy-achievements strong{font-size:11px}
+.gg-economy-achievements small{color:#b9c6b6;font-size:9px;line-height:1.4}
+.gg-economy-achievements article>span{flex:none;color:#e6ce91;font-size:9px;text-align:right}
+@media(max-width:620px){.gg-economy-achievements{grid-template-columns:1fr}.gg-economy-daily{align-items:start}}
