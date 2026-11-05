@@ -394,7 +394,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
       const counts=Object.fromEntries(exercises.map(([key])=>[key,Number(training[key]||0)]));
       const result=await api("/world/training/sessions",{method:"POST",body:{sessionId:crypto.randomUUID(),counts,durationSeconds:Number(duration)}});
       setData((v)=>({...v,training:result.profile}));
-      setTraining(emptyTraining); setNotice("Workout saved to your training record.");
+      setTraining(emptyTraining); const xp=result.reward?.claim?.xpGranted||0; const coins=result.reward?.claim?.coinsGranted||0; const unlocked=(result.achievements||[]).map((item)=>item.name); setNotice("Workout saved · +"+xp+" XP · +"+coins+" GG Coins"+(unlocked.length?" · Achievement unlocked: "+unlocked.join(", "):""));
     } catch(cause){setNotice(cause.message||"Could not save workout.");}
     finally{setSaving(false);}
   }
