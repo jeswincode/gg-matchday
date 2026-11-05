@@ -208,7 +208,7 @@ router.post(
 
     const player = await Player.findOne({
       _id: playerId,
-      worldId: req.worldId,
+      $or: [{ worldId: req.worldId }, { worldId: null }],
     }).select("_id name profileImage position").lean();
 
     if (!player) {
@@ -274,7 +274,7 @@ async function linkLegacyPlayerProfile(req) {
   // into this World and no other account already owns the profile.
   const player = await Player.findOne({
     _id: req.user.playerProfile,
-    worldId: req.worldId,
+    $or: [{ worldId: req.worldId }, { worldId: null }],
   }).select("_id").lean();
   if (!player) return req.membership;
 
@@ -313,7 +313,7 @@ router.get(
 
     const profile = await Player.findOne({
       _id: playerId,
-      worldId: req.worldId,
+      $or: [{ worldId: req.worldId }, { worldId: null }],
     })
       .select("_id name profileImage position preferredPositions preferredFoot jerseyNumber bio ovrSnapshot")
       .lean();
