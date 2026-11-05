@@ -83,11 +83,12 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await companion.click();
   await expect(page.locator(".gg-companion-vortex")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
-  await expect(page.locator(".gg-training-challenge canvas")).toBeAttached();
-  await expect(page.locator(".gg-world-avatar-preview .gg-player-sprite")).toBeVisible();
+  await expect(page.locator(".gg-training-challenge canvas")).toHaveCount(0);
+  await expect(page.locator(".gg-world-avatar-preview .gg-player-sprite")).toHaveCount(0);
   await page.getByRole("button", { name: "Open GG Headquarters" }).click();
-  await page.getByRole("button", { name: "Enter GG Headquarters" }).click();
-  await expect(page.getByRole("heading", { name: "Grand Hall" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome to the clubhouse." })).toBeVisible();
+  await expect(page.getByText("THE PLACE WHERE THE COMMUNITY MEETS.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /GG Community/ })).toBeVisible();
 });
 
 test("guest can open Matchday and reach the live leaderboard", async ({ page }) => {
