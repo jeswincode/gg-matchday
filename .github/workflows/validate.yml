@@ -25,6 +25,11 @@ jobs:
       - run: node --check server/server.js
       - run: node --check server/routes/profileSecurity.js
       - run: node --check server/routes/profileRequests.js
+      - run: node --check server/routes/world.js
+      - run: node --check server/routes/worldEconomy.js
+      - run: node --check server/services/worldProgression.js
+      - run: node --check server/config/ggWorldRules.js
+      - run: node --check server/config/worldProgression.js
       - run: node --check scripts/resolve-mongodb-db-name.mjs
       - run: node --check scripts/parse-mongodb-uri.mjs
       - run: node --check scripts/backup-crypto.mjs
