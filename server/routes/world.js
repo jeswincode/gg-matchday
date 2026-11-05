@@ -68,7 +68,7 @@ async function getWorldMap() {
     const existingLocations = new Map((existing.layout?.locations || []).map((location) => [location.id, location]));
     const locations = DEFAULT_WORLD_LAYOUT.locations.map((defaults) => {
       const saved = existingLocations.get(defaults.id);
-      return saved ? { ...defaults, ...saved, interior: saved.interior || defaults.interior } : defaults;
+      return saved ? { ...defaults, ...saved, description: defaults.description || saved.description, interior: defaults.id === "market-square" ? defaults.interior : saved.interior || defaults.interior } : defaults;
     });
     const savedPlots = new Map((existing.layout?.plots || []).map((plot) => [plot.id, plot]));
     const plots = DEFAULT_WORLD_LAYOUT.plots.map((defaults) => {
