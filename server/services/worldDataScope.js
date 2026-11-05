@@ -2,8 +2,28 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 const worldScope = new AsyncLocalStorage();
 
-export function runWithWorldDataScope(worldId, callback) {
-  return worldScope.run({ worldId: worldId || null }, callback);
+export function runWithWorldDataScope(worldId, callback, { includeLegacy = false } = {}) {
+  const normalizedWorldId = worldId || null;
+  return worldScope.run({
+    worldId: normalizedWorldId,
+    includeLegacy: Boolean(normalizedWorldId && includeLegacy),
+  }, callback);
+}
+
+function isCurrentOrLegacyWorldSelector(value, worldId) {
+  if (value === undefined || value === null || String(value) === String(worldId)) return true;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  if (Object.hasOwn(value, "$eq")) {
+    return value.$eq == null || String(value.$eq) === String(worldId);
+  }
+  if (Array.isArray(value.$in)) {
+    return value.$in.every(item => item == null || String(item) === String(worldId));
+  }
+  return false;
+}
+
+function legacyAwareWorldMatch(worldId) {
+  return { $or: [{ worldId }, { worldId: null }] };
 }
 
 export function currentWorldDataScope() {
@@ -13,9 +33,10 @@ export function currentWorldDataScope() {
 /**
  * Apply to World-owned Mongoose schemas, including schemas registered on the
  * separate Clubs connection. All reads and writes in a scoped HTTP request are
- * constrained to the resolved World. Requests without a selected World see
- * legacy documents only (worldId null/missing); background workers without an
- * AsyncLocalStorage request context must pass worldId explicitly.
+ * constrained to the resolved World. The canonical one-World production
+ * request can temporarily include legacy null/missing records until those
+ * records are lazily assigned to Original GG by a normal write. Background
+ * workers retain explicit per-World scopes.
  */
 export function worldDataScopePlugin(schema) {
   const applyFilter = function applyWorldFilter() {
@@ -23,6 +44,17 @@ export function worldDataScopePlugin(schema) {
     if (!scope) return;
 
     const worldId = scope.worldId || null;
+    if (scope.includeLegacy && worldId) {
+      const filter = { ...this.getFilter() };
+      if (isCurrentOrLegacyWorldSelector(filter.worldId, worldId)) delete filter.worldId;
+      this.setQuery({
+        $and: [
+          filter,
+          legacyAwareWorldMatch(worldId),
+        ],
+      });
+      return;
+    }
     this.where({ worldId });
   };
 
@@ -44,7 +76,18 @@ export function worldDataScopePlugin(schema) {
     if (!scope) return;
 
     const pipeline = this.pipeline();
-    const matchStage = { $match: { worldId: scope.worldId || null } };
+    const worldId = scope.worldId || null;
+    const match = scope.includeLegacy && worldId
+      ? legacyAwareWorldMatch(worldId)
+      : { worldId };
+    if (scope.includeLegacy && worldId) {
+      for (const stage of pipeline) {
+        if (stage?.$match && isCurrentOrLegacyWorldSelector(stage.$match.worldId, worldId)) {
+          delete stage.$match.worldId;
+        }
+      }
+    }
+    const matchStage = { $match: match };
     if (pipeline[0]?.$search || pipeline[0]?.$searchMeta || pipeline[0]?.$geoNear || pipeline[0]?.$vectorSearch || pipeline[0]?.$documents) pipeline.splice(1, 0, matchStage);
     else pipeline.unshift(matchStage);
   });
