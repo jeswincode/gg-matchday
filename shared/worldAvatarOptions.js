@@ -7,6 +7,6 @@ export const FREE_AVATAR_OPTIONS = Object.freeze({
   hairColor: Object.freeze(["black", "brown", "blonde", "red", "blue"]),
   kitPrimary: Object.freeze(["black", "white", "gold", "red", "blue", "green", "purple", "orange"]),
   kitSecondary: Object.freeze(["black", "white", "gold", "red", "blue", "green", "purple", "orange"]),
-  bootColor: Object.freeze(["black", "white", "gold", "red", "blue", "green", "orange"]),
+  bootColor: Object.freeze(["black", "white", "red", "blue", "green", "orange"]),
   headAccessory: Object.freeze(["none"]),
 });
