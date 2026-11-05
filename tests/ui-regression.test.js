@@ -230,6 +230,9 @@ test("football city map exposes district, pitch and layered scene design",()=>{
   assert.match(rules,/stadium-quarter/);
   assert.match(rules,/training-quarter/);
   assert.match(rules,/residential-quarter/);
+  assert.match(rules,/gg-football-museum/);
+  assert.match(rules,/matchday-station/);
+  assert.match(world,/FAN WAY/);
 });
 
 test("training challenge records are server verified and stored in the Clubs database",()=>{
