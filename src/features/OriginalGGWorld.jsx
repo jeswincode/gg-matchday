@@ -65,6 +65,64 @@ export function PlayerSprite({ appearance = {} }) {
   },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor]);
   return <canvas ref={canvasRef} width="32" height="32" className="gg-player-sprite" role="img" aria-label="Your pixel footballer"/>;
 }
+function RoomScene({room}) {
+  const id=room.id||"lounge";
+  const training=/training|strength|indoor|skills/.test(id);
+  const trophy=/trophy|gallery|hall-of-fame/.test(id);
+  const tactics=/tactics|meeting|class|press/.test(id);
+  const market=/market|locker/.test(id);
+  const accent=room.theme?.includes("gold")?"#d8b66c":training?"#75a46c":market?"#d2a66c":"#88a78b";
+  return <svg className="gg-world-room-scene" viewBox="0 0 640 320" aria-hidden="true">
+    <defs><linearGradient id="gg-room-left" x2="1" y2="1"><stop stopColor="#6c806b"/><stop offset="1" stopColor="#304a38"/></linearGradient><linearGradient id="gg-room-right" x2="0" y2="1"><stop stopColor="#4e6854"/><stop offset="1" stopColor="#20382a"/></linearGradient><linearGradient id="gg-room-floor" x2="0" y2="1"><stop stopColor="#b49a6b"/><stop offset="1" stopColor="#6d5b43"/></linearGradient></defs>
+    <path d="M34 110 L320 14 L606 110 L320 214Z" fill="#1c2c21" stroke="#d7c08a" strokeWidth="3"/>
+    <path d="M34 110 L320 214 L320 285 L34 181Z" fill="url(#gg-room-left)"/>
+    <path d="M320 214 L606 110 L606 181 L320 285Z" fill="url(#gg-room-right)"/>
+    <path d="M34 181 L320 285 L606 181" fill="none" stroke="#d2bb85" strokeWidth="3"/>
+    <path d="M91 131 L320 49 L549 131 M148 151 L320 89 L492 151 M206 171 L320 130 L434 171" fill="none" stroke="#e5d2a1" strokeOpacity=".18" strokeWidth="2"/>
+    <path d="M320 214 L320 285 M177 162 L177 232 M463 162 L463 232" stroke="#e4d1a2" strokeOpacity=".18" strokeWidth="2"/>
+    <path d="M76 121 L76 72 L148 48 L148 145" fill="#24392b" stroke="#c8b17c" strokeWidth="3"/>
+    <path d="M91 113 L91 80 L133 66 L133 128" fill="#7fa0a0" opacity=".7"/>
+    <path d="M493 127 L493 65 L556 88 L556 149" fill="#263c2e" stroke="#c8b17c" strokeWidth="3"/>
+    <path d="M507 120 L507 79 L541 92 L541 132" fill="#7fa0a0" opacity=".65"/>
+    {training && <g>
+      <path d="M180 166 L270 135 L360 168 L270 200Z" fill="#477d50" stroke="#d9dfc3" strokeWidth="3"/>
+      <path d="M270 135 L270 200 M180 166 L360 168" stroke="#e6e9d5" strokeWidth="2"/>
+      <path d="M175 153 L175 119 M185 153 L185 119 M175 119 L185 119" stroke="#d9c58d" strokeWidth="5"/>
+      <path d="M395 171 L395 132 L515 132" fill="none" stroke="#d6c18b" strokeWidth="7" strokeLinecap="round"/>
+      <path d="M405 132 L405 153 M505 132 L505 153" stroke="#d6c18b" strokeWidth="5"/>
+      <rect x="390" y="177" width="82" height="16" rx="6" fill="#9c6c48" transform="rotate(-15 390 177)"/>
+      <circle cx="455" cy="184" r="11" fill="#222a25"/><circle cx="478" cy="177" r="11" fill="#222a25"/>
+    </g>}
+    {trophy && <g>
+      <rect x="204" y="88" width="230" height="76" rx="6" fill="#26382b" stroke="#d9bd74" strokeWidth="4"/>
+      <path d="M219 100 L419 100 M219 151 L419 151" stroke="#d9bd74" strokeOpacity=".55" strokeWidth="3"/>
+      {[0,1,2,3].map((n)=><g key={n} transform={"translate("+(246+n*52)+" 0)"}><path d="M0 124 L-12 111 L-10 96 L10 96 L12 111Z" fill={accent} stroke="#6c512a" strokeWidth="2"/><path d="M-10 103 L-22 103 Q-23 119 -7 118 M10 103 L22 103 Q23 119 7 118" fill="none" stroke={accent} strokeWidth="4"/><path d="M-4 124 L4 124 L7 136 L-7 136Z" fill="#c8a35e"/><rect x="-11" y="136" width="22" height="5" fill="#3c3325"/></g>)}
+      <path d="M238 183 L400 183 L400 192 L238 192Z" fill="#8d6940"/>
+    </g>}
+    {tactics && <g>
+      <path d="M210 77 L430 28 L430 112 L210 160Z" fill="#17271f" stroke="#d6bc7c" strokeWidth="4"/>
+      <path d="M320 52 L320 136 M250 68 L390 100 M250 135 L390 65" stroke="#d8e1ca" strokeOpacity=".7" strokeWidth="3"/>
+      {[0,1,2,3,4].map((n)=><circle key={n} cx={255+n*32} cy={90+(n%2)*22} r="7" fill={n%2? "#c95c4c":"#d8bd75"}/>)}
+      <path d="M240 186 L370 148 L442 175 L312 214Z" fill="#6b5138" stroke="#d1b77c" strokeWidth="3"/>
+      <path d="M276 201 L276 228 M410 188 L410 215" stroke="#493927" strokeWidth="8"/>
+    </g>}
+    {market && <g>
+      <path d="M194 124 L420 48 L452 64 L225 142Z" fill="#a14c3d" stroke="#e0c18a" strokeWidth="3"/>
+      <path d="M220 145 L420 78 L420 147 L220 214Z" fill="#26392b" stroke="#d7bd83" strokeWidth="3"/>
+      <path d="M242 157 L295 139 L295 188 L242 206Z M328 128 L382 110 L382 160 L328 178Z" fill="#d7b875"/>
+      <path d="M242 157 L295 139 M328 128 L382 110" stroke="#f3e4c2" strokeWidth="3"/>
+    </g>}
+    {!training&&!trophy&&!tactics&&!market && <g>
+      <path d="M196 160 L276 132 L356 160 L276 189Z" fill="#a66f50" stroke="#e0c38e" strokeWidth="3"/>
+      <path d="M216 157 L216 180 M336 157 L336 180" stroke="#563c2d" strokeWidth="8"/>
+      <path d="M375 169 L429 151 L461 164 L407 183Z" fill="#c5a26c" stroke="#6d5435" strokeWidth="3"/>
+      <path d="M402 181 L402 197 M443 167 L443 183" stroke="#6d5435" strokeWidth="5"/>
+      <path d="M250 63 L390 16" stroke={accent} strokeWidth="8"/>
+    </g>}
+    <circle cx="320" cy="226" r="10" fill="#e5c77e" opacity=".7"/>
+  </svg>;
+}
+
 function Building({ kind }) {
   const colors = {hq:"#c69a45",stadium:"#758b83",training:"#668b69",market:"#b78b59",park:"#4d8057",club:"#788477",home:"#a68b70",academy:"#7b8f76",plaza:"#a89a78"};
   return <svg viewBox="0 0 180 125" aria-hidden="true">
@@ -373,7 +431,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
     </>}
     {selectedPlace && <div className="gg-world-modal-backdrop" onClick={()=>setSelected(null)}><section className="gg-world-building-modal" role="dialog" aria-modal="true" onClick={(e)=>e.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelected(null)} aria-label="Close">×</button><span>ORIGINAL GG LANDMARK</span><div className="gg-world-modal-art"><Building kind={selectedPlace.kind}/></div><h2>{selectedPlace.name}</h2><p>{selectedPlace.desc}</p>{selectedPlace.id.startsWith("home-") ? selectedPlace.ownerPlayerId===data.playerId ? <button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openResidence(selectedPlace)}>{interiorLoading?"Opening home…":"Enter your private home"}</button> : <p className="gg-world-coming">Private interior · the exterior is public, but only the owner can enter this home.</p> : selectedPlace.clubId ? <button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openClubGround(selectedPlace)}>{interiorLoading?"Checking club access…":"Enter club ground"}</button> : selectedPlace.interior ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openWorldInterior(selectedPlace)}>{interiorLoading?"Opening building…":"Enter "+selectedPlace.name}</button>{selectedPlace.kind==="training" && <button className="gg-world-interior-secondary" onClick={()=>{setSelected(null);document.querySelector(".gg-world-training-form")?.scrollIntoView({behavior:"smooth"});}}>Jump to workout counters</button>}</> : <p className="gg-world-coming">This landmark will receive its own interactive interior in a later build.</p>}</section></div>}
     {selectedPlayer && <div className="gg-world-modal-backdrop" onClick={()=>setSelectedPlayer(null)}><section className="gg-world-player-card" role="dialog" aria-modal="true" onClick={(event)=>event.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelectedPlayer(null)} aria-label="Close player card">×</button><div className="gg-world-player-card-avatar"><PlayerSprite appearance={selectedPlayer.appearance||{}}/></div><span>LIVE IN ORIGINAL GG</span><h2>{selectedPlayer.displayName}</h2><p>Currently exploring the football city.</p><small>More player stats, club badges and character interactions are coming in the social-world phase.</small></section></div>}
-    {interior && <div className="gg-world-modal-backdrop" onClick={()=>setInterior(null)}><section className="gg-world-interior-dialog" role="dialog" aria-modal="true" aria-labelledby="gg-world-interior-title" onClick={(event)=>event.stopPropagation()}><header><div><span>{interior.type==="residence"?"PRIVATE PLAYER RESIDENCE":"ORIGINAL GG INTERIOR"} · LEVEL {interior.level}</span><h2 id="gg-world-interior-title">{interior.name}</h2></div><button className="gg-world-modal-close" onClick={()=>setInterior(null)} aria-label="Close home">×</button></header><div className="gg-world-interior-rooms">{(interior.interior?.rooms||[]).map((room)=><article key={room.id}><div className="gg-world-room-art"><span>{room.id==="trophy-room"?"🏆":room.id==="training-corner"?"🏋":"🛋"}</span></div><h3>{room.name}</h3><p>{room.description || (room.id==="trophy-room"?"A wall for the moments and silverware you earn.":room.id==="training-corner"?"Your personal corner for training goals and records.":"A place to relax, meet visitors and show your club colours.")}</p><div>{(room.items||[]).map((item)=><small key={item}>{item.replaceAll("-"," ")}</small>)}{(room.id==="club-lounge"||room.id==="grand-hall")&&<button className="gg-world-room-chat" onClick={onOpenChat}>Open community chat</button>}</div></article>)}</div><p className="gg-world-coming">Your residence layout is saved in the Clubs database. Room furnishing and visitor permissions are coming in the next phase.</p></section></div>}
+    {interior && <div className="gg-world-modal-backdrop" onClick={()=>setInterior(null)}><section className="gg-world-interior-dialog" role="dialog" aria-modal="true" aria-labelledby="gg-world-interior-title" onClick={(event)=>event.stopPropagation()}><header><div><span>{interior.type==="residence"?"PRIVATE PLAYER RESIDENCE":"ORIGINAL GG INTERIOR"} · LEVEL {interior.level}</span><h2 id="gg-world-interior-title">{interior.name}</h2></div><button className="gg-world-modal-close" onClick={()=>setInterior(null)} aria-label="Close home">×</button></header><div className="gg-world-interior-rooms">{(interior.interior?.rooms||[]).map((room)=><article key={room.id}><div className="gg-world-room-art"><RoomScene room={room}/></div><h3>{room.name}</h3><p>{room.description || (room.id==="trophy-room"?"A wall for the moments and silverware you earn.":room.id==="training-corner"?"Your personal corner for training goals and records.":"A place to relax, meet visitors and show your club colours.")}</p><div>{(room.items||[]).map((item)=><small key={item}>{item.replaceAll("-"," ")}</small>)}{(room.id==="club-lounge"||room.id==="grand-hall")&&<button className="gg-world-room-chat" onClick={onOpenChat}>Open community chat</button>}</div></article>)}</div><p className="gg-world-coming">Your residence layout is saved in the Clubs database. Room furnishing and visitor permissions are coming in the next phase.</p></section></div>}
     {data?.avatar && !data.avatar.tutorialComplete && !tutorialClosed && <div className="gg-world-guide" role="dialog" aria-modal="true" aria-labelledby="gg-world-guide-title"><div className="gg-world-guide-character"><PlayerSprite appearance={appearance}/></div><div className="gg-world-guide-copy"><span>YOUR GG COMPANION · QUICK TOUR {tutorialStep+1}/3</span><h2 id="gg-world-guide-title">{["Welcome to Original GG!","Meet your player character.","Your training journey starts here."][tutorialStep]}</h2><p>{["This is your football city. Drag the map, pinch to zoom on mobile, and tap a landmark to explore its building.","Customise your footballer with a name, hairstyle, skin tone, kit and boots. Your look is saved to your player account.","Visit the Training Centre to record push-ups, pull-ups, squats and plank holds. Your totals and personal bests are saved in the Clubs database."][tutorialStep]}</p><div><button className="gg-world-guide-skip" onClick={completeTutorial}>Skip tour</button><button className="gg-world-primary" onClick={()=>tutorialStep===2?completeTutorial():setTutorialStep((step)=>step+1)}>{tutorialStep===2?"Finish tour":"Next tip →"}</button></div></div></div>}
     <footer className="gg-world-footer">GG MATCHDAY · ORIGINAL GG WORLD <span>Built for the players, by the players.</span></footer>
   </main>;
