@@ -20,6 +20,10 @@ Additive collections:
 - worldPresence — short-lived player position heartbeat with TTL expiry.
 - trainingProfiles — lifetime workout counters and personal bests.
 - trainingSessions — idempotent workout records.
+- worldEconomies / worldEconomyLedger — server-authoritative GG Coins, XP, level progression and an auditable transaction ledger.
+- worldInventoryItems — purchased and equipped character cosmetics.
+- worldDailyProgress — UTC daily XP/coin caps and training reward limits.
+- worldRewardClaims / worldAchievements — idempotent one-time reward claims and training milestones.
 
 Existing clubs, player profiles, contracts, wallets, transactions, match history and account records are not repurposed.
 
@@ -36,6 +40,10 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 - Avatar fields include skin tone, body type, hairstyle, hair colour, kit colours and boots.
 - Player movement is persisted through presence heartbeats. Other active players are rendered as clickable pixel characters; presence refreshes periodically.
 - Training supports push-up, pull-up, squat and plank-hold counters, session duration, lifetime totals and personal bests. Sessions have unique idempotency keys and are validated server-side.
+- XP progression is server-owned with a 100-level nonlinear threshold curve, progress-to-next-level fields, a 250 XP / 120 coin global UTC daily cap, and lower dedicated training reward caps (150 XP / 70 coins).
+- Reward sources include the one-time Original GG tutorial (40 XP / 20 coins), capped training-session rewards based on bounded server-validated session data, one-time training achievements, and capped level-up coin bonuses.
+- Market purchases use server catalogue prices, conditional balance debits, transaction ledger entries, per-player idempotency keys and inventory writes in one MongoDB transaction. Cosmetic purchases are level-gated and can be equipped onto the saved avatar.
+- Player homes have a coin-priced upgrade path (levels 1–10), gated by player level and protected by idempotent ledger-backed transactions. No real-money purchase flow exists.
 - A first-visit guided tour introduces city navigation, the avatar and training.
 - HQ interior provides an entry point to the existing Matchday chat. This is not yet the complete in-world chat/notification/social system.
 
@@ -53,7 +61,7 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 3. Build full HQ social spaces: realtime in-world chat, notifications, player-to-player interactions, moderation and presence safeguards.
 4. Build club-ground ownership controls, club-specific interiors, residence visitor permissions and home furnishing.
 5. Build the training mini-game, anti-cheat scoring and leaderboard.
-6. Build the GG economy: server-authoritative coin ledger, XP, inventory, cosmetics, rewards and upgrades. Do not add real-money purchases in the initial release.
+6. Extend the economy with broader furnishing, plot and club-ground upgrade sinks, reward tuning from playtest data, and abuse monitoring. The initial server-authoritative XP/coin wallet, ledger, capped training rewards, achievements, cosmetics catalogue/equipping and player-home upgrades are implemented on the V4 branch. Do not add real-money purchases in the initial release.
 7. Add character movement/idle/throw/swirl animations and companion presence across the existing Matchday pages.
 8. Complete mobile/accessibility/performance QA, add route/API tests, and run V3 regression checks before any production promotion.
 
