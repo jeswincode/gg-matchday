@@ -1,6 +1,5 @@
 import express from "express";
 import mongoose from "mongoose";
-import { randomUUID } from "node:crypto";
 import { requireAuth } from "../middleware/auth.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import WorldEconomy from "../models/clubs/WorldEconomy.js";
@@ -28,11 +27,6 @@ function playerIdFor(req, res) {
   return id;
 }
 
-function levelForXp(xp) {
-  // Level N requires 100 * (N - 1)^2 total XP.
-  return Math.max(1, Math.floor(Math.sqrt(Math.max(0, xp) / 100)) + 1);
-}
-
 function publicItem(item) {
   return { id: item.id, name: item.name, category: item.category, price: item.price, description: item.description, rarity: item.rarity };
 }
@@ -42,16 +36,18 @@ router.get("/", async (req, res, next) => {
   const playerId = playerIdFor(req, res);
   if (!playerId) return;
   try {
-    const [wallet, inventory, ledger] = await Promise.all([
+    const [wallet, inventory, ledger, residence] = await Promise.all([
       WorldEconomy.findOne({ playerId }).lean(),
       WorldInventoryItem.find({ playerId }).sort({ acquiredAt: -1 }).lean(),
       WorldEconomyLedger.find({ playerId }).sort({ createdAt: -1 }).limit(20).lean(),
+      PlayerResidence.findOne({ ownerPlayerId: playerId }).select("level").lean(),
     ]);
     return res.json({
       economy: { ...(wallet || { coins: 0, xp: 0, level: 1 }), ...levelProgress(wallet?.xp || 0) },
       catalog: CATALOG.map(publicItem),
       inventory,
       recentTransactions: ledger,
+      residence: { level: residence?.level || 1, maxLevel: 10, nextUpgradeCost: residence && residence.level < 10 ? Math.round(100 * Math.pow(residence.level + 1, 1.55)) : null },
       nextLevelXp: levelProgress(wallet?.xp || 0).nextLevelXp,
     });
   } catch (error) { return next(error); }
