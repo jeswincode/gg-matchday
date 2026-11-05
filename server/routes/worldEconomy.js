@@ -17,7 +17,6 @@ const CATALOG = Object.freeze([
   { id: "boots-gold", name: "Golden Boots", category: "boots", price: 120, description: "A bright pair of matchday boots.", rarity: "rare" },
   { id: "kit-neon", name: "Neon Training Kit", category: "kit", price: 180, description: "A vivid training look.", rarity: "rare" },
   { id: "hair-silver", name: "Silver Hair", category: "hair", price: 90, description: "A cool silver hairstyle colour.", rarity: "common" },
-  { id: "boots-gold", name: "Golden Boots", category: "boots", price: 120, description: "A bright pair of matchday boots.", rarity: "rare" },
 ]);
 
 function playerIdFor(req, res) {
