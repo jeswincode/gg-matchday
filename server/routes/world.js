@@ -38,19 +38,41 @@ function linkedPlayerId(req, res) {
 }
 
 async function getWorldMap() {
-  return WorldMap.findOneAndUpdate(
-    { slug: WORLD_MAP_SLUG },
-    {
-      $setOnInsert: {
-        slug: WORLD_MAP_SLUG,
-        title: "Original GG",
-        version: DEFAULT_WORLD_LAYOUT.version,
-        layout: structuredClone(DEFAULT_WORLD_LAYOUT),
-        active: true,
+  const existing = await WorldMap.findOne({ slug: WORLD_MAP_SLUG }).lean();
+  if (!existing) {
+    return WorldMap.findOneAndUpdate(
+      { slug: WORLD_MAP_SLUG },
+      {
+        $setOnInsert: {
+          slug: WORLD_MAP_SLUG,
+          title: "Original GG",
+          version: DEFAULT_WORLD_LAYOUT.version,
+          layout: structuredClone(DEFAULT_WORLD_LAYOUT),
+          active: true,
+        },
       },
-    },
-    { upsert: true, new: true, setDefaultsOnInsert: true },
-  ).lean();
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).lean();
+  }
+  if ((existing.version || 1) < DEFAULT_WORLD_LAYOUT.version) {
+    const existingLocations = new Map((existing.layout?.locations || []).map((location) => [location.id, location]));
+    const locations = DEFAULT_WORLD_LAYOUT.locations.map((defaults) => {
+      const saved = existingLocations.get(defaults.id);
+      return saved ? { ...defaults, ...saved, interior: saved.interior || defaults.interior } : defaults;
+    });
+    const layout = {
+      ...structuredClone(DEFAULT_WORLD_LAYOUT),
+      ...(existing.layout || {}),
+      layers: existing.layout?.layers?.length ? existing.layout.layers : DEFAULT_WORLD_LAYOUT.layers,
+      locations,
+    };
+    return WorldMap.findOneAndUpdate(
+      { slug: WORLD_MAP_SLUG },
+      { $set: { version: DEFAULT_WORLD_LAYOUT.version, layout } },
+      { new: true, runValidators: true },
+    ).lean();
+  }
+  return existing;
 }
 
 function residencePosition(playerId) {
