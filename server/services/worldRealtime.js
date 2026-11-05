@@ -22,7 +22,7 @@ export function publishWorldEvent(event, payload, { locationId = "world", except
   }
 }
 
-export function attachWorldStream({ response, request, playerId, locationId = "world" }) {
+export function attachWorldStream({ response, playerId, locationId = "world" }) {
   const playerKey = String(playerId);
   const ownConnections = [...subscribers.values()].filter((item) => item.playerId === playerKey).length;
   if (subscribers.size >= MAX_CONNECTIONS || ownConnections >= MAX_PER_PLAYER) return null;
