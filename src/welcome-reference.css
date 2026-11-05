@@ -13,3 +13,64 @@
 @media(max-width:800px){.gg-welcome-screen.gg-welcome-coded-screen{padding:0 22px}.gg-welcome-content{margin:clamp(45px,10vh,90px) 0 auto}.gg-welcome-content h1{font-size:clamp(58px,16vw,96px)}.gg-welcome-description{max-width:420px;font-size:13px}.gg-welcome-side-note{display:none}.gg-welcome-ball{right:12%;bottom:22%;opacity:.55}.gg-welcome-player-one{right:23%}.gg-welcome-quick-notes{gap:10px}.gg-welcome-quick-notes strong{font-size:9px}.gg-welcome-quick-notes small{font-size:9px}.gg-welcome-footer{flex-wrap:wrap;font-size:7px}}
 @media(max-width:480px){.gg-welcome-season{font-size:7px}.gg-welcome-content h1{font-size:64px}.gg-welcome-quick-notes{grid-template-columns:1fr;gap:10px;margin-top:28px}.gg-welcome-quick-notes>div{grid-template-columns:25px 1fr;align-items:center}.gg-welcome-quick-notes small{grid-column:2}.gg-welcome-footer span:last-child{display:none}}
 @media(prefers-reduced-motion:reduce){.gg-welcome-ball,.gg-welcome-enter{animation:none;transition:none}}
+
+
+/* V4 entry: one deliberate, non-scrolling viewport on desktop and mobile. */
+.gg-welcome-screen.gg-welcome-coded-screen{
+  position:fixed;inset:0;width:100vw;height:100dvh;min-height:100dvh;max-height:100dvh;
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-items:stretch;justify-content:stretch;
+  overflow:hidden;box-sizing:border-box;padding:0 clamp(22px,6vw,96px);
+}
+.gg-welcome-screen.gg-welcome-coded-screen>*{min-width:0}
+.gg-welcome-topbar{width:100%;min-height:70px;padding:14px 0;flex:none}
+.gg-welcome-content{
+  position:relative;z-index:2;display:block;flex:none;align-self:center;justify-self:start;
+  width:min(690px,58vw)!important;max-width:690px;min-width:0;margin:0!important;
+  padding:clamp(12px,2.5vh,28px) 0;transform:none;
+}
+.gg-welcome-content h1{font-size:clamp(56px,7.5vw,112px);line-height:.88;overflow-wrap:normal}
+.gg-welcome-lead{margin:clamp(12px,2vh,22px) 0 6px;font-size:clamp(16px,1.7vw,23px)}
+.gg-welcome-description{max-width:480px;font-size:clamp(12px,1vw,14px);line-height:1.55}
+.gg-welcome-enter{margin-top:clamp(14px,2.5vh,25px);width:min(310px,100%);padding:13px 16px}
+.gg-welcome-quick-notes{
+  width:min(660px,100%);grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,1.5vw,18px);
+  margin-top:clamp(16px,3vh,30px);padding-top:12px;
+}
+.gg-welcome-quick-notes>div{min-width:0;grid-template-columns:1fr;gap:4px}
+.gg-welcome-quick-notes strong{font-size:clamp(8px,.78vw,10px);white-space:nowrap}
+.gg-welcome-quick-notes small{font-size:clamp(8px,.75vw,10px);line-height:1.35}
+.gg-welcome-side-note{right:clamp(22px,6vw,96px);bottom:20%;width:190px}
+.gg-welcome-footer{align-self:stretch;padding:11px 0;font-size:7px}
+@media(max-width:900px){
+  .gg-welcome-screen.gg-welcome-coded-screen{padding:0 22px}
+  .gg-welcome-content{width:min(630px,74vw)!important}
+  .gg-welcome-side-note{display:none}
+}
+@media(max-width:560px){
+  .gg-welcome-screen.gg-welcome-coded-screen{padding:0 18px}
+  .gg-welcome-topbar{min-height:58px;padding:10px 0}
+  .gg-welcome-brand .gg-refined-mark{width:34px;height:34px}
+  .gg-welcome-brand>span{font-size:9px}
+  .gg-welcome-season{font-size:7px}
+  .gg-welcome-content{width:100%!important;padding:8px 0}
+  .gg-welcome-content h1{font-size:clamp(48px,13vw,70px)}
+  .gg-welcome-lead{font-size:16px;margin-top:12px}
+  .gg-welcome-description{max-width:390px;font-size:12px}
+  .gg-welcome-quick-notes{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:16px}
+  .gg-welcome-quick-notes>div{display:grid;grid-template-columns:1fr;gap:3px}
+  .gg-welcome-quick-notes strong{font-size:7px;letter-spacing:.06em}
+  .gg-welcome-quick-notes small{font-size:7px;line-height:1.3}
+  .gg-welcome-footer{gap:6px;padding:8px 0;font-size:6px;letter-spacing:.08em}
+  .gg-welcome-ball{right:7%;bottom:17%;opacity:.42}
+}
+@media(max-height:650px) and (min-width:561px){
+  .gg-welcome-topbar{min-height:52px;padding:7px 0}
+  .gg-welcome-content{padding:6px 0}
+  .gg-welcome-content h1{font-size:clamp(48px,6vw,78px);margin:10px 0 7px}
+  .gg-welcome-lead{margin:8px 0 5px;font-size:16px}
+  .gg-welcome-description{font-size:11px;line-height:1.45}
+  .gg-welcome-enter{margin-top:10px;padding:10px 14px}
+  .gg-welcome-quick-notes{margin-top:10px;padding-top:8px}
+  .gg-welcome-side-note{display:none}
+  .gg-welcome-footer{padding:7px 0}
+}
