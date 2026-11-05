@@ -17,6 +17,7 @@ export const WORLD_COSMETIC_CATEGORIES = Object.freeze([
   { id: "kit", label: "Kits", slot: "kit" },
   { id: "boots", label: "Boots", slot: "bootColor" },
   { id: "headwear", label: "Headwear", slot: "headAccessory" },
+  { id: "furniture", label: "Home furniture", slot: "furniture" },
 ]);
 
 export const WORLD_COSMETIC_CATALOG = Object.freeze([
@@ -35,6 +36,9 @@ export const WORLD_COSMETIC_CATALOG = Object.freeze([
   { id: "headband-gold", name: "Golden Headband", category: "headwear", slot: "headAccessory", price: 95, minLevel: 1, description: "A gold headband for your player portrait.", rarity: "common", collection: "classic", sortOrder: 130, appearancePatch: { headAccessory: "gold-headband" } },
   { id: "headband-red", name: "Red Headband", category: "headwear", slot: "headAccessory", price: 105, minLevel: 2, description: "A red headband to finish your kit.", rarity: "common", collection: "street-football", sortOrder: 140, appearancePatch: { headAccessory: "red-headband" } },
   { id: "headband-blue", name: "Blue Headband", category: "headwear", slot: "headAccessory", price: 105, minLevel: 2, description: "A blue headband to finish your kit.", rarity: "common", collection: "street-football", sortOrder: 150, appearancePatch: { headAccessory: "blue-headband" } },
+  { id: "furniture-velvet-sofa", name: "Velvet Lounge Sofa", category: "furniture", slot: "furniture", itemType: "furniture", price: 160, minLevel: 2, description: "A deep-green sofa for your player lounge.", rarity: "rare", collection: "home-comforts", sortOrder: 160, furniturePlacement: { roomIds: ["lounge"], displayName: "Velvet Lounge Sofa", furnitureKey: "velvet-sofa" } },
+  { id: "furniture-trophy-case", name: "Golden Trophy Case", category: "furniture", slot: "furniture", itemType: "furniture", price: 140, minLevel: 2, description: "A display case for the moments you earn.", rarity: "rare", collection: "home-comforts", sortOrder: 170, furniturePlacement: { roomIds: ["trophy-room"], displayName: "Golden Trophy Case", furnitureKey: "trophy-case" } },
+  { id: "furniture-training-rack", name: "Home Training Rack", category: "furniture", slot: "furniture", itemType: "furniture", price: 175, minLevel: 3, description: "A compact training station for your home gym corner.", rarity: "rare", collection: "training-club", sortOrder: 180, furniturePlacement: { roomIds: ["training-corner"], displayName: "Home Training Rack", furnitureKey: "training-rack" } },
 ]);
 
 export function getWorldCosmetic(itemId) {
