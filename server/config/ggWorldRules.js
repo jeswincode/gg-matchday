@@ -3,7 +3,7 @@ import { normalizeCharacterDirection } from "../../shared/characterAnimation.js"
 export const WORLD_MAP_SLUG = "original-gg";
 
 export const DEFAULT_WORLD_LAYOUT = Object.freeze({
-  version: 7,
+  version: 8,
   orientation: "isometric",
   tileWidth: 128,
   tileHeight: 64,
@@ -48,8 +48,8 @@ export const DEFAULT_WORLD_LAYOUT = Object.freeze({
     { id: "community-pitches", name: "Community Pitches", kind: "community-pitch", x: 820, y: 1060, width: 250, height: 150, access: "public", description: "Small-sided pitches for casual football, future skill games and friendly community events.", interior: { rooms: [{ id: "five-a-side", name: "Five-a-Side Pitch", description: "A compact football space for future team challenges and casual matches.", theme: "pitch", items: ["five-a-side-pitch","mini-goals","ball-rack","substitutes-bench"] }] } },
   ],
   plots: [
-    { id: "residence-plot-01", name: "Residence Plot 01", districtId: "residence-gardens", x: 1110, y: 1030, category: "residential", status: "planned", description: "A future home site in the Residence Gardens." },
-    { id: "residence-plot-02", name: "Residence Plot 02", districtId: "residence-gardens", x: 1390, y: 1080, category: "residential", status: "planned", description: "A future home site in the Residence Gardens." },
+    { id: "residence-plot-01", name: "Residence Plot 01", districtId: "residence-gardens", x: 1110, y: 1030, category: "residential", status: "available", description: "A future home site in the Residence Gardens." },
+    { id: "residence-plot-02", name: "Residence Plot 02", districtId: "residence-gardens", x: 1390, y: 1080, category: "residential", status: "available", description: "A future home site in the Residence Gardens." },
     { id: "club-plot-01", name: "Club Plot 01", districtId: "club-district", x: 760, y: 1000, category: "club", status: "planned", description: "Reserved space for future club-city expansion." },
     { id: "academy-plot-01", name: "Academy Plot 01", districtId: "academy-square", x: 700, y: 820, category: "community", status: "planned", description: "A future player-development and academy site." },
     { id: "stadium-plot-01", name: "Stadium Plot 01", districtId: "stadium-quarter", x: 230, y: 810, category: "commercial", status: "planned", description: "A future matchday service site near the stadium." },
