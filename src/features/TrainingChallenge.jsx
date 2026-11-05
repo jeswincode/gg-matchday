@@ -5,7 +5,7 @@ import { CHALLENGE_HEIGHT, CHALLENGE_STEP_SECONDS, CHALLENGE_WIDTH, createChalle
 
 const WIDTH=CHALLENGE_WIDTH,HEIGHT=CHALLENGE_HEIGHT,PLAYER_R=13;
 
-export default function TrainingChallenge(){
+export default function TrainingChallenge({onCelebrate}={}){
   const canvasRef=useRef(null);
   const frameRef=useRef(null);
   const stateRef=useRef({running:false,startedAt:0,lastAt:0,engine:null,accumulator:0,elapsed:0,over:false});
@@ -63,6 +63,7 @@ export default function TrainingChallenge(){
       setBest(result.bestSeconds||0);setAttempts(result.attempts||0);
       setMessage("Server verified · "+Number(result.verifiedScore||game.elapsed).toFixed(1)+" seconds. Your record is saved.");
       setStatus("over");
+      onCelebrate?.();
       const board=await api("/world/training/challenges/leaderboard");
       setLeaderboard(board.leaderboard||[]);
     }catch(error){
@@ -70,7 +71,7 @@ export default function TrainingChallenge(){
       setMessage((error.message||"Your run could not be verified.")+" Start another run to try again.");
       setStatus("over");
     }
-  },[]);
+  },[onCelebrate]);
   const start=useCallback(async()=>{
     if(status==="starting"||status==="saving")return;
     stateRef.current.running=false;
