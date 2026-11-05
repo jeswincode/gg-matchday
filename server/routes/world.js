@@ -226,18 +226,20 @@ router.post("/tutorial/complete", async (req, res, next) => {
   try {
     let result;
     await session.withTransaction(async () => {
-      const avatar = await PlayerAvatar.findOne({ playerId }).session(session);
-      if (!avatar) {
-        const error = new Error("Create your player character before claiming the welcome reward.");
-        error.status = 409;
-        throw error;
-      }
-      if (avatar.tutorialComplete) {
+      let avatar = await PlayerAvatar.findOne({ playerId }).session(session);
+      if (avatar?.tutorialComplete) {
         result = { success: true, duplicate: true, reward: null };
         return;
       }
-      avatar.tutorialComplete = true;
-      await avatar.save({ session });
+      if (!avatar) {
+        [avatar] = await PlayerAvatar.create([{
+          playerId, displayName: String(req.user?.name || "GG Player").slice(0, 24),
+          tutorialComplete: true,
+        }], { session });
+      } else {
+        avatar.tutorialComplete = true;
+        await avatar.save({ session });
+      }
       const reward = await grantWorldReward({
         playerId, sourceKey: "tutorial:original-gg-v1", sourceType: "tutorial",
         xp: 40, coins: 20, metadata: { reason: "Completed the Original GG welcome tour" }, session,
