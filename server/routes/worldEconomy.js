@@ -92,11 +92,15 @@ router.post("/purchase", async (req, res, next) => {
         throw error;
       }
 
-      await WorldInventoryItem.findOneAndUpdate(
-        { playerId, itemId: item.id },
-        { $setOnInsert: { playerId, itemId: item.id, acquiredAt: new Date() }, $inc: { quantity: 1 } },
-        { upsert: true, new: true, setDefaultsOnInsert: true, session, runValidators: true },
-      );
+      const ownedItem = await WorldInventoryItem.findOne({ playerId, itemId: item.id }).session(session);
+      if (ownedItem) {
+        ownedItem.quantity += 1;
+        await ownedItem.save({ session });
+      } else {
+        await WorldInventoryItem.create([{
+          playerId, itemId: item.id, quantity: 1, acquiredAt: new Date(),
+        }], { session });
+      }
       const [transaction] = await WorldEconomyLedger.create([{
         playerId, idempotencyKey, type: "purchase", itemId: item.id,
         coinsDelta: -item.price, xpDelta: 0, balanceAfter: charged.coins,
