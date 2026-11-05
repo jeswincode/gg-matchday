@@ -105,7 +105,6 @@ export default function TrainingChallenge({onCelebrate}={}){
       if(game.running&&game.engine){
         game.lastAt=now;game.accumulator+=dt;
         const input=readInput();
-        let collided=false;
         while(game.accumulator>=CHALLENGE_STEP_SECONDS&&game.running){
           const collided=stepChallenge(game.engine,input,CHALLENGE_STEP_SECONDS);
           game.accumulator-=CHALLENGE_STEP_SECONDS;
