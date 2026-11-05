@@ -62,8 +62,11 @@ Training rewards use a bounded formula based on at most 200 counts and 30 minute
 | Residence level 2 | 293 coins, player level 2 |
 | Residence level 3+ | `round(100 × nextLevel^1.55)`, player level must meet the target level |
 | Residence cap | Level 10 |
+| Velvet Lounge Sofa | 160 coins, level 2; place in the lounge |
+| Golden Trophy Case | 140 coins, level 2; place in the trophy room |
+| Home Training Rack | 175 coins, level 3; place in the training corner |
 
-Cosmetic duplicates increase inventory quantity. Equipping a cosmetic updates the saved avatar appearance and marks the owned inventory item as equipped. Residence upgrades debit the same wallet and write a ledger record in the same transaction.
+Cosmetic duplicates increase inventory quantity. Equipping a cosmetic updates the saved avatar appearance and marks the owned inventory item as equipped. Furniture purchases enter the same inventory; placing a piece consumes one owned unit and records a `furnish` ledger event while updating the owner's selected room in the same MongoDB transaction. Residence upgrades debit the same wallet and write a ledger record in the same transaction.
 
 ## Transaction and abuse controls
 
