@@ -11,6 +11,7 @@ export default function WorldEconomyPanel({ onEquipped }) {
   const [category,setCategory] = useState("all");
   const [search,setSearch] = useState("");
   const [collection,setCollection] = useState("all");
+  const [selectedRoom,setSelectedRoom] = useState("lounge");
   const requestKeys = useRef(new Map());
   const load = useCallback(async () => {
     try { setData(await api("/world/economy?refresh="+Date.now())); }
@@ -28,6 +29,19 @@ export default function WorldEconomyPanel({ onEquipped }) {
     setBusy("home");setMessage("");
     try { const key=requestKeys.current.get("home")||crypto.randomUUID();requestKeys.current.set("home",key);const result=await api("/world/economy/residence-upgrade",{method:"POST",body:{idempotencyKey:key}});requestKeys.current.delete("home");await load();setMessage("Your home is now level "+result.residence.level+"."); }
     catch(error) { setMessage(error.message || "Your home could not be upgraded."); }
+    finally { setBusy(""); }
+  }
+  async function placeFurniture(item) {
+    setBusy("place:"+item.id);setMessage("");
+    try {
+      const key=requestKeys.current.get("place:"+item.id)||crypto.randomUUID();
+      requestKeys.current.set("place:"+item.id,key);
+      const result=await api("/world/economy/furnish",{method:"POST",body:{itemId:item.id,roomId:selectedRoom,idempotencyKey:key}});
+      requestKeys.current.delete("place:"+item.id);
+      await load();
+      setMessage(result.duplicate?"That furnishing request was already processed.":item.name+" placed in your home.");
+      window.dispatchEvent(new Event("gg-data-changed"));
+    } catch(error) { setMessage(error.message || "Could not place this furniture."); }
     finally { setBusy(""); }
   }
   async function purchase(item) {
@@ -55,6 +69,7 @@ export default function WorldEconomyPanel({ onEquipped }) {
       <div className="gg-economy-daily"><span>DAILY REWARD LIMITS · RESETS AT 00:00 UTC</span><div><small>XP remaining today</small><strong>{data?.dailyProgress?.xpRemaining ?? 250} / 250</strong></div><div><small>Coins remaining today</small><strong>{data?.dailyProgress?.coinsRemaining ?? 120} / 120</strong></div></div>
       <div className="gg-economy-progress" role="progressbar" aria-label="Experience progress to next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(wallet.progressPercent||0)}><span style={{width:(wallet.progressPercent||0)+"%"}}/></div>
       <div className="gg-economy-section-heading"><div><span>THE MARKET SQUARE</span><h3>Cosmetics catalogue</h3></div><small>Earned currency only · no real-money purchases</small></div>
+      <div className="gg-economy-furnish-tools"><div><span>MAKE IT YOURS</span><strong>Home furnishing</strong><small>Buy furniture in the Market, then place it in one of your rooms.</small></div><label>Choose a room<select value={selectedRoom} onChange={(event)=>setSelectedRoom(event.target.value)}>{(data?.residence?.rooms||[]).map((room)=><option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div>
       <div className="gg-economy-home-upgrade"><div><span>YOUR RESIDENCE</span><strong>Home level {data?.residence?.level||1} / {data?.residence?.maxLevel||10}</strong><small>Next home level requires player level {(data?.residence?.level||1)+1}.</small></div><button type="button" className="gg-world-primary" disabled={Boolean(busy)||!data?.residence?.nextUpgradeCost||wallet.coins<data.residence.nextUpgradeCost||wallet.level<(data?.residence?.level||1)+1} onClick={upgradeHome}>{busy==="home"?"Upgrading…":data?.residence?.nextUpgradeCost?"Upgrade · ◈ "+data.residence.nextUpgradeCost:"Max level"}</button></div>
       <div className="gg-market-tools">
         <label className="gg-market-search">Find an item<input type="search" value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search cosmetics…"/></label>
@@ -63,7 +78,7 @@ export default function WorldEconomyPanel({ onEquipped }) {
       <div className="gg-market-categories"><button type="button" className={category==="all"?"is-active":""} onClick={()=>setCategory("all")}>All items</button>{WORLD_COSMETIC_CATEGORIES.map((entry)=><button type="button" key={entry.id} className={category===entry.id?"is-active":""} onClick={()=>setCategory(entry.id)}>{entry.label}</button>)}</div>
       <div className="gg-economy-catalog">{visibleItems.map(item=>{
         const owned=(data?.inventory||[]).find(entry=>entry.itemId===item.id);
-        return <article key={item.id}><div><span>{item.rarity.toUpperCase()} · {item.category.toUpperCase()}</span><h4>{item.name}</h4><p>{item.description} {item.minLevel>wallet.level?"Unlocks at player level "+item.minLevel+".":""}</p></div><footer><strong>◈ {item.price}</strong>{owned && <button type="button" className="gg-world-primary" disabled={Boolean(busy)} onClick={()=>equip(item)}>{busy==="equip:"+item.id?"Equipping…":owned.equipped?"Equipped":"Equip"}</button>}<button type="button" className="gg-world-primary" disabled={Boolean(busy)||wallet.coins<item.price||wallet.level<(item.minLevel||1)} onClick={()=>purchase(item)}>{busy===item.id?"Buying…":wallet.level<(item.minLevel||1)?"Level "+item.minLevel+" required":owned?"Buy another":"Purchase"}</button></footer></article>;
+        return <article key={item.id}><div><span>{item.rarity.toUpperCase()} · {item.category.toUpperCase()}</span><h4>{item.name}</h4><p>{item.description} {item.minLevel>wallet.level?"Unlocks at player level "+item.minLevel+".":""}</p></div><footer><strong>◈ {item.price}</strong>{owned && item.appearancePatch && <button type="button" className="gg-world-primary" disabled={Boolean(busy)} onClick={()=>equip(item)}>{busy==="equip:"+item.id?"Equipping…":owned.equipped?"Equipped":"Equip"}</button>}{owned && item.itemType==="furniture" && <button type="button" className="gg-world-primary" disabled={Boolean(busy)||!(data?.residence?.rooms||[]).some((room)=>room.id===selectedRoom)} onClick={()=>placeFurniture(item)}>{busy==="place:"+item.id?"Placing…":"Place in home"}</button>}<button type="button" className="gg-world-primary" disabled={Boolean(busy)||wallet.coins<item.price||wallet.level<(item.minLevel||1)} onClick={()=>purchase(item)}>{busy===item.id?"Buying…":wallet.level<(item.minLevel||1)?"Level "+item.minLevel+" required":owned?"Buy another":"Purchase"}</button></footer></article>;
       })}</div>
       {!visibleItems.length&&<p className="gg-economy-empty">No items match these filters. Try another category or search.</p>}
       <div className="gg-economy-section-heading"><div><span>YOUR COLLECTION</span><h3>Inventory</h3></div><small>{(data?.inventory||[]).length} item types</small></div>
