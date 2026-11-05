@@ -6,6 +6,7 @@ import {connectClubsDatabase,disconnectClubsDatabase} from './config/clubsDataba
 import {startClubSyncWorker} from './services/clubsSync.js';
 import {startClubsMaintenanceWorker} from './services/clubsMaintenance.js';
 import {startStatisticsMaintenanceWorker} from './services/persistedStatistics.js';
+import {ensurePrimaryWorldExists} from './services/primaryWorld.js';
 
 async function startServer(){
   try{
@@ -14,6 +15,9 @@ async function startServer(){
     }
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB connected');
+
+    const primaryWorld = await ensurePrimaryWorldExists();
+    console.log('Primary GG World ready:', primaryWorld.slug);
 
     try {
       await connectClubsDatabase();
