@@ -7,6 +7,7 @@ import {startClubSyncWorker} from './services/clubsSync.js';
 import {startClubsMaintenanceWorker} from './services/clubsMaintenance.js';
 import {startStatisticsMaintenanceWorker} from './services/persistedStatistics.js';
 import {ensurePrimaryWorldExists} from './services/primaryWorld.js';
+import {ensureLegacyWorldAccessInvitations} from './services/worldAccessGrants.js';
 
 async function startServer(){
   try{
@@ -18,6 +19,8 @@ async function startServer(){
 
     const primaryWorld = await ensurePrimaryWorldExists();
     console.log('Primary GG World ready:', primaryWorld.slug);
+    const legacyAccess = await ensureLegacyWorldAccessInvitations(primaryWorld);
+    console.log('Legacy account access preserved:', legacyAccess);
 
     try {
       await connectClubsDatabase();
