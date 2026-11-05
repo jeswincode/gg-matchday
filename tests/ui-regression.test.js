@@ -206,16 +206,17 @@ test("GG companion is available across signed-in Matchday pages and transitions 
   assert.match(styles,/prefers-reduced-motion:reduce/);
 });
 
-test("training challenge is playable, responsive and labels local best honestly",()=>{
+test("training challenge is playable, responsive and uses verified server records",()=>{
   const world=read("src/features/OriginalGGWorld.jsx");
   const game=read("src/features/TrainingChallenge.jsx");
   const styles=read("src/features/training-challenge.css");
   assert.match(world,/TrainingChallenge/);
   assert.match(game,/ArrowUp/);
   assert.match(game,/touchDirection/);
-  assert.match(game,/localStorage/);
-  assert.match(game,/PERSONAL BEST · THIS DEVICE/);
-  assert.match(game,/global leaderboard will be server-verified/);
+  assert.match(game,/VERIFIED PERSONAL BEST/);
+  assert.match(game,/api\("\/world\/training\/challenges\/start"/);
+  assert.match(game,/api\("\/world\/training\/challenges\/finish"/);
+  assert.match(game,/GG CITY LEADERBOARD/);
   assert.match(styles,/@media\(max-width:700px\)/);
 });
 
