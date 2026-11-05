@@ -24,6 +24,8 @@ export const DEFAULT_WORLD_LAYOUT = Object.freeze({
     { id: "club-quarter", label: "Club District", x: 390, y: 930, tone: "stone" },
     { id: "residential-quarter", label: "Residence Gardens", x: 1120, y: 930, tone: "garden" },
     { id: "transit-quarter", label: "Matchday Station", x: 1580, y: 560, tone: "stone" },
+    { id: "supporters-quarter", label: "Supporters Quarter", x: 690, y: 360, tone: "gold" },
+    { id: "community-quarter", label: "Community Fields", x: 820, y: 1060, tone: "grass" },
   ],
   locations: [
     { id: "city-plaza", name: "City Plaza", kind: "plaza", x: 900, y: 600, width: 150, height: 110, description: "The central meeting square, with a fountain, club banners and a matchday notice board.", interior: { rooms: [
