@@ -258,6 +258,18 @@ router.post("/training/sessions", async (req, res, next) => {
   }
 });
 
+router.get("/interiors/:locationId", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const world = await WorldMap.findOne({ slug: WORLD_MAP_SLUG }).lean();
+    const location = world?.layout?.locations?.find((item) => item.id === req.params.locationId);
+    if (!location || !location.interior) return res.status(404).json({ message: "This building interior is not available yet." });
+    return res.json({ interior: { type: "public", name: location.name, level: 1, interior: location.interior } });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.get("/residences/:playerId", async (req, res, next) => {
   if (!ensureClubsDatabase(res)) return;
   const viewerPlayerId = linkedPlayerId(req, res);

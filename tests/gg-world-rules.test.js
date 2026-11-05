@@ -17,6 +17,10 @@ test("Original GG map blueprint has stable dimensions and unique locations", () 
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(ids.includes("gg-hq"));
   assert.ok(ids.includes("training-centre"));
+  const hq = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "gg-hq");
+  const training = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "training-centre");
+  assert.ok(hq.interior.rooms.some((room) => room.id === "trophy-gallery"));
+  assert.ok(training.interior.rooms.some((room) => room.id === "strength-gym"));
   assert.ok(ids.includes("grand-stadium"));
 });
 
