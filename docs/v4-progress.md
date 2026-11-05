@@ -39,6 +39,7 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 - Human footballer sprites are rendered using the procedural pixel drawing primitives reused from Leaflet BookReader's Pip engine. The player artwork is original GG Matchday art, not Pip's plant character.
 - Avatar fields include skin tone, body type, modular hairstyles, hair colours, kit colours, boots and headwear. The shared option catalogue separates free options from shop-unlocked options; the API checks ownership before saving paid looks.
 - The avatar studio now supports up to five named saved appearance presets. Applying a preset revalidates cosmetic ownership.
+- The Market also sells home furniture. Owners can place purchased furniture into compatible residence rooms; inventory consumption, room updates and a furnishing ledger entry are committed transactionally.
 - Player movement is persisted through presence heartbeats. Other active players are rendered as clickable pixel characters; presence refreshes periodically.
 - Training supports push-up, pull-up, squat and plank-hold counters, session duration, lifetime totals and personal bests. Sessions have unique idempotency keys and are validated server-side.
 - XP progression is server-owned with a 100-level nonlinear threshold curve, progress-to-next-level fields, a 250 XP / 120 coin global UTC daily cap, and lower dedicated training reward caps (150 XP / 70 coins).
@@ -69,7 +70,7 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 3. Build full HQ social spaces: realtime in-world chat, notifications, player-to-player interactions, moderation and presence safeguards.
 4. Build club-ground ownership controls, club-specific interiors, residence visitor permissions and home furnishing.
 5. Build the training mini-game, anti-cheat scoring and leaderboard.
-6. Extend the economy with broader furnishing, plot and club-ground upgrade sinks, reward tuning from playtest data, seasonal catalogues and abuse monitoring. The initial server-authoritative XP/coin wallet, ledger, capped training rewards, achievements, data-driven cosmetics catalogue/equipping, avatar presets and player-home upgrades are implemented on the V4 branch. Do not add real-money purchases in the initial release.
+6. Extend the economy with broader furnishing collections, plot and club-ground upgrade sinks, reward tuning from playtest data, seasonal catalogues and abuse monitoring. The initial server-authoritative XP/coin wallet, ledger, capped training rewards, achievements, data-driven cosmetics catalogue/equipping, avatar presets and player-home upgrades are implemented on the V4 branch. Do not add real-money purchases in the initial release.
 7. Add character movement/idle/throw/swirl animations and companion presence across the existing Matchday pages.
 8. Complete mobile/accessibility/performance QA, add route/API tests, and run V3 regression checks before any production promotion.
 
