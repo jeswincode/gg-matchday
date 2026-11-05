@@ -13,6 +13,12 @@ export default function WorldEconomyPanel() {
     finally { setLoading(false); }
   },[]);
   useEffect(()=>{load();},[load]);
+  async function equip(item) {
+    setBusy("equip:"+item.id);setMessage("");
+    try { await api("/world/economy/equip",{method:"POST",body:{itemId:item.id}}); await load(); setMessage(item.name+" equipped to your character."); }
+    catch(error) { setMessage(error.message || "Could not equip this cosmetic."); }
+    finally { setBusy(""); }
+  }
   async function purchase(item) {
     setBusy(item.id);setMessage("");
     try {
@@ -35,7 +41,7 @@ export default function WorldEconomyPanel() {
       <div className="gg-economy-section-heading"><div><span>THE MARKET SQUARE</span><h3>Cosmetics catalogue</h3></div><small>Earned currency only · no real-money purchases</small></div>
       <div className="gg-economy-catalog">{(data?.catalog||[]).map(item=>{
         const owned=(data?.inventory||[]).find(entry=>entry.itemId===item.id);
-        return <article key={item.id}><div><span>{item.rarity.toUpperCase()} · {item.category.toUpperCase()}</span><h4>{item.name}</h4><p>{item.description}</p></div><footer><strong>◈ {item.price}</strong><button type="button" className="gg-world-primary" disabled={Boolean(busy)||wallet.coins<item.price} onClick={()=>purchase(item)}>{busy===item.id?"Buying…":owned?"Buy another":"Purchase"}</button></footer></article>;
+        return <article key={item.id}><div><span>{item.rarity.toUpperCase()} · {item.category.toUpperCase()}</span><h4>{item.name}</h4><p>{item.description}</p></div><footer><strong>◈ {item.price}</strong>{owned && <button type="button" className="gg-world-primary" disabled={Boolean(busy)} onClick={()=>equip(item)}>{busy==="equip:"+item.id?"Equipping…":owned.equipped?"Equipped":"Equip"}</button>}<button type="button" className="gg-world-primary" disabled={Boolean(busy)||wallet.coins<item.price} onClick={()=>purchase(item)}>{busy===item.id?"Buying…":owned?"Buy another":"Purchase"}</button></footer></article>;
       })}</div>
       <div className="gg-economy-section-heading"><div><span>YOUR COLLECTION</span><h3>Inventory</h3></div><small>{(data?.inventory||[]).length} item types</small></div>
       {(data?.inventory||[]).length ? <div className="gg-economy-inventory">{data.inventory.map(item=><span key={item.itemId}>{(data.catalog||[]).find(entry=>entry.id===item.itemId)?.name||item.itemId} × {item.quantity}</span>)}</div> : <p className="gg-economy-empty">Your locker is empty for now. Complete training to earn your first GG Coins.</p>}
