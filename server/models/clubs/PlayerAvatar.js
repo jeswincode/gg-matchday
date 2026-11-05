@@ -1,14 +1,16 @@
+import { AVATAR_OPTIONS } from "../../../shared/worldCustomization.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
 const appearanceSchema = new mongoose.Schema({
-  skinTone: { type: String, enum: ["deep", "dark", "medium", "tan", "light", "fair"], default: "medium" },
-  bodyType: { type: String, enum: ["slim", "athletic", "stocky"], default: "athletic" },
-  hairStyle: { type: String, enum: ["short", "fade", "curly", "long", "afro", "mohawk", "bald"], default: "short" },
-  hairColor: { type: String, enum: ["black", "brown", "blonde", "red", "silver", "blue"], default: "black" },
-  kitPrimary: { type: String, enum: ["black", "white", "gold", "red", "blue", "green", "purple", "orange"], default: "black" },
-  kitSecondary: { type: String, enum: ["black", "white", "gold", "red", "blue", "green", "purple", "orange"], default: "gold" },
-  bootColor: { type: String, enum: ["black", "white", "gold", "red", "blue", "green", "orange"], default: "white" },
+  skinTone: { type: String, enum: AVATAR_OPTIONS.skinTone, default: "medium" },
+  bodyType: { type: String, enum: AVATAR_OPTIONS.bodyType, default: "athletic" },
+  hairStyle: { type: String, enum: AVATAR_OPTIONS.hairStyle, default: "short" },
+  hairColor: { type: String, enum: AVATAR_OPTIONS.hairColor, default: "black" },
+  kitPrimary: { type: String, enum: AVATAR_OPTIONS.kitPrimary, default: "black" },
+  kitSecondary: { type: String, enum: AVATAR_OPTIONS.kitSecondary, default: "gold" },
+  bootColor: { type: String, enum: AVATAR_OPTIONS.bootColor, default: "white" },
+  headAccessory: { type: String, enum: AVATAR_OPTIONS.headAccessory, default: "none" },
 }, { _id: false });
 
 const playerAvatarSchema = new mongoose.Schema(
