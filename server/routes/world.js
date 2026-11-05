@@ -339,17 +339,20 @@ router.post("/training/challenges/finish", async (req, res, next) => {
     if (!runId || runId.length > 80 || !Number.isFinite(clientScore) || clientScore < 1 || clientScore > 600) {
       return res.status(400).json({ message: "A valid training run and score are required." });
     }
-    const run = await TrainingChallengeRun.findOne({ runId, playerId, challengeId: "ball-control-v1" });
-    if (!run) return res.status(404).json({ message: "Training run not found. Start a new run." });
-    if (run.completedAt) return res.status(409).json({ message: "This training run has already been submitted." });
     const now = new Date();
-    if (now > run.expiresAt) return res.status(410).json({ message: "This training run expired. Start another run." });
+    const run = await TrainingChallengeRun.findOneAndUpdate(
+      { runId, playerId, challengeId: "ball-control-v1", completedAt: null, expiresAt: { $gt: now } },
+      { $set: { completedAt: now } },
+      { new: true },
+    );
+    if (!run) return res.status(409).json({ message: "This training run is expired or has already been submitted." });
     const serverElapsed = (now.getTime() - run.startedAt.getTime()) / 1000;
     if (Math.abs(serverElapsed - clientScore) > 4) {
+      run.completedAt = null;
+      await run.save();
       return res.status(400).json({ message: "The run time could not be verified. Please try again." });
     }
     const verifiedScore = Number(serverElapsed.toFixed(1));
-    run.completedAt = now;
     run.scoreSeconds = verifiedScore;
     await run.save();
     const profile = await TrainingChallengeProfile.findOneAndUpdate(
@@ -367,11 +370,16 @@ router.post("/training/challenges/finish", async (req, res, next) => {
 router.get("/training/challenges/leaderboard", async (req, res, next) => {
   if (!ensureClubsDatabase(res)) return;
   try {
-    const rows = await TrainingChallengeProfile.find({ challengeId: "ball-control-v1" })
+    const playerId = linkedPlayerId(req, res);
+    if (!playerId) return;
+    const [personal, rows] = await Promise.all([
+      TrainingChallengeProfile.findOne({ playerId, challengeId: "ball-control-v1" }).select("bestSeconds attempts").lean(),
+      TrainingChallengeProfile.find({ challengeId: "ball-control-v1" })
       .sort({ bestSeconds: 1, lastPlayedAt: 1 })
       .limit(10)
       .select("playerId bestSeconds attempts lastPlayedAt")
-      .lean();
+      .lean(),
+    ]);
     const ids = rows.map((row) => row.playerId);
     const [avatars, players] = await Promise.all([
       PlayerAvatar.find({ playerId: { $in: ids } }).select("playerId displayName").lean(),
@@ -379,7 +387,7 @@ router.get("/training/challenges/leaderboard", async (req, res, next) => {
     ]);
     const names = new Map(players.map((player) => [String(player._id), player.name]));
     const displayNames = new Map(avatars.map((avatar) => [String(avatar.playerId), avatar.displayName]));
-    return res.json({ leaderboard: rows.map((row, index) => ({
+    return res.json({ personalBestSeconds: personal?.bestSeconds || 0, attempts: personal?.attempts || 0, leaderboard: rows.map((row, index) => ({
       rank: index + 1,
       playerId: String(row.playerId),
       displayName: displayNames.get(String(row.playerId)) || names.get(String(row.playerId)) || "GG Player",
