@@ -484,7 +484,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
     if (event.button!==undefined && event.button!==0) return;
     if(inertiaFrame.current)window.cancelAnimationFrame(inertiaFrame.current);
     mapGestureMoved.current=false;
-    dragVelocity.current={vx:0,vy:0,lastX:event.clientX,lastY:event.clientY,lastAt:Date.now()};
+    dragVelocity.current={vx:0,vy:0,lastX:event.clientX,lastY:event.clientY,lastAt:event.timeStamp};
     pointers.current.set(event.pointerId,{x:event.clientX,y:event.clientY});
     event.currentTarget.setPointerCapture(event.pointerId);
     if (pointers.current.size===2) {
@@ -510,7 +510,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
     }
     if (!drag) return;
     if(Math.abs(event.clientX-drag.x)>6||Math.abs(event.clientY-drag.y)>6)mapGestureMoved.current=true;
-    const now=Date.now();
+    const now=event.timeStamp;
     const elapsed=Math.max(1,now-dragVelocity.current.lastAt);
     dragVelocity.current.vx=(event.clientX-dragVelocity.current.lastX)/elapsed;
     dragVelocity.current.vy=(event.clientY-dragVelocity.current.lastY)/elapsed;
@@ -643,9 +643,10 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
     setCharacterMotion("walking");
     if(motionTimer.current)window.clearTimeout(motionTimer.current);
     const duration=Math.min(1500,Math.max(300,distance*.52));
-    const began=Date.now();
-    const animate=()=>{
-      const progress=Math.min(1,(Date.now()-began)/duration);
+    let began=null;
+    const animate=(now)=>{
+      if(began===null)began=now;
+      const progress=Math.min(1,(now-began)/duration);
       const eased=1-Math.pow(1-progress,3);
       const position={x:Math.round(start.x+dx*eased),y:Math.round(start.y+dy*eased)};
       playerPositionRef.current=position;
