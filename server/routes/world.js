@@ -70,6 +70,15 @@ async function getWorldMap() {
       const saved = existingLocations.get(defaults.id);
       return saved ? { ...defaults, ...saved, description: defaults.description || saved.description, interior: defaults.id === "market-square" ? defaults.interior : saved.interior || defaults.interior } : defaults;
     });
+    const savedDistricts = new Map((existing.layout?.districts || []).map((district) => [district.id, district]));
+    const districts = DEFAULT_WORLD_LAYOUT.districts.map((defaults) => ({
+      ...defaults,
+      ...(savedDistricts.get(defaults.id) || {}),
+      label: defaults.label,
+      tone: defaults.tone,
+    }));
+    const defaultDistrictIds = new Set(DEFAULT_WORLD_LAYOUT.districts.map((district) => district.id));
+    for (const district of existing.layout?.districts || []) if (!defaultDistrictIds.has(district.id)) districts.push(district);
     const savedPlots = new Map((existing.layout?.plots || []).map((plot) => [plot.id, plot]));
     const plots = DEFAULT_WORLD_LAYOUT.plots.map((defaults) => {
       const saved = savedPlots.get(defaults.id);
@@ -81,6 +90,7 @@ async function getWorldMap() {
       ...structuredClone(DEFAULT_WORLD_LAYOUT),
       ...(existing.layout || {}),
       layers: existing.layout?.layers?.length ? existing.layout.layers : DEFAULT_WORLD_LAYOUT.layers,
+      districts,
       locations,
       plots,
     };
