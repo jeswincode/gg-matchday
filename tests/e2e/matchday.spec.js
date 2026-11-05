@@ -87,6 +87,11 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await page.getByRole("button", { name: "Open GG Headquarters" }).click();
   await page.getByRole("button", { name: "Enter GG Headquarters" }).click();
   await expect(page.getByRole("heading", { name: "Grand Hall" })).toBeVisible();
+  await page.getByRole("button", { name: "Close home" }).click();
+  await page.getByRole("button", { name: "Close" }).click().catch(()=>{});
+  await expect(page.getByRole("heading", { name: "Ball Control Challenge" })).toBeVisible();
+  await page.getByRole("button", { name: "Start Run" }).click();
+  await expect(page.getByRole("button", { name: "Restart Run" })).toBeVisible();
 });
 
 test("guest can open Matchday and reach the live leaderboard", async ({ page }) => {
