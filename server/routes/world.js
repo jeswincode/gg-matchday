@@ -127,7 +127,7 @@ function publicAvatar(avatar, playerName = "GG Player") {
   if (!avatar) {
     return {
       displayName: playerName,
-      appearance: { skinTone: "medium", hairStyle: "short", hairColor: "black", kitPrimary: "black", kitSecondary: "gold", bootColor: "white" },
+      appearance: { skinTone: "medium", bodyType: "athletic", hairStyle: "short", hairColor: "black", kitPrimary: "black", kitSecondary: "gold", bootColor: "white", headAccessory: "none" },
       tutorialComplete: false,
     };
   }
