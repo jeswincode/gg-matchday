@@ -257,7 +257,7 @@ function RoomScene({room}) {
 
 function Building({ kind }) {
   const colors = {hq:"#c69a45",stadium:"#758b83",training:"#668b69",market:"#b78b59",park:"#4d8057",club:"#788477",home:"#a68b70",academy:"#7b8f76",plaza:"#a89a78",plot:"#9c8e6d",museum:"#a88a57",transit:"#82928d","fan-zone":"#a64c58",esports:"#7456a8","community-pitch":"#4d9861"};
-  return <svg viewBox="0 0 180 125" aria-hidden="true">
+  return <svg viewBox="0 0 180 125" width="180" height="125" aria-hidden="true">
     <path d="M12 91 L89 117 L168 87 L89 60Z" fill="#1b2923" opacity=".3"/>
     <path d="M25 57 L89 25 L155 54 L90 86Z" fill={colors[kind]||"#788477"} stroke="#1b3027" strokeWidth="3"/>
     <path d="M25 57 L90 86 L90 111 L25 82Z" fill="#34483e" stroke="#1b3027" strokeWidth="2"/>
@@ -354,6 +354,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
   const [selected,setSelected] = useState(null);
+  const [facility,setFacility] = useState(null);
   const [interior,setInterior] = useState(null);
   const [selectedPlayer,setSelectedPlayer] = useState(null);
   const [residenceAccessOpen,setResidenceAccessOpen] = useState(false);
@@ -361,6 +362,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   const [interiorLoading,setInteriorLoading] = useState(false);
   const [avatar,setAvatar] = useState({displayName:"",appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"}});
   const [training,setTraining] = useState(emptyTraining);
+  const [exerciseNames,setExerciseNames] = useState(()=>Object.fromEntries(exercises));
   const [duration,setDuration] = useState("900");
   const [saving,setSaving] = useState(false);
   const [notice,setNotice] = useState("");
@@ -394,6 +396,16 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
     finally { setLoading(false); }
   }
   useEffect(() => () => { if(inertiaFrame.current)window.cancelAnimationFrame(inertiaFrame.current); }, []);
+  useEffect(()=>{
+    try {
+      const stored=JSON.parse(window.localStorage.getItem("gg-v4-training-labels")||"{}");
+      if(stored&&typeof stored==="object")setExerciseNames((current)=>({...current,...stored}));
+    } catch { /* Workout labels safely fall back to their defaults. */ }
+  },[]);
+  useEffect(()=>{
+    try { window.localStorage.setItem("gg-v4-training-labels",JSON.stringify(exerciseNames)); }
+    catch { /* Browser storage can be disabled; labels remain editable for this session. */ }
+  },[exerciseNames]);
   useEffect(() => {
     let cancelled = false;
     api("/world/bootstrap").then((result) => {
@@ -592,7 +604,47 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
     setScale(nextScale);
   }
   function zoom(amount){const next=Math.min(1.45,Math.max(.42,Number((scale+amount).toFixed(2))));const bounds=mapViewportRef.current?.getBoundingClientRect();if(bounds)zoomAt(next,bounds.left+bounds.width/2,bounds.top+bounds.height/2);else setScale(next);}
-  function focusPlace(place){setSelected(place.id);const next=Math.max(scale,.92);setScale(next);setOffset({x:(900-place.x)*next,y:(600-place.y)*next});}
+  function focusPlace(place){
+    const next=Math.max(scale,.84);
+    setScale(next);
+    setOffset({x:(900-place.x)*next,y:(600-place.y)*next});
+    const current=playerPositionRef.current||playerPosition;
+    const target={x:Math.max(30,Math.min(1770,place.x)),y:Math.max(30,Math.min(1170,place.y+92))};
+    const dx=target.x-current.x,dy=target.y-current.y;
+    if(Math.abs(dx)>Math.abs(dy))setCharacterDirection(dx<0?"left":"right");
+    else if(dy!==0)setCharacterDirection(dy<0?"up":"down");
+    playerPositionRef.current=target;
+    setPlayerPosition(target);
+    setCharacterMotion("walking");
+    if(motionTimer.current)window.clearTimeout(motionTimer.current);
+    motionTimer.current=window.setTimeout(()=>setCharacterMotion("idle"),420);
+    setSelected(null);
+    if(place.kind==="hq"){
+      setActiveLocationId(place.id);
+      setFacility("hq");
+    } else if(place.kind==="training"||place.id==="training-centre"||place.kind==="academy"){
+      setActiveLocationId(place.id);
+      setFacility("training");
+    } else if(place.kind==="market"){
+      setActiveLocationId(place.id);
+      setFacility("market");
+    } else if(place.clubId){
+      openClubGround(place);
+    } else if(place.kind==="home"&&place.ownerPlayerId){
+      openResidence(place);
+    } else if(place.id.startsWith("home-")){
+      openResidence(place);
+    } else if(place.kind==="club"){
+      setActiveLocationId(place.id);
+      setFacility("clubs");
+    } else if(place.kind==="plot"){
+      setSelected(place.id);
+    } else if(place.interior){
+      openWorldInterior(place);
+    } else {
+      setSelected(place.id);
+    }
+  }
   function movePlayer(dx,dy){
     setPlayerPosition((p)=>{
       const next={x:Math.max(30,Math.min(1770,p.x+dx)),y:Math.max(30,Math.min(1170,p.y+dy))};
@@ -615,14 +667,14 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   function handleMapKeyDown(event){const directions={ArrowUp:[0,-24],w:[0,-24],ArrowDown:[0,24],s:[0,24],ArrowLeft:[-24,0],a:[-24,0],ArrowRight:[24,0],d:[24,0]};const move=directions[event.key]||directions[event.key.toLowerCase()];if(move){event.preventDefault();movePlayer(move[0],move[1]);}}
   const liveCount=data && data.presence ? data.presence.length : 0;
   return <main className="gg-world">
-    <header className="gg-world-header"><div className="gg-world-brand"><span className="gg-world-crest">GG</span><div><p>THE ORIGINAL GG WORLD</p><h1>Football City</h1></div></div><div className="gg-world-header-actions"><button className="gg-world-back" onClick={onProfile}>♙ My Player</button><button className="gg-world-back" onClick={onExit}>← Matchday</button></div></header>
-    <section className="gg-world-intro"><div><span className="gg-world-kicker">ONE CITY. EVERY PLAYER. ONE FOOTBALL COMMUNITY.</span><h2>Welcome to your football kingdom.</h2><p>Explore the city, visit its landmarks and build your place in Original GG.</p></div><div className="gg-world-live"><i/> {liveCount} players in the city</div></section>
+    <header className="gg-world-header"><div className="gg-world-brand"><span className="gg-world-crest">GG</span><div><p>THE ORIGINAL GG WORLD</p><h1>Football City</h1></div></div><div className="gg-world-header-actions"><button className="gg-world-back" onClick={onExit}>← Matchday</button></div></header>
+    
     {error && <div className="gg-world-error" role="alert">{error}<button onClick={load}>Try again</button></div>}
     {loading ? <div className="gg-world-loading">Opening the city gates…</div> : <>
       <section className="gg-world-map-shell">
         <div className="gg-world-map-topline"><div><span>THE CITY MAP</span><strong>Original GG · 1800 × 1200</strong></div><div className="gg-world-map-tools"><button onClick={()=>zoom(-.12)} aria-label="Zoom out">−</button><span>{Math.round(scale*100)}%</span><button onClick={()=>zoom(.12)} aria-label="Zoom in">+</button><button onClick={()=>{setScale(.72);setOffset({x:0,y:0});}}>Reset</button></div></div>
         <div ref={mapViewportRef} className="gg-world-map-viewport" tabIndex="0" onKeyDown={handleMapKeyDown} aria-label="Map controls: use arrow keys or WASD to move your footballer" onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onWheel={(e)=>{e.preventDefault();zoomAt(Math.min(1.45,Math.max(.42,Number((scale+(e.deltaY<0?.06:-.06)).toFixed(2)))),e.clientX,e.clientY);}} style={{cursor:drag?"grabbing":"grab"}}>
-          <svg viewBox="0 0 1800 1200" role="img" aria-label="Interactive isometric football city map">
+          <svg className="gg-world-map-art" viewBox="0 0 1800 1200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Interactive isometric football city map">
             <defs><pattern id="gg-grid" width="120" height="60" patternUnits="userSpaceOnUse"><path d="M60 0 L120 30 L60 60 L0 30Z" fill="none" stroke="#d3e0bf" strokeOpacity=".1"/></pattern><linearGradient id="gg-ground" x2="0" y2="1"><stop stopColor="#315c43"/><stop offset="1" stopColor="#1d3e30"/></linearGradient></defs>
             <g transform={"translate("+offset.x+" "+offset.y+") translate(900 600) scale("+scale+") translate(-900 -600)"}>
               <g data-layer="terrain"><rect width="1800" height="1200" fill="url(#gg-ground)"/><rect width="1800" height="1200" fill="url(#gg-grid)"/></g>
@@ -656,20 +708,46 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
         </div>
         <div className="gg-world-map-footer"><span>↔ Drag to explore</span><span>Scroll or + / − to zoom</span><span>Tap a landmark to enter</span><span>WASD / arrows move your player</span></div><div className="gg-world-movement"><span>MOVE YOUR PLAYER</span><div><button type="button" onClick={()=>movePlayer(0,-24)} aria-label="Move up">↑</button><div><button type="button" onClick={()=>movePlayer(-24,0)} aria-label="Move left">←</button><button type="button" onClick={()=>movePlayer(0,24)} aria-label="Move down">↓</button><button type="button" onClick={()=>movePlayer(24,0)} aria-label="Move right">→</button></div></div></div>
       </section>
-      <section className="gg-world-districts"><div className="gg-world-section-title"><span>EXPLORE THE KINGDOM</span><h2>Choose your next stop</h2></div><div className="gg-world-location-grid">{mapPlaces.map((p)=><button key={p.id} className="gg-world-location-card" onClick={()=>focusPlace(p)}><span className="gg-world-location-icon">{({hq:"♛",stadium:"⚽",training:"✦",club:"♜",home:"⌂",academy:"⚑",market:"◇",park:"♧",plaza:"◇",plot:"▧",museum:"🏆",transit:"↔","fan-zone":"🎉",esports:"🎮","community-pitch":"⚽"})[p.kind]}</span><span><strong>{p.name}</strong><small>{p.desc}</small></span><b>→</b></button>)}</div></section>
-      {data.playerId&&<WorldSocialPanel playerId={data.playerId} locationId={activeLocationId}/>}
-      <section className="gg-world-panel"><div className="gg-world-section-title"><span>YOUR FOOTBALL IDENTITY</span><h2>Build your player character</h2><p>A pixel footballer that represents you around the city.</p></div><div className="gg-world-avatar-card"><div className="gg-world-avatar-preview"><PlayerSprite appearance={appearance}/><strong>{avatar.displayName||"Your player"}</strong><small>ORIGINAL GG PLAYER</small></div><form className="gg-world-form" onSubmit={saveAvatar}><label>Character name<input maxLength="24" value={avatar.displayName||""} onChange={(e)=>setAvatar((v)=>({...v,displayName:e.target.value}))} placeholder="Name your footballer"/></label><div className="gg-world-select-grid">
-        <label>Skin tone<select value={appearance.skinTone||"medium"} onChange={(e)=>changeAppearance("skinTone",e.target.value)}>{["deep","dark","medium","tan","light","fair"].map(v=><option key={v}>{v}</option>)}</select></label>
-        <label>Build<select value={appearance.bodyType||"athletic"} onChange={(e)=>changeAppearance("bodyType",e.target.value)}>{["slim","athletic","stocky"].map(v=><option key={v}>{v}</option>)}</select></label>
-        <label>Hair style<select value={appearance.hairStyle||"short"} onChange={(e)=>changeAppearance("hairStyle",e.target.value)}>{["short","fade","curly","long","afro","mohawk","bald"].map(v=><option key={v}>{v}</option>)}</select></label>
-        <label>Hair colour<select value={appearance.hairColor||"black"} onChange={(e)=>changeAppearance("hairColor",e.target.value)}>{["black","brown","blonde","red","silver","blue"].map(v=><option key={v}>{v}</option>)}</select></label>
-        <label>Kit colour<select value={appearance.kitPrimary||"black"} onChange={(e)=>changeAppearance("kitPrimary",e.target.value)}>{["black","white","gold","red","blue","green","purple","orange"].map(v=><option key={v}>{v}</option>)}</select></label>
-        <label>Kit trim<select value={appearance.kitSecondary||"gold"} onChange={(e)=>changeAppearance("kitSecondary",e.target.value)}>{["black","white","gold","red","blue","green","purple","orange"].map(v=><option key={v}>{v}</option>)}</select></label>
-        <label>Boots<select value={appearance.bootColor||"white"} onChange={(e)=>changeAppearance("bootColor",e.target.value)}>{["black","white","gold","red","blue","green","orange"].map(v=><option key={v}>{v}</option>)}</select></label>
-      </div><button className="gg-world-primary" disabled={saving || !data.canCreateCharacter}>{!data.canCreateCharacter?"Link your GG player profile first":saving?"Saving…":"Save player character"}</button></form></div></section>
-      <section className="gg-world-panel"><div className="gg-world-section-title"><span>TRAINING GROUNDS</span><h2>Your training record</h2><p>Log completed sets and track your totals. Entries are validated and saved by the server.</p></div><div className="gg-world-training-grid"><form className="gg-world-training-form" onSubmit={saveWorkout}><h3>Record a workout</h3><div className="gg-world-counter-grid">{exercises.map(([key,label])=><label key={key}>{label}<input type="number" min="0" max="1000" step="1" value={training[key]} onChange={(e)=>setTraining((v)=>({...v,[key]:e.target.value}))} placeholder="0"/></label>)}</div><label className="gg-world-duration">Duration (seconds)<input type="number" min="1" max="28800" value={duration} onChange={(e)=>setDuration(e.target.value)}/></label><button className="gg-world-primary" disabled={saving || !data.canCreateCharacter}>{!data.canCreateCharacter?"Link your GG player profile first":saving?"Saving…":"Save workout"}</button></form><div className="gg-world-training-stats"><h3>All-time counters</h3><div className="gg-world-stat-grid">{exercises.map(([key,label])=><div key={key}><span>{label}</span><strong>{data.training?.totals?.[key]||0}</strong><small>Best {data.training?.personalBests?.[key]||0}</small></div>)}</div><div className="gg-world-total"><span>TOTAL COUNTS</span><strong>{data.training?.totals?.totalCounts||0}</strong><small>{data.training?.totals?.sessions||0} workouts logged</small></div><div className="gg-world-training-history"><h3>Recent sessions</h3>{(data.trainingHistory||[]).length===0?<p>No workouts logged yet. Your first session will appear here.</p>:(data.trainingHistory||[]).map((session)=><div key={session.sessionId}><span>{new Date(session.recordedAt).toLocaleDateString()}</span><strong>{session.totalCounts} counters</strong><small>{Math.round(session.durationSeconds/60)} min</small></div>)}</div></div></div></section>
-      {data.canCreateCharacter && <WorldEconomyPanel onEquipped={(appearance)=>setAvatar((current)=>({...current,appearance}))} />}
-      <TrainingChallenge onCelebrate={celebrateAfterVerifiedRun}/>
+      {facility==="hq" && <div className="gg-world-facility-overlay gg-world-hq-overlay" role="dialog" aria-modal="true" aria-labelledby="gg-world-hq-title">
+        <section className="gg-world-facility-window">
+          <header className="gg-world-facility-heading"><div><span>THE GOLDEN GOONER HEADQUARTERS</span><h2 id="gg-world-hq-title">Welcome to the clubhouse.</h2><p>{liveCount} players are exploring Original GG right now.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
+          <div className="gg-world-hq-stage"><div className="gg-world-hq-curtains" aria-hidden="true"><span/><span/></div><div className="gg-world-hq-wall"><span>GOLDEN GOONERS · ORIGINAL GG</span><h3>THE PLACE WHERE THE COMMUNITY MEETS.</h3><p>Show your player card, celebrate your records, meet other characters and chat with the city.</p><div className="gg-world-hq-plaques"><small>WEAK PEOPLE START</small><small>LUBRICATE AND KEEP</small><small>GOOD VIBES. GOLDEN RULES.</small></div></div></div>
+          {data.playerId&&<WorldSocialPanel playerId={data.playerId} locationId={activeLocationId}/>}
+        </section>
+      </div>}
+      {facility==="training" && <div className="gg-world-facility-overlay gg-world-training-overlay" role="dialog" aria-modal="true" aria-labelledby="gg-world-training-title">
+        <section className="gg-world-facility-window">
+          <header className="gg-world-facility-heading"><div><span>ORIGINAL GG · TRAINING CENTRE</span><h2 id="gg-world-training-title">Step onto the training pitch.</h2><p>Track your personal workouts, then take on the ball-control challenge.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
+          <div className="gg-world-training-scene" aria-hidden="true"><div className="gg-world-training-stand gg-world-training-stand-left"/><div className="gg-world-training-stand gg-world-training-stand-right"/><div className="gg-world-training-gate"><span>GG TRAINING CENTRE</span><i/></div><div className="gg-world-training-pitch"><i/><b/></div></div>
+          <section className="gg-world-training-workbench">
+            <div className="gg-world-section-title"><span>YOUR PERSONAL RECORD</span><h2>Log a workout</h2><p>Rename each counter to track any exercise you prefer. Totals and personal bests stay in your training history.</p></div>
+            <div className="gg-world-training-grid">
+              <form className="gg-world-training-form" onSubmit={saveWorkout}>
+                <h3>Record a session</h3>
+                <div className="gg-world-counter-grid">{exercises.map(([key,label])=><label key={key}><input className="gg-world-counter-name" type="text" maxLength="24" aria-label={"Workout name for "+label} value={exerciseNames[key]||label} onChange={(event)=>setExerciseNames((current)=>({...current,[key]:event.target.value}))}/><input type="number" min="0" max="1000" step="1" aria-label={"Count for "+(exerciseNames[key]||label)} value={training[key]} onChange={(event)=>setTraining((current)=>({...current,[key]:event.target.value}))} placeholder="0"/></label>)}</div>
+                <label className="gg-world-duration">SESSION DURATION · SECONDS<input type="number" min="1" max="28800" value={duration} onChange={(event)=>setDuration(event.target.value)}/></label>
+                <button className="gg-world-primary" disabled={saving||!data.canCreateCharacter}>{!data.canCreateCharacter?"Link your GG player profile first":saving?"Saving…":"Save workout"}</button>
+              </form>
+              <div className="gg-world-training-stats"><h3>All-time training totals</h3><div className="gg-world-stat-grid">{exercises.map(([key,label])=><div key={key}><span>{exerciseNames[key]||label}</span><strong>{data.training?.totals?.[key]||0}</strong><small>Best {data.training?.personalBests?.[key]||0}</small></div>)}</div><div className="gg-world-total"><span>TOTAL COUNTS</span><strong>{data.training?.totals?.totalCounts||0}</strong><small>{data.training?.totals?.sessions||0} workouts logged</small></div><div className="gg-world-training-history"><h3>Recent sessions</h3>{(data.trainingHistory||[]).length===0?<p>No workouts logged yet. Your first session will appear here.</p>:(data.trainingHistory||[]).map((session)=><div key={session.sessionId}><span>{new Date(session.recordedAt).toLocaleDateString()}</span><strong>{session.totalCounts} counters</strong><small>{Math.round(session.durationSeconds/60)} min</small></div>)}</div></div>
+            </div>
+          </section>
+          <div className="gg-world-challenge-heading"><span>BALL CONTROL ARENA</span><h2>Can you beat the city record?</h2><p>Move with the arrow keys or WASD. Your best verified run appears on the GG leaderboard.</p></div>
+          <TrainingChallenge onCelebrate={celebrateAfterVerifiedRun}/>
+        </section>
+      </div>}
+      {facility==="market" && <div className="gg-world-facility-overlay gg-world-market-overlay" role="dialog" aria-modal="true" aria-label="Original GG Market Square">
+        <section className="gg-world-facility-window">
+          <header className="gg-world-facility-heading"><div><span>ORIGINAL GG · MARKET SQUARE</span><h2>Build your football identity.</h2><p>Character cosmetics, home furnishings and residence upgrades.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
+          <WorldEconomyPanel onEquipped={(nextAppearance)=>setAvatar((current)=>({...current,appearance:nextAppearance}))}/>
+        </section>
+      </div>}
+      {facility==="clubs" && <div className="gg-world-facility-overlay" role="dialog" aria-modal="true" aria-label="Original GG Club District">
+        <section className="gg-world-facility-window">
+          <header className="gg-world-facility-heading"><div><span>ORIGINAL GG · CLUB DISTRICT</span><h2>Every club has a home.</h2><p>Choose a club ground to visit its shared space.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
+          <div className="gg-world-club-directory">{mapPlaces.filter((place)=>place.clubId).map((place)=><article key={place.id}><div><strong>{place.name}</strong><small>{place.desc||"Club ground · level "+place.level}</small></div><button className="gg-world-primary" type="button" onClick={()=>openClubGround(place)}>Visit ground</button></article>)}{!mapPlaces.some((place)=>place.clubId)&&<p className="gg-world-coming">Club grounds will appear here as clubs create and upgrade their home grounds.</p>}</div>
+          {data.playerId&&<WorldSocialPanel playerId={data.playerId} locationId={activeLocationId}/>}
+        </section>
+      </div>}
       {notice && <p className="gg-world-notice" role="status">{notice}</p>}
     </>}
     {selectedPlace && <div className="gg-world-modal-backdrop" onClick={()=>setSelected(null)}><section className="gg-world-building-modal" role="dialog" aria-modal="true" onClick={(e)=>e.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelected(null)} aria-label="Close">×</button><span>ORIGINAL GG LANDMARK</span><div className="gg-world-modal-art"><Building kind={selectedPlace.kind}/></div><h2>{selectedPlace.name}</h2><p>{selectedPlace.desc}</p>{selectedPlace.id.startsWith("home-") ? selectedPlace.ownerPlayerId===data.playerId ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openResidence(selectedPlace)}>{interiorLoading?"Opening home…":"Enter your home"}</button><button type="button" className="gg-world-interior-secondary" onClick={()=>setResidenceAccessOpen(true)}>Manage visitors & privacy</button></> : <button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openResidence(selectedPlace)}>{interiorLoading?"Checking visitor access…":"Visit this home"}</button> : selectedPlace.kind==="plot" ? <p className="gg-world-coming">Planned {selectedPlace.category} plot · {selectedPlace.desc} Plot ownership and construction are part of a later world-building phase.</p> : selectedPlace.clubId ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openClubGround(selectedPlace)}>{interiorLoading?"Checking club access…":"Enter club ground"}</button>{selectedPlace.isCaptain&&<ClubGroundManagementPanel ground={selectedPlace} onUpdated={(updated)=>setData((current)=>({...current,clubGrounds:(current.clubGrounds||[]).map((item)=>item.clubId===selectedPlace.clubId?({...item,...updated}):item)}))}/>}</> : selectedPlace.interior ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openWorldInterior(selectedPlace)}>{interiorLoading?"Opening building…":"Enter "+selectedPlace.name}</button>{selectedPlace.kind==="training" && <button className="gg-world-interior-secondary" onClick={()=>{setSelected(null);document.querySelector(".gg-world-training-form")?.scrollIntoView({behavior:"smooth"});}}>Jump to workout counters</button>}</> : <p className="gg-world-coming">This landmark will receive its own interactive interior in a later build.</p>}</section></div>}
