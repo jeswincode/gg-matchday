@@ -1,19 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { PlayerSprite } from "./OriginalGGWorld";
+import { AVATAR_OPTIONS } from "../../shared/worldCustomization.js";
 import "./original-gg.css";
 
-const defaults = { displayName:"", appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white"} };
-const choices = {
-  skinTone:["deep","dark","medium","tan","light","fair"],
-  bodyType:["slim","athletic","stocky"],
-  hairStyle:["short","fade","curly","long","afro","mohawk","bald"],
-  hairColor:["black","brown","blonde","red","silver","blue"],
-  kitPrimary:["black","white","gold","red","blue","green","purple","orange"],
-  kitSecondary:["black","white","gold","red","blue","green","purple","orange"],
-  bootColor:["black","white","gold","red","blue","green","orange"],
-};
-const labels = {skinTone:"Skin tone",bodyType:"Body build",hairStyle:"Hair style",hairColor:"Hair colour",kitPrimary:"Kit colour",kitSecondary:"Kit trim",bootColor:"Boots"};
+const defaults = { displayName:"", appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"} };
+const choices = AVATAR_OPTIONS;
+const labels = {skinTone:"Skin tone",bodyType:"Body build",hairStyle:"Hair style",hairColor:"Hair colour",kitPrimary:"Kit colour",kitSecondary:"Kit trim",bootColor:"Boots",headAccessory:"Headwear"};
 
 export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
   const [avatar,setAvatar] = useState(defaults);
