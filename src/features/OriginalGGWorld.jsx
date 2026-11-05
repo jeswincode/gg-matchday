@@ -3,6 +3,7 @@ import { useOriginalGGRealtime } from "./useOriginalGGRealtime";
 import { api } from "../lib/api";
 import "./original-gg.css";
 import { G, Layer, N, rgba } from "./companion/leaflet-pip-engine.js";
+import { normalizeCharacterDirection, normalizeCharacterMotion, getCharacterAnimationProfile, getCharacterMotionDuration } from "../../shared/characterAnimation.js";
 import TrainingChallenge from "./TrainingChallenge.jsx";
 import WorldEconomyPanel from "./WorldEconomyPanel.jsx";
 import WorldSocialPanel from "./WorldSocialPanel.jsx";
@@ -24,6 +25,8 @@ const emptyTraining = { pushups:"", pullups:"", squats:"", planks:"" };
 
 export function PlayerSprite({ appearance = {}, motion = "idle", direction = "down", animated = false }) {
   const canvasRef = useRef(null);
+  const safeMotion = normalizeCharacterMotion(motion);
+  const safeDirection = normalizeCharacterDirection(direction);
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
@@ -34,63 +37,135 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     const trim = ({black:"#151515",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32",navy:"#172a50",teal:"#218f89",pink:"#d95d91",maroon:"#681f35"})[appearance.kitSecondary] || "#d7ad52";
     const boot = ({black:"#171717",white:"#f5f3eb",gold:"#d7ad52",red:"#c64040",blue:"#3869b5",green:"#43865a",orange:"#d97835",purple:"#71499c",pink:"#e36ca8",cyan:"#46c7d5"})[appearance.bootColor] || "#f5f3eb";
     const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const profile = getCharacterAnimationProfile(safeMotion);
     let motionAllowed = animated && !motionQuery?.matches;
     let frame = 0, lastFrameAt = 0, animationFrame = null;
     const drawFrame = (now = 0) => {
-      if (motionAllowed && now - lastFrameAt < 115) { animationFrame = window.requestAnimationFrame(drawFrame); return; }
-      if (motionAllowed) { frame += 1; lastFrameAt = now; }
-      const gait = motion === "walking" ? [0, 1, 0, -1][frame % 4] : 0;
-      const jump = motion === "celebrating" ? [0, -1, -2, -1][frame % 4] : motion === "idle" ? [0, 0, -1, 0][frame % 4] : 0;
-      const layer = new Layer();
-    const g = new G(layer,{outline:"#211b17"},0);
-    g.stamp((l)=>l.ell(16,8+jump,5,6,skin));
-    if (appearance.hairStyle!=="bald") {
-      const style=appearance.hairStyle||"short";
-      if (style==="afro") g.stamp((l)=>l.ell(16,4,7,5,hair));
-      else if (style==="mohawk") g.stamp((l)=>l.rect(14,0,4,7,hair));
-      else if (style==="curly") {
-        g.stamp((l)=>l.ell(16,4,6,4,hair));g.rect(10,3,3,3,hair);g.rect(19,2,3,3,hair);g.rect(12,0,3,3,hair);
-      } else if (style==="bun") {
-        g.stamp((l)=>l.ell(16,4,6,3,hair));g.stamp((l)=>l.ell(22,2,3,3,hair));
-      } else if (style==="ponytail") {
-        g.stamp((l)=>l.ell(16,4,6,3,hair));g.rect(20,5,3,2,hair);g.rect(22,7,2,5,hair);
-      } else if (style==="spiky") {
-        g.stamp((l)=>l.ell(16,4,6,3,hair));g.rect(11,1,3,4,hair);g.rect(15,0,3,5,hair);g.rect(19,1,3,4,hair);
-      } else if (style==="side-part") {
-        g.stamp((l)=>l.ell(16,4,6,3,hair));g.rect(11,3,4,3,hair);g.rect(18,1,4,2,hair);
-      } else {
-        g.stamp((l)=>l.ell(16,4,6,3,hair));
-        if (style==="long") { g.rect(10,5,2,8,hair);g.rect(20,5,2,8,hair); }
-        if (style==="fade") { g.rect(11,6,2,2,hair);g.rect(19,6,2,2,hair); }
+      if (motionAllowed && now - lastFrameAt < profile.frameMs) {
+        animationFrame = window.requestAnimationFrame(drawFrame);
+        return;
       }
-    }
-    g.rect(14,13+jump,4,3,skin);
-    const left = appearance.bodyType==="slim"?13:appearance.bodyType==="stocky"?9:11;
-    const width = appearance.bodyType==="slim"?6:appearance.bodyType==="stocky"?14:10;
-    g.stamp((l)=>l.rect(left,15+jump,width,10,kit));
-    g.rect(14,15,4,2,trim);g.rect(15,17,2,6,trim);
-    const armLift = motion === "celebrating" ? [0, -3, -5, -3][frame % 4] : motion === "walking" ? gait * 2 : 0;
-    g.stamp((l)=>l.rect(left-3,16+jump+armLift,3,8,skin));
-    g.stamp((l)=>l.rect(left+width,16+jump-armLift,3,8,skin));
-    g.rect(12,25+jump-gait,3,5,skin);g.rect(17,25+jump+gait,3,5,skin);
-    g.rect(10,29+jump-gait,5,2,boot);g.rect(17,29+jump+gait,5,2,boot);
-    if(direction==="left") g.rect(14,7+jump,1,1,"#241a16");
-    else if(direction==="right") g.rect(18,7+jump,1,1,"#241a16");
-    else {g.rect(14,7+jump,1,1,"#241a16");g.rect(18,7+jump,1,1,"#241a16");}
-    g.rect(15,10+jump,2,1,"#71402f");
-    const accessory=appearance.headAccessory||"none";
-    if(accessory!=="none"){
-      const accessoryColor=accessory==="gold-headband"?"#d7ad52":accessory==="red-headband"?"#bd3545":"#3476c5";
-      g.rect(10,5,12,2,accessoryColor);g.rect(10,5,2,3,accessoryColor);g.rect(20,5,2,3,accessoryColor);
-    }
-    const image = new ImageData(N,N);
-    for (let i=0;i<layer.d.length;i++) {
-      const color=layer.d[i];
-      if (!color) continue;
-      const [red,green,blue,alpha]=rgba(color);
-      image.data[i*4]=red;image.data[i*4+1]=green;image.data[i*4+2]=blue;image.data[i*4+3]=alpha;
-    }
-    context.clearRect(0,0,N,N);
+      if (motionAllowed) {
+        frame = (frame + 1) % profile.frames;
+        lastFrameAt = now;
+      }
+
+      const sideFacing = safeDirection === "left" || safeDirection === "right";
+      const facingBack = safeDirection === "up";
+      const headX = safeDirection === "left" ? 13 : safeDirection === "right" ? 19 : 16;
+      const gait = safeMotion === "walking" ? [0, 1, 0, -1][frame % 4] : 0;
+      const danceStep = safeMotion === "dance" ? [0, 1, 0, -1, -1, 0, 1, 0][frame % 8] : 0;
+      const idleBob = safeMotion === "idle" ? [0, 0, -1, 0][frame % 4] : 0;
+      const celebrationJump = ["celebrating", "cheer"].includes(safeMotion) ? [0, -1, -3, -1][frame % 4] : 0;
+      const jump = idleBob + celebrationJump;
+      const bodySway = safeMotion === "dance" ? [0, 1, 0, -1, 0, -1, 0, 1][frame % 8] : 0;
+      const leftLegStep = safeMotion === "walking" ? gait : safeMotion === "dance" ? danceStep : 0;
+      const rightLegStep = safeMotion === "walking" ? -gait : safeMotion === "dance" ? -danceStep : 0;
+      const layer = new Layer();
+      const g = new G(layer,{outline:"#211b17"},0);
+
+      // Head and hair are drawn around a shifted centre so left/right facing
+      // profiles read as side views, while "up" shows the back of the footballer.
+      g.stamp((l)=>l.ell(headX,8+jump,sideFacing?4:5,6,skin));
+      const hairStyle = appearance.hairStyle || "short";
+      if (hairStyle !== "bald") {
+        if (hairStyle === "afro") {
+          g.stamp((l)=>l.ell(headX,4+jump,7,5,hair));
+        } else if (hairStyle === "mohawk") {
+          g.stamp((l)=>l.rect(headX-2,0+jump,4,7,hair));
+        } else if (hairStyle === "curly") {
+          g.stamp((l)=>l.ell(headX,4+jump,6,4,hair));
+          g.rect(headX-6,3+jump,3,3,hair);g.rect(headX+3,2+jump,3,3,hair);g.rect(headX-4,0+jump,3,3,hair);
+        } else if (hairStyle === "bun") {
+          g.stamp((l)=>l.ell(headX,4+jump,6,3,hair));g.stamp((l)=>l.ell(headX+6,2+jump,3,3,hair));
+        } else if (hairStyle === "ponytail") {
+          g.stamp((l)=>l.ell(headX,4+jump,6,3,hair));g.rect(headX+4,5+jump,3,2,hair);g.rect(headX+6,7+jump,2,5,hair);
+        } else if (hairStyle === "spiky") {
+          g.stamp((l)=>l.ell(headX,4+jump,6,3,hair));
+          g.rect(headX-5,1+jump,3,4,hair);g.rect(headX-1,0+jump,3,5,hair);g.rect(headX+3,1+jump,3,4,hair);
+        } else if (hairStyle === "side-part") {
+          g.stamp((l)=>l.ell(headX,4+jump,6,3,hair));g.rect(headX-5,3+jump,4,3,hair);g.rect(headX+2,1+jump,4,2,hair);
+        } else {
+          g.stamp((l)=>l.ell(headX,4+jump,6,3,hair));
+          if (hairStyle === "long") { g.rect(headX-6,5+jump,2,8,hair);g.rect(headX+4,5+jump,2,8,hair); }
+          if (hairStyle === "fade") { g.rect(headX-5,6+jump,2,2,hair);g.rect(headX+3,6+jump,2,2,hair); }
+        }
+      }
+      if (facingBack) {
+        g.rect(headX-4,8+jump,8,2,hairStyle==="bald"?skin:hair);
+      } else {
+        if (safeDirection === "left") g.rect(headX-3,7+jump,1,2,"#241a16");
+        else if (safeDirection === "right") g.rect(headX+2,7+jump,1,2,"#241a16");
+        else { g.rect(headX-2,7+jump,1,2,"#241a16");g.rect(headX+2,7+jump,1,2,"#241a16"); }
+        if (!sideFacing) g.rect(headX-1,10+jump,2,1,"#71402f");
+        else g.rect(safeDirection==="left"?headX-5:headX+3,9+jump,2,2,skin);
+      }
+      const accessory = appearance.headAccessory || "none";
+      if (accessory !== "none" && !facingBack) {
+        const accessoryColor = accessory === "gold-headband" ? "#d7ad52" : accessory === "red-headband" ? "#bd3545" : "#3476c5";
+        g.rect(headX-6,5+jump,12,2,accessoryColor);
+        g.rect(headX-6,5+jump,2,3,accessoryColor);g.rect(headX+4,5+jump,2,3,accessoryColor);
+      }
+
+      const baseLeft = appearance.bodyType === "slim" ? 13 : appearance.bodyType === "stocky" ? 9 : 11;
+      const baseWidth = appearance.bodyType === "slim" ? 6 : appearance.bodyType === "stocky" ? 14 : 10;
+      const bodyLeft = sideFacing ? headX-3 : baseLeft;
+      const bodyWidth = sideFacing ? 7 : baseWidth;
+      const bodyTop = 15+jump+bodySway;
+      g.stamp((l)=>l.rect(bodyLeft,bodyTop,bodyWidth,10,kit));
+      if (facingBack) {
+        g.rect(bodyLeft+Math.floor(bodyWidth/2)-1,19+jump+bodySway,3,4,trim);
+      } else {
+        g.rect(bodyLeft+Math.floor(bodyWidth/2)-2,15+jump+bodySway,4,2,trim);
+        g.rect(bodyLeft+Math.floor(bodyWidth/2)-1,17+jump+bodySway,2,5,trim);
+      }
+
+      const leftArmX = bodyLeft-3;
+      const rightArmX = bodyLeft+bodyWidth;
+      const walkingLeftArm = safeMotion === "walking" ? -gait*2 : 0;
+      const walkingRightArm = safeMotion === "walking" ? gait*2 : 0;
+      const idleFidget = safeMotion === "idle" ? [0,0,-1,0][frame%4] : 0;
+
+      if (safeMotion === "wave") {
+        g.stamp((l)=>l.rect(leftArmX,16+jump+idleFidget,3,8,skin));
+        const waveLift = [0,-1,-3,-3,-1,0][frame%6];
+        g.rect(rightArmX,12+jump+waveLift,3,7,skin);
+        g.rect(rightArmX+(frame%2),8+jump+waveLift,4,3,skin);
+      } else if (safeMotion === "high-five") {
+        g.stamp((l)=>l.rect(leftArmX,16+jump+walkingLeftArm,3,8,skin));
+        const highFiveLift = [0,-2,-5,-2][frame%4];
+        const raisedX = safeDirection === "left" ? leftArmX-1 : rightArmX+1;
+        g.rect(raisedX,12+jump+highFiveLift,3,7,skin);
+        g.rect(raisedX+(safeDirection==="left"?-1:1),8+jump+highFiveLift,4,3,skin);
+      } else if (safeMotion === "cheer" || safeMotion === "celebrating") {
+        const lift = [0,-2,-4,-2][frame%4];
+        g.rect(leftArmX,12+jump+lift,3,7,skin);g.rect(leftArmX-1,8+jump+lift,4,3,skin);
+        g.rect(rightArmX,12+jump+lift,3,7,skin);g.rect(rightArmX-1,8+jump+lift,4,3,skin);
+      } else if (safeMotion === "dance") {
+        const leftLift = [0,-2,-4,-1,0,-1,-3,-1][frame%8];
+        const rightLift = [-3,-1,0,-2,-3,-1,0,-2][frame%8];
+        g.rect(leftArmX,14+jump+leftLift,3,7,skin);g.rect(leftArmX-1,12+jump+leftLift,4,3,skin);
+        g.rect(rightArmX,14+jump+rightLift,3,7,skin);g.rect(rightArmX-1,12+jump+rightLift,4,3,skin);
+      } else {
+        g.stamp((l)=>l.rect(leftArmX,16+jump+walkingLeftArm+idleFidget,3,8,skin));
+        g.stamp((l)=>l.rect(rightArmX,16+jump+walkingRightArm-idleFidget,3,8,skin));
+      }
+
+      const leftLegX = bodyLeft+1;
+      const rightLegX = bodyLeft+bodyWidth-4;
+      g.rect(leftLegX,25+jump+leftLegStep,3,5,skin);
+      g.rect(rightLegX,25+jump+rightLegStep,3,5,skin);
+      g.rect(leftLegX-2,29+jump+leftLegStep,5,2,boot);
+      g.rect(rightLegX-1,29+jump+rightLegStep,5,2,boot);
+
+      const image = new ImageData(N,N);
+      for (let i=0;i<layer.d.length;i++) {
+        const color=layer.d[i];
+        if (!color) continue;
+        const [red,green,blue,alpha]=rgba(color);
+        image.data[i*4]=red;image.data[i*4+1]=green;image.data[i*4+2]=blue;image.data[i*4+3]=alpha;
+      }
+      context.clearRect(0,0,N,N);
       context.putImageData(image,0,0);
       if(motionAllowed) animationFrame = window.requestAnimationFrame(drawFrame);
     };
@@ -103,8 +178,8 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     motionQuery?.addEventListener?.("change",onMotionPreferenceChange);
     drawFrame();
     return () => { motionQuery?.removeEventListener?.("change",onMotionPreferenceChange); if(animationFrame!==null) window.cancelAnimationFrame(animationFrame); };
-  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,motion,direction,animated]);
-  return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer facing "+direction+", "+motion}/>;
+  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,safeMotion,safeDirection,animated]);
+  return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer facing "+safeDirection+", "+safeMotion}/>;
 }
 function RoomScene({room}) {
   const id=room.id||"lounge";
