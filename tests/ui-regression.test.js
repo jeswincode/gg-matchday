@@ -244,7 +244,10 @@ test("training challenge records are server verified and stored in the Clubs dat
   assert.match(routes,/router\.post\("\/training\/challenges\/finish"/);
   assert.match(routes,/router\.get\("\/training\/challenges\/leaderboard"/);
   assert.match(routes,/withTransaction/);
-  assert.match(routes,/Math\.abs\(serverElapsed - clientScore\) > 4/);
+  assert.match(routes,/simulateChallengeRun\(run\.seed, run\.inputEvents, run\.startedAt, now/);
+  assert.match(routes,/!replay\.collided/);
+  assert.match(routes,/replay\.scoreSeconds > 600/);
+  assert.match(routes,/run\.inputEvents\.length > 400/);
   assert.match(runModel,/collection: "trainingChallengeRuns"/);
   assert.match(profileModel,/collection: "trainingChallengeProfiles"/);
   assert.match(game,/VERIFIED PERSONAL BEST/);
