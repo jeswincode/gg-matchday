@@ -406,3 +406,19 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 @media(prefers-reduced-motion:reduce){
   .gg-world:before,.gg-world:after,.gg-world-map-shell,.gg-world-hq-curtains span,.gg-world-training-gate i{animation:none!important}
 }
+
+
+.gg-profile-player-details{width:100%;max-width:1100px;margin:14px auto;padding:clamp(15px,2.5vw,25px);border:1px solid #d9b86a33;border-radius:18px;background:linear-gradient(145deg,#18261f,#101812)}
+.gg-profile-player-details .gg-world-section-title{margin:0 auto 17px}
+.gg-profile-player-details .gg-world-section-title h2{font-size:clamp(22px,3.5vw,30px)}
+.gg-profile-player-hero{display:flex;align-items:center;gap:16px;margin-bottom:16px;padding:14px;border:1px solid #ffffff20;border-radius:14px;background:#ffffff08}
+.gg-profile-player-hero>img,.gg-profile-player-monogram{display:grid;place-items:center;flex:0 0 76px;width:76px;height:76px;border:1px solid #d9b86a88;border-radius:15px;object-fit:cover;background:linear-gradient(145deg,#36593b,#17261c);color:#e8cd8b;font-size:28px;font-weight:950}
+.gg-profile-player-hero>div:last-child{min-width:0}
+.gg-profile-player-hero span,.gg-profile-player-grid article span{color:#d9b86a;font-size:8px;font-weight:900;letter-spacing:.14em}
+.gg-profile-player-hero h3{margin:4px 0;font-size:20px}
+.gg-profile-player-hero p{margin:0;color:#c0cabb;font-size:11px;line-height:1.5}
+.gg-profile-player-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.gg-profile-player-grid article{display:grid;align-content:start;gap:6px;min-height:68px;padding:11px;border:1px solid #ffffff18;border-radius:12px;background:#ffffff07}
+.gg-profile-player-grid article strong{color:#f3f0e7;font-size:13px;overflow-wrap:anywhere}
+.gg-profile-player-empty{margin:0;padding:14px;border:1px dashed #d9b86a66;border-radius:12px;color:#c0cabb;line-height:1.6;font-size:12px}
+@media(max-width:760px){.gg-profile-player-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gg-profile-player-hero{align-items:flex-start}}
