@@ -15,6 +15,8 @@ export default function WorldSocialPanel({ playerId, locationId = "city-plaza" }
   const [notice, setNotice] = useState("");
   const [incoming, setIncoming] = useState([]);
   const [connection, setConnection] = useState("connecting");
+  const [reportingId,setReportingId] = useState(null);
+  const [reportReason,setReportReason] = useState("other");
   const scroller = useRef(null);
   const messageEnd = useRef(null);
 
@@ -37,8 +39,8 @@ export default function WorldSocialPanel({ playerId, locationId = "city-plaza" }
 
   useEffect(() => {
     let active = true;
-    api("/world/social/messages?locationId=" + encodeURIComponent(locationId)).then((result) => {
-      if (active) setMessages(result.messages || []);
+    Promise.all([api("/world/social/messages?locationId=" + encodeURIComponent(locationId),api("/world/social/interactions")]).then(([result,interactionResult]) => {
+      if (active) { setMessages(result.messages || []); setIncoming((interactionResult.interactions||[]).map((item)=>({...item,receivedAt:Date.now()}))); }
     }).catch((error) => { if (active) setNotice(error.message || "City chat could not be loaded."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -62,14 +64,11 @@ export default function WorldSocialPanel({ playerId, locationId = "city-plaza" }
     finally { setSending(false); }
   }
 
-  async function reportMessage(message) {
-    const reason = window.prompt("Why are you reporting this message? Enter spam, harassment, inappropriate, or other.");
-    if (!reason) return;
-    const normalized = reason.trim().toLowerCase();
-    if (!reasons.includes(normalized)) { setNotice("Choose spam, harassment, inappropriate or other as the report reason."); return; }
+  async function submitReport(messageId) {
     try {
-      await api("/world/social/messages/" + message.id + "/report", { method: "POST", body: { reason: normalized } });
+      await api("/world/social/messages/" + messageId + "/report", { method: "POST", body: { reason: reportReason } });
       setNotice("Thanks. The message has been sent to community moderation.");
+      setReportingId(null);
     } catch (error) { setNotice(error.message || "Could not report this message."); }
   }
 
@@ -95,7 +94,7 @@ export default function WorldSocialPanel({ playerId, locationId = "city-plaza" }
         {loading ? <p className="gg-social-empty">Opening the community lounge…</p> : messages.length === 0 ? <p className="gg-social-empty">It’s quiet here. Start the conversation with your fellow players.</p> : messages.map((message) => <article key={message.id} className={String(message.senderPlayerId) === String(playerId) ? "is-own" : ""}>
           <div><strong>{message.displayName}</strong><time>{new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></div>
           <p>{message.text}</p>
-          {String(message.senderPlayerId) !== String(playerId) && <button className="gg-social-report" type="button" onClick={() => reportMessage(message)}>Report</button>}
+          {String(message.senderPlayerId) !== String(playerId) && <button className="gg-social-report" type="button" onClick={() => {setReportingId(reportingId===message.id?null:message.id);setReportReason("other");}}>Report</button>{reportingId===message.id&&<div className="gg-social-report-form"><label>Reason<select value={reportReason} onChange={(event)=>setReportReason(event.target.value)}>{reasons.map((reason)=><option key={reason} value={reason}>{labels[reason]}</option>)}</select></label><button type="button" onClick={()=>submitReport(message.id)}>Send report</button></div>}}
         </article>)}
         <div ref={messageEnd}/>
       </div>
