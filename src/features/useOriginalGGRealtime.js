@@ -3,7 +3,9 @@ import { API_URL, authenticatedFetch } from "../lib/api";
 
 export function useOriginalGGRealtime(locationId, onEvent, enabled = true) {
   const callbackRef = useRef(onEvent);
-  callbackRef.current = onEvent;
+  useEffect(() => {
+    callbackRef.current = onEvent;
+  }, [onEvent]);
 
   useEffect(() => {
     if (!enabled) return undefined;
