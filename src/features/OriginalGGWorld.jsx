@@ -84,6 +84,8 @@ export default function OriginalGGWorld({ onExit, onProfile }) {
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
   const [selected,setSelected] = useState(null);
+  const [interior,setInterior] = useState(null);
+  const [interiorLoading,setInteriorLoading] = useState(false);
   const [avatar,setAvatar] = useState({displayName:"",appearance:{skinTone:"medium",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white"}});
   const [training,setTraining] = useState(emptyTraining);
   const [duration,setDuration] = useState("900");
@@ -139,7 +141,8 @@ export default function OriginalGGWorld({ onExit, onProfile }) {
     return () => window.clearInterval(timer);
   },[hasAvatar,playerPosition]);
   const appearance = avatar.appearance || {};
-  const mapPlaces = [...(data?.world?.layout?.locations?.length ? data.world.layout.locations : places), ...(data?.clubGrounds || [])].map((p)=>({...p,kind:({headquarters:"hq","club-district":"club",residences:"home","club-ground":"club"}[p.kind]||p.kind),desc:p.desc||p.description||(p.accessPolicy ? "Club ground · level "+p.level : "")}));
+  const residenceMarkers = [...(data?.residences || []), ...(data?.residence ? [data.residence] : [])].filter((home,index,all)=>all.findIndex((item)=>item.ownerPlayerId===home.ownerPlayerId)===index).map((home)=>({...home,id:"home-"+home.ownerPlayerId,kind:"residence",description:home.ownerPlayerId===data.playerId?"Your home · private interior":"Player residence · private interior"}));
+  const mapPlaces = [...(data?.world?.layout?.locations?.length ? data.world.layout.locations : places), ...(data?.clubGrounds || []), ...residenceMarkers].map((p)=>({...p,kind:({headquarters:"hq","club-district":"club",residences:"home","club-ground":"club",residence:"home"}[p.kind]||p.kind),desc:p.desc||p.description||(p.accessPolicy ? "Club ground · level "+p.level : "")}));
   const selectedPlace = mapPlaces.find((p)=>p.id===selected);
   function startPan(event) {
     if (event.button!==undefined && event.button!==0) return;
@@ -185,6 +188,18 @@ export default function OriginalGGWorld({ onExit, onProfile }) {
     try { const result=await api("/world/avatar",{method:"PUT",body:avatar}); setAvatar(result.avatar); setNotice("Your player character has been saved."); }
     catch(cause){setNotice(cause.message||"Could not save character.");}
     finally{setSaving(false);}
+  }
+  async function openResidence(place) {
+    setInteriorLoading(true);setNotice("");
+    try {
+      const result=await api("/world/residences/"+place.ownerPlayerId);
+      setInterior(result.residence);
+      setSelected(null);
+    } catch(error) {
+      setNotice(error.message||"This home interior is private.");
+    } finally {
+      setInteriorLoading(false);
+    }
   }
   async function completeTutorial() {
     try {
@@ -248,7 +263,8 @@ export default function OriginalGGWorld({ onExit, onProfile }) {
       <section className="gg-world-panel"><div className="gg-world-section-title"><span>TRAINING GROUNDS</span><h2>Your training record</h2><p>Log completed sets and track your totals. Entries are validated and saved by the server.</p></div><div className="gg-world-training-grid"><form className="gg-world-training-form" onSubmit={saveWorkout}><h3>Record a workout</h3><div className="gg-world-counter-grid">{exercises.map(([key,label])=><label key={key}>{label}<input type="number" min="0" max="1000" step="1" value={training[key]} onChange={(e)=>setTraining((v)=>({...v,[key]:e.target.value}))} placeholder="0"/></label>)}</div><label className="gg-world-duration">Duration (seconds)<input type="number" min="1" max="28800" value={duration} onChange={(e)=>setDuration(e.target.value)}/></label><button className="gg-world-primary" disabled={saving || !data.canCreateCharacter}>{!data.canCreateCharacter?"Link your GG player profile first":saving?"Saving…":"Save workout"}</button></form><div className="gg-world-training-stats"><h3>All-time counters</h3><div className="gg-world-stat-grid">{exercises.map(([key,label])=><div key={key}><span>{label}</span><strong>{data.training?.totals?.[key]||0}</strong><small>Best {data.training?.personalBests?.[key]||0}</small></div>)}</div><div className="gg-world-total"><span>TOTAL REPS</span><strong>{data.training?.totals?.totalReps||0}</strong><small>{data.training?.totals?.sessions||0} workouts logged</small></div></div></div></section>
       {notice && <p className="gg-world-notice" role="status">{notice}</p>}
     </>}
-    {selectedPlace && <div className="gg-world-modal-backdrop" onClick={()=>setSelected(null)}><section className="gg-world-building-modal" role="dialog" aria-modal="true" onClick={(e)=>e.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelected(null)} aria-label="Close">×</button><span>ORIGINAL GG LANDMARK</span><div className="gg-world-modal-art"><Building kind={selectedPlace.kind}/></div><h2>{selectedPlace.name}</h2><p>{selectedPlace.desc}</p>{selectedPlace.kind==="training" ? <button className="gg-world-primary" onClick={()=>{setSelected(null);document.querySelector(".gg-world-training-form")?.scrollIntoView({behavior:"smooth"});}}>Open training counters</button> : <p className="gg-world-coming">Detailed building interiors are in the next build phase.</p>}</section></div>}
+    {selectedPlace && <div className="gg-world-modal-backdrop" onClick={()=>setSelected(null)}><section className="gg-world-building-modal" role="dialog" aria-modal="true" onClick={(e)=>e.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelected(null)} aria-label="Close">×</button><span>ORIGINAL GG LANDMARK</span><div className="gg-world-modal-art"><Building kind={selectedPlace.kind}/></div><h2>{selectedPlace.name}</h2><p>{selectedPlace.desc}</p>{selectedPlace.kind==="training" ? <button className="gg-world-primary" onClick={()=>{setSelected(null);document.querySelector(".gg-world-training-form")?.scrollIntoView({behavior:"smooth"});}}>Open training counters</button> : selectedPlace.id.startsWith("home-") ? selectedPlace.ownerPlayerId===data.playerId ? <button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openResidence(selectedPlace)}>{interiorLoading?"Opening home…":"Enter your private home"}</button> : <p className="gg-world-coming">Private interior · the exterior is public, but only the owner can enter this home.</p> : <p className="gg-world-coming">Detailed building interiors are being added district by district.</p>}</section></div>}
+    {interior && <div className="gg-world-modal-backdrop" onClick={()=>setInterior(null)}><section className="gg-world-interior-dialog" role="dialog" aria-modal="true" aria-labelledby="gg-world-interior-title" onClick={(event)=>event.stopPropagation()}><header><div><span>PRIVATE PLAYER RESIDENCE · LEVEL {interior.level}</span><h2 id="gg-world-interior-title">{interior.name}</h2></div><button className="gg-world-modal-close" onClick={()=>setInterior(null)} aria-label="Close home">×</button></header><div className="gg-world-interior-rooms">{(interior.interior?.rooms||[]).map((room)=><article key={room.id}><div className="gg-world-room-art"><span>{room.id==="trophy-room"?"🏆":room.id==="training-corner"?"🏋":"🛋"}</span></div><h3>{room.name}</h3><p>{room.id==="trophy-room"?"A wall for the moments and silverware you earn.":room.id==="training-corner"?"Your personal corner for training goals and records.":"A place to relax, meet visitors and show your club colours."}</p><div>{(room.items||[]).map((item)=><small key={item}>{item.replaceAll("-"," ")}</small>)}</div></article>)}</div><p className="gg-world-coming">Your residence layout is saved in the Clubs database. Room furnishing and visitor permissions are coming in the next phase.</p></section></div>}
     {data?.avatar && !data.avatar.tutorialComplete && !tutorialClosed && <div className="gg-world-guide" role="dialog" aria-modal="true" aria-labelledby="gg-world-guide-title"><div className="gg-world-guide-character"><PlayerSprite appearance={appearance}/></div><div className="gg-world-guide-copy"><span>YOUR GG COMPANION · QUICK TOUR {tutorialStep+1}/3</span><h2 id="gg-world-guide-title">{["Welcome to Original GG!","Meet your player character.","Your training journey starts here."][tutorialStep]}</h2><p>{["This is your football city. Drag the map, pinch to zoom on mobile, and tap a landmark to explore its building.","Customise your footballer with a name, hairstyle, skin tone, kit and boots. Your look is saved to your player account.","Visit the Training Centre to record push-ups, pull-ups, squats and plank holds. Your totals and personal bests are saved in the Clubs database."][tutorialStep]}</p><div><button className="gg-world-guide-skip" onClick={completeTutorial}>Skip tour</button><button className="gg-world-primary" onClick={()=>tutorialStep===2?completeTutorial():setTutorialStep((step)=>step+1)}>{tutorialStep===2?"Finish tour":"Next tip →"}</button></div></div></div>}
     <footer className="gg-world-footer">GG MATCHDAY · ORIGINAL GG WORLD <span>Built for the players, by the players.</span></footer>
   </main>;
