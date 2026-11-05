@@ -173,7 +173,8 @@ router.post("/training/sessions", async (req, res, next) => {
             conflict.status = 409;
             throw conflict;
           }
-          result = { session: existing, duplicate: true };
+          const profile = await TrainingProfile.findOne({ playerId }).session(session).lean();
+          result = { session: existing, profile, duplicate: true };
           return;
         }
         const recordedAt = new Date();
