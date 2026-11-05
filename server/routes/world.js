@@ -226,19 +226,19 @@ router.post("/tutorial/complete", async (req, res, next) => {
   try {
     let result;
     await session.withTransaction(async () => {
-      let avatar = await PlayerAvatar.findOne({ playerId }).session(session);
-      if (avatar?.tutorialComplete) {
+      const existingAvatar = await PlayerAvatar.findOne({ playerId }).session(session);
+      if (existingAvatar?.tutorialComplete) {
         result = { success: true, duplicate: true, reward: null };
         return;
       }
-      if (!avatar) {
-        [avatar] = await PlayerAvatar.create([{
+      if (!existingAvatar) {
+        await PlayerAvatar.create([{
           playerId, displayName: String(req.user?.name || "GG Player").slice(0, 24),
           tutorialComplete: true,
         }], { session });
       } else {
-        avatar.tutorialComplete = true;
-        await avatar.save({ session });
+        existingAvatar.tutorialComplete = true;
+        await existingAvatar.save({ session });
       }
       const reward = await grantWorldReward({
         playerId, sourceKey: "tutorial:original-gg-v1", sourceType: "tutorial",
