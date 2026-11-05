@@ -61,11 +61,19 @@ async function getWorldMap() {
       const saved = existingLocations.get(defaults.id);
       return saved ? { ...defaults, ...saved, interior: saved.interior || defaults.interior } : defaults;
     });
+    const savedPlots = new Map((existing.layout?.plots || []).map((plot) => [plot.id, plot]));
+    const plots = DEFAULT_WORLD_LAYOUT.plots.map((defaults) => {
+      const saved = savedPlots.get(defaults.id);
+      return saved ? { ...defaults, ...saved } : defaults;
+    });
+    const defaultPlotIds = new Set(DEFAULT_WORLD_LAYOUT.plots.map((plot) => plot.id));
+    for (const plot of existing.layout?.plots || []) if (!defaultPlotIds.has(plot.id)) plots.push(plot);
     const layout = {
       ...structuredClone(DEFAULT_WORLD_LAYOUT),
       ...(existing.layout || {}),
       layers: existing.layout?.layers?.length ? existing.layout.layers : DEFAULT_WORLD_LAYOUT.layers,
       locations,
+      plots,
     };
     return WorldMap.findOneAndUpdate(
       { slug: WORLD_MAP_SLUG },
