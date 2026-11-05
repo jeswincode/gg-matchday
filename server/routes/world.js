@@ -154,11 +154,23 @@ router.get("/bootstrap", async (req, res, next) => {
       getWorldMap(),
       Club.find({ status: "approved" }).select("name logoUrl memberIds captainIds").sort({ nameNormalized: 1 }).lean(),
     ]);
-    const plots = await Promise.all(DEFAULT_WORLD_LAYOUT.plots.map((plot) => WorldPlot.findOneAndUpdate(
-      { plotId: plot.id },
-      { $setOnInsert: { ...plot, plotId: plot.id } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).lean()));
+    const plots = await Promise.all(DEFAULT_WORLD_LAYOUT.plots.map(async (plot) => {
+      let stored = await WorldPlot.findOneAndUpdate(
+        { plotId: plot.id },
+        { $setOnInsert: { ...plot, plotId: plot.id } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).lean();
+      // Existing V4 preview plots were initially seeded as "planned". Promote only
+      // unclaimed residential plots so established ownership is never overwritten.
+      if (plot.category === "residential" && stored.status === "planned") {
+        stored = await WorldPlot.findOneAndUpdate(
+          { plotId: plot.id, status: "planned" },
+          { $set: { status: "available" } },
+          { new: true },
+        ).lean() || stored;
+      }
+      return stored;
+    }));
     const clubGrounds = await Promise.all(clubs.map((club, index) => ClubGround.findOneAndUpdate(
       { clubId: club._id },
       { $setOnInsert: {
@@ -237,7 +249,7 @@ router.get("/bootstrap", async (req, res, next) => {
       playerId: playerId ? String(playerId) : null,
       clubs: clubs.map((club) => ({ id: String(club._id), name: club.name, logoUrl: club.logoUrl, memberCount: club.memberIds?.length || 0 })),
       clubGrounds: clubGrounds.map((ground) => { const club = clubs.find((item) => String(item._id) === String(ground.clubId)); return { id: "ground-" + String(ground.clubId), clubId: String(ground.clubId), name: ground.name, kind: "club-ground", x: ground.x, y: ground.y, level: ground.level, accessPolicy: ground.accessPolicy, interiorAccess: ground.interiorAccess || "members", isCaptain: Boolean(playerId && (club?.captainIds || []).some((id) => String(id) === String(playerId))) }; }),
-      plots: plots.map((plot) => ({ id: plot.plotId, name: plot.name, kind: "plot", x: plot.x, y: plot.y, category: plot.category, status: plot.status, description: plot.description })),
+      plots: plots.map((plot) => ({ id: plot.plotId, name: plot.name, kind: "plot", x: plot.x, y: plot.y, category: plot.category, status: plot.status, ownerPlayerId: plot.ownerPlayerId ? String(plot.ownerPlayerId) : null, description: plot.description })),
       canCreateCharacter: Boolean(playerId),
       residence: residence ? { ownerPlayerId: String(residence.ownerPlayerId), name: residence.name, x: residence.x, y: residence.y, level: residence.level, privacy: residence.privacy } : null,
       residences: activeResidences.map((home) => ({ ownerPlayerId: String(home.ownerPlayerId), name: home.name, x: home.x, y: home.y, level: home.level, privacy: home.privacy })),
@@ -256,6 +268,97 @@ router.get("/bootstrap", async (req, res, next) => {
     });
   } catch (error) {
     return next(error);
+  }
+});
+
+router.post("/plots/:plotId/claim", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  const plotId = String(req.params.plotId || "").trim();
+  if (!/^[a-z0-9-]{1,80}$/i.test(plotId)) return res.status(400).json({ message: "Choose a valid residential plot." });
+
+  const session = await getClubsConnection().startSession();
+  let result = null;
+  try {
+    await session.withTransaction(async () => {
+      const plot = await WorldPlot.findOne({ plotId }).session(session);
+      if (!plot) {
+        const missing = new Error("This plot does not exist in Original GG.");
+        missing.status = 404;
+        throw missing;
+      }
+      if (plot.category !== "residential") {
+        const invalid = new Error("Only residential plots can be built into player homes.");
+        invalid.status = 400;
+        throw invalid;
+      }
+
+      const home = await PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session);
+      if (plot.status === "owned" && String(plot.ownerPlayerId) === String(playerId)) {
+        if (home && home.plotId !== plotId) {
+          home.plotId = plotId;
+          home.x = plot.x;
+          home.y = plot.y;
+          await home.save({ session });
+        }
+        result = { duplicate: true, plot, residence: home };
+        return;
+      }
+      if (plot.status !== "available" || plot.ownerPlayerId) {
+        const occupied = new Error("This residential plot has already been claimed.");
+        occupied.status = 409;
+        throw occupied;
+      }
+      if (home?.plotId && home.plotId !== plotId) {
+        const alreadyBuilt = new Error("You already have a home on another residential plot.");
+        alreadyBuilt.status = 409;
+        throw alreadyBuilt;
+      }
+
+      const player = await Player.findById(playerId).select("name").session(session).lean();
+      const displayName = String(player?.name || req.user?.name || "GG Player").trim().slice(0, 70) || "GG Player";
+      const residence = home || new PlayerResidence({
+        ownerPlayerId: playerId,
+        name: displayName + "'s Home",
+        level: 1,
+        privacy: "private",
+        interior: {
+          rooms: [
+            { id: "lounge", name: "Player Lounge", theme: "clubhouse", items: ["sofa", "coffee-table", "team-banner"] },
+            { id: "trophy-room", name: "Trophy Room", theme: "gold", items: ["trophy-cabinet", "medal-wall", "match-ball-display"] },
+            { id: "training-corner", name: "Training Corner", theme: "training", items: ["exercise-mat", "weights", "record-board"] },
+          ],
+        },
+      });
+      residence.plotId = plotId;
+      residence.x = plot.x;
+      residence.y = plot.y;
+      await residence.save({ session });
+
+      plot.status = "owned";
+      plot.ownerPlayerId = playerId;
+      await plot.save({ session });
+      result = { duplicate: false, plot, residence };
+    });
+    return res.status(201).json({
+      success: true,
+      duplicate: Boolean(result?.duplicate),
+      plot: result ? { id: result.plot.plotId, name: result.plot.name, status: result.plot.status } : null,
+      residence: result?.residence ? {
+        name: result.residence.name,
+        x: result.residence.x,
+        y: result.residence.y,
+        level: result.residence.level,
+        privacy: result.residence.privacy,
+        plotId: result.residence.plotId,
+      } : null,
+    });
+  } catch (error) {
+    if (error?.status) return res.status(error.status).json({ message: error.message });
+    return next(error);
+  } finally {
+    await session.endSession();
   }
 });
 
