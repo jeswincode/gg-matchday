@@ -6,6 +6,8 @@ import { getClubsConnection } from "../config/clubsDatabase.js";
 import WorldEconomy from "../models/clubs/WorldEconomy.js";
 import WorldEconomyLedger from "../models/clubs/WorldEconomyLedger.js";
 import WorldInventoryItem from "../models/clubs/WorldInventoryItem.js";
+import PlayerAvatar from "../models/clubs/PlayerAvatar.js";
+import PlayerResidence from "../models/clubs/PlayerResidence.js";
 import { levelProgress } from "../config/worldProgression.js";
 
 const router = express.Router();
@@ -15,7 +17,7 @@ const CATALOG = Object.freeze([
   { id: "boots-gold", name: "Golden Boots", category: "boots", price: 120, description: "A bright pair of matchday boots.", rarity: "rare" },
   { id: "kit-neon", name: "Neon Training Kit", category: "kit", price: 180, description: "A vivid training look.", rarity: "rare" },
   { id: "hair-silver", name: "Silver Hair", category: "hair", price: 90, description: "A cool silver hairstyle colour.", rarity: "common" },
-  { id: "aura-gold", name: "Golden Aura", category: "effect", price: 350, description: "A subtle golden character aura.", rarity: "epic" },
+  { id: "boots-gold", name: "Golden Boots", category: "boots", price: 120, description: "A bright pair of matchday boots.", rarity: "rare" },
 ]);
 
 function playerIdFor(req, res) {
@@ -121,6 +123,92 @@ router.post("/purchase", async (req, res, next) => {
   } finally {
     await session.endSession();
   }
+});
+
+
+router.post("/equip", async (req, res, next) => {
+  if (getClubsConnection().readyState !== 1) return res.status(503).json({ message: "Original GG is temporarily unavailable." });
+  const playerId = playerIdFor(req, res);
+  if (!playerId) return;
+  const itemId = String(req.body?.itemId || "").trim();
+  const item = CATALOG.find((entry) => entry.id === itemId);
+  if (!item) return res.status(404).json({ message: "That cosmetic is not available." });
+  const appearancePatch = itemId === "boots-gold" ? { bootColor: "gold" }
+    : itemId === "kit-neon" ? { kitPrimary: "green", kitSecondary: "gold" }
+    : itemId === "hair-silver" ? { hairColor: "silver" } : null;
+  if (!appearancePatch) return res.status(400).json({ message: "This item cannot be equipped yet." });
+  const session = await getClubsConnection().startSession();
+  try {
+    let avatar;
+    await session.withTransaction(async () => {
+      const owned = await WorldInventoryItem.findOne({ playerId, itemId, quantity: { $gt: 0 } }).session(session);
+      if (!owned) {
+        const error = new Error("You need to own this item before equipping it.");
+        error.status = 409;
+        throw error;
+      }
+      await WorldInventoryItem.updateMany({ playerId, itemId: { $in: CATALOG.filter((entry) => entry.category === item.category).map((entry) => entry.id) } }, { $set: { equipped: false } }, { session });
+      owned.equipped = true;
+      await owned.save({ session });
+      avatar = await PlayerAvatar.findOneAndUpdate(
+        { playerId },
+        { $set: Object.fromEntries(Object.entries(appearancePatch).map(([key, value]) => ["appearance."+key, value])) },
+        { new: true, upsert: true, setDefaultsOnInsert: true, session, runValidators: true },
+      ).lean();
+    });
+    return res.json({ success: true, itemId, avatar: { appearance: avatar.appearance } });
+  } catch(error) {
+    if(error?.status) return res.status(error.status).json({ message: error.message });
+    return next(error);
+  } finally { await session.endSession(); }
+});
+
+router.post("/residence-upgrade", async (req, res, next) => {
+  if (getClubsConnection().readyState !== 1) return res.status(503).json({ message: "Original GG is temporarily unavailable." });
+  const playerId = playerIdFor(req, res);
+  if (!playerId) return;
+  const session = await getClubsConnection().startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      const home = await PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session);
+      if (!home) {
+        const error = new Error("Your residence has not been created yet.");
+        error.status = 404;
+        throw error;
+      }
+      if (home.level >= 10) {
+        const error = new Error("Your home has reached the current upgrade level.");
+        error.status = 409;
+        throw error;
+      }
+      const nextLevel = home.level + 1;
+      const cost = Math.round(100 * Math.pow(nextLevel, 1.55));
+      const wallet = await WorldEconomy.findOneAndUpdate(
+        { playerId, coins: { $gte: cost } },
+        { $inc: { coins: -cost } },
+        { new: true, session, runValidators: true },
+      ).lean();
+      if (!wallet) {
+        const error = new Error("You need "+cost+" GG Coins to upgrade your home.");
+        error.status = 409;
+        throw error;
+      }
+      home.level = nextLevel;
+      await home.save({ session });
+      await WorldEconomyLedger.create([{
+        playerId, idempotencyKey: "home-upgrade:"+nextLevel+":"+home._id,
+        type: "upgrade", itemId: "residence-level-"+nextLevel, coinsDelta: -cost,
+        xpDelta: 0, balanceAfter: wallet.coins, xpAfter: wallet.xp,
+        metadata: { residenceLevel: nextLevel },
+      }], { session });
+      result = { success: true, residence: { level: home.level, name: home.name }, economy: wallet, cost };
+    });
+    return res.json(result);
+  } catch(error) {
+    if(error?.status) return res.status(error.status).json({ message: error.message });
+    return next(error);
+  } finally { await session.endSession(); }
 });
 
 export default router;
