@@ -6,6 +6,7 @@ import Player from "../models/Player.js";
 import Club from "../models/clubs/Club.js";
 import ClubGround from "../models/clubs/ClubGround.js";
 import PlayerResidence from "../models/clubs/PlayerResidence.js";
+import WorldPlot from "../models/clubs/WorldPlot.js";
 import WorldMap from "../models/clubs/WorldMap.js";
 import PlayerAvatar from "../models/clubs/PlayerAvatar.js";
 import TrainingProfile from "../models/clubs/TrainingProfile.js";
@@ -104,6 +105,11 @@ router.get("/bootstrap", async (req, res, next) => {
       getWorldMap(),
       Club.find({ status: "approved" }).select("name logoUrl memberIds").sort({ nameNormalized: 1 }).lean(),
     ]);
+    const plots = await Promise.all(DEFAULT_WORLD_LAYOUT.plots.map((plot) => WorldPlot.findOneAndUpdate(
+      { plotId: plot.id },
+      { $setOnInsert: { ...plot, plotId: plot.id } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).lean()));
     const clubGrounds = await Promise.all(clubs.map((club, index) => ClubGround.findOneAndUpdate(
       { clubId: club._id },
       { $setOnInsert: {
@@ -177,6 +183,7 @@ router.get("/bootstrap", async (req, res, next) => {
       playerId: playerId ? String(playerId) : null,
       clubs: clubs.map((club) => ({ id: String(club._id), name: club.name, logoUrl: club.logoUrl, memberCount: club.memberIds?.length || 0 })),
       clubGrounds: clubGrounds.map((ground) => ({ id: "ground-" + String(ground.clubId), clubId: String(ground.clubId), name: ground.name, kind: "club-ground", x: ground.x, y: ground.y, level: ground.level, accessPolicy: ground.accessPolicy })),
+      plots: plots.map((plot) => ({ id: plot.plotId, name: plot.name, kind: "plot", x: plot.x, y: plot.y, category: plot.category, status: plot.status, description: plot.description })),
       canCreateCharacter: Boolean(playerId),
       residence: residence ? { ownerPlayerId: String(residence.ownerPlayerId), name: residence.name, x: residence.x, y: residence.y, level: residence.level, privacy: residence.privacy } : null,
       residences: activeResidences.map((home) => ({ ownerPlayerId: String(home.ownerPlayerId), name: home.name, x: home.x, y: home.y, level: home.level, privacy: home.privacy })),

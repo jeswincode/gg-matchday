@@ -1,7 +1,7 @@
 export const WORLD_MAP_SLUG = "original-gg";
 
 export const DEFAULT_WORLD_LAYOUT = Object.freeze({
-  version: 3,
+  version: 4,
   orientation: "isometric",
   tileWidth: 128,
   tileHeight: 64,
@@ -36,6 +36,14 @@ export const DEFAULT_WORLD_LAYOUT = Object.freeze({
     { id: "academy-square", name: "Football Academy", kind: "academy", x: 850, y: 760, width: 230, height: 160, access: "public", description: "A place for skill challenges, guided tours and future football lessons.", interior: { rooms: [{ id: "tactics-class", name: "Tactics Classroom", description: "Learn the game through formations, match scenarios and football challenges.", theme: "academy", items: ["tactics-board","formation-wall","video-screen"] }, { id: "skills-lab", name: "Skills Lab", description: "A place for future skill drills, ball mastery and player development.", theme: "pitch", items: ["ball-rack","cones","agility-ladders"] }] } },
     { id: "market-square", name: "Market Square", kind: "market", x: 1510, y: 850, width: 220, height: 150, access: "public", description: "The future home of the GG shop, cosmetics and player unlocks.", interior: { rooms: [{ id: "gg-market", name: "GG Market", description: "A future shop for earned cosmetics, kit styles and character accessories.", theme: "market", items: ["kit-display","boot-wall","cosmetic-counter"] }] } },
     { id: "garden-park", name: "Garden Park", kind: "park", x: 1450, y: 290, width: 250, height: 180, access: "public", description: "A green pocket of the city with paths, benches and room for your character to hang out.", interior: { rooms: [{ id: "garden-green", name: "Garden Green", description: "A quiet park space for players to hang out and meet friends.", theme: "garden", items: ["benches","fountain","trees","community-notice"] }] } },
+  ],
+  plots: [
+    { id: "residence-plot-01", name: "Residence Plot 01", districtId: "residence-gardens", x: 1110, y: 1030, category: "residential", status: "planned", description: "A future home site in the Residence Gardens." },
+    { id: "residence-plot-02", name: "Residence Plot 02", districtId: "residence-gardens", x: 1390, y: 1080, category: "residential", status: "planned", description: "A future home site in the Residence Gardens." },
+    { id: "club-plot-01", name: "Club Plot 01", districtId: "club-district", x: 760, y: 1000, category: "club", status: "planned", description: "Reserved space for future club-city expansion." },
+    { id: "academy-plot-01", name: "Academy Plot 01", districtId: "academy-square", x: 700, y: 820, category: "community", status: "planned", description: "A future player-development and academy site." },
+    { id: "stadium-plot-01", name: "Stadium Plot 01", districtId: "stadium-quarter", x: 230, y: 810, category: "commercial", status: "planned", description: "A future matchday service site near the stadium." },
+    { id: "market-plot-01", name: "Market Plot 01", districtId: "market-square", x: 1510, y: 970, category: "commercial", status: "planned", description: "A future shop and community-service site." },
   ],
 });
 

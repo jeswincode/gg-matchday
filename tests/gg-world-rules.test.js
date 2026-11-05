@@ -8,7 +8,7 @@ import {
 } from "../server/config/ggWorldRules.js";
 
 test("Original GG map blueprint has stable dimensions and unique locations", () => {
-  assert.equal(DEFAULT_WORLD_LAYOUT.version, 3);
+  assert.equal(DEFAULT_WORLD_LAYOUT.version, 4);
   assert.equal(DEFAULT_WORLD_LAYOUT.width, 1800);
   assert.equal(DEFAULT_WORLD_LAYOUT.height, 1200);
   assert.equal(DEFAULT_WORLD_LAYOUT.orientation, "isometric");
@@ -19,6 +19,8 @@ test("Original GG map blueprint has stable dimensions and unique locations", () 
   assert.ok(ids.includes("gg-hq"));
   assert.ok(ids.includes("training-centre"));
   assert.ok(ids.includes("city-plaza"));
+  assert.equal(DEFAULT_WORLD_LAYOUT.plots.length, 6);
+  assert.ok(DEFAULT_WORLD_LAYOUT.plots.every((plot) => plot.status === "planned"));
   const hq = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "gg-hq");
   const training = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "training-centre");
   assert.ok(hq.interior.rooms.some((room) => room.id === "trophy-gallery"));
