@@ -35,43 +35,31 @@ test("guest can open Matchday and reach the live leaderboard", async ({ page }) 
   await expect(page.getByText("Performance. Contribution. Results.")).toBeVisible();
 });
 
-test("mobile welcome screen fills the viewport without stretching and any poster tap opens Matchday", async ({ page }) => {
+test("mobile coded entry page fits the viewport and its Matchday button opens the app", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  const poster = page.getByRole("img", { name: /GG Matchday cinematic football poster/i });
-  await expect(poster).toBeVisible();
-  await expect.poll(async () => {
-    const currentSrc = await poster.evaluate(element => element.currentSrc);
-    return new URL(currentSrc).pathname;
-  }).toBe("/enter-matchday-mobile.png");
-
+  const welcome = page.locator(".gg-welcome-coded-screen");
+  await expect(welcome).toBeVisible();
+  await expect(page.locator(".gg-welcome-stadium-art")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /ENTER MATCHDAY/i })).toBeVisible();
   const viewport = page.viewportSize();
-  const frame = page.locator(".gg-welcome-poster-frame");
-  const frameBounds = await frame.boundingBox();
+  const frameBounds = await welcome.boundingBox();
   const enter = page.getByRole("button", { name: "Enter Matchday" });
   const enterBounds = await enter.boundingBox();
-
   expect(frameBounds).not.toBeNull();
   expect(enterBounds).not.toBeNull();
   expect(Math.abs(frameBounds.width - viewport.width)).toBeLessThanOrEqual(1);
   expect(Math.abs(frameBounds.height - viewport.height)).toBeLessThanOrEqual(1);
-  expect(Math.abs(enterBounds.width - viewport.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(enterBounds.height - viewport.height)).toBeLessThanOrEqual(1);
-  expect(await poster.evaluate(element => getComputedStyle(element).objectFit)).toBe("cover");
-  expect(await poster.evaluate(element => Math.abs(element.naturalWidth / element.naturalHeight - 9 / 16))).toBeLessThan(0.015);
-  await expect(page.locator(".gg-welcome-button-visual")).toHaveCount(0);
-  expect(await enter.evaluate(element => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
-  expect(await enter.evaluate(element => getComputedStyle(element).borderWidth)).toBe("0px");
-
-  // Tap a part of the artwork well away from the former visible CTA.
-  await page.mouse.click(viewport.width * 0.88, viewport.height * 0.36);
+  expect(enterBounds.width).toBeLessThan(viewport.width);
+  expect(await enter.evaluate(element => getComputedStyle(element).borderRadius)).toBe("4px");
+  await enter.click();
   await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
 });
 
 test("Enter key opens Matchday from the welcome screen without requiring a pointer", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("/");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await expect(page.getByRole("button", { name: "Enter Matchday" })).toBeVisible();
 
   await page.keyboard.press("Enter");
@@ -93,7 +81,7 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
 
 test("editor can authenticate and record a match through the real browser and API", async ({ page }) => {
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
 
   await page.getByRole("button", { name: /Record/ }).first().click();
@@ -124,7 +112,7 @@ test("My Club keeps stats and history available when wallet loading fails, then 
   });
 
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
