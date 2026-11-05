@@ -35,7 +35,8 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     const boot = ({black:"#171717",white:"#f5f3eb",gold:"#d7ad52",red:"#c64040",blue:"#3869b5",green:"#43865a",orange:"#d97835",purple:"#71499c",pink:"#e36ca8",cyan:"#46c7d5"})[appearance.bootColor] || "#f5f3eb";
     let frame = 0, lastFrameAt = 0, animationFrame = null;
     const drawFrame = (now = 0) => {
-      if (animated && now - lastFrameAt >= 115) { frame += 1; lastFrameAt = now; }
+      if (animated && now - lastFrameAt < 115) { animationFrame = window.requestAnimationFrame(drawFrame); return; }
+      if (animated) { frame += 1; lastFrameAt = now; }
       const gait = motion === "walking" ? [0, 1, 0, -1][frame % 4] : 0;
       const jump = motion === "celebrating" ? [0, -1, -2, -1][frame % 4] : motion === "idle" ? [0, 0, -1, 0][frame % 4] : 0;
       const layer = new Layer();
@@ -282,6 +283,10 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   const [tutorialClosed,setTutorialClosed] = useState(false);
   const [scale,setScale] = useState(.72);
   const [playerPosition,setPlayerPosition] = useState({x:900,y:600});
+  const [characterMotion,setCharacterMotion] = useState("idle");
+  const [characterDirection,setCharacterDirection] = useState("down");
+  const motionTimer = useRef(null);
+  const playerPositionRef = useRef({x:900,y:600});
   const [offset,setOffset] = useState({x:0,y:0});
   const [drag,setDrag] = useState(null);
   const pointers = useRef(new Map());
@@ -316,21 +321,26 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
     return () => { cancelled = true; };
   }, []);
   const hasAvatar = Boolean(data?.avatar);
+  const onWorldRealtime = useCallback(({type,payload}) => {
+    if(type==="presence:update" && payload?.playerId) {
+      setData((current)=> {
+        if(!current)return current;
+        const before=current.presence||[];
+        const next=before.filter((item)=>item.playerId!==payload.playerId);
+        return {...current,presence:[...next,payload].slice(-100)};
+      });
+    }
+  },[]);
+  useOriginalGGRealtime("world",onWorldRealtime,Boolean(data?.playerId));
+  useEffect(()=>{playerPositionRef.current=playerPosition;},[playerPosition]);
   useEffect(() => {
     if (!hasAvatar) return;
-    const heartbeat = async () => {
-      try {
-        await api("/world/presence",{method:"POST",body:{locationId:"city-plaza",...playerPosition}});
-        const latest = await api("/world/presence?refresh="+Date.now());
-        setData((current)=>current?({...current,presence:latest.presence||[]}):current);
-      } catch {
-        // A temporary network issue should not interrupt map exploration.
-      }
-    };
+    const heartbeat = () => api("/world/presence",{method:"POST",body:{locationId:"city-plaza",...playerPositionRef.current}}).catch(()=>{});
     heartbeat();
-    const timer = window.setInterval(heartbeat,12000);
-    return () => window.clearInterval(timer);
-  },[hasAvatar,playerPosition]);
+    const timer=window.setInterval(heartbeat,4500);
+    return ()=>window.clearInterval(timer);
+  },[hasAvatar]);
+  useEffect(()=>()=>{if(motionTimer.current)window.clearTimeout(motionTimer.current);},[]);
   const appearance = avatar.appearance || {};
   const residenceMarkers = [...(data?.residences || []), ...(data?.residence ? [data.residence] : [])].filter((home,index,all)=>all.findIndex((item)=>item.ownerPlayerId===home.ownerPlayerId)===index).map((home)=>({...home,id:"home-"+home.ownerPlayerId,kind:"residence",description:home.ownerPlayerId===data.playerId?"Your home · private interior":"Player residence · private interior"}));
   const mapPlaces = [...(data?.world?.layout?.locations?.length ? data.world.layout.locations : places), ...(data?.clubGrounds || []), ...(data?.plots || []), ...residenceMarkers].map((p)=>({...p,kind:({headquarters:"hq","club-district":"club",residences:"home","club-ground":"club",residence:"home",plot:"plot"}[p.kind]||p.kind),desc:p.desc||p.description||(p.accessPolicy ? "Club ground · level "+p.level : "")}));
@@ -461,7 +471,18 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   }
   function zoom(amount){const next=Math.min(1.45,Math.max(.42,Number((scale+amount).toFixed(2))));const bounds=mapViewportRef.current?.getBoundingClientRect();if(bounds)zoomAt(next,bounds.left+bounds.width/2,bounds.top+bounds.height/2);else setScale(next);}
   function focusPlace(place){setSelected(place.id);const next=Math.max(scale,.92);setScale(next);setOffset({x:(900-place.x)*next,y:(600-place.y)*next});}
-  function movePlayer(dx,dy){setPlayerPosition((p)=>({x:Math.max(30,Math.min(1770,p.x+dx)),y:Math.max(30,Math.min(1170,p.y+dy))}));}
+  function movePlayer(dx,dy){
+    setPlayerPosition((p)=>{
+      const next={x:Math.max(30,Math.min(1770,p.x+dx)),y:Math.max(30,Math.min(1170,p.y+dy))};
+      playerPositionRef.current=next;
+      return next;
+    });
+    if(Math.abs(dx)>Math.abs(dy))setCharacterDirection(dx<0?"left":"right");
+    else if(dy!==0)setCharacterDirection(dy<0?"up":"down");
+    setCharacterMotion("walking");
+    if(motionTimer.current)window.clearTimeout(motionTimer.current);
+    motionTimer.current=window.setTimeout(()=>setCharacterMotion("idle"),190);
+  }
   async function sendCharacterInteraction(type){
     if(!selectedPlayer)return;
     try{
@@ -506,7 +527,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
               </g><g data-layer="buildings"><g transform="translate(460 570)"><path d="M-195 -105 L0 -195 L195 -105 L0 -15Z" fill="#1d362b" stroke="#c5aa70" strokeWidth="5"/><path d="M-145 -107 L0 -174 L145 -107 L0 -40Z" fill="#39814c" stroke="#d6d4b8" strokeWidth="4"/><path d="M-110 -108 L0 -158 L110 -108 L0 -58Z" fill="none" stroke="#e5e8ce" strokeWidth="3"/><path d="M0 -158 L0 -58 M-110 -108 L110 -108" fill="none" stroke="#e5e8ce" strokeWidth="2"/></g>
               </g><g data-layer="interactive-zones">{mapPlaces.map((place)=><g key={place.id} transform={"translate("+place.x+" "+place.y+")"} className="gg-map-place" onPointerDown={(e)=>e.stopPropagation()} onClick={()=>focusPlace(place)} role="button" tabIndex="0" aria-label={"Open "+place.name} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();focusPlace(place);}}}><ellipse cy="45" rx={place.kind==="stadium"?190:125} ry="40" fill="#10291d" opacity=".35"/><g transform="translate(-90 -85)"><Building kind={place.kind}/></g><rect x="-116" y="54" width="232" height="38" rx="19" fill="#12281e" stroke="#d5b76b" strokeOpacity=".65"/><text y="79" textAnchor="middle" fill="#f7f0db" fontSize="19" fontWeight="700">{place.name}</text><circle cy="-84" r="12" fill="#e7c16a" stroke="#263c2b" strokeWidth="5"/></g>)}
               </g><g data-layer="characters">{(data.presence||[]).filter((p)=>p.playerId!==data.playerId).map((p)=><g key={p.playerId} transform={"translate("+p.x+" "+p.y+")"} className="gg-world-player-marker" role="button" tabIndex="0" aria-label={"View "+p.displayName} onPointerDown={(e)=>e.stopPropagation()} onClick={()=>setSelectedPlayer(p)} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedPlayer(p);}}}><circle cy="-23" r="23" fill="#e5bf68" opacity=".18"/><foreignObject x="-20" y="-58" width="40" height="46"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={p.appearance||{}}/></div></foreignObject><text y="12" textAnchor="middle" fill="#fff5dd" fontSize="13" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{p.displayName.slice(0,12)}</text></g>)}
-              {data.playerId && <g pointerEvents="none"><foreignObject x={playerPosition.x-24} y={playerPosition.y-62} width="48" height="58"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={appearance}/></div></foreignObject><text x={playerPosition.x} y={playerPosition.y+8} textAnchor="middle" fill="#fff5dd" fontSize="14" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{avatar.displayName||"YOU"}</text></g>}
+              {data.playerId && <g pointerEvents="none"><foreignObject x={playerPosition.x-24} y={playerPosition.y-62} width="48" height="58"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={appearance} motion={characterMotion} direction={characterDirection} animated/></div></foreignObject><text x={playerPosition.x} y={playerPosition.y+8} textAnchor="middle" fill="#fff5dd" fontSize="14" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{avatar.displayName||"YOU"}</text></g>}
             </g>
             </g>
           </svg>
