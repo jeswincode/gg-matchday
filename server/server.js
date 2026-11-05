@@ -17,10 +17,14 @@ async function startServer(){
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB connected');
 
-    const primaryWorld = await ensurePrimaryWorldExists();
-    console.log('Primary GG World ready:', primaryWorld.slug);
-    const legacyAccess = await ensureLegacyWorldAccessInvitations(primaryWorld);
-    console.log('Legacy account access preserved:', legacyAccess);
+    if (process.env.NODE_ENV === "production") {
+      const primaryWorld = await ensurePrimaryWorldExists();
+      console.log('Primary GG World ready:', primaryWorld.slug);
+      const legacyAccess = await ensureLegacyWorldAccessInvitations(primaryWorld);
+      console.log('Legacy account access preserved:', legacyAccess);
+    } else {
+      console.log('Production-only Original GG bootstrap skipped outside production');
+    }
 
     try {
       await connectClubsDatabase();
