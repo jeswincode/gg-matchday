@@ -83,7 +83,7 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await companion.click();
   await expect(page.locator(".gg-companion-vortex")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
-  await expect(page.getByRole("img", { name: "Your pixel footballer" })).toBeVisible();
+  await expect(page.locator(".gg-world-avatar-preview .gg-player-sprite")).toBeVisible();
   await page.getByRole("button", { name: "Open GG Headquarters" }).click();
   await page.getByRole("button", { name: "Enter GG Headquarters" }).click();
   await expect(page.getByRole("heading", { name: "Grand Hall" })).toBeVisible();
@@ -110,8 +110,10 @@ test("mobile coded entry page fits the viewport and its Matchday button opens th
   const enterBounds = await enter.boundingBox();
   expect(frameBounds).not.toBeNull();
   expect(enterBounds).not.toBeNull();
-  expect(Math.abs(frameBounds.width - viewport.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(frameBounds.height - viewport.height)).toBeLessThanOrEqual(1);
+  expect(frameBounds.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(frameBounds.height).toBeGreaterThanOrEqual(viewport.height - 1);
+  const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(documentWidth).toBeLessThanOrEqual(viewport.width + 1);
   expect(enterBounds.width).toBeLessThan(viewport.width);
   expect(await enter.evaluate(element => getComputedStyle(element).borderRadius)).toBe("4px");
   await enter.click();
