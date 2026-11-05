@@ -2441,7 +2441,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions">{isSignedIn&&<button className="secondary-button gg-profile-trigger" type="button" onClick={()=>setProfileOpen(true)} aria-label="Open my player profile" title="My player profile">♙</button>}{isSignedIn&&<button className="secondary-button" type="button" onClick={()=>setWorldOpen(true)}>Enter Original GG</button>}<button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2454,7 +2454,7 @@ function App() {
           </span>
         ) : authUser ? (
           <>
-            <div className="account-user">
+            <button type="button" className="account-user gg-account-profile-trigger" onClick={()=>setProfileOpen(true)} aria-label="Open your player profile and character customisation" title="Player profile and customisation"><span className="gg-account-profile-icon" aria-hidden="true">♙</span>
 
               {authUser.photoURL ? (
                 <img
@@ -2493,7 +2493,7 @@ function App() {
                 </small>
               </div>
 
-            </div>
+            </button>
 
             <div className="account-actions">
 
