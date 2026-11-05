@@ -192,3 +192,16 @@ test('player performance keeps the modal as the single scroll container',()=>{
   assert.doesNotMatch(css,/\.perf-dashboard\{[^}]*overflow\s*:/);
   assert.doesNotMatch(css,/\.perf-dashboard\{[^}]*max-height\s*:/);
 });
+
+test("GG companion is available across signed-in Matchday pages and transitions into Original GG",()=>{
+  const app=read("src/App.jsx");
+  const companion=read("src/features/GGCompanion.jsx");
+  const styles=read("src/features/original-gg.css");
+  assert.match(app,/GGCompanion onEnterWorld/);
+  assert.match(companion,/idleLines/);
+  assert.match(companion,/setTransitioning\(true\)/);
+  assert.match(companion,/api\("\/world\/bootstrap"\)/);
+  assert.match(styles,/gg-companion-vortex/);
+  assert.match(styles,/gg-companion-idle/);
+  assert.match(styles,/prefers-reduced-motion:reduce/);
+});

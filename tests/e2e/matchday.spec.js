@@ -78,7 +78,10 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  await page.getByRole("button", { name: "Enter Original GG" }).click();
+  const companion = page.getByRole("button", { name: /Enter Original GG with/ });
+  await expect(companion).toBeVisible();
+  await companion.click();
+  await expect(page.locator(".gg-companion-vortex")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
   await expect(page.getByRole("img", { name: "Your pixel footballer" })).toBeVisible();
   await page.getByRole("button", { name: "Open GG Headquarters" }).click();
