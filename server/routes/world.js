@@ -5,6 +5,7 @@ import { getClubsConnection } from "../config/clubsDatabase.js";
 import Player from "../models/Player.js";
 import Club from "../models/clubs/Club.js";
 import ClubGround from "../models/clubs/ClubGround.js";
+import PlayerResidence from "../models/clubs/PlayerResidence.js";
 import WorldMap from "../models/clubs/WorldMap.js";
 import PlayerAvatar from "../models/clubs/PlayerAvatar.js";
 import TrainingProfile from "../models/clubs/TrainingProfile.js";
@@ -52,6 +53,12 @@ async function getWorldMap() {
   ).lean();
 }
 
+function residencePosition(playerId) {
+  const seed = Number.parseInt(String(playerId).slice(-6), 16) || 0;
+  const slot = seed % 16;
+  return { x: 1010 + (slot % 4) * 145, y: 955 + Math.floor(slot / 4) * 62 };
+}
+
 function publicAvatar(avatar, playerName = "GG Player") {
   if (!avatar) {
     return {
@@ -89,6 +96,7 @@ router.get("/bootstrap", async (req, res, next) => {
     ).lean()));
     let avatar = null;
     let training = null;
+    let residence = null;
     if (playerId) {
       const [player, savedAvatar, savedTraining] = await Promise.all([
         Player.findById(playerId).select("name").lean(),
@@ -96,6 +104,25 @@ router.get("/bootstrap", async (req, res, next) => {
         TrainingProfile.findOne({ playerId }).lean(),
       ]);
       avatar = publicAvatar(savedAvatar, player?.name || req.user?.name || "GG Player");
+      const position = residencePosition(playerId);
+      residence = await PlayerResidence.findOneAndUpdate(
+        { ownerPlayerId: playerId },
+        { $setOnInsert: {
+          ownerPlayerId: playerId,
+          name: (player?.name || req.user?.name || "GG Player") + "'s Home",
+          ...position,
+          level: 1,
+          privacy: "private",
+          interior: {
+            rooms: [
+              { id: "lounge", name: "Player Lounge", theme: "clubhouse", items: ["sofa", "coffee-table", "team-banner"] },
+              { id: "trophy-room", name: "Trophy Room", theme: "gold", items: ["trophy-cabinet", "medal-wall", "match-ball-display"] },
+              { id: "training-corner", name: "Training Corner", theme: "training", items: ["exercise-mat", "weights", "record-board"] },
+            ],
+          },
+        } },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).lean();
       training = savedTraining || {
         totals: { pushups: 0, pullups: 0, squats: 0, planks: 0, totalReps: 0, sessions: 0 },
         personalBests: { pushups: 0, pullups: 0, squats: 0, planks: 0 },
@@ -108,6 +135,9 @@ router.get("/bootstrap", async (req, res, next) => {
       .lean();
     const presenceIds = activePresence.map((item) => item.playerId);
     const avatars = await PlayerAvatar.find({ playerId: { $in: presenceIds } }).select("playerId appearance").lean();
+    const activeResidences = await PlayerResidence.find({ ownerPlayerId: { $in: presenceIds } })
+      .select("ownerPlayerId name x y level privacy")
+      .lean();
     const appearanceByPlayer = new Map(avatars.map((item) => [String(item.playerId), item.appearance]));
     return res.json({
       world: { slug: world.slug, title: world.title, version: world.version, layout: world.layout },
@@ -115,6 +145,8 @@ router.get("/bootstrap", async (req, res, next) => {
       clubs: clubs.map((club) => ({ id: String(club._id), name: club.name, logoUrl: club.logoUrl, memberCount: club.memberIds?.length || 0 })),
       clubGrounds: clubGrounds.map((ground) => ({ id: "ground-" + String(ground.clubId), clubId: String(ground.clubId), name: ground.name, kind: "club-ground", x: ground.x, y: ground.y, level: ground.level, accessPolicy: ground.accessPolicy })),
       canCreateCharacter: Boolean(playerId),
+      residence: residence ? { ownerPlayerId: String(residence.ownerPlayerId), name: residence.name, x: residence.x, y: residence.y, level: residence.level, privacy: residence.privacy } : null,
+      residences: activeResidences.map((home) => ({ ownerPlayerId: String(home.ownerPlayerId), name: home.name, x: home.x, y: home.y, level: home.level, privacy: home.privacy })),
       avatar,
       training,
       presence: activePresence.map((item) => ({
@@ -222,6 +254,31 @@ router.post("/training/sessions", async (req, res, next) => {
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ message: error.message });
     if (error?.code === 11000) return res.status(409).json({ message: "This workout session has already been recorded." });
+    return next(error);
+  }
+});
+
+router.get("/residences/:playerId", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const viewerPlayerId = linkedPlayerId(req, res);
+  if (!viewerPlayerId) return;
+  if (!mongoose.isValidObjectId(req.params.playerId)) return res.status(400).json({ message: "Invalid residence owner." });
+  try {
+    const residence = await PlayerResidence.findOne({ ownerPlayerId: req.params.playerId }).lean();
+    if (!residence) return res.status(404).json({ message: "This residence has not been created yet." });
+    const isOwner = String(residence.ownerPlayerId) === String(viewerPlayerId);
+    if (!isOwner && residence.privacy !== "public") {
+      return res.status(403).json({ message: "This player's home interior is private." });
+    }
+    return res.json({
+      residence: {
+        ownerPlayerId: String(residence.ownerPlayerId),
+        name: residence.name,
+        level: residence.level,
+        interior: residence.interior,
+      },
+    });
+  } catch (error) {
     return next(error);
   }
 });
