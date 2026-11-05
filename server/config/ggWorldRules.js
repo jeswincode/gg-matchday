@@ -1,7 +1,7 @@
 export const WORLD_MAP_SLUG = "original-gg";
 
 export const DEFAULT_WORLD_LAYOUT = Object.freeze({
-  version: 5,
+  version: 6,
   orientation: "isometric",
   tileWidth: 128,
   tileHeight: 64,
