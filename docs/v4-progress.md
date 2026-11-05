@@ -68,7 +68,7 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 1. Add a dedicated V4 API preview service or another isolated preview API target; do not point the V4 frontend at a production backend that lacks these routes.
 2. Build detailed, bespoke isometric tile/building art and true 2D room scenes; current landmark rooms are structured and navigable previews.
 3. Build full HQ social spaces: realtime in-world chat, notifications, player-to-player interactions, moderation and presence safeguards.
-4. Build club-ground ownership controls, club-specific interiors, residence visitor permissions and home furnishing.
+4. Build club-ground ownership controls, club-specific interiors, residence visitor permissions and broader furnishing sets.
 5. Build the training mini-game, anti-cheat scoring and leaderboard.
 6. Extend the economy with broader furnishing collections, plot and club-ground upgrade sinks, reward tuning from playtest data, seasonal catalogues and abuse monitoring. The initial server-authoritative XP/coin wallet, ledger, capped training rewards, achievements, data-driven cosmetics catalogue/equipping, avatar presets and player-home upgrades are implemented on the V4 branch. Do not add real-money purchases in the initial release.
 7. Add character movement/idle/throw/swirl animations and companion presence across the existing Matchday pages.
