@@ -1,5 +1,6 @@
 import express from "express";
 import mongoose from "mongoose";
+import { randomUUID } from "node:crypto";
 import { requireAuth } from "../middleware/auth.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import Player from "../models/Player.js";
@@ -12,6 +13,8 @@ import PlayerAvatar from "../models/clubs/PlayerAvatar.js";
 import TrainingProfile from "../models/clubs/TrainingProfile.js";
 import TrainingSession from "../models/clubs/TrainingSession.js";
 import WorldPresence from "../models/clubs/WorldPresence.js";
+import TrainingChallengeRun from "../models/clubs/TrainingChallengeRun.js";
+import TrainingChallengeProfile from "../models/clubs/TrainingChallengeProfile.js";
 import {
   DEFAULT_WORLD_LAYOUT,
   WORLD_MAP_SLUG,
@@ -303,6 +306,87 @@ router.post("/training/sessions", async (req, res, next) => {
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ message: error.message });
     if (error?.code === 11000) return res.status(409).json({ message: "This workout session has already been recorded." });
+    return next(error);
+  }
+});
+
+router.post("/training/challenges/start", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const now = new Date();
+    const run = await TrainingChallengeRun.create({
+      runId: randomUUID(),
+      playerId,
+      challengeId: "ball-control-v1",
+      startedAt: now,
+      expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+    });
+    return res.status(201).json({ success: true, runId: run.runId, startedAt: run.startedAt, expiresAt: run.expiresAt });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/training/challenges/finish", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const runId = String(req.body?.runId || "").trim();
+    const clientScore = Number(req.body?.scoreSeconds);
+    if (!runId || runId.length > 80 || !Number.isFinite(clientScore) || clientScore < 1 || clientScore > 600) {
+      return res.status(400).json({ message: "A valid training run and score are required." });
+    }
+    const run = await TrainingChallengeRun.findOne({ runId, playerId, challengeId: "ball-control-v1" });
+    if (!run) return res.status(404).json({ message: "Training run not found. Start a new run." });
+    if (run.completedAt) return res.status(409).json({ message: "This training run has already been submitted." });
+    const now = new Date();
+    if (now > run.expiresAt) return res.status(410).json({ message: "This training run expired. Start another run." });
+    const serverElapsed = (now.getTime() - run.startedAt.getTime()) / 1000;
+    if (Math.abs(serverElapsed - clientScore) > 4) {
+      return res.status(400).json({ message: "The run time could not be verified. Please try again." });
+    }
+    const verifiedScore = Number(serverElapsed.toFixed(1));
+    run.completedAt = now;
+    run.scoreSeconds = verifiedScore;
+    await run.save();
+    const profile = await TrainingChallengeProfile.findOneAndUpdate(
+      { playerId, challengeId: "ball-control-v1" },
+      { $min: { bestSeconds: verifiedScore }, $inc: { attempts: 1 }, $set: { lastPlayedAt: now } },
+      { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true },
+    ).lean();
+    return res.status(201).json({ success: true, verifiedScore, bestSeconds: profile.bestSeconds, attempts: profile.attempts });
+  } catch (error) {
+    if (error?.code === 11000) return res.status(409).json({ message: "This training run has already been submitted." });
+    return next(error);
+  }
+});
+
+router.get("/training/challenges/leaderboard", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const rows = await TrainingChallengeProfile.find({ challengeId: "ball-control-v1" })
+      .sort({ bestSeconds: 1, lastPlayedAt: 1 })
+      .limit(10)
+      .select("playerId bestSeconds attempts lastPlayedAt")
+      .lean();
+    const ids = rows.map((row) => row.playerId);
+    const [avatars, players] = await Promise.all([
+      PlayerAvatar.find({ playerId: { $in: ids } }).select("playerId displayName").lean(),
+      Player.find({ _id: { $in: ids } }).select("name").lean(),
+    ]);
+    const names = new Map(players.map((player) => [String(player._id), player.name]));
+    const displayNames = new Map(avatars.map((avatar) => [String(avatar.playerId), avatar.displayName]));
+    return res.json({ leaderboard: rows.map((row, index) => ({
+      rank: index + 1,
+      playerId: String(row.playerId),
+      displayName: displayNames.get(String(row.playerId)) || names.get(String(row.playerId)) || "GG Player",
+      bestSeconds: row.bestSeconds,
+      attempts: row.attempts,
+    })) });
+  } catch (error) {
     return next(error);
   }
 });
