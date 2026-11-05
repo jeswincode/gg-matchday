@@ -41,14 +41,15 @@ test("a protected Clubs API denial returns the user to the public World map", as
     status: 403,
     contentType: "application/json",
     body: JSON.stringify({
-      message: "Your GG World role no longer permits Clubs access.",
-      code: "WORLD_CAPABILITY_REQUIRED",
-      capability: "clubs:participate",
+      message: "This Gmail account has not been linked by the GG platform administrator.",
+      code: "WORLD_ACCESS_GRANT_REQUIRED",
     }),
   }));
 
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
-  await expect(page.locator(".clubs-app")).toBeVisible();
+  // A World-access denial can be emitted by the first Clubs request before
+  // the lazy Clubs screen paints. Assert the security outcome, not that
+  // transient intermediate render.
   await expect(page.locator(".gg-world-screen-global")).toBeVisible();
   await expect(page.locator(".clubs-app")).toHaveCount(0);
   await expect(page.locator(".gg-world-screen-interior")).toHaveCount(0);
