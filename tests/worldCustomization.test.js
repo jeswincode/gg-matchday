@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AVATAR_OPTIONS, WORLD_COSMETIC_CATALOG, WORLD_COSMETIC_CATEGORIES, getWorldCosmetic } from "../shared/worldCustomization.js";
+import { AVATAR_OPTIONS, WORLD_COSMETIC_CATALOG, WORLD_MARKET_CATALOG, WORLD_COSMETIC_CATEGORIES, getWorldCosmetic, getWorldMarketItem } from "../shared/worldCustomization.js";
 import { FREE_AVATAR_OPTIONS } from "../shared/worldAvatarOptions.js";
 
 test("cosmetic catalogue is data-driven, uniquely keyed and category-complete", () => {
@@ -21,6 +21,9 @@ test("cosmetic catalogue is data-driven, uniquely keyed and category-complete", 
   assert.equal(getWorldCosmetic("kit-neon").appearancePatch.kitPrimary, "teal");
   assert.equal(getWorldCosmetic("not-a-real-item"), null);
   assert.ok(WORLD_COSMETIC_CATALOG.filter((item)=>item.itemType==="furniture").length >= 3);
+  assert.equal(WORLD_MARKET_CATALOG, WORLD_COSMETIC_CATALOG);
+  assert.equal(getWorldMarketItem("furniture-velvet-sofa").furniturePlacement.roomIds[0], "lounge");
+  assert.equal(getWorldCosmetic("furniture-velvet-sofa"), null);
 });
 
 test("shop-only appearance variants are not included in the free avatar editor", () => {
