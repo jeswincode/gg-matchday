@@ -25,23 +25,31 @@ export function PlayerSprite({ appearance = {} }) {
     const context = canvas?.getContext("2d");
     if (!context) return;
     const skin = ({deep:"#75432f",dark:"#965c42",medium:"#c1835c",tan:"#d49a70",light:"#e5b891",fair:"#f0c9a8"})[appearance.skinTone] || "#c1835c";
-    const hair = ({black:"#171717",brown:"#51301f",blonde:"#e1bd62",red:"#9d3d2e",silver:"#aaaeb9",blue:"#4167b6"})[appearance.hairColor] || "#171717";
-    const kit = ({black:"#17191e",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32"})[appearance.kitPrimary] || "#17191e";
-    const trim = ({black:"#151515",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32"})[appearance.kitSecondary] || "#d7ad52";
-    const boot = ({black:"#171717",white:"#f5f3eb",gold:"#d7ad52",red:"#c64040",blue:"#3869b5",green:"#43865a",orange:"#d97835"})[appearance.bootColor] || "#f5f3eb";
+    const hair = ({black:"#171717",brown:"#51301f",blonde:"#e1bd62",red:"#9d3d2e",silver:"#aaaeb9",blue:"#4167b6",teal:"#28a7a0",pink:"#e36ca8",white:"#e8e8e4"})[appearance.hairColor] || "#171717";
+    const kit = ({black:"#17191e",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32",navy:"#172a50",teal:"#218f89",pink:"#d95d91",maroon:"#681f35"})[appearance.kitPrimary] || "#17191e";
+    const trim = ({black:"#151515",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32",navy:"#172a50",teal:"#218f89",pink:"#d95d91",maroon:"#681f35"})[appearance.kitSecondary] || "#d7ad52";
+    const boot = ({black:"#171717",white:"#f5f3eb",gold:"#d7ad52",red:"#c64040",blue:"#3869b5",green:"#43865a",orange:"#d97835",purple:"#71499c",pink:"#e36ca8",cyan:"#46c7d5"})[appearance.bootColor] || "#f5f3eb";
     const layer = new Layer();
     const g = new G(layer,{outline:"#211b17"},0);
     g.stamp((l)=>l.ell(16,8,5,6,skin));
     if (appearance.hairStyle!=="bald") {
-      if (appearance.hairStyle==="afro") g.stamp((l)=>l.ell(16,4,7,5,hair));
-      else if (appearance.hairStyle==="mohawk") g.stamp((l)=>l.rect(14,0,4,7,hair));
-      else if (appearance.hairStyle==="curly") {
-        g.stamp((l)=>l.ell(16,4,6,4,hair));
-        g.rect(10,3,3,3,hair);g.rect(19,2,3,3,hair);g.rect(12,0,3,3,hair);
+      const style=appearance.hairStyle||"short";
+      if (style==="afro") g.stamp((l)=>l.ell(16,4,7,5,hair));
+      else if (style==="mohawk") g.stamp((l)=>l.rect(14,0,4,7,hair));
+      else if (style==="curly") {
+        g.stamp((l)=>l.ell(16,4,6,4,hair));g.rect(10,3,3,3,hair);g.rect(19,2,3,3,hair);g.rect(12,0,3,3,hair);
+      } else if (style==="bun") {
+        g.stamp((l)=>l.ell(16,4,6,3,hair));g.stamp((l)=>l.ell(22,2,3,3,hair));
+      } else if (style==="ponytail") {
+        g.stamp((l)=>l.ell(16,4,6,3,hair));g.rect(20,5,3,2,hair);g.rect(22,7,2,5,hair);
+      } else if (style==="spiky") {
+        g.stamp((l)=>l.ell(16,4,6,3,hair));g.rect(11,1,3,4,hair);g.rect(15,0,3,5,hair);g.rect(19,1,3,4,hair);
+      } else if (style==="side-part") {
+        g.stamp((l)=>l.ell(16,4,6,3,hair));g.rect(11,3,4,3,hair);g.rect(18,1,4,2,hair);
       } else {
         g.stamp((l)=>l.ell(16,4,6,3,hair));
-        if (appearance.hairStyle==="long") { g.rect(10,5,2,8,hair);g.rect(20,5,2,8,hair); }
-        if (appearance.hairStyle==="fade") { g.rect(11,6,2,2,hair);g.rect(19,6,2,2,hair); }
+        if (style==="long") { g.rect(10,5,2,8,hair);g.rect(20,5,2,8,hair); }
+        if (style==="fade") { g.rect(11,6,2,2,hair);g.rect(19,6,2,2,hair); }
       }
     }
     g.rect(14,13,4,3,skin);
@@ -55,6 +63,11 @@ export function PlayerSprite({ appearance = {} }) {
     g.rect(10,29,5,2,boot);g.rect(17,29,5,2,boot);
     g.rect(14,7,1,1,"#241a16");g.rect(18,7,1,1,"#241a16");
     g.rect(15,10,2,1,"#71402f");
+    const accessory=appearance.headAccessory||"none";
+    if(accessory!=="none"){
+      const accessoryColor=accessory==="gold-headband"?"#d7ad52":accessory==="red-headband"?"#bd3545":"#3476c5";
+      g.rect(10,5,12,2,accessoryColor);g.rect(10,5,2,3,accessoryColor);g.rect(20,5,2,3,accessoryColor);
+    }
     const image = new ImageData(N,N);
     for (let i=0;i<layer.d.length;i++) {
       const color=layer.d[i];
@@ -64,7 +77,7 @@ export function PlayerSprite({ appearance = {} }) {
     }
     context.clearRect(0,0,N,N);
     context.putImageData(image,0,0);
-  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor]);
+  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory]);
   return <canvas ref={canvasRef} width="32" height="32" className="gg-player-sprite" role="img" aria-label="Your pixel footballer"/>;
 }
 function RoomScene({room}) {
@@ -224,7 +237,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
   const [interior,setInterior] = useState(null);
   const [selectedPlayer,setSelectedPlayer] = useState(null);
   const [interiorLoading,setInteriorLoading] = useState(false);
-  const [avatar,setAvatar] = useState({displayName:"",appearance:{skinTone:"medium",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white"}});
+  const [avatar,setAvatar] = useState({displayName:"",appearance:{skinTone:"medium",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"}});
   const [training,setTraining] = useState(emptyTraining);
   const [duration,setDuration] = useState("900");
   const [saving,setSaving] = useState(false);
