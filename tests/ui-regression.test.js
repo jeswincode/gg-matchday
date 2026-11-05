@@ -230,3 +230,19 @@ test("football city map exposes district, pitch and layered scene design",()=>{
   assert.match(rules,/training-quarter/);
   assert.match(rules,/residential-quarter/);
 });
+
+test("training challenge records are server verified and stored in the Clubs database",()=>{
+  const routes=read("server/routes/world.js");
+  const runModel=read("server/models/clubs/TrainingChallengeRun.js");
+  const profileModel=read("server/models/clubs/TrainingChallengeProfile.js");
+  const game=read("src/features/TrainingChallenge.jsx");
+  assert.match(routes,/router\.post\("\/training\/challenges\/start"/);
+  assert.match(routes,/router\.post\("\/training\/challenges\/finish"/);
+  assert.match(routes,/router\.get\("\/training\/challenges\/leaderboard"/);
+  assert.match(routes,/withTransaction/);
+  assert.match(routes,/Math\.abs\(serverElapsed - clientScore\) > 4/);
+  assert.match(runModel,/collection: "trainingChallengeRuns"/);
+  assert.match(profileModel,/collection: "trainingChallengeProfiles"/);
+  assert.match(game,/VERIFIED PERSONAL BEST/);
+  assert.match(game,/api\("\/world\/training\/challenges\/finish"/);
+});
