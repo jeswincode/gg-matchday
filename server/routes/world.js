@@ -118,12 +118,14 @@ router.get("/bootstrap", async (req, res, next) => {
     ).lean()));
     let avatar = null;
     let training = null;
+    let trainingHistory = [];
     let residence = null;
     if (playerId) {
-      const [player, savedAvatar, savedTraining] = await Promise.all([
+      const [player, savedAvatar, savedTraining, savedSessions] = await Promise.all([
         Player.findById(playerId).select("name").lean(),
         PlayerAvatar.findOne({ playerId }).lean(),
         TrainingProfile.findOne({ playerId }).lean(),
+        TrainingSession.find({ playerId }).sort({ recordedAt: -1 }).limit(5).lean(),
       ]);
       avatar = publicAvatar(savedAvatar, player?.name || req.user?.name || "GG Player");
       const position = residencePosition(playerId);
@@ -145,6 +147,7 @@ router.get("/bootstrap", async (req, res, next) => {
         } },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       ).lean();
+      trainingHistory = savedSessions;
       training = savedTraining || {
         totals: { pushups: 0, pullups: 0, squats: 0, planks: 0, totalCounts: 0, sessions: 0 },
         personalBests: { pushups: 0, pullups: 0, squats: 0, planks: 0 },
@@ -171,6 +174,7 @@ router.get("/bootstrap", async (req, res, next) => {
       residences: activeResidences.map((home) => ({ ownerPlayerId: String(home.ownerPlayerId), name: home.name, x: home.x, y: home.y, level: home.level, privacy: home.privacy })),
       avatar,
       training,
+      trainingHistory,
       presence: activePresence.map((item) => ({
         playerId: String(item.playerId),
         displayName: item.displayName,
