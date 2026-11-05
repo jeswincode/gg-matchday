@@ -19,7 +19,8 @@ export default function TrainingChallenge(){
   const keysRef=useRef(new Set());
   const [status,setStatus]=useState("ready");
   const [elapsed,setElapsed]=useState(0);
-  const [best,setBest]=useState(()=>{try{return Number(localStorage.getItem(STORAGE_KEY))||0;}catch{/* Use an in-memory best when storage is unavailable. */return 0;}});
+  const [best,setBest]=useState(()=>{try{return Number(localStorage.getItem(STORAGE_KEY))||0;}catch(error){return 0;}});
+  const bestRef=useRef(best);
   const [message,setMessage]=useState("Dodge the training hurdles and stay on the pitch for as long as you can.");
   const touchDirection=useRef("");
   const finish=useCallback((now)=>{
@@ -30,7 +31,7 @@ export default function TrainingChallenge(){
     setMessage("Full time · "+score.toFixed(1)+" seconds. Have another go and beat your best.");
     setBest((current)=>{
       const next=Math.max(current,score);
-      if(next>current){try{localStorage.setItem(STORAGE_KEY,String(next));}catch{/* Storage can be unavailable in private browsing. */}}
+      if(next>current){try{localStorage.setItem(STORAGE_KEY,String(next));}catch(error){bestRef.current=next;}}
       return next;
     });
   },[]);
