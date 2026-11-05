@@ -722,7 +722,7 @@ router.get("/presence", async (req, res, next) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const presence = await WorldPresence.find({ lastSeenAt: { $gte: new Date(Date.now() - 45000) } })
-      .select("playerId displayName locationId x y lastSeenAt")
+      .select("playerId displayName locationId x y direction lastSeenAt")
       .limit(100)
       .lean();
     const ids = presence.map((item) => item.playerId);
@@ -735,6 +735,7 @@ router.get("/presence", async (req, res, next) => {
         locationId: item.locationId,
         x: item.x,
         y: item.y,
+        direction: item.direction || "down",
         appearance: appearanceByPlayer.get(String(item.playerId)) || null,
       })),
     });
