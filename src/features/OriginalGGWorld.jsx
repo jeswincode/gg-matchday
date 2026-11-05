@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import "./original-gg.css";
+import { G, Layer, N, rgba } from "./companion/leaflet-pip-engine.js";
 
 const places = [
   { id:"gg-hq", name:"GG Headquarters", kind:"hq", x:900, y:300, desc:"The golden heart of Original GG. Meet the community and explore the trophy hall." },
@@ -16,24 +17,54 @@ const exercises = [["pushups","Push-ups"],["pullups","Pull-ups"],["squats","Squa
 const emptyTraining = { pushups:"", pullups:"", squats:"", planks:"" };
 
 function PlayerSprite({ appearance = {} }) {
-  const skin = ({deep:"#75432f",dark:"#965c42",medium:"#c1835c",tan:"#d49a70",light:"#e5b891",fair:"#f0c9a8"})[appearance.skinTone] || "#c1835c";
-  const hair = ({black:"#171717",brown:"#51301f",blonde:"#e1bd62",red:"#9d3d2e",silver:"#aaaeb9",blue:"#4167b6"})[appearance.hairColor] || "#171717";
-  const kit = ({black:"#17191e",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32"})[appearance.kitPrimary] || "#17191e";
-  const hairShape = ({bald:"",fade:"M22 23 Q24 7 40 8 Q56 7 58 23 L54 20 Q40 14 26 21Z",curly:"M22 24 Q16 12 27 10 Q30 2 39 8 Q48 2 54 12 Q64 13 57 25Z",long:"M21 22 Q22 5 40 7 Q59 5 59 25 L57 43 L51 34 L50 20 Q39 13 27 21 L26 38 L21 43Z",afro:"M19 25 Q14 7 28 8 Q36 0 44 7 Q61 3 61 22 L56 29 L24 29Z",mohawk:"M29 20 L31 5 L37 11 L42 2 L47 18 L54 21Z"})[appearance.hairStyle] ?? "M22 23 Q24 7 40 8 Q56 7 58 23 L54 20 Q40 14 26 21Z";
-  const torso = appearance.bodyType==="slim" ? "M28 39 L20 46 L24 73 L31 74 L33 59 L34 84 L47 84 L48 59 L51 74 L58 73 L60 46 L52 39 L47 36 L33 36Z" : appearance.bodyType==="stocky" ? "M20 39 L13 46 L18 76 L28 78 L29 60 L30 86 L50 86 L51 60 L52 78 L62 76 L67 46 L60 39 L50 36 L30 36Z" : "M24 39 L17 46 L21 74 L29 75 L30 60 L31 84 L50 84 L51 60 L54 75 L62 73 L64 46 L55 39 L49 36 L31 36Z";
-  return <svg viewBox="0 0 80 118" className="gg-player-sprite" role="img" aria-label="Your pixel footballer">
-    <ellipse cx="40" cy="112" rx="22" ry="4" fill="#07100c" opacity=".35"/>
-    <path d="M31 76 L29 103 L23 110 L36 112 L42 84 L47 112 L60 110 L51 101 L50 76Z" fill={skin}/>
-    <path d="M20 108 L38 108 L38 115 L19 115Z M45 108 L61 108 L65 115 L46 115Z" fill={appearance.bootColor==="gold"?"#d7ad52":appearance.bootColor==="black"?"#171717":"#f5f3eb"}/>
-    <path d={torso} fill={kit}/>
-    <path d="M31 39 L40 49 L49 39 L46 36 L34 36Z" fill={appearance.kitSecondary==="white"?"#f3f1e8":"#d7ad52"}/>
-    <rect x="33" y="22" width="14" height="18" rx="5" fill={skin}/><ellipse cx="40" cy="21" rx="16" ry="18" fill={skin}/>
-    {hairShape && <path d={hairShape} fill={hair}/>}
-    <rect x="32" y="23" width="3" height="3" fill="#241a16"/><rect x="45" y="23" width="3" height="3" fill="#241a16"/>
-    <path d="M36 32 Q40 35 44 32" fill="none" stroke="#71402f" strokeWidth="1.6"/>
-  </svg>;
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!context) return;
+    const skin = ({deep:"#75432f",dark:"#965c42",medium:"#c1835c",tan:"#d49a70",light:"#e5b891",fair:"#f0c9a8"})[appearance.skinTone] || "#c1835c";
+    const hair = ({black:"#171717",brown:"#51301f",blonde:"#e1bd62",red:"#9d3d2e",silver:"#aaaeb9",blue:"#4167b6"})[appearance.hairColor] || "#171717";
+    const kit = ({black:"#17191e",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32"})[appearance.kitPrimary] || "#17191e";
+    const trim = ({black:"#151515",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32"})[appearance.kitSecondary] || "#d7ad52";
+    const boot = ({black:"#171717",white:"#f5f3eb",gold:"#d7ad52",red:"#c64040",blue:"#3869b5",green:"#43865a",orange:"#d97835"})[appearance.bootColor] || "#f5f3eb";
+    const layer = new Layer();
+    const g = new G(layer,{outline:"#211b17"},0);
+    g.stamp((l)=>l.ell(16,8,5,6,skin));
+    if (appearance.hairStyle!=="bald") {
+      if (appearance.hairStyle==="afro") g.stamp((l)=>l.ell(16,4,7,5,hair));
+      else if (appearance.hairStyle==="mohawk") g.stamp((l)=>l.rect(14,0,4,7,hair));
+      else if (appearance.hairStyle==="curly") {
+        g.stamp((l)=>l.ell(16,4,6,4,hair));
+        g.rect(10,3,3,3,hair);g.rect(19,2,3,3,hair);g.rect(12,0,3,3,hair);
+      } else {
+        g.stamp((l)=>l.ell(16,4,6,3,hair));
+        if (appearance.hairStyle==="long") { g.rect(10,5,2,8,hair);g.rect(20,5,2,8,hair); }
+        if (appearance.hairStyle==="fade") { g.rect(11,6,2,2,hair);g.rect(19,6,2,2,hair); }
+      }
+    }
+    g.rect(14,13,4,3,skin);
+    const left = appearance.bodyType==="slim"?13:appearance.bodyType==="stocky"?9:11;
+    const width = appearance.bodyType==="slim"?6:appearance.bodyType==="stocky"?14:10;
+    g.stamp((l)=>l.rect(left,15,width,10,kit));
+    g.rect(14,15,4,2,trim);g.rect(15,17,2,6,trim);
+    g.stamp((l)=>l.rect(left-3,16,3,8,skin));
+    g.stamp((l)=>l.rect(left+width,16,3,8,skin));
+    g.rect(12,25,3,5,skin);g.rect(17,25,3,5,skin);
+    g.rect(10,29,5,2,boot);g.rect(17,29,5,2,boot);
+    g.rect(14,7,1,1,"#241a16");g.rect(18,7,1,1,"#241a16");
+    g.rect(15,10,2,1,"#71402f");
+    const image = new ImageData(N,N);
+    for (let i=0;i<layer.d.length;i++) {
+      const color=layer.d[i];
+      if (!color) continue;
+      const [red,green,blue,alpha]=rgba(color);
+      image.data[i*4]=red;image.data[i*4+1]=green;image.data[i*4+2]=blue;image.data[i*4+3]=alpha;
+    }
+    context.clearRect(0,0,N,N);
+    context.putImageData(image,0,0);
+  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor]);
+  return <canvas ref={canvasRef} width="32" height="32" className="gg-player-sprite" role="img" aria-label="Your pixel footballer"/>;
 }
-
 function Building({ kind }) {
   const colors = {hq:"#c69a45",stadium:"#758b83",training:"#668b69",market:"#b78b59",park:"#4d8057",club:"#788477",home:"#a68b70",academy:"#7b8f76"};
   return <svg viewBox="0 0 180 125" aria-hidden="true">
