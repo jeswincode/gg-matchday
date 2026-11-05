@@ -103,3 +103,79 @@
 .gg-economy-furnish-tools label{display:grid;gap:5px;color:#dfbd70;font-size:9px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
 .gg-economy-furnish-tools select{width:100%;min-height:38px;padding:8px 10px;border:1px solid #ffffff25;border-radius:9px;color:#f5f0df;background:#14251b;font-size:11px}
 @media(max-width:560px){.gg-economy-furnish-tools{grid-template-columns:1fr}}
+
+/* Original GG V4: motion, live multiplayer, and clear owner controls. */
+.gg-player-sprite.is-animated{will-change:contents}
+.gg-world-player-marker{transition:transform 280ms cubic-bezier(.22,.7,.2,1)}
+.gg-map-character .gg-player-sprite{image-rendering:pixelated}
+.gg-companion.is-thrown .gg-companion-button{animation:gg-companion-fling .72s cubic-bezier(.2,.8,.2,1)}
+.gg-companion.is-dragging .gg-companion-button{cursor:grabbing}
+@keyframes gg-companion-fling{0%{transform:rotate(0) scale(1)}30%{transform:rotate(-20deg) scale(1.12)}70%{transform:rotate(360deg) scale(.96)}100%{transform:rotate(720deg) scale(1)}}
+.gg-player-interactions{display:flex;justify-content:center;flex-wrap:wrap;gap:7px;margin:14px 0}
+.gg-player-interactions button{min-height:38px;padding:8px 12px;border:1px solid #d9b86a55;border-radius:999px;color:#f5edda;background:#ffffff0a;font-size:11px;cursor:pointer}
+.gg-player-interactions button:hover,.gg-player-interactions button:focus-visible{border-color:#e6c779;background:#d8b86a22;outline:none}
+.gg-access-backdrop{z-index:1200}
+.gg-access-dialog{width:min(620px,100%)}
+.gg-access-privacy,.gg-access-search{display:grid;gap:7px;margin:16px 0;color:#dfbd70;font-size:10px;font-weight:850;letter-spacing:.09em;text-transform:uppercase}
+.gg-access-privacy select,.gg-access-search input,.gg-access-search select{width:100%;min-height:42px;padding:10px 12px;border:1px solid #ffffff2b;border-radius:10px;color:#f3f0e5;background:#101e17;font-size:13px;letter-spacing:normal;text-transform:none}
+.gg-access-explain{padding:11px 13px;border:1px solid #ffffff1a;border-radius:10px;color:#c8d1c2;background:#ffffff07;font-size:11px;line-height:1.55}
+.gg-access-results{display:grid;gap:5px;max-height:190px;overflow:auto;padding:6px;border:1px solid #ffffff1b;border-radius:10px;background:#0c1712}
+.gg-access-results button{display:flex;justify-content:space-between;gap:12px;padding:10px;border:0;border-radius:8px;color:#f4efdf;background:#ffffff08;text-align:left;cursor:pointer}
+.gg-access-results button:hover{background:#d8b86a1b}
+.gg-access-results b{color:#dfbd70;font-size:10px}
+.gg-access-visitors{display:grid;gap:7px;margin:18px 0}
+.gg-access-visitors>div:first-child{display:flex;justify-content:space-between;align-items:center;color:#f4efdf;font-size:12px}
+.gg-access-visitors>div:first-child small{color:#cbb579}
+.gg-access-visitors>p{margin:0;padding:12px;color:#b9c6b6;font-size:11px}
+.gg-access-visitor{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border:1px solid #ffffff19;border-radius:9px;background:#ffffff07;color:#eceddf;font-size:12px}
+.gg-access-visitor button{border:0;color:#e5a29a;background:none;font-size:10px;cursor:pointer}
+.gg-access-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:18px}
+.gg-social-panel{max-width:1480px;margin:22px auto;border:1px solid #dfbd7045;border-radius:18px;overflow:hidden;color:#f5f0df;background:linear-gradient(145deg,#1b3026ee,#111f19ee);box-shadow:0 14px 42px #0003}
+.gg-social-heading{display:flex;align-items:center}
+.gg-social-expand{width:100%;display:flex;align-items:center;gap:12px;padding:13px 16px;border:0;color:inherit;background:transparent;text-align:left;cursor:pointer}
+.gg-social-icon{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;color:#e9ce8d;background:#d7b66a18;font-size:18px}
+.gg-social-expand>span:nth-child(2){display:grid;gap:3px;flex:1}
+.gg-social-expand strong{font-size:13px}
+.gg-social-expand small{color:#b8c4b4;font-size:10px}
+.gg-social-expand>i{width:8px;height:8px;border-radius:50%;background:#b18a54;box-shadow:0 0 0 4px #b18a5418}
+.gg-social-expand>i.is-live{background:#72cb83;box-shadow:0 0 0 4px #72cb8318}
+.gg-social-expand>b{color:#dfbd70;font-size:20px;font-weight:400}
+.gg-social-message-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow:auto;padding:13px 16px;border-top:1px solid #ffffff18;overscroll-behavior:contain;scrollbar-width:thin}
+.gg-social-message-list article{max-width:min(88%,600px);align-self:flex-start;padding:9px 12px;border:1px solid #ffffff19;border-radius:12px 12px 12px 3px;background:#ffffff09}
+.gg-social-message-list article.is-own{align-self:flex-end;border-color:#d5b36d55;border-radius:12px 12px 3px 12px;background:#d8b86a12}
+.gg-social-message-list article>div{display:flex;align-items:center;gap:10px}
+.gg-social-message-list article strong{color:#e2c37c;font-size:10px}
+.gg-social-message-list article time{color:#98a695;font-size:9px}
+.gg-social-message-list article p{margin:5px 0 0;color:#f0efe4;font-size:12px;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
+.gg-social-report{margin-top:6px;padding:0;border:0;color:#b8c4b4;background:none;font-size:9px;text-decoration:underline;cursor:pointer}
+.gg-social-report-form{display:flex;align-items:end;gap:7px;margin-top:7px}
+.gg-social-report-form label{display:grid;gap:3px;color:#c9d2c2;font-size:9px}
+.gg-social-report-form select{padding:6px;border:1px solid #ffffff24;border-radius:7px;color:#f0ebd8;background:#15251b;font-size:10px}
+.gg-social-report-form button{padding:7px 9px;border:1px solid #d9b86a66;border-radius:999px;color:#f1dfb0;background:#d8b86a16;font-size:9px;cursor:pointer}
+.gg-social-compose{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:11px 14px;border-top:1px solid #ffffff18}
+.gg-social-compose input{min-width:0;min-height:40px;padding:9px 12px;border:1px solid #ffffff2b;border-radius:10px;color:#f3efdf;background:#0d1b13;font-size:12px}
+.gg-social-compose button{min-width:68px;border:1px solid #e1c17c;border-radius:999px;color:#201b10;background:linear-gradient(135deg,#f0d28d,#bd8f3f);font-size:10px;font-weight:850;cursor:pointer}
+.gg-social-compose button:disabled{opacity:.5;cursor:not-allowed}
+.gg-social-compose small{grid-column:1/-1;color:#879685;font-size:9px;text-align:right}
+.gg-social-footnote{margin:0;padding:0 15px 10px;color:#8f9f8e;font-size:9px;line-height:1.5}
+.gg-social-empty{margin:0;padding:20px;color:#afbdac;font-size:11px;text-align:center}
+.gg-social-incoming{display:grid;gap:6px;padding:8px 14px;border-top:1px solid #ffffff18}
+.gg-social-incoming>div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border:1px solid #d9b86a44;border-radius:9px;background:#d8b86a12;font-size:10px}
+.gg-social-incoming button{border:0;color:#e7c77e;background:none;font-size:10px;cursor:pointer}
+.gg-social-notice{margin:0;padding:7px 14px 12px;color:#d5c18c;font-size:10px}
+.gg-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.gg-ground-manage{display:grid;gap:12px;margin-top:16px;padding:14px;border:1px solid #d9b86a55;border-radius:14px;background:#07130e88;text-align:left}
+.gg-ground-manage>div:first-child>span{color:#dfbd70;font-size:9px;font-weight:850;letter-spacing:.14em}
+.gg-ground-manage h3{margin:5px 0;font-size:14px}
+.gg-ground-manage p{margin:0;color:#b8c3b1;font-size:10px;line-height:1.5}
+.gg-ground-manage form{display:grid;gap:9px}
+.gg-ground-manage label{display:grid;gap:5px;color:#d9dfd0;font-size:10px;font-weight:700}
+.gg-ground-manage input,.gg-ground-manage select{width:100%;min-height:38px;padding:8px 10px;border:1px solid #ffffff29;border-radius:9px;color:#f5f0df;background:#101e17;font-size:11px}
+.gg-ground-upgrade{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:11px;border-top:1px solid #ffffff1a}
+.gg-ground-upgrade>div{display:grid;gap:4px}
+.gg-ground-upgrade strong{font-size:12px}
+.gg-ground-upgrade small{color:#c8b77f;font-size:10px}
+.gg-ground-upgrade button,.gg-ground-manage form button{font-size:10px;white-space:nowrap}
+.gg-world-interior-secondary{justify-self:center;margin-top:8px;padding:9px 13px;border:1px solid #d9b86a55;border-radius:999px;color:#ead6a5;background:#d8b86a12;font-size:10px;cursor:pointer}
+@media(max-width:560px){.gg-access-actions{display:grid;grid-template-columns:1fr 1fr}.gg-access-actions>*{justify-self:stretch;text-align:center}.gg-ground-upgrade{align-items:flex-start;flex-direction:column}.gg-ground-upgrade button{width:100%}.gg-social-message-list article{max-width:96%}}
+@media(prefers-reduced-motion:reduce){.gg-world-player-marker{transition:none}.gg-companion.is-thrown .gg-companion-button{animation:none}.gg-player-sprite.is-animated{animation:none}}
