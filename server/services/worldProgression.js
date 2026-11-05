@@ -28,6 +28,7 @@ export async function grantWorldReward({
     requestedXp = Math.min(requestedXp, Math.max(0, WORLD_ECONOMY_RULES.dailyTrainingXpCap - daily.trainingXpEarned));
     requestedCoins = Math.min(requestedCoins, Math.max(0, WORLD_ECONOMY_RULES.dailyTrainingCoinCap - daily.trainingCoinsEarned));
   }
+  const trainingXpGranted = sourceType === "training-session" ? requestedXp : 0;
   const grantedXp = Math.min(requestedXp, Math.max(0, WORLD_ECONOMY_RULES.dailyXpCap - daily.xpEarned));
   const grantedCoins = Math.min(requestedCoins, Math.max(0, WORLD_ECONOMY_RULES.dailyCoinCap - daily.coinsEarned));
 
@@ -57,7 +58,7 @@ export async function grantWorldReward({
   const dailyUpdate = {
     xpEarned: grantedXp,
     coinsEarned: finalCoins,
-    ...(sourceType === "training-session" ? { trainingXpEarned: grantedXp, trainingCoinsEarned: finalCoins, trainingSessions: 1 } : {}),
+    ...(sourceType === "training-session" ? { trainingXpEarned: Math.min(trainingXpGranted, grantedXp), trainingCoinsEarned: Math.min(requestedCoins, grantedCoins), trainingSessions: 1 } : {}),
     ...(sourceType === "tutorial" ? { tutorialClaims: 1 } : {}),
   };
   await WorldDailyProgress.updateOne({ playerId, dayKey }, { $inc: dailyUpdate }, { session });
