@@ -107,6 +107,38 @@ test("aggregation-style update pipelines cannot move records across Worlds", asy
   assert.equal(stored.bio, "ownership retained");
 });
 
+test("Original GG compatibility scope includes legacy records and assigns ownership on writes", async () => {
+  const legacy = await Player.create({ name: "Original GG Legacy Player" });
+  const otherWorld = await Player.create({ worldId: worldB, name: "Other World Player" });
+
+  await runWithWorldDataScope(worldA, async () => {
+    const visible = await Player.find({ worldId: worldA }).sort({ name: 1 }).lean();
+    assert.deepEqual(visible.map(item => item.name), ["Original GG Legacy Player"]);
+
+    const [aggregate] = await Player.aggregate([
+      { $match: { worldId: worldA } },
+      { $group: { _id: null, count: { $sum: 1 } } },
+    ]);
+    assert.equal(aggregate.count, 1);
+
+    const updated = await Player.updateOne(
+      { _id: legacy._id, worldId: worldA },
+      { $set: { bio: "Kept in Original GG" } },
+    );
+    assert.equal(updated.matchedCount, 1);
+
+    const created = await Player.create({ name: "New Original GG Player" });
+    assert.equal(String(created.worldId), String(worldA));
+  }, { includeLegacy: true });
+
+  const migratedLegacy = await Player.findById(legacy._id).lean();
+  assert.equal(String(migratedLegacy.worldId), String(worldA));
+  assert.equal(migratedLegacy.bio, "Kept in Original GG");
+
+  const stillOtherWorld = await Player.findById(otherWorld._id).lean();
+  assert.equal(String(stillOtherWorld.worldId), String(worldB));
+});
+
 test("legacy scope can see only null or missing World ownership", async () => {
   const legacy = await Player.create({ name: "Legacy Scope Player" });
   assert.equal(legacy.worldId, null);
