@@ -223,8 +223,13 @@ router.get("/bootstrap", async (req, res, next) => {
       .lean();
     const presenceIds = activePresence.map((item) => item.playerId);
     const avatars = await PlayerAvatar.find({ playerId: { $in: presenceIds } }).select("playerId appearance").lean();
-    const activeResidences = await PlayerResidence.find({ ownerPlayerId: { $in: presenceIds } })
+    const residenceFilter = playerId
+      ? { $or: [{ privacy: "public" }, { ownerPlayerId: playerId }, { visitorPlayerIds: playerId }] }
+      : { privacy: "public" };
+    const activeResidences = await PlayerResidence.find(residenceFilter)
       .select("ownerPlayerId name x y level privacy")
+      .sort({ updatedAt: -1 })
+      .limit(120)
       .lean();
     const appearanceByPlayer = new Map(avatars.map((item) => [String(item.playerId), item.appearance]));
     return res.json({
@@ -627,7 +632,7 @@ router.get("/club-grounds/:clubId/interior", async (req, res, next) => {
   if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ message: "Invalid club ground." });
   try {
     const [club, ground] = await Promise.all([
-      Club.findById(req.params.clubId).select("memberIds").lean(),
+      Club.findById(req.params.clubId).select("memberIds captainIds").lean(),
       ClubGround.findOne({ clubId: req.params.clubId }).lean(),
     ]);
     if (!club || !ground) return res.status(404).json({ message: "This club ground is not available." });
