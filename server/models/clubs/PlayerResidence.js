@@ -4,6 +4,7 @@ import { getClubsConnection } from "../../config/clubsDatabase.js";
 const playerResidenceSchema = new mongoose.Schema(
   {
     ownerPlayerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, unique: true, index: true },
+    plotId: { type: String, trim: true, maxlength: 80, default: null, index: true },
     name: { type: String, required: true, trim: true, maxlength: 100 },
     x: { type: Number, min: 0, max: 1800, required: true },
     y: { type: Number, min: 0, max: 1200, required: true },
