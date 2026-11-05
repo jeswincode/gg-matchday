@@ -7,6 +7,9 @@ import WorldEconomyLedger from "../models/clubs/WorldEconomyLedger.js";
 import WorldInventoryItem from "../models/clubs/WorldInventoryItem.js";
 import PlayerAvatar from "../models/clubs/PlayerAvatar.js";
 import PlayerResidence from "../models/clubs/PlayerResidence.js";
+import WorldDailyProgress from "../models/clubs/WorldDailyProgress.js";
+import WorldAchievement from "../models/clubs/WorldAchievement.js";
+import { WORLD_ACHIEVEMENTS, WORLD_ECONOMY_RULES, utcDayKey } from "../config/worldProgression.js";
 import { levelProgress } from "../config/worldProgression.js";
 
 const router = express.Router();
@@ -36,11 +39,13 @@ router.get("/", async (req, res, next) => {
   const playerId = playerIdFor(req, res);
   if (!playerId) return;
   try {
-    const [wallet, inventory, ledger, residence] = await Promise.all([
+    const [wallet, inventory, ledger, residence, daily, unlocked] = await Promise.all([
       WorldEconomy.findOne({ playerId }).lean(),
       WorldInventoryItem.find({ playerId }).sort({ acquiredAt: -1 }).lean(),
       WorldEconomyLedger.find({ playerId }).sort({ createdAt: -1 }).limit(20).lean(),
       PlayerResidence.findOne({ ownerPlayerId: playerId }).select("level").lean(),
+      WorldDailyProgress.findOne({ playerId, dayKey: utcDayKey() }).lean(),
+      WorldAchievement.find({ playerId }).lean(),
     ]);
     return res.json({
       economy: { ...(wallet || { coins: 0, xp: 0, level: 1 }), ...levelProgress(wallet?.xp || 0) },
@@ -48,6 +53,8 @@ router.get("/", async (req, res, next) => {
       inventory,
       recentTransactions: ledger,
       residence: { level: residence?.level || 1, maxLevel: 10, nextUpgradeCost: residence && residence.level < 10 ? Math.round(100 * Math.pow(residence.level + 1, 1.55)) : null },
+      dailyProgress: { xpEarned: daily?.xpEarned || 0, xpRemaining: Math.max(0, WORLD_ECONOMY_RULES.dailyXpCap - (daily?.xpEarned || 0)), coinsEarned: daily?.coinsEarned || 0, coinsRemaining: Math.max(0, WORLD_ECONOMY_RULES.dailyCoinCap - (daily?.coinsEarned || 0)), trainingXpRemaining: Math.max(0, WORLD_ECONOMY_RULES.dailyTrainingXpCap - (daily?.trainingXpEarned || 0)), trainingCoinsRemaining: Math.max(0, WORLD_ECONOMY_RULES.dailyTrainingCoinCap - (daily?.trainingCoinsEarned || 0)), resetsAt: "00:00 UTC" },
+      achievements: WORLD_ACHIEVEMENTS.map((achievement) => ({ id: achievement.id, name: achievement.name, description: achievement.description, xp: achievement.xp, coins: achievement.coins, unlocked: unlocked.some((entry) => entry.achievementId === achievement.id), unlockedAt: unlocked.find((entry) => entry.achievementId === achievement.id)?.unlockedAt || null })),
       nextLevelXp: levelProgress(wallet?.xp || 0).nextLevelXp,
     });
   } catch (error) { return next(error); }
