@@ -2434,7 +2434,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>setWorldOpen(true)}>Enter Original GG</button><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions">{isSignedIn&&<button className="secondary-button" type="button" onClick={()=>setWorldOpen(true)}>Enter Original GG</button>}<button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
