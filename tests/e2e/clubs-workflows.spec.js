@@ -48,7 +48,7 @@ function actorUrl({ role = "editor", playerId = null, id = null }) {
 
 async function loadClubs(page, actor) {
   await page.goto(actorUrl(actor));
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();

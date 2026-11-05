@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 test("Clubs operations queue drives an administrator approval and records the action", async ({ page }) => {
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 async function enterMatchday(page) {
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
 }
 
