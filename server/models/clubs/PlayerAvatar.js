@@ -3,6 +3,7 @@ import { getClubsConnection } from "../../config/clubsDatabase.js";
 
 const appearanceSchema = new mongoose.Schema({
   skinTone: { type: String, enum: ["deep", "dark", "medium", "tan", "light", "fair"], default: "medium" },
+  bodyType: { type: String, enum: ["slim", "athletic", "stocky"], default: "athletic" },
   hairStyle: { type: String, enum: ["short", "fade", "curly", "long", "afro", "mohawk", "bald"], default: "short" },
   hairColor: { type: String, enum: ["black", "brown", "blonde", "red", "silver", "blue"], default: "black" },
   kitPrimary: { type: String, enum: ["black", "white", "gold", "red", "blue", "green", "purple", "orange"], default: "black" },

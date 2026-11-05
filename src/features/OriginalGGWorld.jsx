@@ -19,14 +19,16 @@ function PlayerSprite({ appearance = {} }) {
   const skin = ({deep:"#75432f",dark:"#965c42",medium:"#c1835c",tan:"#d49a70",light:"#e5b891",fair:"#f0c9a8"})[appearance.skinTone] || "#c1835c";
   const hair = ({black:"#171717",brown:"#51301f",blonde:"#e1bd62",red:"#9d3d2e",silver:"#aaaeb9",blue:"#4167b6"})[appearance.hairColor] || "#171717";
   const kit = ({black:"#17191e",white:"#f3f1e8",gold:"#d7ad52",red:"#b6383d",blue:"#2864a2",green:"#34784f",purple:"#71499c",orange:"#c96b32"})[appearance.kitPrimary] || "#17191e";
+  const hairShape = ({bald:"",fade:"M22 23 Q24 7 40 8 Q56 7 58 23 L54 20 Q40 14 26 21Z",curly:"M22 24 Q16 12 27 10 Q30 2 39 8 Q48 2 54 12 Q64 13 57 25Z",long:"M21 22 Q22 5 40 7 Q59 5 59 25 L57 43 L51 34 L50 20 Q39 13 27 21 L26 38 L21 43Z",afro:"M19 25 Q14 7 28 8 Q36 0 44 7 Q61 3 61 22 L56 29 L24 29Z",mohawk:"M29 20 L31 5 L37 11 L42 2 L47 18 L54 21Z"})[appearance.hairStyle] ?? "M22 23 Q24 7 40 8 Q56 7 58 23 L54 20 Q40 14 26 21Z";
+  const torso = appearance.bodyType==="slim" ? "M28 39 L20 46 L24 73 L31 74 L33 59 L34 84 L47 84 L48 59 L51 74 L58 73 L60 46 L52 39 L47 36 L33 36Z" : appearance.bodyType==="stocky" ? "M20 39 L13 46 L18 76 L28 78 L29 60 L30 86 L50 86 L51 60 L52 78 L62 76 L67 46 L60 39 L50 36 L30 36Z" : "M24 39 L17 46 L21 74 L29 75 L30 60 L31 84 L50 84 L51 60 L54 75 L62 73 L64 46 L55 39 L49 36 L31 36Z";
   return <svg viewBox="0 0 80 118" className="gg-player-sprite" role="img" aria-label="Your pixel footballer">
     <ellipse cx="40" cy="112" rx="22" ry="4" fill="#07100c" opacity=".35"/>
     <path d="M31 76 L29 103 L23 110 L36 112 L42 84 L47 112 L60 110 L51 101 L50 76Z" fill={skin}/>
     <path d="M20 108 L38 108 L38 115 L19 115Z M45 108 L61 108 L65 115 L46 115Z" fill={appearance.bootColor==="gold"?"#d7ad52":appearance.bootColor==="black"?"#171717":"#f5f3eb"}/>
-    <path d="M24 39 L17 46 L21 74 L29 75 L30 60 L31 84 L50 84 L51 60 L54 75 L62 73 L64 46 L55 39 L49 36 L31 36Z" fill={kit}/>
+    <path d={torso} fill={kit}/>
     <path d="M31 39 L40 49 L49 39 L46 36 L34 36Z" fill={appearance.kitSecondary==="white"?"#f3f1e8":"#d7ad52"}/>
     <rect x="33" y="22" width="14" height="18" rx="5" fill={skin}/><ellipse cx="40" cy="21" rx="16" ry="18" fill={skin}/>
-    <path d="M22 23 Q24 7 40 8 Q56 7 58 23 L54 20 Q40 14 26 21Z" fill={hair}/>
+    {hairShape && <path d={hairShape} fill={hair}/>}
     <rect x="32" y="23" width="3" height="3" fill="#241a16"/><rect x="45" y="23" width="3" height="3" fill="#241a16"/>
     <path d="M36 32 Q40 35 44 32" fill="none" stroke="#71402f" strokeWidth="1.6"/>
   </svg>;
@@ -192,6 +194,7 @@ export default function OriginalGGWorld({ onExit }) {
       <section className="gg-world-districts"><div className="gg-world-section-title"><span>EXPLORE THE KINGDOM</span><h2>Choose your next stop</h2></div><div className="gg-world-location-grid">{mapPlaces.map((p)=><button key={p.id} className="gg-world-location-card" onClick={()=>setSelected(p.id)}><span className="gg-world-location-icon">{({hq:"♛",stadium:"⚽",training:"✦",club:"♜",home:"⌂",academy:"⚑",market:"◇",park:"♧"})[p.kind]}</span><span><strong>{p.name}</strong><small>{p.desc}</small></span><b>→</b></button>)}</div></section>
       <section className="gg-world-panel"><div className="gg-world-section-title"><span>YOUR FOOTBALL IDENTITY</span><h2>Build your player character</h2><p>A pixel footballer that represents you around the city.</p></div><div className="gg-world-avatar-card"><div className="gg-world-avatar-preview"><PlayerSprite appearance={appearance}/><strong>{avatar.displayName||"Your player"}</strong><small>ORIGINAL GG PLAYER</small></div><form className="gg-world-form" onSubmit={saveAvatar}><label>Character name<input maxLength="24" value={avatar.displayName||""} onChange={(e)=>setAvatar((v)=>({...v,displayName:e.target.value}))} placeholder="Name your footballer"/></label><div className="gg-world-select-grid">
         <label>Skin tone<select value={appearance.skinTone||"medium"} onChange={(e)=>changeAppearance("skinTone",e.target.value)}>{["deep","dark","medium","tan","light","fair"].map(v=><option key={v}>{v}</option>)}</select></label>
+        <label>Build<select value={appearance.bodyType||"athletic"} onChange={(e)=>changeAppearance("bodyType",e.target.value)}>{["slim","athletic","stocky"].map(v=><option key={v}>{v}</option>)}</select></label>
         <label>Hair style<select value={appearance.hairStyle||"short"} onChange={(e)=>changeAppearance("hairStyle",e.target.value)}>{["short","fade","curly","long","afro","mohawk","bald"].map(v=><option key={v}>{v}</option>)}</select></label>
         <label>Hair colour<select value={appearance.hairColor||"black"} onChange={(e)=>changeAppearance("hairColor",e.target.value)}>{["black","brown","blonde","red","silver","blue"].map(v=><option key={v}>{v}</option>)}</select></label>
         <label>Kit colour<select value={appearance.kitPrimary||"black"} onChange={(e)=>changeAppearance("kitPrimary",e.target.value)}>{["black","white","gold","red","blue","green","purple","orange"].map(v=><option key={v}>{v}</option>)}</select></label>

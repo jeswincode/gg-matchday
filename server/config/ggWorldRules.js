@@ -36,6 +36,7 @@ export const DEFAULT_WORLD_LAYOUT = Object.freeze({
 });
 
 const HAIR_STYLES = new Set(["short", "fade", "curly", "long", "afro", "mohawk", "bald"]);
+const BODY_TYPES = new Set(["slim", "athletic", "stocky"]);
 const HAIR_COLORS = new Set(["black", "brown", "blonde", "red", "silver", "blue"]);
 const SKIN_TONES = new Set(["deep", "dark", "medium", "tan", "light", "fair"]);
 const KIT_COLORS = new Set(["black", "white", "gold", "red", "blue", "green", "purple", "orange"]);
@@ -54,6 +55,7 @@ export function normalizeAvatarPayload(input = {}) {
     displayName,
     appearance: {
       skinTone: enumValue(input.appearance?.skinTone, SKIN_TONES, "medium"),
+      bodyType: enumValue(input.appearance?.bodyType, BODY_TYPES, "athletic"),
       hairStyle: enumValue(input.appearance?.hairStyle, HAIR_STYLES, "short"),
       hairColor: enumValue(input.appearance?.hairColor, HAIR_COLORS, "black"),
       kitPrimary: enumValue(input.appearance?.kitPrimary, KIT_COLORS, "black"),

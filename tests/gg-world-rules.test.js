@@ -23,11 +23,12 @@ test("Original GG map blueprint has stable dimensions and unique locations", () 
 test("avatar customisation accepts supported values and normalizes unknown choices", () => {
   const avatar = normalizeAvatarPayload({
     displayName: "  Jeswin   Jr ",
-    appearance: { hairStyle: "afro", skinTone: "tan", kitPrimary: "purple", hairColor: "neon" },
+    appearance: { hairStyle: "afro", skinTone: "tan", bodyType: "stocky", kitPrimary: "purple", hairColor: "neon" },
   });
   assert.equal(avatar.displayName, "Jeswin Jr");
   assert.equal(avatar.appearance.hairStyle, "afro");
   assert.equal(avatar.appearance.skinTone, "tan");
+  assert.equal(avatar.appearance.bodyType, "stocky");
   assert.equal(avatar.appearance.kitPrimary, "purple");
   assert.equal(avatar.appearance.hairColor, "black");
 });
