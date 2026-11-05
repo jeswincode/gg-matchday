@@ -59,7 +59,7 @@ export default function WorldEconomyPanel({ onEquipped }) {
   const collections=[...new Set((data?.catalog||[]).map((item)=>item.collection).filter(Boolean))];
   const visibleItems=(data?.catalog||[]).filter((item)=>(category==="all"||item.category===category)&&(collection==="all"||item.collection===collection)&&(!search.trim()||(item.name+" "+item.description).toLowerCase().includes(search.trim().toLowerCase()))).sort((a,b)=>(a.sortOrder||0)-(b.sortOrder||0));
   return <section className="gg-world-panel gg-economy-panel">
-    <div className="gg-world-section-title"><span>YOUR ORIGINAL GG PROGRESSION</span><h2>GG Coins & experience</h2><p>Earn XP by completing your welcome tour, logging training and unlocking milestones. Spend earned coins on character cosmetics.</p></div>
+    <div className="gg-world-section-title"><span>YOUR ORIGINAL GG PROGRESSION</span><h2>GG Coins & experience</h2><p>Earn XP by completing your welcome tour, logging training and unlocking milestones. Spend earned coins on character cosmetics, home furniture and residence upgrades.</p></div>
     {loading ? <p className="gg-world-loading">Loading your wallet…</p> : <>
       <div className="gg-economy-summary">
         <article><span>GG COINS</span><strong>◈ {wallet.coins.toLocaleString()}</strong><small>Earned in Original GG</small></article>
@@ -68,11 +68,11 @@ export default function WorldEconomyPanel({ onEquipped }) {
       </div>
       <div className="gg-economy-daily"><span>DAILY REWARD LIMITS · RESETS AT 00:00 UTC</span><div><small>XP remaining today</small><strong>{data?.dailyProgress?.xpRemaining ?? 250} / 250</strong></div><div><small>Coins remaining today</small><strong>{data?.dailyProgress?.coinsRemaining ?? 120} / 120</strong></div></div>
       <div className="gg-economy-progress" role="progressbar" aria-label="Experience progress to next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(wallet.progressPercent||0)}><span style={{width:(wallet.progressPercent||0)+"%"}}/></div>
-      <div className="gg-economy-section-heading"><div><span>THE MARKET SQUARE</span><h3>Cosmetics catalogue</h3></div><small>Earned currency only · no real-money purchases</small></div>
+      <div className="gg-economy-section-heading"><div><span>THE MARKET SQUARE</span><h3>Market catalogue</h3></div><small>Earned currency only · no real-money purchases</small></div>
       <div className="gg-economy-furnish-tools"><div><span>MAKE IT YOURS</span><strong>Home furnishing</strong><small>Buy furniture in the Market, then place it in one of your rooms.</small></div><label>Choose a room<select value={selectedRoom} onChange={(event)=>setSelectedRoom(event.target.value)}>{(data?.residence?.rooms||[]).map((room)=><option key={room.id} value={room.id}>{room.name}</option>)}</select></label></div>
       <div className="gg-economy-home-upgrade"><div><span>YOUR RESIDENCE</span><strong>Home level {data?.residence?.level||1} / {data?.residence?.maxLevel||10}</strong><small>Next home level requires player level {(data?.residence?.level||1)+1}.</small></div><button type="button" className="gg-world-primary" disabled={Boolean(busy)||!data?.residence?.nextUpgradeCost||wallet.coins<data.residence.nextUpgradeCost||wallet.level<(data?.residence?.level||1)+1} onClick={upgradeHome}>{busy==="home"?"Upgrading…":data?.residence?.nextUpgradeCost?"Upgrade · ◈ "+data.residence.nextUpgradeCost:"Max level"}</button></div>
       <div className="gg-market-tools">
-        <label className="gg-market-search">Find an item<input type="search" value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search cosmetics…"/></label>
+        <label className="gg-market-search">Find an item<input type="search" value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search the market…"/></label>
         <label className="gg-market-collection">Collection<select value={collection} onChange={(event)=>setCollection(event.target.value)}><option value="all">All collections</option>{collections.map((entry)=><option key={entry} value={entry}>{entry.replaceAll("-"," ")}</option>)}</select></label>
       </div>
       <div className="gg-market-categories"><button type="button" className={category==="all"?"is-active":""} onClick={()=>setCategory("all")}>All items</button>{WORLD_COSMETIC_CATEGORIES.map((entry)=><button type="button" key={entry.id} className={category===entry.id?"is-active":""} onClick={()=>setCategory(entry.id)}>{entry.label}</button>)}</div>
