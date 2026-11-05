@@ -71,7 +71,19 @@ export default function OriginalGGWorld({ onExit }) {
     } catch (cause) { setError(cause.message || "The city could not load."); }
     finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    api("/world/bootstrap").then((result) => {
+      if (cancelled) return;
+      setData(result);
+      if (result.avatar) setAvatar(result.avatar);
+    }).catch((cause) => {
+      if (!cancelled) setError(cause.message || "The city could not load.");
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
   const hasAvatar = Boolean(data?.avatar);
   useEffect(() => {
     if (!hasAvatar) return;
