@@ -6,10 +6,21 @@ const DEVELOPMENT_ORIGINS = new Set([
   "http://127.0.0.1:4173",
 ]);
 
+function configuredOrigins(...keys) {
+  return keys.flatMap(key => String(process.env[key] || "").split(","))
+    .map(value => value.trim())
+    .filter(Boolean);
+}
+
 export function isAllowedCorsOrigin(origin, nodeEnv = process.env.NODE_ENV) {
   if (!origin) return false;
-  if (nodeEnv === "production") return PRODUCTION_ORIGINS.has(origin);
-  const configured = String(process.env.CORS_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean);
+  if (nodeEnv === "production") {
+    // The production API keeps its original single-origin allowlist. A
+    // separate preview API may opt into exact V4 frontend origins.
+    const v4PreviewOrigins = configuredOrigins("V4_PREVIEW_CORS_ORIGINS");
+    return PRODUCTION_ORIGINS.has(origin) || v4PreviewOrigins.includes(origin);
+  }
+  const configured = configuredOrigins("CORS_ORIGINS", "V4_PREVIEW_CORS_ORIGINS");
   return PRODUCTION_ORIGINS.has(origin) || DEVELOPMENT_ORIGINS.has(origin) || configured.includes(origin);
 }
 
