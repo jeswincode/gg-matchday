@@ -538,11 +538,18 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
       }
     }
   }
-  async function saveAvatar(event) {
-    event.preventDefault(); setSaving(true); setNotice("");
-    try { =await api("/world/club-grounds/"+place.clubId+"/interior"); setInterior(result.interior); setActiveLocationId("club-"+place.clubId); setSelected(null); }
-    catch(error){setNotice(error.message||"Only club members can enter this ground.");}
-    finally{setInteriorLoading(false);}
+  async function openClubGround(place) {
+    setInteriorLoading(true);setNotice("");
+    try {
+      const result=await api("/world/club-grounds/"+place.clubId+"/interior");
+      setInterior(result.interior);
+      setActiveLocationId("club-"+place.clubId);
+      setSelected(null);
+    } catch(error) {
+      setNotice(error.message||"Only club members can enter this ground.");
+    } finally {
+      setInteriorLoading(false);
+    }
   }
   async function openWorldInterior(place) {
     setInteriorLoading(true);setNotice("");
