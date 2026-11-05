@@ -5,7 +5,8 @@
 - Development branch: v4/development.
 - Baseline: restored V3 main branch at c78e25c.
 - Production main and the current Render production service have not been changed by V4 work.
-- Vercel creates branch preview builds for v4/development. The Express API remains on the production branch, so a complete browser end-to-end preview still requires a separate safe V4 API deployment/configuration.
+- Vercel branch previews are isolated from the Render production API. The Express API remains on the production branch, so a complete browser end-to-end preview still requires a separate safe V4 API deployment/configuration.
+- The V4 JSX build error in `src/features/WorldSocialPanel.jsx` was corrected on the branch. The follow-up Vercel deployment/check is currently blocked by the Hobby plan deployment API rate limit; the previous READY preview is from an older commit and does not validate the latest V4 head.
 - No V4 data collections have been seeded in the production Clubs database by this implementation work.
 
 ## Existing database boundary
@@ -37,11 +38,13 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 - Linked players receive a private residence record on first Original GG entry. Its exterior is visible in the shared city; the interior endpoint allows the owner only unless privacy is explicitly made public.
 - HQ, stadium, training centre, academy, market and park room layouts are stored in the versioned world map document. Residence rooms are stored in the player's residence document.
 - Human footballer sprites are rendered using the procedural pixel drawing primitives reused from Leaflet BookReader's Pip engine. The player artwork is original GG Matchday art, not Pip's plant character.
+- Original GG now has four-way player facing (front/back/left/right), a frame-based walking cycle, idle fidgets, cheer/celebration poses and wave, high-five, cheer and dance gestures. Realtime interaction events animate the sender and recipient for connected clients; the last facing direction is validated and included in world-presence updates. Animation profiles and presence direction have unit coverage in `tests/characterAnimation.test.js`.
 - Avatar fields include skin tone, body type, modular hairstyles, hair colours, kit colours, boots and headwear. The shared option catalogue separates free options from shop-unlocked options; the API checks ownership before saving paid looks.
 - The avatar studio now supports up to five named saved appearance presets. Applying a preset revalidates cosmetic ownership.
 - The Market also sells home furniture. Owners can place purchased furniture into compatible residence rooms; inventory consumption, room updates and a furnishing ledger entry are committed transactionally.
 - Player movement is persisted through presence heartbeats. Other active players are rendered as clickable pixel characters; presence refreshes periodically.
 - Training supports push-up, pull-up, squat and plank-hold counters, session duration, lifetime totals and personal bests. Sessions have unique idempotency keys and are validated server-side.
+- The Training Centre also includes a Ball Control Challenge: each run receives a server seed, directional inputs are sequenced and queued, the server deterministically replays the run before accepting a score, repeat attempts are hourly-limited and verified best times feed a city leaderboard. This is the first playable version; balance, accessibility and anti-abuse tuning still need playtesting.
 - XP progression is server-owned with a 100-level nonlinear threshold curve, progress-to-next-level fields, a 250 XP / 120 coin global UTC daily cap, and lower dedicated training reward caps (150 XP / 70 coins).
 - Reward sources include the one-time Original GG tutorial (40 XP / 20 coins), capped training-session rewards based on bounded server-validated session data, one-time training achievements, and capped level-up coin bonuses.
 - Market items are data-driven in `shared/worldCustomization.js` (`WORLD_MARKET_CATALOG`): categories, appearance slots, collections, rarity, sort order, server-owned prices and level gates. The shop supports search, category and collection filters; adding new items does not require rewriting purchase routes.
@@ -69,11 +72,11 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 2. Build detailed, bespoke isometric tile/building art and true 2D room scenes; current landmark rooms are structured and navigable previews.
 3. Build full HQ social spaces: realtime in-world chat, notifications, player-to-player interactions, moderation and presence safeguards.
 4. Build club-ground ownership controls, club-specific interiors, residence visitor permissions and broader furnishing sets.
-5. Build the training mini-game, anti-cheat scoring and leaderboard.
+5. Playtest and tune the Ball Control Challenge, including difficulty progression, mobile controls, replay edge cases, leaderboard abuse monitoring and score-validation coverage.
 6. Extend the economy with broader furnishing collections, plot and club-ground upgrade sinks, reward tuning from playtest data, seasonal catalogues and abuse monitoring. The initial server-authoritative XP/coin wallet, ledger, capped training rewards, achievements, data-driven cosmetics catalogue/equipping, avatar presets and player-home upgrades are implemented on the V4 branch. Do not add real-money purchases in the initial release.
-7. Add character movement/idle/throw/swirl animations and companion presence across the existing Matchday pages.
+7. Extend the new Original GG movement, directional sprites and interaction animations into the other Matchday pages; add context-aware idle activities and celebration triggers there as well.
 8. Complete mobile/accessibility/performance QA, add route/API tests, and run V3 regression checks before any production promotion.
 
 ## Validation
 
-The GitHub validation workflow is enabled on v4/development. It runs lint, unit tests, build, bundle checks, server syntax checks, E2E tests and the isolated encrypted MongoDB restore smoke test. A preview build being READY is not equivalent to an end-to-end API-backed release.
+The GitHub validation workflow is enabled on v4/development. It runs lint, unit tests, build, bundle checks, server syntax checks, E2E tests and the isolated encrypted MongoDB restore smoke test. The latest Vercel status currently reports the deployment rate limit, so the new code has not yet been confirmed by a fresh V4 preview build. A preview build being READY is not equivalent to an end-to-end API-backed release.
