@@ -398,6 +398,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
         const granted = result.reward;
         setNotice("Welcome to Original GG! +" + (granted.claim?.xpGranted || 0) + " XP and +" + (granted.claim?.coinsGranted || 0) + " GG Coins.");
       } else setNotice("Your Original GG welcome tour is complete.");
+      window.dispatchEvent(new Event("gg-data-changed"));
     } catch (cause) {
       setNotice(cause.message || "Could not save tutorial progress.");
       return;
@@ -410,7 +411,7 @@ export default function OriginalGGWorld({ onExit, onProfile, onOpenChat }) {
       const counts=Object.fromEntries(exercises.map(([key])=>[key,Number(training[key]||0)]));
       const result=await api("/world/training/sessions",{method:"POST",body:{sessionId:crypto.randomUUID(),counts,durationSeconds:Number(duration)}});
       setData((v)=>({...v,training:result.profile}));
-      setTraining(emptyTraining); const xp=result.reward?.claim?.xpGranted||0; const coins=result.reward?.claim?.coinsGranted||0; const unlocked=(result.achievements||[]).map((item)=>item.name); setNotice("Workout saved · +"+xp+" XP · +"+coins+" GG Coins"+(unlocked.length?" · Achievement unlocked: "+unlocked.join(", "):""));
+      setTraining(emptyTraining); const xp=result.reward?.claim?.xpGranted||0; const coins=result.reward?.claim?.coinsGranted||0; const unlocked=(result.achievements||[]).map((item)=>item.name); setNotice("Workout saved · +"+xp+" XP · +"+coins+" GG Coins"+(result.reward?.levelUps?" · Level up!":"")+(unlocked.length?" · Achievement unlocked: "+unlocked.join(", "):"")); window.dispatchEvent(new Event("gg-data-changed"));
     } catch(cause){setNotice(cause.message||"Could not save workout.");}
     finally{setSaving(false);}
   }
