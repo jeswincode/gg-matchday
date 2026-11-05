@@ -113,6 +113,14 @@ router.get("/bootstrap", async (req, res, next) => {
         y: 1010 + Math.floor(index / 4) * 90,
         level: 1,
         accessPolicy: "public-exterior-private-interior",
+        layout: {
+          rooms: [
+            { id: "clubhouse", name: "Clubhouse", description: "The meeting point for club members and supporters.", theme: "clubhouse", items: ["club-banner", "meeting-table", "member-board"] },
+            { id: "club-trophy-room", name: "Trophy Room", description: "A place to display club achievements and memorable seasons.", theme: "gold", items: ["trophy-cabinet", "medal-wall", "season-records"] },
+            { id: "tactics-room", name: "Tactics Room", description: "Plan line-ups, formations and the next big club challenge.", theme: "dark-wood", items: ["tactics-board", "formation-screen", "team-sheet"] },
+            { id: "locker-room", name: "Locker Room", description: "A changing space for the players who represent this club.", theme: "training", items: ["player-lockers", "kit-rack", "club-colours"] },
+          ],
+        },
       } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     ).lean()));
@@ -280,6 +288,32 @@ router.post("/training/sessions", async (req, res, next) => {
   } catch (error) {
     if (error instanceof TypeError) return res.status(400).json({ message: error.message });
     if (error?.code === 11000) return res.status(409).json({ message: "This workout session has already been recorded." });
+    return next(error);
+  }
+});
+
+router.get("/club-grounds/:clubId/interior", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.clubId)) return res.status(400).json({ message: "Invalid club ground." });
+  try {
+    const [club, ground] = await Promise.all([
+      Club.findById(req.params.clubId).select("memberIds").lean(),
+      ClubGround.findOne({ clubId: req.params.clubId }).lean(),
+    ]);
+    if (!club || !ground) return res.status(404).json({ message: "This club ground is not available." });
+    const isMember = (club.memberIds || []).some((memberId) => String(memberId) === String(playerId));
+    if (!isMember) return res.status(403).json({ message: "Only members of this club can enter its ground interior." });
+    return res.json({
+      interior: {
+        type: "club",
+        name: ground.name,
+        level: ground.level,
+        interior: ground.layout || { rooms: [] },
+      },
+    });
+  } catch (error) {
     return next(error);
   }
 });
