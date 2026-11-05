@@ -19,6 +19,12 @@ export default function WorldEconomyPanel() {
     catch(error) { setMessage(error.message || "Could not equip this cosmetic."); }
     finally { setBusy(""); }
   }
+  async function upgradeHome() {
+    setBusy("home");setMessage("");
+    try { const result=await api("/world/economy/residence-upgrade",{method:"POST",body:{}}); await load(); setMessage("Your home is now level "+result.residence.level+"."); }
+    catch(error) { setMessage(error.message || "Your home could not be upgraded."); }
+    finally { setBusy(""); }
+  }
   async function purchase(item) {
     setBusy(item.id);setMessage("");
     try {
@@ -39,6 +45,7 @@ export default function WorldEconomyPanel() {
       </div>
       <div className="gg-economy-progress" role="progressbar" aria-label="Experience progress to next level" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(wallet.progressPercent||0)}><span style={{width:(wallet.progressPercent||0)+"%"}}/></div>
       <div className="gg-economy-section-heading"><div><span>THE MARKET SQUARE</span><h3>Cosmetics catalogue</h3></div><small>Earned currency only · no real-money purchases</small></div>
+      <div className="gg-economy-home-upgrade"><div><span>YOUR RESIDENCE</span><strong>Home level {data?.residence?.level||1} / {data?.residence?.maxLevel||10}</strong><small>Upgrade your home as your Original GG story grows.</small></div><button type="button" className="gg-world-primary" disabled={Boolean(busy)||!data?.residence?.nextUpgradeCost||wallet.coins<data.residence.nextUpgradeCost} onClick={upgradeHome}>{busy==="home"?"Upgrading…":data?.residence?.nextUpgradeCost?"Upgrade · ◈ "+data.residence.nextUpgradeCost:"Max level"}</button></div>
       <div className="gg-economy-catalog">{(data?.catalog||[]).map(item=>{
         const owned=(data?.inventory||[]).find(entry=>entry.itemId===item.id);
         return <article key={item.id}><div><span>{item.rarity.toUpperCase()} · {item.category.toUpperCase()}</span><h4>{item.name}</h4><p>{item.description}</p></div><footer><strong>◈ {item.price}</strong>{owned && <button type="button" className="gg-world-primary" disabled={Boolean(busy)} onClick={()=>equip(item)}>{busy==="equip:"+item.id?"Equipping…":owned.equipped?"Equipped":"Equip"}</button>}<button type="button" className="gg-world-primary" disabled={Boolean(busy)||wallet.coins<item.price} onClick={()=>purchase(item)}>{busy===item.id?"Buying…":owned?"Buy another":"Purchase"}</button></footer></article>;
