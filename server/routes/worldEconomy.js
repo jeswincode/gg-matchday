@@ -11,15 +11,12 @@ import WorldDailyProgress from "../models/clubs/WorldDailyProgress.js";
 import WorldAchievement from "../models/clubs/WorldAchievement.js";
 import { WORLD_ACHIEVEMENTS, WORLD_ECONOMY_RULES, utcDayKey } from "../config/worldProgression.js";
 import { levelProgress } from "../config/worldProgression.js";
+import { WORLD_COSMETIC_CATALOG, WORLD_COSMETIC_CATEGORIES, getWorldCosmetic } from "../../shared/worldCustomization.js";
 
 const router = express.Router();
 router.use(requireAuth);
 
-const CATALOG = Object.freeze([
-  { id: "boots-gold", name: "Golden Boots", category: "boots", price: 120, minLevel: 2, description: "A bright pair of matchday boots.", rarity: "rare" },
-  { id: "kit-neon", name: "Neon Training Kit", category: "kit", price: 180, minLevel: 3, description: "A vivid training look.", rarity: "rare" },
-  { id: "hair-silver", name: "Silver Hair", category: "hair", price: 90, minLevel: 1, description: "A cool silver hairstyle colour.", rarity: "common" },
-]);
+const CATALOG = WORLD_COSMETIC_CATALOG;
 
 function playerIdFor(req, res) {
   const id = req.user?.playerProfile;
@@ -31,7 +28,7 @@ function playerIdFor(req, res) {
 }
 
 function publicItem(item) {
-  return { id: item.id, name: item.name, category: item.category, price: item.price, minLevel: item.minLevel || 1, description: item.description, rarity: item.rarity };
+  return { id: item.id, name: item.name, category: item.category, slot: item.slot, price: item.price, minLevel: item.minLevel || 1, description: item.description, rarity: item.rarity, collection: item.collection, sortOrder: item.sortOrder };
 }
 
 router.get("/", async (req, res, next) => {
@@ -50,6 +47,7 @@ router.get("/", async (req, res, next) => {
     return res.json({
       economy: { ...(wallet || { coins: 0, xp: 0, level: 1 }), ...levelProgress(wallet?.xp || 0) },
       catalog: CATALOG.map(publicItem),
+      categories: WORLD_COSMETIC_CATEGORIES,
       inventory,
       recentTransactions: ledger,
       residence: { level: residence?.level || 1, maxLevel: 10, nextUpgradeCost: residence && residence.level < 10 ? Math.round(100 * Math.pow(residence.level + 1, 1.55)) : null },
@@ -145,10 +143,7 @@ router.post("/equip", async (req, res, next) => {
   const itemId = String(req.body?.itemId || "").trim();
   const item = CATALOG.find((entry) => entry.id === itemId);
   if (!item) return res.status(404).json({ message: "That cosmetic is not available." });
-  const appearancePatch = itemId === "boots-gold" ? { bootColor: "gold" }
-    : itemId === "kit-neon" ? { kitPrimary: "green", kitSecondary: "gold" }
-    : itemId === "hair-silver" ? { hairColor: "silver" } : null;
-  if (!appearancePatch) return res.status(400).json({ message: "This item cannot be equipped yet." });
+  const appearancePatch = item.appearancePatch;
   const session = await getClubsConnection().startSession();
   try {
     let avatar;
@@ -159,12 +154,12 @@ router.post("/equip", async (req, res, next) => {
         error.status = 409;
         throw error;
       }
-      await WorldInventoryItem.updateMany({ playerId, itemId: { $in: CATALOG.filter((entry) => entry.category === item.category).map((entry) => entry.id) } }, { $set: { equipped: false } }, { session });
+      await WorldInventoryItem.updateMany({ playerId, itemId: { $in: CATALOG.filter((entry) => entry.slot === item.slot).map((entry) => entry.id) } }, { $set: { equipped: false } }, { session });
       owned.equipped = true;
       await owned.save({ session });
       avatar = await PlayerAvatar.findOneAndUpdate(
         { playerId },
-        { $set: Object.fromEntries(Object.entries(appearancePatch).map(([key, value]) => ["appearance."+key, value])) },
+        { $set: Object.fromEntries(Object.entries(appearancePatch).map(([key, value]) => ["appearance."+key, value])), $addToSet: { equippedCosmetics: item.id } },
         { new: true, upsert: true, setDefaultsOnInsert: true, session, runValidators: true },
       ).lean();
     });
