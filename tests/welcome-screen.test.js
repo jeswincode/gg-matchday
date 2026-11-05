@@ -14,9 +14,9 @@ test("Welcome screen is a coded Matchday entry experience with accessible keyboa
   assert.ok(component.includes("onClick={onEnter}"));
   assert.ok(component.includes('window.addEventListener("keydown", handleGlobalEnter)'));
   assert.ok(component.includes('event.key !== "Enter"'));
-  assert.ok(component.includes("THE ARCHIVE"));
-  assert.ok(component.includes("THE PLAYERS"));
-  assert.ok(component.includes("THE CLUBS"));
+  assert.ok(component.includes("THE CITY"));
+  assert.ok(component.includes("YOUR PLAYER"));
+  assert.ok(component.includes("YOUR CLUB"));
   assert.ok(component.includes("YOUR V3 HISTORY STAYS WITH YOU"));
   assert.ok(!component.includes("enter-matchday.png"));
   assert.ok(!component.includes("gg-welcome-image-button"));
