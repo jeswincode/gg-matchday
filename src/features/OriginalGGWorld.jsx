@@ -211,7 +211,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     drawFrame();
     return () => { motionQuery?.removeEventListener?.("change",onMotionPreferenceChange); if(animationFrame!==null) window.cancelAnimationFrame(animationFrame); };
   },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,safeMotion,safeDirection,animated,pose]);
-  return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer facing "+safeDirection+", "+safeMotion}/>;
+  return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer "+(pose==="seated"?"seated":"standing")+", facing "+safeDirection+", "+safeMotion}/>;
 }
 function RoomTabs({rooms=[],activeIndex=0,onSelect}) {
   if(rooms.length<2)return null;
