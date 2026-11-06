@@ -499,3 +499,7 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 .gg-companion.is-perched .gg-companion-ring{border-color:#e8cb83;box-shadow:0 0 24px #dfbd7044}
 .gg-companion.is-perched:after{content:"";position:absolute;z-index:-1;left:8px;right:8px;bottom:17px;height:7px;border-radius:50%;background:#d9b86a55;filter:blur(4px)}
 .gg-companion.is-perched .gg-companion-hint{color:#f0d28d}
+
+
+.gg-room-feature-motto{color:#e6ca87;font-size:8px;font-weight:950;letter-spacing:.13em;white-space:nowrap;text-shadow:0 1px 5px #0008}
+@media(max-width:760px){.gg-room-feature-motto{font-size:7px;letter-spacing:.08em;white-space:normal}}
