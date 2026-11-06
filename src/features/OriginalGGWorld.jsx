@@ -733,7 +733,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
   },[]);
   const appearance = avatar.appearance || {};
   const residenceMarkers = [...(data?.residences || []), ...(data?.residence ? [data.residence] : [])].filter((home,index,all)=>all.findIndex((item)=>item.ownerPlayerId===home.ownerPlayerId)===index).map((home)=>({...home,id:"home-"+home.ownerPlayerId,kind:"residence",description:home.ownerPlayerId===data.playerId?"Your home · manage visitors":home.privacy==="public"?"Public player home · open to visitors":"Invited player home"}));
-  const mapPlaces = [...(data?.world?.layout?.locations?.length ? data.world.layout.locations : places), ...(data?.clubGrounds || []), ...(data?.plots || []).filter((plot)=>plot.status!=="owned"), ...residenceMarkers].map((p)=>({...p,kind:({headquarters:"hq","club-district":"club",residences:"home","club-ground":"club",residence:"home",plot:"plot"}[p.kind]||p.kind),desc:p.desc||p.description||(p.accessPolicy ? "Club ground · level "+p.level : "")}));
+  const mapPlaces = [...(data?.world?.layout?.locations?.length ? data.world.layout.locations : places), ...(data?.clubGrounds || []), ...residenceMarkers].map((p)=>({...p,kind:({headquarters:"hq","club-district":"club",residences:"home","club-ground":"club",residence:"home"}[p.kind]||p.kind),desc:p.desc||p.description||(p.accessPolicy ? "Club ground · level "+p.level : "")}));
   const selectedPlace = mapPlaces.find((p)=>p.id===selected);
   function startPan(event) {
     if (event.button!==undefined && event.button!==0) return;
@@ -845,29 +845,6 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     }
     setTutorialClosed(true);
   }
-  async function claimResidentialPlot(place) {
-    if (!data?.canCreateCharacter) {
-      setNotice("Link your GG player profile before building a residence.");
-      return;
-    }
-    if (place.category !== "residential" || place.status !== "available") {
-      setNotice("This plot is not currently available for a player residence.");
-      return;
-    }
-    setInteriorLoading(true);
-    setNotice("");
-    try {
-      const result = await api("/world/plots/" + encodeURIComponent(place.id) + "/claim", { method: "POST" });
-      setSelected(null);
-      await load();
-      walkPlayerTo({ x: result.residence?.x ?? place.x, y: (result.residence?.y ?? place.y) + 70 });
-      setNotice(result.duplicate ? "Your residence is already built on this plot." : "Your residence is built. Welcome home!");
-    } catch (cause) {
-      setNotice(cause.message || "This residence plot could not be claimed.");
-    } finally {
-      setInteriorLoading(false);
-    }
-  }
   async function saveWorkout(event) {
     event.preventDefault(); setSaving(true); setNotice("");
     try {
@@ -958,8 +935,6 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     } else if(place.kind==="club"){
       setActiveLocationId(place.id);
       setActiveFacilityRoom(0);setFacility("clubs");
-    } else if(place.kind==="plot"){
-      setSelected(place.id);
     } else if(place.interior){
       openWorldInterior(place);
     } else {
@@ -1123,7 +1098,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
       </div>}
       {notice && <p className="gg-world-notice" role="status">{notice}</p>}
     </>}
-    {selectedPlace && <div className="gg-world-modal-backdrop" onClick={()=>setSelected(null)}><section className="gg-world-building-modal" role="dialog" aria-modal="true" onClick={(e)=>e.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelected(null)} aria-label="Close">×</button><span>ORIGINAL GG LANDMARK</span><div className="gg-world-modal-art"><Building kind={selectedPlace.kind}/></div><h2>{selectedPlace.name}</h2><p>{selectedPlace.desc}</p>{selectedPlace.id.startsWith("home-") ? selectedPlace.ownerPlayerId===data.playerId ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openResidence(selectedPlace)}>{interiorLoading?"Opening home…":"Enter your home"}</button><button type="button" className="gg-world-interior-secondary" onClick={()=>setResidenceAccessOpen(true)}>Manage visitors & privacy</button></> : <button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openResidence(selectedPlace)}>{interiorLoading?"Checking visitor access…":"Visit this home"}</button> : selectedPlace.kind==="plot" ? selectedPlace.category==="residential" && selectedPlace.status==="available" ? <><p className="gg-world-coming">This empty plot is ready for your player home. Claim it to place your residence here, then enter the home to explore its rooms and furnish it from Market Square.</p><button type="button" className="gg-world-primary" disabled={interiorLoading || !data.canCreateCharacter} onClick={()=>claimResidentialPlot(selectedPlace)}>{interiorLoading?"Building your home…":data.canCreateCharacter?"Build my residence":"Link your GG player profile first"}</button></> : <p className="gg-world-coming">{selectedPlace.status==="owned"?"This residence plot already has an owner.": "Planned "+selectedPlace.category+" plot · "+selectedPlace.desc}</p> : selectedPlace.clubId ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openClubGround(selectedPlace)}>{interiorLoading?"Checking club access…":"Enter club ground"}</button>{selectedPlace.isCaptain&&<ClubGroundManagementPanel ground={selectedPlace} onUpdated={(updated)=>setData((current)=>({...current,clubGrounds:(current.clubGrounds||[]).map((item)=>item.clubId===selectedPlace.clubId?({...item,...updated}):item)}))}/>}</> : selectedPlace.interior ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openWorldInterior(selectedPlace)}>{interiorLoading?"Opening building…":"Enter "+selectedPlace.name}</button>{selectedPlace.kind==="training" && <button className="gg-world-interior-secondary" onClick={()=>{setSelected(null);document.querySelector(".gg-world-training-form")?.scrollIntoView({behavior:"smooth"});}}>Jump to workout counters</button>}</> : <p className="gg-world-coming">This landmark will receive its own interactive interior in a later build.</p>}</section></div>}
+    {selectedPlace && <div className="gg-world-modal-backdrop" onClick={()=>setSelected(null)}><section className="gg-world-building-modal" role="dialog" aria-modal="true" onClick={(e)=>e.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelected(null)} aria-label="Close">×</button><span>ORIGINAL GG LANDMARK</span><div className="gg-world-modal-art"><Building kind={selectedPlace.kind}/></div><h2>{selectedPlace.name}</h2><p>{selectedPlace.desc}</p>{selectedPlace.id.startsWith("home-") ? selectedPlace.ownerPlayerId===data.playerId ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openResidence(selectedPlace)}>{interiorLoading?"Opening home…":"Enter your home"}</button><button type="button" className="gg-world-interior-secondary" onClick={()=>setResidenceAccessOpen(true)}>Manage visitors & privacy</button></> : <button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openResidence(selectedPlace)}>{interiorLoading?"Checking visitor access…":"Visit this home"}</button> : selectedPlace.clubId ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openClubGround(selectedPlace)}>{interiorLoading?"Checking club access…":"Enter club ground"}</button>{selectedPlace.isCaptain&&<ClubGroundManagementPanel ground={selectedPlace} onUpdated={(updated)=>setData((current)=>({...current,clubGrounds:(current.clubGrounds||[]).map((item)=>item.clubId===selectedPlace.clubId?({...item,...updated}):item)}))}/>}</> : selectedPlace.interior ? <><button className="gg-world-primary" disabled={interiorLoading} onClick={()=>openWorldInterior(selectedPlace)}>{interiorLoading?"Opening building…":"Enter "+selectedPlace.name}</button>{selectedPlace.kind==="training" && <button className="gg-world-interior-secondary" onClick={()=>{setSelected(null);document.querySelector(".gg-world-training-form")?.scrollIntoView({behavior:"smooth"});}}>Jump to workout counters</button>}</> : <p className="gg-world-coming">This landmark will receive its own interactive interior in a later build.</p>}</section></div>}
     {residenceAccessOpen&&<ResidenceAccessPanel onClose={()=>setResidenceAccessOpen(false)}/>}
     {selectedPlayer && <div className="gg-world-modal-backdrop" onClick={()=>setSelectedPlayer(null)}><section className="gg-world-player-card" role="dialog" aria-modal="true" onClick={(event)=>event.stopPropagation()}><button className="gg-world-modal-close" onClick={()=>setSelectedPlayer(null)} aria-label="Close player card">×</button><div className="gg-world-player-card-avatar"><PlayerSprite appearance={selectedPlayer.appearance||{}}/></div><span>LIVE IN ORIGINAL GG</span><h2>{selectedPlayer.displayName}</h2><p>Currently exploring the football city.</p><div className="gg-player-interactions"><button type="button" onClick={()=>sendCharacterInteraction("wave")}>👋 Wave</button><button type="button" onClick={()=>sendCharacterInteraction("high-five")}>✋ High-five</button><button type="button" onClick={()=>sendCharacterInteraction("cheer")}>🙌 Cheer</button><button type="button" onClick={()=>sendCharacterInteraction("dance")}>🕺 Dance</button></div><small>Character interactions are delivered live to this player.</small></section></div>}
     {interior && <div className="gg-world-facility-overlay gg-world-room-experience" role="dialog" aria-modal="true" aria-labelledby="gg-world-interior-title">

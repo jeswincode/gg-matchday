@@ -24,6 +24,7 @@ const userSchema =
         lowercase: true,
         trim: true,
       },
+      emailVerified: { type: Boolean, default: false },
 
       profileImage: {
         type: String,

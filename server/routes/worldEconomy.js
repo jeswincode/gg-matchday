@@ -1,6 +1,6 @@
 import express from "express";
 import mongoose from "mongoose";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireOriginalGGAccess } from "../middleware/auth.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import WorldEconomy from "../models/clubs/WorldEconomy.js";
 import WorldEconomyLedger from "../models/clubs/WorldEconomyLedger.js";
@@ -14,7 +14,7 @@ import { levelProgress } from "../config/worldProgression.js";
 import { WORLD_MARKET_CATALOG, WORLD_COSMETIC_CATEGORIES } from "../../shared/worldCustomization.js";
 
 const router = express.Router();
-router.use(requireAuth);
+router.use(requireAuth, requireOriginalGGAccess);
 
 const CATALOG = WORLD_MARKET_CATALOG;
 

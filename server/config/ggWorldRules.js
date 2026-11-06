@@ -47,14 +47,7 @@ export const DEFAULT_WORLD_LAYOUT = Object.freeze({
     { id: "gg-esports-arena", name: "GG Esports Arena", kind: "esports", x: 1660, y: 170, width: 230, height: 170, access: "public", description: "A future home for digital football tournaments, skill challenges and community leaderboards.", interior: { rooms: [{ id: "arena-floor", name: "Arena Floor", description: "A tournament stage with player booths, screens and a live event board.", theme: "neon", items: ["tournament-stage","player-booths","live-scoreboard","event-screen"] }] } },
     { id: "community-pitches", name: "Community Pitches", kind: "community-pitch", x: 820, y: 1060, width: 250, height: 150, access: "public", description: "Small-sided pitches for casual football, future skill games and friendly community events.", interior: { rooms: [{ id: "five-a-side", name: "Five-a-Side Pitch", description: "A compact football space for future team challenges and casual matches.", theme: "pitch", items: ["five-a-side-pitch","mini-goals","ball-rack","substitutes-bench"] }] } },
   ],
-  plots: [
-    { id: "residence-plot-01", name: "Residence Plot 01", districtId: "residence-gardens", x: 1110, y: 1030, category: "residential", status: "available", description: "A future home site in the Residence Gardens." },
-    { id: "residence-plot-02", name: "Residence Plot 02", districtId: "residence-gardens", x: 1390, y: 1080, category: "residential", status: "available", description: "A future home site in the Residence Gardens." },
-    { id: "club-plot-01", name: "Club Plot 01", districtId: "club-district", x: 760, y: 1000, category: "club", status: "planned", description: "Reserved space for future club-city expansion." },
-    { id: "academy-plot-01", name: "Academy Plot 01", districtId: "academy-square", x: 700, y: 820, category: "community", status: "planned", description: "A future player-development and academy site." },
-    { id: "stadium-plot-01", name: "Stadium Plot 01", districtId: "stadium-quarter", x: 230, y: 810, category: "commercial", status: "planned", description: "A future matchday service site near the stadium." },
-    { id: "market-plot-01", name: "Market Plot 01", districtId: "market-square", x: 1510, y: 970, category: "commercial", status: "planned", description: "A future shop and community-service site." },
-  ],
+  plots: [],
 });
 
 const AVATAR_OPTION_SETS = Object.fromEntries(Object.entries(AVATAR_OPTIONS).map(([key, values]) => [key, new Set(values)]));

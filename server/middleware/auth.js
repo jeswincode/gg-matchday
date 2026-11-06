@@ -7,6 +7,7 @@ import {
 } from "../services/adminIdentityPolicy.js";
 
 import getFirebaseAdmin from "../config/firebaseAdmin.js";
+import { hasOriginalGGWorldAccess } from "../services/worldAccessPolicy.js";
 
 // ==================================================
 // REQUIRE VALID FIREBASE LOGIN
@@ -42,6 +43,7 @@ export async function requireAuth(
           name: `Playwright ${role}`,
           email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
           profileImage: "",
+          emailVerified: true,
           role,
           accessRequest: "none",
           playerProfile,
@@ -127,6 +129,7 @@ export async function requireAuth(
           email,
           name,
           profileImage: photoURL,
+          emailVerified: decoded.email_verified === true,
           role,
           accessRequest: "none",
         });
@@ -146,6 +149,7 @@ export async function requireAuth(
         if (email && email !== user.email) { user.email = email; changed = true; }
         if (name && name !== user.name) { user.name = name; changed = true; }
         if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
+        if (user.emailVerified !== (decoded.email_verified === true)) { user.emailVerified = decoded.email_verified === true; changed = true; }
         if (isConfiguredAdmin) {
           if (user.role !== "admin") { user.role = "admin"; changed = true; }
           if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
@@ -163,6 +167,7 @@ export async function requireAuth(
       if (email && email !== user.email) { user.email = email; changed = true; }
       if (name && name !== user.name) { user.name = name; changed = true; }
       if (photoURL && photoURL !== user.profileImage) { user.profileImage = photoURL; changed = true; }
+      if (user.emailVerified !== (decoded.email_verified === true)) { user.emailVerified = decoded.email_verified === true; changed = true; }
       if (isConfiguredAdmin) {
         if (user.role !== "admin") { user.role = "admin"; changed = true; }
         if (user.accessRequest !== "none") { user.accessRequest = "none"; changed = true; }
@@ -292,3 +297,21 @@ export async function requireAdmin(
   }
 }
 export function optionalAuth(req,res,next) { return req.headers.authorization ? requireAuth(req,res,next) : next(); }
+
+
+export function requireOriginalGGAccess(req, res, next) {
+  if (!req.user || !req.firebaseUser) return res.status(401).json({ message: "Authentication required." });
+  const allowed = hasOriginalGGWorldAccess({
+    tokenEmail: req.firebaseUser.email,
+    accountEmail: req.user.email,
+    emailVerified: req.firebaseUser.email_verified === true && req.user.emailVerified === true,
+    playerProfile: req.user.playerProfile,
+    testOnly: req.firebaseUser.testOnly === true,
+    environment: process.env.NODE_ENV,
+  });
+  if (!allowed) return res.status(403).json({
+    message: "Original GG is a single private World. Access requires a verified @gmail.com account explicitly linked to a GG player profile by the administrator.",
+    code: "ORIGINAL_GG_LINK_REQUIRED",
+  });
+  return next();
+}

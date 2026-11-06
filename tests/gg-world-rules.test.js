@@ -25,10 +25,7 @@ test("Original GG map blueprint has stable dimensions and unique locations", () 
   assert.ok(ids.includes("gg-esports-arena"));
   assert.ok(ids.includes("community-pitches"));
   assert.deepEqual(DEFAULT_WORLD_LAYOUT.districts.map((district)=>district.id),["crown-quarter","stadium-quarter","training-quarter","club-quarter","residential-quarter","transit-quarter","supporters-quarter","community-quarter"]);
-  assert.equal(DEFAULT_WORLD_LAYOUT.plots.length, 6);
-  const residentialPlots = DEFAULT_WORLD_LAYOUT.plots.filter((plot) => plot.category === "residential");
-  assert.deepEqual(residentialPlots.map((plot) => plot.status), ["available", "available"]);
-  assert.ok(DEFAULT_WORLD_LAYOUT.plots.filter((plot) => plot.category !== "residential").every((plot) => plot.status === "planned"));
+  assert.deepEqual(DEFAULT_WORLD_LAYOUT.plots, [], "the single canonical World has no player-claimable plots");
   const hq = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "gg-hq");
   const training = DEFAULT_WORLD_LAYOUT.locations.find((location) => location.id === "training-centre");
   assert.ok(hq.interior.rooms.some((room) => room.id === "trophy-gallery"));

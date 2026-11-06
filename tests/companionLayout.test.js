@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { getCompanionPerchPoint, nearestCenterIndex } from "../shared/companionLayout.js";
 
-test("profile perch places the character just inside the top of the profile pill", () => {
+test("profile perch centres Pip over the upper-left account avatar", () => {
   assert.deepEqual(
-    getCompanionPerchPoint({ left: 1380, top: 820, width: 132, height: 46 }, "profile"),
-    { x: 1446, y: 835.64 },
+    getCompanionPerchPoint({ left: 178, top: 243, width: 38, height: 38 }, "profile"),
+    { x: 197, y: 255.92 },
   );
 });
 

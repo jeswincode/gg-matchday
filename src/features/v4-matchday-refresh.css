@@ -560,6 +560,17 @@ html[data-theme] .clubs-app .clubs-panel {
 
 
 /* Companion presentation: no permanent gold orbit, with a theme-tinted sprite shadow. */
+.app { position: relative; }
+.gg-companion-ring,
+.gg-companion:after,
+.gg-companion.is-perched:after,
+.gg-companion-button:hover .gg-companion-ring {
+  display: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+}
+.gg-companion.is-profile-perched .gg-companion-button { transform: none !important; }
+.gg-companion.is-profile-perched .gg-companion-button .gg-player-sprite { animation: none !important; }
 .gg-companion-ring{display:none!important}
 .gg-companion:after{display:none!important}
 .gg-companion.is-perched .gg-companion-ring,

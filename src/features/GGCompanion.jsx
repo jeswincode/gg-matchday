@@ -209,14 +209,10 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const appRect = app?.getBoundingClientRect();
     const nav = document.querySelector(".bottom-nav");
     const navRect = visibleRect(nav);
-    const profile = document.querySelector(".pr-launch") || document.querySelector(".gg-account-avatar-trigger");
+    const profile = document.querySelector("[data-gg-companion-home]") || document.querySelector(".gg-account-avatar-trigger");
     const profileRect = visibleRect(profile);
     const left = Math.max(8, appRect?.left ?? 8);
-    // The floating My Profile launcher sits outside the centred Matchday shell.
-    const right = Math.min(
-      window.innerWidth - 8,
-      Math.max(appRect?.right ?? window.innerWidth - 8, profileRect?.right ?? 0),
-    );
+    const right = Math.min(window.innerWidth - 8, appRect?.right ?? window.innerWidth - 8);
     const top = Math.max(12, (appRect?.top ?? 0) + 8);
     const floor = navRect ? navRect.top + 5 : window.innerHeight - 26;
     return {
@@ -305,18 +301,31 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
     // The speech bubble/menu can make the flex wrapper wider than the
-    // footballer itself. Anchor the wrapper by its measured width so the
-    // sprite centre stays exactly on the measured perch point.
+    // footballer itself. Anchor its sprite centre to the measured perch.
     const wrapperWidth = wrapper.offsetWidth || BODY_WIDTH;
-    // Physics coordinates are absolute viewport coordinates. Clear the CSS
-    // right/bottom anchor before translating so it is not added a second time.
     wrapper.style.left = "0px";
     wrapper.style.top = "0px";
     wrapper.style.right = "auto";
     wrapper.style.bottom = "auto";
-    wrapper.style.transform = "translate3d(" +
-      (state.x - wrapperWidth / 2).toFixed(2) + "px," +
-      (state.y - BODY_HEIGHT).toFixed(2) + "px,0)";
+    if (state.ground?.kind === "profile") {
+      // Keep Pip in the same scrolling coordinate space as the account bar.
+      // The compositor carries both together without a scroll-event chase.
+      const app = wrapper.closest(".app");
+      const appRect = app?.getBoundingClientRect();
+      wrapper.style.position = "absolute";
+      wrapper.style.transition = "none";
+      wrapper.style.transform = "translate3d(" +
+        (state.x - (appRect?.left ?? 0) - wrapperWidth / 2).toFixed(2) + "px," +
+        (state.y - (appRect?.top ?? 0) - BODY_HEIGHT).toFixed(2) + "px,0)";
+    } else {
+      wrapper.style.position = "fixed";
+      wrapper.style.transition = state.ground?.kind === "nav" && state.ground.el?.dataset.dragging !== "true"
+        ? "transform 240ms cubic-bezier(.2,.85,.2,1), opacity .2s linear"
+        : "none";
+      wrapper.style.transform = "translate3d(" +
+        (state.x - wrapperWidth / 2).toFixed(2) + "px," +
+        (state.y - BODY_HEIGHT).toFixed(2) + "px,0)";
+    }
     wrapper.style.setProperty("--gg-companion-angle", ((state.angle * 180) / Math.PI).toFixed(2) + "deg");
     wrapper.dataset.ggPhase = state.phase;
     wrapper.dataset.ggX = state.x.toFixed(1);
@@ -718,8 +727,13 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       pose(state, "idle");
     }
     if (state.phase === "idle" && now >= state.nextAction) {
-      state.nextAction = now + 3500 + Math.random() * 5500;
-      chooseIdleAction(state, now);
+      if (state.ground?.kind === "profile" || state.ground?.kind === "nav") {
+        state.nextAction = now + 4200 + Math.random() * 3000;
+        pose(state, "idle", state.direction);
+      } else {
+        state.nextAction = now + 3500 + Math.random() * 5500;
+        chooseIdleAction(state, now);
+      }
     }
   }, [chooseIdleAction, land, pose, rectForGround, refreshLayout, settle]);
 

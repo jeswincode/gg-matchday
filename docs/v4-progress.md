@@ -104,3 +104,15 @@ The current V4 world already provides a draggable/zoomable football-city map, a 
 - Character speech now appears after the approach animation completes, so the dialogue corresponds to the object being reached rather than starting at the far side of the room.
 - Keyboard Enter/Space activates focused room objects as well as click/touch.
 - The room interaction mapping is isolated in `shared/worldRoomInteractions.js` and covered by `tests/worldRoomInteractions.test.js`.
+
+
+## Single Original GG World and verified account access — 6 November 2026
+
+- The upper-left account avatar is now the companion's profile resting anchor. Its resting layer is positioned absolutely inside the scrolling Matchday app so it scrolls with the account bar; selected navigation tabs remain viewport-fixed and use measured geometry. The player is held at rest on those two UI perches.
+- The permanent gold orbit/ring is removed. Dark and Gold companion shadows inherit violet and green accents respectively.
+- Original GG remains one canonical world identified by `WORLD_MAP_SLUG`; no per-user World creation is introduced.
+- `GET /world/public-map` is a read-only static projection containing only district and landmark geometry. It excludes interiors, plots, player markers, avatar appearance, residence ownership/privacy, training, chat, economy and player IDs.
+- All other `/world/*` APIs and all `/world/economy/*` APIs require a valid Firebase token with `email_verified=true`, an exact `@gmail.com` address matching the stored user, and an administrator-linked player profile. Non-production E2E test identities have a constrained test-only bypass.
+- The admin account picker disables accounts that are not explicitly verified Gmail identities, and the server independently enforces the same rule on admin linking.
+- Plot claiming, the claim endpoint, plot map markers and new default plot seeds are removed. Legacy WorldPlot/database records are intentionally left untouched; no destructive cleanup or migration runs in this pass.
+- No V4 backend deployment, database migration, or PR merge is part of this change. V3 `main` is left independent.

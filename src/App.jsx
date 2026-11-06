@@ -2551,7 +2551,7 @@ function App() {
           </span>
         ) : authUser ? (
           <>
-            <div className="account-user"><button type="button" className="gg-account-avatar-trigger" onClick={()=>setProfileOpen(true)} aria-label="Open your player profile and character customisation" title="Player profile and character customisation">
+            <div className="account-user"><button type="button" className="gg-account-avatar-trigger" data-gg-companion-home="true" onClick={()=>setProfileOpen(true)} aria-label="Open your player profile and character customisation" title="Player profile and character customisation">
 
               {authUser.photoURL ? (
                 <img
