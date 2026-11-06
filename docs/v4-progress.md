@@ -81,3 +81,18 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 ## Validation
 
 The GitHub validation workflow is enabled on v4/development. It runs lint, unit tests, build, bundle checks, server syntax checks, E2E tests and the isolated encrypted MongoDB restore smoke test. The latest Vercel status currently reports the deployment rate limit, so the new code has not yet been confirmed by a fresh V4 preview build. A preview build being READY is not equivalent to an end-to-end API-backed release.
+
+
+## V4 companion, navigation and theme pass — 6 November 2026
+
+- The Matchday companion now starts on the floating **My Profile** control (with the account avatar button as a fallback) in a dedicated seated pose. The sprite draws a seated torso, hands by the hips and slightly spread legs reaching forward over the pill. The permanent gold orbit/ring has been removed.
+- Tapping the character now plays a short landing hop and the dialogue reads “10 out of 10 landing!”. The character name is no longer repeated above the dialogue. Original GG remains available from the companion action menu, while drag/throw physics are preserved.
+- Navigation following now measures the selected tab's actual DOM rectangle and perches directly on that surface rather than walking toward it at the character's 46 px/s world speed. Scroll/resize refreshes the resting surface position. This follows Leaflet Pip's measured-footing/direct-transform principle while retaining the Matchday bottom bar as a fixed overlay.
+- On mobile, holding and dragging horizontally across the five bottom tabs selects each tab as the finger crosses it. The translucent glass highlight is positioned from the measured button bounds and follows during the drag; the tab content previews live. A vertical gesture still remains available for page scrolling.
+- Dark mode now uses neon-violet accents and Gold mode uses neon-green accents for navigation, profile/world surfaces and Clubs controls. The translucent material is concentrated on navigation and active controls; the world map and room illustrations keep their own game art rather than being recoloured into UI panels.
+- Avatar saves and preset applications emit a shared avatar-updated event. The mounted Matchday companion receives linked-account edits immediately, and local visitor edits continue to refresh through the local-storage event.
+- The first pass of the home-perch geometry and tab-perch geometry has focused unit coverage in `tests/companionLayout.test.js`. The walking/throwing physics regression tests remain in `tests/companionPhysics.test.js`.
+
+### Remaining world-depth work
+
+The current V4 world already provides a draggable/zoomable football-city map, a persistent character marker, landmark entry points, walkable room scenes, furniture interactions and training challenges. These are still the initial playable scenes, not a full Leaflet-scale simulation. The next world pass should deepen the resident/house interiors, arena activity loops, player-to-player social interactions, animation/state persistence and district-specific environmental interactions. The visual/theme pass above does not claim those deeper systems are complete.

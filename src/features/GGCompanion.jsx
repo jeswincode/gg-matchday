@@ -207,8 +207,14 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const appRect = app?.getBoundingClientRect();
     const nav = document.querySelector(".bottom-nav");
     const navRect = visibleRect(nav);
+    const profile = document.querySelector(".pr-launch") || document.querySelector(".gg-account-avatar-trigger");
+    const profileRect = visibleRect(profile);
     const left = Math.max(8, appRect?.left ?? 8);
-    const right = Math.min(window.innerWidth - 8, appRect?.right ?? window.innerWidth - 8);
+    // The floating My Profile launcher sits outside the centred Matchday shell.
+    const right = Math.min(
+      window.innerWidth - 8,
+      Math.max(appRect?.right ?? window.innerWidth - 8, profileRect?.right ?? 0),
+    );
     const top = Math.max(12, (appRect?.top ?? 0) + 8);
     const floor = navRect ? navRect.top + 5 : window.innerHeight - 26;
     return {
@@ -218,6 +224,8 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       floor: Math.max(top + BODY_HEIGHT + 24, floor),
       nav,
       navRect,
+      profile,
+      profileRect,
     };
   }, []);
 
@@ -248,6 +256,9 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       if (parentSurface && parentSurface !== element) continue;
       results.push({ kind: "ledge", el: element, rect });
     }
+    if (bounds.profile && bounds.profileRect) {
+      results.push({ kind: "profile", el: bounds.profile, rect: bounds.profileRect });
+    }
     if (bounds.nav && bounds.navRect) {
       results.push({ kind: "nav", el: bounds.nav, rect: bounds.navRect });
     }
@@ -270,10 +281,11 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     }
     const rect = visibleRect(ground.el);
     if (!rect) return null;
+    const perch = getCompanionPerchPoint(rect, ground.kind);
     return {
       left: Math.max(bounds.left, rect.left),
       right: Math.min(bounds.right, rect.right),
-      top: rect.top + (ground.kind === "nav" ? 5 : 2),
+      top: perch?.y ?? rect.top + 2,
     };
   }, []);
 
@@ -295,6 +307,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     state.phase = nextPhase;
     if (nextPhase !== "nav-perch" && nextPhase !== "jumping" && nextPhase !== "held") {
       setPerched(nextPhase === "idle" && state.ground?.kind === "nav");
+      setProfilePerched(nextPhase === "idle" && state.ground?.kind === "profile");
     }
   }, []);
 
@@ -370,6 +383,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       pose(state, "celebrating", targetX < state.x ? "left" : "right");
     }
     setPerched(false);
+    setProfilePerched(false);
     state.nextAction = performance.now() + 8000;
     if (options.line) showBubble(options.line, 2100);
     wakeRef.current();
@@ -384,9 +398,32 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     if (!nav || !navRect || !buttonRect) return;
     const state = physicsRef.current;
     if (!state.initialized) return;
-    const x = buttonRect.left + buttonRect.width / 2;
-    moveTo({ kind: "nav", el: nav }, x, { line: (tabLines[activeTabRef.current] || ["Where to next?"])[Math.floor(Math.random() * (tabLines[activeTabRef.current] || ["Where to next?"]).length)] });
-  }, [moveTo, transitioning]);
+    const state = physicsRef.current;
+    if (!state.initialized) return;
+    const perch = getCompanionPerchPoint(buttonRect, "nav");
+    if (!perch) return;
+
+    // Navigation is a moving surface, not a destination that should take a
+    // 46 px/s walk. Perch directly on the selected button's current geometry.
+    state.x = clamp(perch.x, navRect.left + BODY_WIDTH / 2, navRect.right - BODY_WIDTH / 2);
+    state.y = perch.y;
+    state.ground = { kind: "nav", el: nav };
+    state.targetGround = state.ground;
+    state.targetX = state.x;
+    state.tween = null;
+    state.vx = 0;
+    state.vy = 0;
+    state.angle = 0;
+    state.omega = 0;
+    state.phase = "idle";
+    state.manuallyPlaced = false;
+    pose(state, "idle", buttonRect.left < state.x - 4 ? "left" : buttonRect.right > state.x + 4 ? "right" : state.direction);
+    setPerched(true);
+    setProfilePerched(false);
+    writePosition(state);
+    state.nextAction = performance.now() + 5000;
+    wakeRef.current();
+  }, [pose, transitioning, writePosition]);
 
   useEffect(() => {
     const onPointerMove = (event) => {
@@ -533,6 +570,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         state.phase = "idle";
         pose(state, "idle");
         setPerched(tween.ground.kind === "nav");
+        setProfilePerched(tween.ground.kind === "profile");
         state.nextAction = now + 3300 + Math.random() * 4300;
       }
       return;
@@ -663,7 +701,13 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const rafRef = useRef(0);
   const timerRef = useRef(0);
 
-  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  useEffect(() => {
+    const previous = activeTabRef.current;
+    activeTabRef.current = activeTab;
+    if (previous !== activeTab && physicsRef.current.initialized) {
+      moveToActiveNavRef.current?.();
+    }
+  }, [activeTab]);
   useEffect(() => { suspendedRef.current = suspended; }, [suspended]);
   useEffect(() => { moveToRef.current = moveTo; }, [moveTo]);
   useEffect(() => { moveToActiveNavRef.current = moveToActiveTab; }, [moveToActiveTab]);
@@ -696,19 +740,29 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       last = Math.max(last, now);
       if (!state.initialized) {
         const bounds = refreshLayout(state, now);
-        const navRect = bounds.navRect;
+        const profilePerch = bounds.profileRect && getCompanionPerchPoint(bounds.profileRect, "profile");
         const activeRect = visibleRect(bounds.nav?.querySelector("button.active"));
-        state.x = activeRect
-          ? activeRect.left + activeRect.width / 2
-          : clamp(bounds.right - 94, bounds.left + BODY_WIDTH / 2, bounds.right - BODY_WIDTH / 2);
-        state.y = navRect ? navRect.top + 5 : bounds.floor;
-        state.ground = bounds.nav ? { kind: "nav", el: bounds.nav } : { kind: "floor" };
+        const navPerch = activeRect && getCompanionPerchPoint(activeRect, "nav");
+        if (profilePerch) {
+          state.x = profilePerch.x;
+          state.y = profilePerch.y;
+          state.ground = { kind: "profile", el: bounds.profile };
+        } else {
+          state.x = navPerch
+            ? navPerch.x
+            : clamp(bounds.right - 94, bounds.left + BODY_WIDTH / 2, bounds.right - BODY_WIDTH / 2);
+          state.y = navPerch?.y ?? (bounds.navRect ? bounds.navRect.top + 5 : bounds.floor);
+          state.ground = bounds.nav ? { kind: "nav", el: bounds.nav } : { kind: "floor" };
+        }
+        state.targetX = state.x;
+        state.targetGround = state.ground;
+        setPerched(state.ground.kind === "nav");
+        setProfilePerched(state.ground.kind === "profile");
         state.phase = "idle";
         state.initialized = true;
         state.nextAction = now + 1100;
         pose(state, "idle");
         writePosition(state);
-        window.setTimeout(() => moveToActiveNavRef.current?.(), 650);
       } else {
         const steps = Math.max(1, Math.ceil(elapsed / MAX_FRAME_SECONDS));
         const stepSeconds = elapsed / steps;
@@ -735,9 +789,27 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
 
     const onLayout = () => {
       state.layoutDirty = true;
-      if (state.ground?.kind === "nav" || state.ground?.kind === "floor") {
+      if (state.ground?.kind === "nav" || state.ground?.kind === "profile" || state.ground?.kind === "floor") {
         const bounds = refreshLayout(state, performance.now());
-        state.y = bounds.navRect ? bounds.navRect.top + 5 : bounds.floor;
+        if (state.ground.kind === "profile" && bounds.profileRect) {
+          const perch = getCompanionPerchPoint(bounds.profileRect, "profile");
+          if (perch) {
+            state.x = perch.x;
+            state.y = perch.y;
+          }
+        } else if (state.ground.kind === "nav" && bounds.navRect) {
+          const active = bounds.nav?.querySelector("button.active");
+          const rect = visibleRect(active);
+          const perch = rect && getCompanionPerchPoint(rect, "nav");
+          if (perch) {
+            state.x = perch.x;
+            state.y = perch.y;
+          } else state.y = bounds.navRect.top + 5;
+        } else if (state.ground.kind === "floor") {
+          state.y = bounds.floor;
+        }
+        state.targetX = state.x;
+        state.targetGround = state.ground;
         writePosition(state);
       }
       wakeRef.current();
@@ -778,8 +850,6 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
 
   useEffect(() => {
     if (suspended || transitioning) return undefined;
-    let first = 0;
-    let second = 0;
     let navFrame = 0;
     const nav = document.querySelector(".bottom-nav");
     const followSelectedTab = () => {
@@ -797,12 +867,9 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       : null;
     observer?.observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
     nav?.addEventListener("click", followSelectedTab);
-    first = window.requestAnimationFrame(() => {
-      second = window.requestAnimationFrame(() => moveToActiveTab());
-    });
+    // Initial placement is the floating profile launcher. Follow nav only
+    // after the selected tab actually changes.
     return () => {
-      window.cancelAnimationFrame(first);
-      window.cancelAnimationFrame(second);
       window.cancelAnimationFrame(navFrame);
       observer?.disconnect();
       nav?.removeEventListener("click", followSelectedTab);
@@ -839,11 +906,23 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     };
     loadAvatar();
     const onLocalAvatar = () => setAvatar(savedAccountAvatar(playerUid, playerName));
+    const onAvatarUpdated = (event) => {
+      const next = event.detail?.avatar;
+      if (next && typeof next === "object") {
+        setAvatar({
+          ...next,
+          displayName: next.displayName || playerName || "Your player",
+          appearance: { ...fallbackAppearance, ...next.appearance },
+        });
+      } else onLocalAvatar();
+    };
     window.addEventListener("gg-local-avatar-changed", onLocalAvatar);
+    window.addEventListener("gg-avatar-updated", onAvatarUpdated);
     window.addEventListener("storage", onLocalAvatar);
     return () => {
       active = false;
       window.removeEventListener("gg-local-avatar-changed", onLocalAvatar);
+      window.removeEventListener("gg-avatar-updated", onAvatarUpdated);
       window.removeEventListener("storage", onLocalAvatar);
     };
   }, [playerUid, playerName]);
@@ -870,6 +949,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         state.actionUntil = performance.now() + 1250;
         state.nextAction = state.actionUntil;
         setPerched(false);
+        setProfilePerched(false);
         pose(state, "celebrating");
         wakeRef.current();
       }
@@ -921,6 +1001,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       state.manuallyPlaced = true;
       setDragging(true);
       setPerched(false);
+      setProfilePerched(false);
       pose(state, "wave");
       showBubble("Wee! Where are we going?", 1800);
     }
@@ -1022,6 +1103,47 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     wakeRef.current();
   };
 
+  const landOnCurrentSurface = () => {
+    if (transitioning || suspended || suppressClick.current) {
+      suppressClick.current = false;
+      return;
+    }
+    const state = physicsRef.current;
+    if (!state.initialized || !state.ground) {
+      showBubble("10 out of 10 landing!", 2100);
+      return;
+    }
+    const bounds = state.bounds || measureBounds();
+    const rect = rectForGround(state.ground, bounds);
+    if (!rect) {
+      showBubble("10 out of 10 landing!", 2100);
+      return;
+    }
+    const now = performance.now();
+    state.tween = {
+      fromX: state.x,
+      fromY: state.y - 24,
+      toX: state.x,
+      toY: rect.top,
+      startedAt: now,
+      duration: 460,
+      arc: 9,
+      ground: state.ground,
+    };
+    state.phase = "jumping";
+    state.targetX = state.x;
+    state.targetGround = state.ground;
+    state.vx = 0;
+    state.vy = 0;
+    state.angle = 0;
+    state.omega = 0;
+    setPerched(false);
+    setProfilePerched(false);
+    pose(state, "celebrating");
+    showBubble("10 out of 10 landing!", 2200);
+    wakeRef.current();
+  };
+
   const enterWorld = () => {
     if (transitioning || suspended || suppressClick.current) {
       suppressClick.current = false;
@@ -1055,6 +1177,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       className={"gg-companion" +
         (dragging ? " is-dragging" : "") +
         (perched ? " is-perched" : "") +
+        (profilePerched ? " is-profile-perched" : "") +
         (transitioning ? " is-entering" : "") +
         (suspended ? " is-suspended" : "") + (motion === "idle" ? " is-idle" : " is-moving")}
       aria-hidden={suspended ? "true" : undefined}
@@ -1063,7 +1186,6 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       data-gg-menu-open={String(menuOpen)}
     >
       <div className={"gg-companion-bubble" + (bubbleOpen && !menuOpen ? " is-open" : "")}>
-        <span>{avatar.displayName || playerName || "Your teammate"}</span>
         <p>{bubble || contextualLine}</p>
       </div>
       {menuOpen && <div ref={menuRef} id="gg-companion-actions" className={"gg-companion-menu is-" + menuSide} role="menu" aria-label="Companion actions">
@@ -1073,7 +1195,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         <button type="button" role="menuitem" onClick={() => { closeMenu(); enterWorld(); }}>Enter Original GG</button>
       </div>}
       <button ref={buttonRef} type="button" className="gg-companion-button"
-        onClick={(event) => { if (event.detail === 0) enterWorld(); else if (suppressClick.current) suppressClick.current = false; else enterWorld(); }}
+        onClick={() => { if (suppressClick.current) suppressClick.current = false; else landOnCurrentSurface(); }}
         onPointerDown={startPointer}
         onContextMenu={(event) => { event.preventDefault(); openMenu(); }}
         onKeyDown={(event) => {
@@ -1087,14 +1209,13 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         aria-haspopup="menu"
         aria-controls="gg-companion-actions"
         aria-expanded={menuOpen}
-        aria-label={"Enter Original GG with " + (avatar.displayName || playerName || "your player")}
-        title="Tap to enter Original GG · drag to pick up and throw"
+        aria-label="Your Matchday character. Tap for a landing reaction; open companion actions to enter Original GG."
+        title="Tap for a landing reaction · drag to pick up · right-click or long-press for actions"
         tabIndex={suspended ? -1 : 0}
       >
-        <span className="gg-companion-ring"/>
-        <PlayerSprite appearance={avatar.appearance || {}} motion={motion} direction={direction} animated={motion !== "idle"}/>
+        <PlayerSprite appearance={avatar.appearance || {}} motion={motion} direction={direction} animated={motion !== "idle"} pose={profilePerched ? "seated" : "standing"}/>
       </button>
-      <small className="gg-companion-hint">DRAG TO PICK UP · TAP TO ENTER</small>
+      <small className="gg-companion-hint">TAP TO LAND · LONG-PRESS FOR ACTIONS</small>
     </div>
     {transitioning && <div className="gg-companion-vortex" aria-hidden="true"><i/><i/><i/><span>GG</span></div>}
   </>;

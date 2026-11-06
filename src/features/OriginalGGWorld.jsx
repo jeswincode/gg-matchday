@@ -23,7 +23,7 @@ const places = [
 const exercises = [["pushups","Push-ups"],["pullups","Pull-ups"],["squats","Squats"],["planks","Plank holds"]];
 const emptyTraining = { pushups:"", pullups:"", squats:"", planks:"" };
 
-export function PlayerSprite({ appearance = {}, motion = "idle", direction = "down", animated = false }) {
+export function PlayerSprite({ appearance = {}, motion = "idle", direction = "down", animated = false, pose = "standing" }) {
   const canvasRef = useRef(null);
   const safeMotion = normalizeCharacterMotion(motion);
   const safeDirection = normalizeCharacterDirection(direction);
@@ -50,6 +50,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         lastFrameAt = now;
       }
 
+      const seated = pose === "seated";
       const sideFacing = safeDirection === "left" || safeDirection === "right";
       const facingBack = safeDirection === "up";
       const headX = safeDirection === "left" ? 13 : safeDirection === "right" ? 19 : 16;
@@ -111,7 +112,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
       const baseWidth = appearance.bodyType === "slim" ? 6 : appearance.bodyType === "stocky" ? 14 : 10;
       const bodyLeft = sideFacing ? headX-3 : baseLeft;
       const bodyWidth = sideFacing ? 7 : baseWidth;
-      const bodyTop = 15+jump+bodySway;
+      const bodyTop = (seated ? 14 : 15)+jump+bodySway;
       g.stamp((l)=>l.rect(bodyLeft,bodyTop,bodyWidth,10,kit));
       if (facingBack) {
         g.rect(bodyLeft+Math.floor(bodyWidth/2)-1,19+jump+bodySway,3,4,trim);
@@ -146,6 +147,13 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         const rightLift = [-3,-1,0,-2,-3,-1,0,-2][frame%8];
         g.rect(leftArmX,14+jump+leftLift,3,7,skin);g.rect(leftArmX-1,12+jump+leftLift,4,3,skin);
         g.rect(rightArmX,14+jump+rightLift,3,7,skin);g.rect(rightArmX-1,12+jump+rightLift,4,3,skin);
+      } else if (seated) {
+        // Relaxed hands rest beside the hips; legs extend forward and slightly
+        // apart so the footballer visibly sits on the floating profile button.
+        g.rect(leftArmX-1,17+jump,3,6,skin);
+        g.rect(leftArmX-2,21+jump,4,2,skin);
+        g.rect(rightArmX+1,17+jump,3,6,skin);
+        g.rect(rightArmX+1,21+jump,4,2,skin);
       } else {
         g.stamp((l)=>l.rect(leftArmX,16+jump+walkingLeftArm+idleFidget,3,8,skin));
         g.stamp((l)=>l.rect(rightArmX,16+jump+walkingRightArm-idleFidget,3,8,skin));
@@ -153,10 +161,20 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
 
       const leftLegX = bodyLeft+1;
       const rightLegX = bodyLeft+bodyWidth-4;
-      g.rect(leftLegX,25+jump+leftLegStep,3,5,skin);
-      g.rect(rightLegX,25+jump+rightLegStep,3,5,skin);
-      g.rect(leftLegX-2,29+jump+leftLegStep,5,2,boot);
-      g.rect(rightLegX-1,29+jump+rightLegStep,5,2,boot);
+      if (seated) {
+        g.rect(bodyLeft-2,21+jump,bodyWidth+4,3,kit);
+        g.rect(bodyLeft-4,23+jump,7,3,skin);
+        g.rect(bodyLeft+bodyWidth-3,23+jump,7,3,skin);
+        g.rect(bodyLeft-6,26+jump,7,2,skin);
+        g.rect(bodyLeft+bodyWidth-2,26+jump,7,2,skin);
+        g.rect(bodyLeft-7,28+jump,8,2,boot);
+        g.rect(bodyLeft+bodyWidth-2,28+jump,8,2,boot);
+      } else {
+        g.rect(leftLegX,25+jump+leftLegStep,3,5,skin);
+        g.rect(rightLegX,25+jump+rightLegStep,3,5,skin);
+        g.rect(leftLegX-2,29+jump+leftLegStep,5,2,boot);
+        g.rect(rightLegX-1,29+jump+rightLegStep,5,2,boot);
+      }
 
       const image = new ImageData(N,N);
       for (let i=0;i<layer.d.length;i++) {
@@ -178,7 +196,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     motionQuery?.addEventListener?.("change",onMotionPreferenceChange);
     drawFrame();
     return () => { motionQuery?.removeEventListener?.("change",onMotionPreferenceChange); if(animationFrame!==null) window.cancelAnimationFrame(animationFrame); };
-  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,safeMotion,safeDirection,animated]);
+  },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,safeMotion,safeDirection,animated,pose]);
   return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer facing "+safeDirection+", "+safeMotion}/>;
 }
 function RoomTabs({rooms=[],activeIndex=0,onSelect}) {

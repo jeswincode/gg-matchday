@@ -33,3 +33,4 @@ import './features/admin/gg-admin.css';
 
 import './gold-theme-refined.css';
 import './features/clubs/clubs-mode.css';
+import './features/v4-matchday-refresh.css';

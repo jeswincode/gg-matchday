@@ -34,6 +34,12 @@ function readLocalLookbook(user) {
   } catch { return []; }
 }
 
+function announceAvatarChange(avatar, local = false) {
+  window.dispatchEvent(new CustomEvent("gg-avatar-updated", { detail: { avatar } }));
+  // Only local visitor edits need the legacy localStorage refresh event.
+  if (local) window.dispatchEvent(new Event("gg-local-avatar-changed"));
+}
+
 export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
   const [avatar,setAvatar] = useState(()=>readLocalAvatar(authUser));
   const [player,setPlayer] = useState(null);
@@ -86,11 +92,12 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
       if(linked){
         const result=await api("/world/avatar",{method:"PUT",body:avatar});
         setAvatar(result.avatar);
+        announceAvatarChange(result.avatar);
         setMessage("Your character changes have been saved to your GG player profile.");
       }else{
         window.localStorage.setItem(localAvatarKey(authUser),JSON.stringify(avatar));
+        announceAvatarChange(avatar, true);
         setMessage("Your visitor character is saved on this device. Link a GG player profile to share it with the city and sync across devices.");
-        window.dispatchEvent(new Event("gg-local-avatar-changed"));
       }
     } catch(error) {
       setMessage(error.message||"Could not save your character.");
@@ -120,10 +127,13 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
       if(linked){
         const result=await api("/world/avatar/presets/"+id+"/apply",{method:"POST",body:{}});
         setAvatar((current)=>({...current,...result.avatar}));
+        announceAvatarChange(result.avatar);
       }else{
         const preset=presets.find((item)=>item._id===id);
         if(!preset)throw new Error("That lookbook entry could not be found.");
-        setAvatar((current)=>({...current,appearance:preset.appearance}));
+        const nextAvatar={...avatar,appearance:preset.appearance};
+        setAvatar(nextAvatar);
+        announceAvatarChange(nextAvatar, true);
         setMessage("Preset applied. Save your character to keep this look on this device.");
       }
       if(linked)setMessage("Character preset applied.");
