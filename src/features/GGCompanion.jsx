@@ -764,7 +764,8 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       observer?.disconnect();
       nav?.removeEventListener("click", followSelectedTab);
     };
-  }, [activeTab, moveToActiveTab, suspended, transitioning]);
+  // Keep the observer attached across tab renders so it cannot miss the class mutation that selects the new tab.
+  }, [moveToActiveTab, suspended, transitioning]);
 
   useEffect(() => {
     const onPageClick = (event) => {
