@@ -84,6 +84,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
 
   const wrapperRef = useRef(null);
   const buttonRef = useRef(null);
+  const menuRef = useRef(null);
   const bubbleTimer = useRef(null);
   const longPressTimer = useRef(null);
   const glanceTimer = useRef(null);
@@ -142,6 +143,44 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const menuItems = () => Array.from(menuRef.current?.querySelectorAll('[role="menuitem"]') || []);
+    const focusFrame = window.requestAnimationFrame(() => menuItems()[0]?.focus({ preventScroll: true }));
+    const onKeyDown = (event) => {
+      const items = menuItems();
+      if (!items.length) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMenu();
+        buttonRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      if (event.key === "Tab") {
+        closeMenu();
+        return;
+      }
+      if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const current = items.indexOf(document.activeElement);
+      const next = event.key === "Home" ? 0
+        : event.key === "End" ? items.length - 1
+          : event.key === "ArrowDown" ? (current + 1 + items.length) % items.length
+            : (current <= 0 ? items.length - 1 : current - 1);
+      items[next]?.focus({ preventScroll: true });
+    };
+    const onOutsidePointer = (event) => {
+      if (!wrapperRef.current?.contains(event.target)) closeMenu();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onOutsidePointer, true);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onOutsidePointer, true);
+    };
+  }, [closeMenu, menuOpen]);
   const pose = useCallback((state, nextMotion = "idle", nextDirection) => {
     if (nextDirection && state.direction !== nextDirection) {
       state.direction = nextDirection;
@@ -942,7 +981,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         <span>{avatar.displayName || playerName || "Your teammate"}</span>
         <p>{bubble || contextualLine}</p>
       </div>
-      {menuOpen && <div className={"gg-companion-menu is-" + menuSide} role="menu" aria-label="Companion actions">
+      {menuOpen && <div ref={menuRef} id="gg-companion-actions" className={"gg-companion-menu is-" + menuSide} role="menu" aria-label="Companion actions">
         <button type="button" role="menuitem" onClick={() => { closeMenu(); moveToActiveTab(); }}>Come to this tab</button>
         <button type="button" role="menuitem" onClick={explorePage}>Explore the page</button>
         <button type="button" role="menuitem" onClick={waveHello}>Wave hello</button>
@@ -961,6 +1000,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
           }
         }}
         aria-haspopup="menu"
+        aria-controls="gg-companion-actions"
         aria-expanded={menuOpen}
         aria-label={"Enter Original GG with " + (avatar.displayName || playerName || "your player")}
         title="Tap to enter Original GG · drag to pick up and throw"
