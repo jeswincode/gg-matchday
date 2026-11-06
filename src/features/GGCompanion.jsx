@@ -298,6 +298,12 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     // footballer itself. Anchor the wrapper by its measured width so the
     // sprite centre stays exactly on the measured perch point.
     const wrapperWidth = wrapper.offsetWidth || BODY_WIDTH;
+    // Physics coordinates are absolute viewport coordinates. Clear the CSS
+    // right/bottom anchor before translating so it is not added a second time.
+    wrapper.style.left = "0px";
+    wrapper.style.top = "0px";
+    wrapper.style.right = "auto";
+    wrapper.style.bottom = "auto";
     wrapper.style.transform = "translate3d(" +
       (state.x - wrapperWidth / 2).toFixed(2) + "px," +
       (state.y - BODY_HEIGHT).toFixed(2) + "px,0)";
@@ -465,6 +471,14 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const chooseIdleAction = useCallback((state, now) => {
     if (suspendedRef.current || state.manuallyPlaced || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       state.nextAction = now + REST_MS;
+      return;
+    }
+    // The profile launcher and selected navigation item are deliberate resting
+    // anchors. Keep the character seated on the profile icon and attached to
+    // the active tab instead of autonomously walking away from either control.
+    if (state.ground?.kind === "profile" || state.ground?.kind === "nav") {
+      state.nextAction = now + 4200 + Math.random() * 3000;
+      pose(state, "idle", state.direction);
       return;
     }
     const roll = Math.random();
