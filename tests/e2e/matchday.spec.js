@@ -129,10 +129,27 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
     if (!sprite || !target) return Number.POSITIVE_INFINITY;
     return Math.abs(sprite.x + sprite.width / 2 - target.x - target.width / 2);
   };
+  const profileFootGap = async () => {
+    const canvas = await companion.locator("canvas.gg-player-sprite").boundingBox();
+    const anchor = await profileAnchor.boundingBox();
+    if (!canvas || !anchor) return Number.POSITIVE_INFINITY;
+    const seatedFootBottom = canvas.y + canvas.height * (30 / 32);
+    const seatTop = anchor.y + Math.min(22, Math.max(10, anchor.height * 0.34));
+    return Math.abs(seatedFootBottom - seatTop);
+  };
+  const navFootGap = async (tab) => {
+    const canvas = await companion.locator("canvas.gg-player-sprite").boundingBox();
+    const anchor = await tab.boundingBox();
+    if (!canvas || !anchor) return Number.POSITIVE_INFINITY;
+    const standingFootBottom = canvas.y + canvas.height * (31 / 32);
+    return Math.abs(standingFootBottom - (anchor.y + 5));
+  };
 
-  // The character rests on the profile icon until the player chooses a tab.
+  // The character sits on the profile icon: centered, front-facing, feet on its top edge.
   await expect.poll(() => isCenteredOn(profileAnchor), { timeout: 5000 }).toBeLessThan(12);
   await expect(companionStage).toHaveClass(/is-profile-perched/);
+  await expect.poll(profileFootGap, { timeout: 5000 }).toBeLessThan(2);
+  await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /facing down/);
   await expect(companion.locator(".gg-companion-ring")).toHaveCount(0);
 
   const leaderboardTab = navigation.getByRole("button", { name: /Leaderboard/ });
@@ -141,6 +158,8 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
   await expect.poll(() => isCenteredOn(leaderboardTab), { timeout: 5000 }).toBeLessThan(12);
   await expect(companionStage).toHaveAttribute("data-gg-ground", "nav");
   await expect(companionStage).toHaveClass(/is-perched/);
+  await expect.poll(() => navFootGap(leaderboardTab), { timeout: 5000 }).toBeLessThan(2);
+  await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /facing down/);
 
   // Dragging still picks the character up and lets the existing throw physics run.
   const before = await companion.boundingBox();
