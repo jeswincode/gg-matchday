@@ -258,6 +258,18 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     state.targetX = targetX;
     state.targetGround = ground;
     state.manuallyPlaced = false;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      state.x = targetX;
+      state.y = targetY;
+      state.ground = ground;
+      state.tween = null;
+      state.phase = "idle";
+      pose(state, "idle");
+      setPerched(ground.kind === "nav");
+      writePosition(state);
+      if (options.line) showBubble(options.line, 2100);
+      return;
+    }
     const sameSurface = state.ground?.el === ground.el && state.ground?.kind === ground.kind;
     const verticalGap = Math.abs(targetY - state.y);
     const horizontalGap = Math.abs(targetX - state.x);
@@ -285,7 +297,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     state.nextAction = performance.now() + 8000;
     if (options.line) showBubble(options.line, 2100);
     wakeRef.current();
-  }, [measureBounds, pose, rectForGround, showBubble, transitioning]);
+  }, [measureBounds, pose, rectForGround, setPerched, showBubble, transitioning, writePosition]);
 
   const moveToActiveTab = useCallback(() => {
     if (suspendedRef.current || transitioning) return;
