@@ -149,7 +149,7 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
   await expect.poll(() => isCenteredOn(profileAnchor), { timeout: 5000 }).toBeLessThan(12);
   await expect(companionStage).toHaveClass(/is-profile-perched/);
   await expect.poll(profileFootGap, { timeout: 5000 }).toBeLessThan(2);
-  await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /facing down/);
+  await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /seated, facing down/);
   await expect(companion.locator(".gg-companion-ring")).toHaveCount(0);
 
   const leaderboardTab = navigation.getByRole("button", { name: /Leaderboard/ });
@@ -159,10 +159,18 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
   await expect(companionStage).toHaveAttribute("data-gg-ground", "nav");
   await expect(companionStage).toHaveClass(/is-perched/);
   await expect.poll(() => navFootGap(leaderboardTab), { timeout: 5000 }).toBeLessThan(2);
-  await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /facing down/);
+  await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /standing, facing down/);
   await expect(companionStage).toHaveAttribute("data-gg-nav-dragging", "false");
   const navTransition = await companionStage.evaluate((element) => getComputedStyle(element).transitionProperty);
-  expect(navTransition.split(",").map((property) => property.trim())).toContain("transform");
+  expect(navTransition).toBe("none");
+
+  // A normal tab change must put Pip into the walking phase, not teleport him.
+  const calendarTab = navigation.getByRole("button", { name: /Calendar/ });
+  await calendarTab.click();
+  await expect(calendarTab).toHaveClass(/active/);
+  await expect(companionStage).toHaveAttribute("data-gg-phase", "walking", { timeout: 1500 });
+  await expect.poll(() => isCenteredOn(calendarTab), { timeout: 5000 }).toBeLessThan(12);
+  await expect.poll(() => navFootGap(calendarTab), { timeout: 5000 }).toBeLessThan(2);
 
   // Dragging still picks the character up and lets the existing throw physics run.
   const before = await companion.boundingBox();
