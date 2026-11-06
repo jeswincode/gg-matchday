@@ -5,7 +5,7 @@ import { getCompanionPerchPoint, nearestCenterIndex } from "../shared/companionL
 test("profile perch centres Pip over the upper-left account avatar", () => {
   assert.deepEqual(
     getCompanionPerchPoint({ left: 178, top: 243, width: 38, height: 38 }, "profile"),
-    { x: 197, y: 255.92 },
+    { x: 197, y: 262 },
   );
 });
 
