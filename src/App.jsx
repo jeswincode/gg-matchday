@@ -1,23 +1,42 @@
-import {lazy, Suspense, useCallback, useRef} from 'react';
+import {lazy, Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {api, invalidate} from './lib/api';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
-const LeaderboardView = lazy(() => import('./components/Leaderboard'));
-const Clasico = lazy(() => import('./components/Clasico'));
-const MatchHistoryCard = lazy(() => import('./components/ui/MatchHistoryCard'));
-const PlayersDirectory = lazy(() => import('./features/players/PlayersDirectory'));
-const PlayerProfile = lazy(() => import('./features/players/PlayerProfile'));
-const HomePage = lazy(() => import('./features/home/HomePage'));
-const Calendar = lazy(() => import('./features/calendar/Calendar'));
-const AdminPage = lazy(() => import('./features/admin/AdminPage'));
-const MatchRecordForm = lazy(() => import('./features/matches/MatchRecordForm'));
-const ClubsMode = lazy(() => import('./features/clubs/ClubsMode'));
-const Awards = lazy(()=>import('./components/Awards'));
-const MatchDetail = lazy(()=>import('./components/MatchDetail'));
-const HallOfFame = lazy(()=>import('./components/HallOfFame'));
-const Chat = lazy(()=>import('./components/Chat'));
-const OriginalGGWorld = lazy(()=>import('./features/OriginalGGWorld'));
-const OriginalGGProfile = lazy(()=>import('./features/OriginalGGProfile'));
-const GGCompanion = lazy(()=>import('./features/GGCompanion'));
+
+const loadLeaderboard = () => import('./components/Leaderboard');
+const loadClasico = () => import('./components/Clasico');
+const loadMatchHistoryCard = () => import('./components/ui/MatchHistoryCard');
+const loadPlayersDirectory = () => import('./features/players/PlayersDirectory');
+const loadPlayerProfile = () => import('./features/players/PlayerProfile');
+const loadHomePage = () => import('./features/home/HomePage');
+const loadCalendar = () => import('./features/calendar/Calendar');
+const loadAdminPage = () => import('./features/admin/AdminPage');
+const loadMatchRecordForm = () => import('./features/matches/MatchRecordForm');
+const loadClubsMode = () => import('./features/clubs/ClubsMode');
+const loadAwards = () => import('./components/Awards');
+const loadMatchDetail = () => import('./components/MatchDetail');
+const loadHallOfFame = () => import('./components/HallOfFame');
+const loadChat = () => import('./components/Chat');
+const loadOriginalGGWorld = () => import('./features/OriginalGGWorld');
+const loadOriginalGGProfile = () => import('./features/OriginalGGProfile');
+const loadGGCompanion = () => import('./features/GGCompanion');
+
+const LeaderboardView = lazy(loadLeaderboard);
+const Clasico = lazy(loadClasico);
+const MatchHistoryCard = lazy(loadMatchHistoryCard);
+const PlayersDirectory = lazy(loadPlayersDirectory);
+const PlayerProfile = lazy(loadPlayerProfile);
+const HomePage = lazy(loadHomePage);
+const Calendar = lazy(loadCalendar);
+const AdminPage = lazy(loadAdminPage);
+const MatchRecordForm = lazy(loadMatchRecordForm);
+const ClubsMode = lazy(loadClubsMode);
+const Awards = lazy(loadAwards);
+const MatchDetail = lazy(loadMatchDetail);
+const HallOfFame = lazy(loadHallOfFame);
+const Chat = lazy(loadChat);
+const OriginalGGWorld = lazy(loadOriginalGGWorld);
+const OriginalGGProfile = lazy(loadOriginalGGProfile);
+const GGCompanion = lazy(loadGGCompanion);
 import {
   useEffect,
   useMemo,
@@ -103,6 +122,26 @@ function App() {
   const [swipeAnimating,setSwipeAnimating]=useState(false);
   const [modeTransition,setModeTransition]=useState(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
+  useEffect(()=>{
+    let cancelled=false;
+    let idleHandle=null;
+    const warm=()=>{
+      if(cancelled)return;
+      const preloaders=[
+        loadHomePage,loadLeaderboard,loadCalendar,loadPlayersDirectory,loadMatchRecordForm,
+        loadClasico,loadMatchHistoryCard,loadGGCompanion,loadOriginalGGWorld,loadOriginalGGProfile
+      ];
+      preloaders.forEach((load)=>{try{void load().catch(()=>{});}catch{/* Retry naturally when the feature is opened. */}});
+    };
+    if("requestIdleCallback" in window) idleHandle=window.requestIdleCallback(warm,{timeout:1800});
+    else idleHandle=window.setTimeout(warm,900);
+    return ()=>{
+      cancelled=true;
+      if("cancelIdleCallback" in window && typeof idleHandle==="number")window.cancelIdleCallback(idleHandle);
+      else window.clearTimeout(idleHandle);
+    };
+  },[]);
+
 
   const switchProductMode=useCallback((nextMode)=>{
     if(nextMode===productMode || modeTransition) return;
@@ -238,10 +277,10 @@ function App() {
   // NAVIGATION
   // =========================================================
 
-  const [
-    activeTab,
-    setActiveTab,
-  ] = useState(TABS.HOME);
+  const [activeTab,setActiveTabState] = useState(TABS.HOME);
+  const setActiveTab = useCallback((nextTab)=>{
+    startTransition(()=>setActiveTabState(nextTab));
+  },[]);
 
   // =========================================================
   // AUTH
@@ -2384,7 +2423,7 @@ function App() {
 
     return (
       <>
-        <Suspense fallback={<div className="loading-panel">Opening Clubs…</div>}>
+        <Suspense fallback={<TabLoading label="Clubs" compact/>}>
           <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
         </Suspense>
         {modeTransitionLayer}
@@ -2405,15 +2444,14 @@ function App() {
   }
 
   if (profileOpen) {
-    return <Suspense fallback={<div className="loading-panel">Opening your player profile…</div>}><OriginalGGProfile authUser={authUser} backendUser={backendUser} onBack={()=>setProfileOpen(false)} /></Suspense>;
+    return <Suspense fallback={<TabLoading label="Player profile" compact/>}><OriginalGGProfile authUser={authUser} backendUser={backendUser} onBack={()=>setProfileOpen(false)} /></Suspense>;
   }
 
   if (worldOpen) {
-    return <Suspense fallback={<div className="loading-panel">Opening Original GG…</div>}><OriginalGGWorld onExit={()=>setWorldOpen(false)} onProfile={()=>{setWorldOpen(false);setProfileOpen(true);}} onOpenChat={()=>{setWorldOpen(false);setModal("chat");}} /></Suspense>;
+    return <Suspense fallback={<TabLoading label="Original GG" compact/>}><OriginalGGWorld onExit={()=>setWorldOpen(false)} playerName={authUser?.displayName||backendUser?.name||"Your player"} onOpenChat={()=>{setWorldOpen(false);setModal("chat");}} /></Suspense>;
   }
 
   return (
-    <Suspense fallback={<div className="loading-panel">Opening Matchday…</div>}>
     <main className="app" onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
 
       <div
@@ -2590,6 +2628,7 @@ function App() {
       ===================================================== */}
 
       {activeTab === TABS.HOME && (
+        <Suspense fallback={<TabLoading label="Home"/>}>
         <HomePage
           latestMatch={latestMatch}
           latestTopScorer={latestTopScorer}
@@ -2608,13 +2647,14 @@ function App() {
             setActiveTab(TABS.PLAYERS);
           }}
         />
+        </Suspense>
       )}
 
       {/* =====================================================
           RECORD
       ===================================================== */}
 
-      {activeTab === TABS.RECORD && <section className="tab-content">
+      {activeTab === TABS.RECORD && <Suspense fallback={<TabLoading label="Match records"/>}><section className="tab-content">
         <div className="gg-secondary-tabs" role="tablist" aria-label="Record sections"><button role="tab" aria-selected={recordSection==='record'} onClick={()=>setRecordSection('record')}>Match Record</button><button role="tab" aria-selected={recordSection==='clasico'} onClick={()=>setRecordSection('clasico')}>El Clásico</button></div>
         {recordSection==='clasico'?<Clasico onPlayer={showPlayer} onMatch={showMatch} refreshKey={refreshKey} isSignedIn={isSignedIn}/>:<>
         <div className="page-title"><p className="eyebrow">MATCH DAY</p><h2>{isEditor?(editingMatchId?'Edit Match':'Record a Match'):'Match Record'}</h2><p>{isEditor?'Assign sides, record performances, and let the match tell the story.':'Explore the GG Matchday archive.'}</p></div>
@@ -2653,19 +2693,20 @@ function App() {
         )}
         <section className="section-block"><div className="section-heading"><h2>Recent Matches</h2><span className="muted">{overview?.matches??matches.length} recorded</span></div>{loadingMatches?<div className="loading-panel">Loading matches…</div>:!matches.length?<div className="empty-state">No matches recorded yet.</div>:<div className="match-list">{matches.map(match=><MatchHistoryCard key={match._id} match={match} canEdit={isEditor} onOpen={()=>showMatch(match._id)} onEdit={()=>startEditingMatch(match)} onDelete={()=>deleteMatch(match._id)}/>)}</div>}{matches.length<(overview?.matches||0)&&<button className="secondary-button" onClick={()=>loadMatches(archivePage+1)}>Load more matches</button>}</section>
         </>}
-      </section>}
+      </section></Suspense>}
 
       {/* =====================================================
           LEADERBOARD
       ===================================================== */}
 
-      {activeTab === TABS.LEADERBOARD && <LeaderboardView onPlayer={showPlayer} onAwards={()=>setModal('awards')} refreshKey={refreshKey}/>}
+      {activeTab === TABS.LEADERBOARD && <Suspense fallback={<TabLoading label="Leaderboard"/>}><LeaderboardView onPlayer={showPlayer} onAwards={()=>setModal('awards')} refreshKey={refreshKey}/></Suspense>}
 
       {/* =====================================================
           CALENDAR
       ===================================================== */}
 
       {activeTab === TABS.CALENDAR && (
+        <Suspense fallback={<TabLoading label="Calendar"/>}>
         <Calendar
           apiUrl={API_URL}
           canEdit={isEditor}
@@ -2674,6 +2715,7 @@ function App() {
           onDelete={deleteMatch}
           refreshKey={refreshKey}
         />
+        </Suspense>
       )}
 
       {/* =====================================================
@@ -2682,6 +2724,7 @@ function App() {
 
       {activeTab ===
         TABS.PLAYERS && (
+        <Suspense fallback={<TabLoading label="Players"/>}>
         <section className="tab-content">
 
           {!selectedPlayer ? (
@@ -2720,6 +2763,7 @@ function App() {
             />
           )}
         </section>
+        </Suspense>
       )}
 
       {/* =====================================================
@@ -2727,6 +2771,7 @@ function App() {
       ===================================================== */}
 
       {activeTab === TABS.ADMIN && (
+        <Suspense fallback={<TabLoading label="Admin"/>}>
         <AdminPage
           isAdmin={isAdmin}
           players={players}
@@ -2742,6 +2787,7 @@ function App() {
           handleEditorRequest={handleEditorRequest}
           revokeEditor={revokeEditor}
         />
+        </Suspense>
       )}
 
       </div>
@@ -2818,16 +2864,23 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
       </Suspense>
-      {isSignedIn&&<GGCompanion onEnterWorld={()=>setWorldOpen(true)} playerName={authUser?.displayName}/>} 
+      {isSignedIn&&<Suspense fallback={null}><GGCompanion onEnterWorld={()=>setWorldOpen(true)} playerName={authUser?.displayName}/></Suspense>} 
       {modeTransitionLayer}
     </main>
-    </Suspense>
   );
 }
 
 // =========================================================
 // COMPONENTS
 // =========================================================
+
+function TabLoading({label="Section",compact=false}) {
+  return <div className={"gg-tab-loading"+(compact?" is-compact":"")} role="status" aria-label={"Loading "+label}>
+    <span className="gg-tab-loading-orbit"><i/><b/></span>
+    <div><strong>{label}</strong><small>Preparing your Matchday view</small></div>
+    <div className="gg-tab-loading-lines"><i/><i/><i/></div>
+  </div>;
+}
 
 function NavButton({
   active,
