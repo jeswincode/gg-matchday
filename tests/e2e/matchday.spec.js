@@ -145,6 +145,15 @@ test("companion action menu supports right-click and opens Original GG", async (
   await expect(menu).toBeVisible();
   await menu.getByRole("menuitem", { name: "Enter Original GG" }).click();
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
+  await page.getByRole("button", { name: /Matchday/ }).click();
+  await expect(companion).toBeVisible();
+  const homeTabCenter = async () => {
+    const sprite = await companion.boundingBox();
+    const active = await page.locator(".bottom-nav button.active").boundingBox();
+    if (!sprite || !active) return Number.POSITIVE_INFINITY;
+    return Math.abs(sprite.x + sprite.width / 2 - active.x - active.width / 2);
+  };
+  await expect.poll(homeTabCenter, { timeout: 5000 }).toBeLessThan(12);
 });
 
 test("companion touch-and-hold opens its action menu", async ({ page }) => {
