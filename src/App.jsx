@@ -2442,7 +2442,7 @@ function App() {
   }
 
   if (worldOpen) {
-    return <Suspense fallback={<TabLoading label="Original GG" compact/>}><OriginalGGWorld onExit={()=>setWorldOpen(false)} playerName={authUser?.displayName||backendUser?.name||"Your player"} onOpenChat={()=>{setWorldOpen(false);setModal("chat");}} /></Suspense>;
+    return <Suspense fallback={<TabLoading label="Original GG" compact/>}><OriginalGGWorld onExit={()=>setWorldOpen(false)} playerName={authUser?.displayName||backendUser?.name||"Your player"} playerUid={authUser?.uid||""} onOpenChat={()=>{setWorldOpen(false);setModal("chat");}} /></Suspense>;
   }
 
   return (
