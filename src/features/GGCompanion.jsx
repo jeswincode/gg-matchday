@@ -565,7 +565,10 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       if (!state.initialized) {
         const bounds = refreshLayout(state, now);
         const navRect = bounds.navRect;
-        state.x = clamp(bounds.right - 94, bounds.left + BODY_WIDTH / 2, bounds.right - BODY_WIDTH / 2);
+        const activeRect = visibleRect(bounds.nav?.querySelector("button.active"));
+        state.x = activeRect
+          ? activeRect.left + activeRect.width / 2
+          : clamp(bounds.right - 94, bounds.left + BODY_WIDTH / 2, bounds.right - BODY_WIDTH / 2);
         state.y = navRect ? navRect.top + 5 : bounds.floor;
         state.ground = bounds.nav ? { kind: "nav", el: bounds.nav } : { kind: "floor" };
         state.phase = "idle";
