@@ -587,7 +587,7 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 
 /* Pip-style action tray for desktop right-click, keyboard menu key and touch hold. */
 .gg-companion-menu{
-  position:absolute;left:50%;bottom:calc(100% + 9px);z-index:8;
+  position:absolute;left:50%;bottom:calc(100% + 9px);z-index:8;pointer-events:auto;
   display:grid;gap:3px;width:190px;padding:7px;
   transform:translateX(-50%);border:1px solid #dfbd7070;border-radius:14px;
   background:linear-gradient(155deg,#172b20f5,#09150ff5);
