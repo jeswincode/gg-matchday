@@ -708,10 +708,14 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     if(Math.abs(event.clientX-drag.x)>6||Math.abs(event.clientY-drag.y)>6)mapGestureMoved.current=true;
     const now=event.timeStamp;
     const elapsed=Math.max(1,now-dragVelocity.current.lastAt);
-    dragVelocity.current.vx=(event.clientX-dragVelocity.current.lastX)/elapsed;
-    dragVelocity.current.vy=(event.clientY-dragVelocity.current.lastY)/elapsed;
+    const bounds=mapViewportRef.current?.getBoundingClientRect();
+    const worldDx=bounds ? (event.clientX-drag.x)*3000/bounds.width/(1.6666667*scale) : (event.clientX-drag.x);
+    const worldDy=bounds ? (event.clientY-drag.y)*1200/bounds.height/scale : (event.clientY-drag.y);
+    const velocityX=bounds ? (event.clientX-dragVelocity.current.lastX)*3000/bounds.width/(1.6666667*scale)/elapsed : (event.clientX-dragVelocity.current.lastX)/elapsed;
+    const velocityY=bounds ? (event.clientY-dragVelocity.current.lastY)*1200/bounds.height/scale/elapsed : (event.clientY-dragVelocity.current.lastY)/elapsed;
+    dragVelocity.current.vx=velocityX;dragVelocity.current.vy=velocityY;
     dragVelocity.current.lastX=event.clientX;dragVelocity.current.lastY=event.clientY;dragVelocity.current.lastAt=now;
-    setOffset({x:Math.min(420,Math.max(-420,drag.ox+event.clientX-drag.x)),y:Math.min(300,Math.max(-300,drag.oy+event.clientY-drag.y))});
+    setOffset({x:Math.min(420,Math.max(-420,drag.ox+worldDx)),y:Math.min(300,Math.max(-300,drag.oy+worldDy))});
   }
   function stopPan(event) {
     pointers.current.delete(event.pointerId);
@@ -866,8 +870,8 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     const point=svg.createSVGPoint();
     point.x=event.clientX;point.y=event.clientY;
     const local=point.matrixTransform(matrix.inverse());
-    const transformedX=(local.x-900-offset.x)/scale+900;
-    const x=900+(transformedX-1500)/1.6666667;
+    const unwarpedX=900+(local.x-1500)/1.6666667;
+    const x=900+(unwarpedX-900-offset.x)/scale;
     const y=(local.y-600-offset.y)/scale+600;
     walkPlayerTo({x,y});
   }
@@ -958,7 +962,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
                 <path d="M1090 440 L1320 330 L1550 445 L1320 570Z" fill="#7cae78" opacity=".1" stroke="#c7d9ad" strokeOpacity=".28" strokeWidth="4"/>
                 <path d="M170 830 L390 720 L610 835 L390 955Z" fill="#c4b58f" opacity=".08" stroke="#d5c49b" strokeOpacity=".25" strokeWidth="4"/>
                 <path d="M900 840 L1120 730 L1340 845 L1120 970Z" fill="#7eaa73" opacity=".09" stroke="#c1d9a9" strokeOpacity=".25" strokeWidth="4"/>
-                {(data?.world?.layout?.districts||[]).map((district)=><g key={district.id} transform={"translate("+district.x+" "+district.y+")"} pointerEvents="none"><ellipse cy="52" rx="112" ry="22" fill="#06150d" opacity=".22"/><rect x="-105" y="28" width="210" height="31" rx="15" fill="#10271ddd" stroke="#dfc47d" strokeOpacity=".65"/><text y="48" textAnchor="middle" fill="#f3e2b5" fontSize="17" fontWeight="850" letterSpacing="1.5">{district.label.toUpperCase()}</text></g>)}
+                {(data?.world?.layout?.districts||[]).map((district)=><g key={district.id} transform={"translate("+district.x+" "+district.y+") scale(.6 1)"} pointerEvents="none"><ellipse cy="52" rx="112" ry="22" fill="#06150d" opacity=".22"/><rect x="-105" y="28" width="210" height="31" rx="15" fill="#10271ddd" stroke="#dfc47d" strokeOpacity=".65"/><text y="48" textAnchor="middle" fill="#f3e2b5" fontSize="17" fontWeight="850" letterSpacing="1.5">{district.label.toUpperCase()}</text></g>)}
               </g><g data-layer="landscaping">{Array.from({length:30},(_,i)=><g key={i} transform={"translate("+(80+(i*197)%1640)+" "+(100+(i*137)%970)+")"}><path d="M0 0 L27 -14 L54 0 L27 15Z" fill="#47784f"/><path d="M27 14 L27 36" stroke="#765b3d" strokeWidth="7"/><circle cx="27" cy="-5" r="22" fill="#3f8050"/><circle cx="17" cy="-12" r="12" fill="#55925b"/></g>)}</g>
               <g data-layer="sports-facilities">
                 <g transform="translate(1250 690)"><path d="M-125 0 L0 -58 L125 0 L0 58Z" fill="#387b48" stroke="#c8d7b5" strokeWidth="4"/><path d="M0 -58 L0 58 M-125 0 L125 0" stroke="#e4ebd6" strokeWidth="3"/><ellipse rx="25" ry="13" fill="none" stroke="#e4ebd6" strokeWidth="3"/><path d="M-105 -7 L-105 7 L-78 21 L-78 -21Z M105 -7 L105 7 L78 21 L78 -21Z" fill="none" stroke="#e4ebd6" strokeWidth="3"/></g>
@@ -988,7 +992,6 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
           <div className="gg-world-hq-visitors"><div><span>AT THE HEADQUARTERS</span><strong>{(data.presence||[]).filter((player)=>player.locationId===activeLocationId).length} players here</strong></div><div>{(data.presence||[]).filter((player)=>player.locationId===activeLocationId).length ? (data.presence||[]).filter((player)=>player.locationId===activeLocationId).map((player)=><article key={player.playerId}><PlayerSprite appearance={player.appearance||{}} motion={playerMotions[player.playerId]||"idle"} direction={player.direction||"down"} animated={Boolean(playerMotions[player.playerId])}/><span>{player.displayName}</span></article>) : <p>It's quiet in the clubhouse. Be the first to arrive.</p>}</div></div>
           <RoomTabs rooms={headquartersRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>
           {currentHeadquartersRoom&&<WalkableRoomScene key={"hq-"+currentHeadquartersRoom.id} room={currentHeadquartersRoom} appearance={appearance} playerName={avatar.displayName||playerName} onOpenChat={onOpenChat}/>}
-</div>
           {data.playerId&&<WorldSocialPanel playerId={data.playerId} locationId={activeLocationId}/>}
         </section>
       </div>}
