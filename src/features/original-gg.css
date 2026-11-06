@@ -606,5 +606,8 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
   from{opacity:0;transform:translate(-50%,6px) scale(.97)}
   to{opacity:1;transform:translate(-50%,0) scale(1)}
 }
-@media(max-width:700px){.gg-companion-menu{width:178px;padding:6px}.gg-companion-menu button{min-height:38px}}
+.gg-companion-menu.is-left{left:0;transform:translateX(0)}
+.gg-companion-menu.is-right{left:auto;right:0;transform:translateX(0)}
+.gg-companion-menu.is-center{left:50%;transform:translateX(-50%)}
+@media(max-width:700px){.gg-companion-menu{width:178px;max-width:calc(100vw - 16px);padding:6px}.gg-companion-menu button{min-height:38px}}
 @media(prefers-reduced-motion:reduce){.gg-companion-menu{animation:none!important}.gg-companion-menu button{transition:none!important}}
