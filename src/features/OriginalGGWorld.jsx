@@ -948,6 +948,38 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
                         <g transform="translate(1500 600) scale(1.6666667 1) translate(-900 -600)">
             <g transform={"translate("+offset.x+" "+offset.y+") translate(900 600) scale("+scale+") translate(-900 -600)"}>
               <g data-layer="terrain"><rect width="1800" height="1200" fill="url(#gg-ground)"/><rect width="1800" height="1200" fill="url(#gg-grid)"/></g>
+              <g data-layer="landscape-details" pointerEvents="none">
+                <path d="M60 180Q230 90 410 170T760 155Q920 135 1075 205" fill="none" stroke="#567c51" strokeWidth="58" opacity=".2"/>
+                <path d="M105 188Q260 105 420 182T760 172Q930 152 1070 218" fill="none" stroke="#91a66b" strokeWidth="3" strokeDasharray="8 13" opacity=".28"/>
+                <path d="M90 1015Q280 930 470 1020T835 1028" fill="none" stroke="#728b50" strokeWidth="44" opacity=".18"/>
+                <path d="M1140 80Q1265 145 1400 94T1730 130" fill="none" stroke="#547b51" strokeWidth="45" opacity=".2"/>
+                <path d="M1230 945Q1410 850 1600 935T1775 940" fill="none" stroke="#8a9c5b" strokeWidth="36" opacity=".16"/>
+                <g transform="translate(250 280)">
+                  <path d="M-115 18Q-95 -56 -16 -62Q61 -76 112 -13Q143 28 80 61Q9 93 -81 62Q-139 46 -115 18Z" fill="#28604f" stroke="#78a58a" strokeWidth="7" opacity=".92"/>
+                  <path d="M-91 22Q-55 -20 -10 -31Q50 -42 93 0Q52 52 -26 50Q-71 47 -91 22Z" fill="#3b7a75"/>
+                  <path d="M-63 15Q-33 -5 -4 -7" fill="none" stroke="#a4d6c0" strokeWidth="4" strokeLinecap="round" opacity=".7"/>
+                </g>
+                <g transform="translate(1600 850)">
+                  <path d="M-92 15Q-72 -41 -5 -54Q66 -58 101 -5Q128 39 65 61Q-22 91 -82 51Q-107 35 -92 15Z" fill="#255a4d" stroke="#7ba98d" strokeWidth="6"/>
+                  <path d="M-65 16Q-23 -20 19 -24Q64 -26 79 9Q34 47 -22 42Q-52 36 -65 16Z" fill="#397a73"/>
+                </g>
+                <g fill="#d0b77d" opacity=".8">
+                  <path d="M180 395L225 370L270 395L225 419Z M1420 390L1465 365L1510 390L1465 414Z M1020 1080L1064 1055L1108 1080L1064 1105Z"/>
+                  <path d="M188 395L188 420L225 441L225 419Z M225 419L270 395L270 420L225 441Z M1428 390L1428 416L1465 436L1465 414Z M1465 414L1510 390L1510 416L1465 436Z" fill="#6a5940"/>
+                </g>
+                <g fill="#d8c18a" opacity=".86">
+                  {Array.from({length:28},(_,i)=><circle key={i} cx={75+(i*137)%1650} cy={110+(i*193)%1010} r={i%4===0?5:3}/>)}
+                </g>
+                <g stroke="#a68d5e" strokeWidth="9" strokeLinecap="round">
+                  {[160,320,740,1160,1515,1700].map((x,i)=><g key={x} transform={"translate("+x+" "+(350+(i%3)*180)+")"}><path d="M0 0V-48"/><path d="M-10 -48H10" strokeWidth="6"/><circle cy="-49" r="8" fill="#f0d58b" stroke="#51432e" strokeWidth="3"/></g>)}
+                </g>
+                <g fill="#598d52" stroke="#244b30" strokeWidth="4">
+                  {[0,1,2,3,4,5,6,7,8,9,10,11].map(i=><g key={i} transform={"translate("+(120+(i*149)%1580)+" "+(240+(i*233)%850)+")"}><path d="M0 0V25" stroke="#705334" strokeWidth="8"/><circle cy="-9" r={i%3===0?28:20}/><circle cx="-12" cy="-17" r="10" fill="#79b66d" stroke="none"/></g>)}
+                </g>
+                <g fill="#d6bc79" stroke="#6d5736" strokeWidth="4">
+                  {[0,1,2,3,4,5].map(i=><g key={i} transform={"translate("+(215+i*272)+" "+(680+(i%2)*130)+")"}><path d="M0 0V-42" stroke="#7c6140" strokeWidth="6"/><path d="M-20 -35L0 -54L20 -35L0 -16Z" fill="#d5bd82"/><path d="M-9 -36L0 -45L9 -36L0 -28Z" fill="#f1dfaa"/></g>)}
+                </g>
+              </g>
               <g data-layer="roads"><path d="M-80 570 L470 320 L930 540 L1420 290 L1900 510 M-100 900 L420 660 L900 890 L1370 650 L1900 900 M620 -80 L900 240 L1180 390 L1480 610 L1780 790" fill="none" stroke="#172f24" strokeWidth="100" opacity=".8"/>
               <path d="M-80 570 L470 320 L930 540 L1420 290 L1900 510 M-100 900 L420 660 L900 890 L1370 650 L1900 900 M620 -80 L900 240 L1180 390 L1480 610 L1780 790" fill="none" stroke="#938a70" strokeWidth="68" strokeLinecap="round" strokeDasharray="5 8"/>
               <path d="M-80 570 L470 320 L930 540 L1420 290 L1900 510 M-100 900 L420 660 L900 890 L1370 650 L1900 900 M620 -80 L900 240 L1180 390 L1480 610 L1780 790" fill="none" stroke="#e6d8b4" strokeWidth="2" strokeDasharray="18 20" opacity=".65"/>
