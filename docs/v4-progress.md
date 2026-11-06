@@ -125,3 +125,14 @@ The current V4 world already provides a draggable/zoomable football-city map, a 
 - The account avatar, Pip dialogue bubble and Pip action menu now inherit Matchday's violet dark-theme and green Gold-theme variables instead of hard-coded gold borders/surfaces.
 - The admin account-link API independently rejects non-Gmail and unverified Gmail accounts. The companion menu also requires the verified Firebase email to match the backend account email exactly. API integration coverage includes both rejected link cases, an allowed verified Gmail link, and denial of private World access to a verified-but-unlinked Gmail account.
 - These changes are committed only on `v4/development`. The V3 `main` branch, Render production service and shared Clubs database remain untouched.
+
+### Pip profile perch and navigation movement correction — 6 November 2026
+
+- The account-avatar perch now uses an exact centre anchor with a symmetric soft footprint; the app edge no longer clips the perch and offsets Pip from the avatar centre.
+- Wrapper positioning uses the rendered wrapper height (desktop and mobile) instead of assuming a fixed 92 px height.
+- The actual pixel sprite is bottom-aligned inside its button, compensating for transparent rows beneath the seated and standing boot pixels so the boots meet the measured perch line.
+- The selected navigation tab is reached by the frame-based walking physics across the full navigation rail. Normal tab changes no longer assign Pip's x/y directly. Only horizontal finger-scrubbing directly tracks the selected tab.
+- Removed CSS transform transitions that were being restarted on every physics frame. The animation loop now owns the movement timing.
+- Ordinary content-card clicks cannot pull Pip away from the profile or navigation resting anchors; the explicit Explore action remains available for roaming.
+- Anchored idle behavior stays front-facing and prevents cheer/dance frames that lift his feet.
+- The Matchday E2E test now checks the seated profile pose, actual foot-to-avatar alignment, standing navigation foot contact, and that switching between navigation tabs enters the walking phase. These tests are committed but have not yet been run in a fresh deployed preview.
