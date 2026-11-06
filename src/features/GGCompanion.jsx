@@ -916,8 +916,13 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         } else if (state.ground.kind === "floor") {
           state.y = bounds.floor;
         }
-        state.targetX = state.x;
-        state.targetGround = state.ground;
+        // Re-measurement must not cancel an in-progress walk. The active
+        // tab branch above has already refreshed targetX; only settled perches
+        // should collapse their target back onto the current position.
+        if (!MOVING_PHASES.has(state.phase)) {
+          state.targetX = state.x;
+          state.targetGround = state.ground;
+        }
         writePosition(state);
       }
       wakeRef.current();
