@@ -79,10 +79,13 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const [dragging, setDragging] = useState(false);
   const [perched, setPerched] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const wrapperRef = useRef(null);
   const buttonRef = useRef(null);
   const bubbleTimer = useRef(null);
+  const longPressTimer = useRef(null);
+  const glanceTimer = useRef(null);
   const enterTimer = useRef(null);
   const dragRef = useRef(null);
   const finishPointerRef = useRef(null);
@@ -125,6 +128,15 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     bubbleTimer.current = window.setTimeout(() => setBubbleOpen(false), duration || 2600 + text.length * 38);
   }, []);
 
+  const openMenu = useCallback(() => {
+    window.clearTimeout(bubbleTimer.current);
+    setBubbleOpen(false);
+    setMenuOpen(true);
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+  }, []);
   const pose = useCallback((state, nextMotion = "idle", nextDirection) => {
     if (nextDirection && state.direction !== nextDirection) {
       state.direction = nextDirection;
