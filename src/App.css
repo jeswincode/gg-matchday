@@ -182,3 +182,31 @@
     border-right-color: var(--border);
   }
 }
+
+
+/* Keep the Matchday shell visible while a newly visited tab warms up. */
+.gg-tab-loading{
+  position:relative;display:flex;align-items:center;gap:15px;min-height:168px;
+  width:min(680px,calc(100% - 28px));margin:clamp(18px,4vh,42px) auto;
+  padding:18px 20px;box-sizing:border-box;overflow:hidden;
+  border:1px solid #d6b76a33;border-radius:18px;
+  color:var(--text-primary,#f1f2f5);
+  background:linear-gradient(120deg,#18202e,#111923 52%,#17231d);
+  box-shadow:0 12px 32px #0002;
+}
+.gg-tab-loading.is-compact{width:min(520px,calc(100% - 24px));min-height:90px;margin:16px auto;padding:12px 16px;border-radius:14px}
+.gg-tab-loading>div:nth-child(2){display:grid;gap:4px;min-width:0}
+.gg-tab-loading strong{font-size:14px;font-weight:850}
+.gg-tab-loading small{color:#9da9b7;font-size:10px}
+.gg-tab-loading-orbit{position:relative;display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border:1px solid #d9b86a66;border-radius:50%;background:radial-gradient(circle,#d9b86a20,#d9b86a05)}
+.gg-tab-loading-orbit:before,.gg-tab-loading-orbit:after{content:"";position:absolute;inset:5px;border:2px solid transparent;border-top-color:#f0d28d;border-bottom-color:#f0d28d;border-radius:50%;animation:gg-tab-orbit .95s linear infinite}
+.gg-tab-loading-orbit:after{inset:11px;border-top-color:#8dc59b;border-bottom-color:#8dc59b;animation-direction:reverse;animation-duration:1.4s}
+.gg-tab-loading-orbit i{width:7px;height:7px;border-radius:50%;background:#efd38d;box-shadow:0 0 14px #efd38d}
+.gg-tab-loading-orbit b{position:absolute;right:0;top:4px;width:5px;height:5px;border-radius:50%;background:#98cba6}
+.gg-tab-loading-lines{display:flex;gap:4px;margin-left:auto}
+.gg-tab-loading-lines i{display:block;width:5px;height:5px;border-radius:50%;background:#d7bb78;animation:gg-tab-pulse 1s ease-in-out infinite}
+.gg-tab-loading-lines i:nth-child(2){animation-delay:.15s}
+.gg-tab-loading-lines i:nth-child(3){animation-delay:.3s}
+@keyframes gg-tab-orbit{to{transform:rotate(360deg)}}
+@keyframes gg-tab-pulse{0%,100%{opacity:.28;transform:scale(.8)}50%{opacity:1;transform:scale(1.25)}}
+@media(prefers-reduced-motion:reduce){.gg-tab-loading-orbit:before,.gg-tab-loading-orbit:after,.gg-tab-loading-lines i{animation:none}}
