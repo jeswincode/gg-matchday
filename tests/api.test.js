@@ -21,6 +21,9 @@ test('Original GG exposes only a static public map while private bootstrap requi
   const privateBootstrap=await request('/world/bootstrap',{token:'viewer'});
   assert.equal(privateBootstrap.status,403,JSON.stringify(privateBootstrap.data));
   assert.equal(privateBootstrap.data.code,'ORIGINAL_GG_LINK_REQUIRED');
+  const verifiedButUnlinked=await request('/world/bootstrap',{token:'gmail-viewer'});
+  assert.equal(verifiedButUnlinked.status,403,JSON.stringify(verifiedButUnlinked.data));
+  assert.equal(verifiedButUnlinked.data.code,'ORIGINAL_GG_LINK_REQUIRED');
 });
 
 test('configured admin privileges require a verified matching identity and stale admin role is removed',async()=>{
