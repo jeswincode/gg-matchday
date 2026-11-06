@@ -220,7 +220,7 @@ function RoomTabs({rooms=[],activeIndex=0,onSelect}) {
   </div>;
 }
 
-function WalkableRoomScene({room,appearance,playerName="Your player",onOpenChat}) {
+function WalkableRoomScene({room,appearance,onOpenChat}) {
   const characterRef=useRef(null);
   const walkFrame=useRef(null);
   const idleTimer=useRef(null);
@@ -491,11 +491,9 @@ function WalkableRoomScene({room,appearance,playerName="Your player",onOpenChat}
         <rect x="360" y="380" width="480" height="18" fill="#94744d"/>
       </g>}
       <g opacity=".8"><path d="M82 44V104 M1118 44V104" stroke={accent} strokeWidth="5"/><path d="M82 44L112 62L82 80Z M1118 44L1088 62L1118 80Z" fill={accent}/><circle cx="600" cy="48" r="16" fill={accent}/><circle cx="600" cy="48" r="7" fill="#fff0bf"/></g>
-      <g ref={characterRef} transform="translate(600 610)" pointerEvents="none">
+      <g ref={characterRef} className="gg-room-character" transform="translate(600 610)" pointerEvents="none">
         <ellipse cx="0" cy="3" rx="26" ry="9" fill="#08110b" opacity=".55"/>
         <foreignObject x="-29" y="-78" width="58" height="74"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-room-character-sprite"><PlayerSprite appearance={appearance||{}} motion={motion} direction={direction} animated pose={scenePose}/></div></foreignObject>
-        <rect x="-94" y="11" width="188" height="29" rx="14" fill="#0d1a12" stroke={accent} strokeWidth="2"/>
-        <text x="0" y="30" textAnchor="middle" fill="#f8edcf" fontSize="15" fontWeight="900" stroke="#102016" strokeWidth="2" paintOrder="stroke">{playerName}</text>
       </g>
     </svg>
     <div className="gg-room-character-speech"><p>{line}</p></div>
@@ -1093,14 +1091,14 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
           <header className="gg-world-facility-heading"><div><span>THE GOLDEN GOONER HEADQUARTERS</span><h2 id="gg-world-hq-title">Welcome to the clubhouse.</h2><p>{liveCount} players are exploring Original GG right now.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
           <div className="gg-world-hq-visitors"><div><span>AT THE HEADQUARTERS</span><strong>{(data.presence||[]).filter((player)=>player.locationId===activeLocationId).length} players here</strong></div><div>{(data.presence||[]).filter((player)=>player.locationId===activeLocationId).length ? (data.presence||[]).filter((player)=>player.locationId===activeLocationId).map((player)=><article key={player.playerId}><PlayerSprite appearance={player.appearance||{}} motion={playerMotions[player.playerId]||"idle"} direction={player.direction||"down"} animated={Boolean(playerMotions[player.playerId])}/><span>{player.displayName}</span></article>) : <p>It's quiet in the clubhouse. Be the first to arrive.</p>}</div></div>
           <RoomTabs rooms={headquartersRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>
-          {currentHeadquartersRoom&&<WalkableRoomScene key={"hq-"+currentHeadquartersRoom.id} room={currentHeadquartersRoom} appearance={appearance} playerName={avatar.displayName||playerName} onOpenChat={onOpenChat}/>}
+          {currentHeadquartersRoom&&<WalkableRoomScene key={"hq-"+currentHeadquartersRoom.id} room={currentHeadquartersRoom} appearance={appearance} onOpenChat={onOpenChat}/>}
           {data.playerId&&<WorldSocialPanel playerId={data.playerId} locationId={activeLocationId}/>}
         </section>
       </div>}
       {facility==="training" && <div className="gg-world-facility-overlay gg-world-training-overlay" role="dialog" aria-modal="true" aria-labelledby="gg-world-training-title">
         <section className="gg-world-facility-window">
           <header className="gg-world-facility-heading"><div><span>ORIGINAL GG · TRAINING CENTRE</span><h2 id="gg-world-training-title">Step onto the training pitch.</h2><p>Track your personal workouts, then take on the ball-control challenge.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
-          <RoomTabs rooms={trainingRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>{currentTrainingRoom&&<WalkableRoomScene key={"training-"+currentTrainingRoom.id} room={currentTrainingRoom} appearance={appearance} playerName={avatar.displayName||playerName}/>} 
+          <RoomTabs rooms={trainingRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>{currentTrainingRoom&&<WalkableRoomScene key={"training-"+currentTrainingRoom.id} room={currentTrainingRoom} appearance={appearance}/>} 
           <section className="gg-world-training-workbench">
             <div className="gg-world-section-title"><span>YOUR PERSONAL RECORD</span><h2>Log a workout</h2><p>Rename each counter to track any exercise you prefer. Totals and personal bests stay in your training history.</p></div>
             <div className="gg-world-training-grid">
@@ -1121,7 +1119,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
         <section className="gg-world-facility-window">
           <header className="gg-world-facility-heading"><div><span>ORIGINAL GG · MARKET SQUARE</span><h2>Build your football identity.</h2><p>Character cosmetics, home furnishings and residence upgrades.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
           <RoomTabs rooms={marketRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>
-          {currentMarketRoom&&<WalkableRoomScene key={"market-"+currentMarketRoom.id} room={currentMarketRoom} appearance={appearance} playerName={avatar.displayName||playerName}/>}
+          {currentMarketRoom&&<WalkableRoomScene key={"market-"+currentMarketRoom.id} room={currentMarketRoom} appearance={appearance}/>}
           <WorldEconomyPanel onEquipped={(nextAppearance)=>setAvatar((current)=>({...current,appearance:nextAppearance}))}/>
         </section>
       </div>}
@@ -1141,7 +1139,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
       <section className="gg-world-facility-window gg-world-room-window">
         <header className="gg-world-facility-heading"><div><span>{interior.type==="residence"?"PLAYER RESIDENCE":"ORIGINAL GG · "+(interior.type||"FACILITY").replaceAll("-"," ").toUpperCase()} · LEVEL {interior.level||1}</span><h2 id="gg-world-interior-title">{interior.name||"Facility interior"}</h2><p>Explore the room. Click the floor to move your character, or use WASD / arrow keys.</p></div><button className="gg-world-back" onClick={()=>{setInterior(null);setActiveLocationId("city-plaza");}}>← Back to city</button></header>
         <RoomTabs rooms={interior.interior?.rooms||[]} activeIndex={activeRoomIndex} onSelect={setActiveRoomIndex}/>
-        {(interior.interior?.rooms||[]).length>0 ? <WalkableRoomScene key={(interior.interior.rooms[activeRoomIndex]||interior.interior.rooms[0]).id} room={interior.interior.rooms[activeRoomIndex]||interior.interior.rooms[0]} appearance={appearance} playerName={avatar.displayName||playerName} onOpenChat={onOpenChat}/> : <WalkableRoomScene key={interior.type||interior.name} room={{id:"lounge",name:interior.name||"Player Lounge",theme:"clubhouse",items:[]}} appearance={appearance} playerName={avatar.displayName||playerName} onOpenChat={onOpenChat}/>}
+        {(interior.interior?.rooms||[]).length>0 ? <WalkableRoomScene key={(interior.interior.rooms[activeRoomIndex]||interior.interior.rooms[0]).id} room={interior.interior.rooms[activeRoomIndex]||interior.interior.rooms[0]} appearance={appearance} onOpenChat={onOpenChat}/> : <WalkableRoomScene key={interior.type||interior.name} room={{id:"lounge",name:interior.name||"Player Lounge",theme:"clubhouse",items:[]}} appearance={appearance} onOpenChat={onOpenChat}/>}
         <div className="gg-world-room-inventory"><span>IN THIS ROOM</span>{((interior.interior?.rooms||[])[activeRoomIndex]?.items||[]).map((item)=><small key={item}>{item.replaceAll("-"," ")}</small>)}{((interior.interior?.rooms||[])[activeRoomIndex]?.furniture||[]).map((item,index)=><small key={item.itemId+":"+index}>✦ {item.name}</small>)}</div>
         {interior.type==="residence"&&<button type="button" className="gg-world-interior-secondary" onClick={()=>setResidenceAccessOpen(true)}>Manage visitors and privacy</button>}
       </section>
