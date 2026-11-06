@@ -160,6 +160,9 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
   await expect(companionStage).toHaveClass(/is-perched/);
   await expect.poll(() => navFootGap(leaderboardTab), { timeout: 5000 }).toBeLessThan(2);
   await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /facing down/);
+  await expect(companionStage).toHaveAttribute("data-gg-nav-dragging", "false");
+  const navTransition = await companionStage.evaluate((element) => getComputedStyle(element).transitionProperty);
+  expect(navTransition.split(",").map((property) => property.trim())).toContain("transform");
 
   // Dragging still picks the character up and lets the existing throw physics run.
   const before = await companion.boundingBox();
