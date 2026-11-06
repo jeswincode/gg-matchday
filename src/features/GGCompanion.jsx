@@ -85,6 +85,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const bubbleTimer = useRef(null);
   const enterTimer = useRef(null);
   const dragRef = useRef(null);
+  const finishPointerRef = useRef(null);
   const suppressClick = useRef(false);
   const activeTabRef = useRef(activeTab);
   const suspendedRef = useRef(suspended);
@@ -513,7 +514,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       state.nextAction = now + 3500 + Math.random() * 5500;
       chooseIdleAction(state, now);
     }
-  }, [chooseIdleAction, land, measureBounds, pose, rectForGround, refreshLayout, settle]);
+  }, [chooseIdleAction, land, pose, rectForGround, refreshLayout, settle]);
 
   const wakeRef = useRef(() => {});
   const moveToRef = useRef(moveTo);
@@ -568,6 +569,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       schedule();
     };
 
+    // eslint-disable-next-line react-hooks/immutability -- the active loop owns this wake bridge until its cleanup.
     wakeRef.current = () => {
       if (!mounted || suspendedRef.current || document.hidden) return;
       window.clearTimeout(timerRef.current);
@@ -725,8 +727,8 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     window.removeEventListener("pointermove", pointerMove);
-    window.removeEventListener("pointerup", finishPointer);
-    window.removeEventListener("pointercancel", finishPointer);
+    window.removeEventListener("pointerup", finishPointerRef.current);
+    window.removeEventListener("pointercancel", finishPointerRef.current);
     dragRef.current = null;
     if (!drag.moved) return;
     const state = physicsRef.current;
@@ -748,7 +750,8 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     pose(state, "celebrating");
     window.setTimeout(() => { suppressClick.current = false; }, 120);
     wakeRef.current();
-  }, [pose]);
+  }, [pointerMove, pose]);
+  useEffect(() => { finishPointerRef.current = finishPointer; }, [finishPointer]);
 
   const startPointer = (event) => {
     if (event.button !== undefined && event.button !== 0 || suspended || transitioning) return;
