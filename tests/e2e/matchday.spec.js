@@ -113,9 +113,32 @@ test("Pip-style companion follows Matchday navigation and responds to being pick
   const beforeTabChange = await companion.boundingBox();
   await navigation.getByRole("button", { name: /Leaderboard/ }).click();
   await expect(navigation.getByRole("button", { name: /Leaderboard/ })).toHaveClass(/active/);
-  // A real walk is visible first; desktop navigation spans more than two sprite-widths.
+  // The character must receive the new nav target, then physically arrive there.
+  const companionStage = page.locator(".gg-companion");
+  const selectedCenter = async () => {
+    const bounds = await navigation.locator("button.active").boundingBox();
+    return bounds ? bounds.x + bounds.width / 2 : 0;
+  };
+  await expect.poll(async () => {
+    const target = Number(await companionStage.getAttribute("data-gg-target-x"));
+    return Math.abs(target - await selectedCenter());
+  }, { timeout: 2500 }).toBeLessThan(3);
   await expect(page.locator(".gg-companion.is-moving")).toBeVisible();
-  await expect.poll(isAlignedToActiveTab, { timeout: 9000, intervals: [100, 250, 500] }).toBeLessThan(12);
+  let finalCompanionState = null;
+  try {
+    await expect.poll(isAlignedToActiveTab, { timeout: 9000, intervals: [100, 250, 500] }).toBeLessThan(12);
+  } catch (error) {
+    finalCompanionState = await companionStage.evaluate(element => ({
+      phase: element.dataset.ggPhase,
+      x: element.dataset.ggX,
+      targetX: element.dataset.ggTargetX,
+      ground: element.dataset.ggGround,
+      targetGround: element.dataset.ggTargetGround,
+      transform: element.style.transform,
+    }));
+    console.log("Pip navigation diagnostic:", JSON.stringify({ state: finalCompanionState, center: await selectedCenter() }));
+    throw error;
+  }
   expect(beforeTabChange).not.toBeNull();
 
   const before = await companion.boundingBox();
