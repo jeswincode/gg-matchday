@@ -124,11 +124,10 @@ test("Pip-style companion follows Matchday navigation and responds to being pick
     return Math.abs(target - await selectedCenter());
   }, { timeout: 2500 }).toBeLessThan(3);
   await expect(page.locator(".gg-companion.is-moving")).toBeVisible();
-  let finalCompanionState = null;
   try {
     await expect.poll(isAlignedToActiveTab, { timeout: 9000, intervals: [100, 250, 500] }).toBeLessThan(12);
   } catch (error) {
-    finalCompanionState = await companionStage.evaluate(element => ({
+    const finalCompanionState = await companionStage.evaluate(element => ({
       phase: element.dataset.ggPhase,
       x: element.dataset.ggX,
       targetX: element.dataset.ggTargetX,
