@@ -800,6 +800,35 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   }, [playerUid, playerName]);
 
   useEffect(() => {
+    const onMatchSaved = (event) => {
+      if (suspendedRef.current || transitioning) return;
+      const state = physicsRef.current;
+      if (!state.initialized) return;
+      const updated = event.detail?.action === "updated";
+      const line = updated
+        ? "A Matchday update! The story keeps going."
+        : "Nice one! A new match is in the books.";
+      showBubble(line, 2600);
+      if (state.phase === "walking" || state.phase === "idle") {
+        state.phase = "idle";
+        state.tween = null;
+        state.targetGround = state.ground;
+        state.targetX = state.x;
+        state.vx = 0;
+        state.vy = 0;
+        state.angle = 0;
+        state.actionUntil = performance.now() + 1250;
+        state.nextAction = state.actionUntil;
+        setPerched(false);
+        pose(state, "celebrating");
+        wakeRef.current();
+      }
+    };
+    window.addEventListener("gg-match-saved", onMatchSaved);
+    return () => window.removeEventListener("gg-match-saved", onMatchSaved);
+  }, [pose, showBubble, transitioning]);
+
+  useEffect(() => {
     if (suspended) {
       window.cancelAnimationFrame(rafRef.current);
       rafRef.current = 0;
