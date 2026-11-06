@@ -277,13 +277,16 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     if (ground.kind === "floor") {
       return { left: bounds.left, right: bounds.right, top: bounds.floor };
     }
-    const rect = visibleRect(ground.el);
+    // Profile and navigation perches are point anchors, not hard ledges. The
+    // sprite is wider than either control, so clamp around the control centre
+    // rather than forcing the footballer away from edge tabs.
+    const anchor = ground.kind === "nav"
+      ? ground.el?.querySelector("button.active")
+      : ground.el;
+    const rect = visibleRect(anchor);
     if (!rect) return null;
     const perch = getCompanionPerchPoint(rect, ground.kind);
-    if (ground.kind === "profile" && perch) {
-      // A profile icon is much narrower than the footballer sprite. Treat it
-      // as a soft central perch, not a hard ledge whose 38px width clamps an
-      // 88px character away from the icon centre.
+    if ((ground.kind === "profile" || ground.kind === "nav") && perch) {
       return {
         left: Math.max(bounds.left, perch.x - BODY_WIDTH / 2),
         right: Math.min(bounds.right, perch.x + BODY_WIDTH / 2),
@@ -360,7 +363,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     state.omega = 0;
     state.tween = null;
     setPhase(state, "idle");
-    pose(state, "idle");
+    pose(state, "idle", state.ground.kind === "profile" || state.ground.kind === "nav" ? "down" : undefined);
     state.nextAction = now + 3500 + Math.random() * 5500;
     state.bounced = false;
   }, [measureBounds, pose, rectForGround, setPhase]);
@@ -383,8 +386,9 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       state.ground = ground;
       state.tween = null;
       state.phase = "idle";
-      pose(state, "idle");
+      pose(state, "idle", ground.kind === "profile" || ground.kind === "nav" ? "down" : undefined);
       setPerched(ground.kind === "nav");
+      setProfilePerched(ground.kind === "profile");
       writePosition(state);
       if (options.line) showBubble(options.line, 2100);
       return;
@@ -418,7 +422,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     state.nextAction = performance.now() + 8000;
     if (options.line) showBubble(options.line, 2100);
     wakeRef.current();
-  }, [measureBounds, pose, rectForGround, setPerched, showBubble, transitioning, writePosition]);
+  }, [measureBounds, pose, rectForGround, setPerched, setProfilePerched, showBubble, transitioning, writePosition]);
 
   const moveToActiveTab = useCallback(() => {
     if (suspendedRef.current || transitioning) return;
@@ -434,7 +438,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
 
     // Navigation is a moving surface, not a destination that should take a
     // 46 px/s walk. Perch directly on the selected button's current geometry.
-    state.x = clamp(perch.x, navRect.left + BODY_WIDTH / 2, navRect.right - BODY_WIDTH / 2);
+    state.x = perch.x;
     state.y = perch.y;
     state.ground = { kind: "nav", el: nav };
     state.targetGround = state.ground;
@@ -446,7 +450,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     state.omega = 0;
     state.phase = "idle";
     state.manuallyPlaced = false;
-    pose(state, "idle", buttonRect.left < state.x - 4 ? "left" : buttonRect.right > state.x + 4 ? "right" : state.direction);
+    pose(state, "idle", "down");
     setPerched(true);
     setProfilePerched(false);
     writePosition(state);
@@ -621,7 +625,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         state.ground = tween.ground;
         state.tween = null;
         state.phase = "idle";
-        pose(state, "idle");
+        pose(state, "idle", tween.ground.kind === "profile" || tween.ground.kind === "nav" ? "down" : undefined);
         setPerched(tween.ground.kind === "nav");
         setProfilePerched(tween.ground.kind === "profile");
         state.nextAction = now + 3300 + Math.random() * 4300;
@@ -814,7 +818,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         state.phase = "idle";
         state.initialized = true;
         state.nextAction = now + 1100;
-        pose(state, "idle");
+        pose(state, "idle", state.ground.kind === "profile" || state.ground.kind === "nav" ? "down" : undefined);
         writePosition(state);
       } else {
         const steps = Math.max(1, Math.ceil(elapsed / MAX_FRAME_SECONDS));
