@@ -335,6 +335,9 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     wrapper.dataset.ggTargetX = state.targetX.toFixed(1);
     wrapper.dataset.ggGround = state.ground?.kind || "air";
     wrapper.dataset.ggTargetGround = state.targetGround?.kind || "none";
+    wrapper.dataset.ggNavDragging = String(
+      state.ground?.kind === "nav" && state.ground.el?.dataset.dragging === "true",
+    );
   }, []);
 
   const setPhase = useCallback((state, nextPhase) => {
