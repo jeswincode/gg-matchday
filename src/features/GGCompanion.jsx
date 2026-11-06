@@ -506,26 +506,21 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       return;
     }
     // The account avatar and selected navigation item are deliberate resting
-    // anchors. Keep the character in place, but let small gestures make him
-    // feel alive without walking off the avatar or interrupting tab-following.
+    // anchors. Only wave while perched: cheer/dance frames lift the legs and
+    // make the footballer look as though he is floating off the surface.
     if (state.ground?.kind === "profile" || state.ground?.kind === "nav") {
-      const roll = Math.random();
-      const isProfilePerch = state.ground.kind === "profile";
-      const gesture = roll < 0.11 ? "wave"
-        : roll < 0.20 ? "cheer"
-          : !isProfilePerch && roll < 0.28 ? "dance" : null;
-      if (gesture) {
-        pose(state, gesture, state.direction);
-        state.actionUntil = now + (gesture === "dance" ? 1500 : 900);
+      if (Math.random() < 0.12) {
+        pose(state, "wave", "down");
+        state.actionUntil = now + 900;
         state.nextAction = state.actionUntil;
-        if (gesture === "wave" && Math.random() < 0.42) {
+        if (Math.random() < 0.42) {
           const line = tabLines[activeTab]?.[1] || "Hey! Good to see you.";
           showBubble(line, 1900);
         }
       } else {
         state.actionUntil = 0;
         state.nextAction = now + 4200 + Math.random() * 3000;
-        pose(state, "idle", state.direction);
+        pose(state, "idle", "down");
       }
       return;
     }
