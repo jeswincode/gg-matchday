@@ -293,15 +293,17 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       const navRect = visibleRect(ground.el);
       if (!navRect) return null;
       return {
-        left: Math.max(bounds.left, navRect.left),
-        right: Math.min(bounds.right, navRect.right),
+        left: Math.max(bounds.left - BODY_WIDTH / 2, navRect.left - BODY_WIDTH / 2),
+        right: Math.min(bounds.right + BODY_WIDTH / 2, navRect.right + BODY_WIDTH / 2),
         top: perch.y,
       };
     }
     if (ground.kind === "profile" && perch) {
+      // A circular avatar is narrower than Pip. Keep a symmetric 88px soft
+      // perch around its exact centre, even when the icon sits near screen edge.
       return {
-        left: Math.max(bounds.left, perch.x - BODY_WIDTH / 2),
-        right: Math.min(bounds.right, perch.x + BODY_WIDTH / 2),
+        left: perch.x - BODY_WIDTH / 2,
+        right: perch.x + BODY_WIDTH / 2,
         top: perch.y,
       };
     }
