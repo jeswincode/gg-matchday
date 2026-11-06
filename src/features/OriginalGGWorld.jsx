@@ -462,6 +462,15 @@ function Building({ kind }) {
   </svg>;
 }
 
+function initialLocalAvatar(playerUid,playerName="") {
+  const fallback={displayName:playerName||"",appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"}};
+  try {
+    const stored=JSON.parse(window.localStorage.getItem("gg-v4-local-avatar:"+(playerUid||"visitor"))||"null");
+    if(stored&&typeof stored==="object")return {...fallback,...stored,appearance:{...fallback.appearance,...stored.appearance}};
+  } catch { /* Use the account name and default kit when local storage is unavailable. */ }
+  return fallback;
+}
+
 function initialVisitorPosition(playerUid) {
   try {
     const saved = JSON.parse(window.localStorage.getItem("gg-v4-world-position:" + (playerUid || "visitor")) || "null");
@@ -485,7 +494,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
   const [residenceAccessOpen,setResidenceAccessOpen] = useState(false);
   const [activeLocationId,setActiveLocationId] = useState("city-plaza");
   const [interiorLoading,setInteriorLoading] = useState(false);
-  const [avatar,setAvatar] = useState({displayName:"",appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white",headAccessory:"none"}});
+  const [avatar,setAvatar] = useState(()=>initialLocalAvatar(playerUid,playerName));
   const [training,setTraining] = useState(emptyTraining);
   const [exerciseNames,setExerciseNames] = useState(()=>{
     try {
