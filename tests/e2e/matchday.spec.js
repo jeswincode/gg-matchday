@@ -110,9 +110,13 @@ test("Pip-style companion follows Matchday navigation and responds to being pick
   };
   await expect.poll(isAlignedToActiveTab, { timeout: 5000 }).toBeLessThan(12);
 
+  const beforeTabChange = await companion.boundingBox();
   await navigation.getByRole("button", { name: /Leaderboard/ }).click();
   await expect(navigation.getByRole("button", { name: /Leaderboard/ })).toHaveClass(/active/);
-  await expect.poll(isAlignedToActiveTab, { timeout: 5000 }).toBeLessThan(12);
+  // A real walk is visible first; desktop navigation spans more than two sprite-widths.
+  await expect(page.locator(".gg-companion.is-moving")).toBeVisible();
+  await expect.poll(isAlignedToActiveTab, { timeout: 9000, intervals: [100, 250, 500] }).toBeLessThan(12);
+  expect(beforeTabChange).not.toBeNull();
 
   const before = await companion.boundingBox();
   expect(before).not.toBeNull();
