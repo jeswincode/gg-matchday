@@ -492,12 +492,28 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       state.nextAction = now + REST_MS;
       return;
     }
-    // The profile launcher and selected navigation item are deliberate resting
-    // anchors. Keep the character seated on the profile icon and attached to
-    // the active tab instead of autonomously walking away from either control.
+    // The account avatar and selected navigation item are deliberate resting
+    // anchors. Keep the character in place, but let small gestures make him
+    // feel alive without walking off the avatar or interrupting tab-following.
     if (state.ground?.kind === "profile" || state.ground?.kind === "nav") {
-      state.nextAction = now + 4200 + Math.random() * 3000;
-      pose(state, "idle", state.direction);
+      const roll = Math.random();
+      const isProfilePerch = state.ground.kind === "profile";
+      const gesture = roll < 0.11 ? "wave"
+        : roll < 0.20 ? "cheer"
+          : !isProfilePerch && roll < 0.28 ? "dance" : null;
+      if (gesture) {
+        pose(state, gesture, state.direction);
+        state.actionUntil = now + (gesture === "dance" ? 1500 : 900);
+        state.nextAction = state.actionUntil;
+        if (gesture === "wave" && Math.random() < 0.42) {
+          const line = tabLines[activeTab]?.[1] || "Hey! Good to see you.";
+          showBubble(line, 1900);
+        }
+      } else {
+        state.actionUntil = 0;
+        state.nextAction = now + 4200 + Math.random() * 3000;
+        pose(state, "idle", state.direction);
+      }
       return;
     }
     const roll = Math.random();
@@ -543,7 +559,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       state.actionUntil = now + 850;
       state.nextAction = state.actionUntil;
     }
-  }, [measureBounds, moveTo, pose, rectForGround, showBubble]);
+  }, [activeTab, measureBounds, moveTo, pose, rectForGround, showBubble]);
 
   const land = useCallback((state, now, ground, impactSpeed) => {
     const rect = rectForGround(ground, state.bounds || measureBounds());
@@ -727,13 +743,8 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       pose(state, "idle");
     }
     if (state.phase === "idle" && now >= state.nextAction) {
-      if (state.ground?.kind === "profile" || state.ground?.kind === "nav") {
-        state.nextAction = now + 4200 + Math.random() * 3000;
-        pose(state, "idle", state.direction);
-      } else {
-        state.nextAction = now + 3500 + Math.random() * 5500;
-        chooseIdleAction(state, now);
-      }
+      state.nextAction = now + 3500 + Math.random() * 5500;
+      chooseIdleAction(state, now);
     }
   }, [chooseIdleAction, land, pose, rectForGround, refreshLayout, settle]);
 
@@ -909,8 +920,8 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       : null;
     observer?.observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
     nav?.addEventListener("click", followSelectedTab);
-    // Initial placement is the floating profile launcher. Follow nav only
-    // after the selected tab actually changes.
+    // Initial placement is the upper-left account-avatar perch. Follow nav
+    // only after the selected tab actually changes.
     return () => {
       window.cancelAnimationFrame(navFrame);
       observer?.disconnect();
