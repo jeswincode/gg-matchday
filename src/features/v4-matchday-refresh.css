@@ -606,3 +606,12 @@ html[data-theme="golden"] .gg-companion-menu{border-color:rgba(111,235,150,.42);
   .gg-companion.is-profile-perched { --gg-companion-foot-bleed: -4.25px; }
   .gg-companion.is-perched { --gg-companion-foot-bleed: -2.125px; }
 }
+
+/* The legacy companion CSS sets transition:none!important. Re-enable the
+   measured tab-follow glide, but keep direct tracking during a tab drag. */
+.gg-companion[data-gg-ground="nav"]:not([data-gg-nav-dragging="true"]) {
+  transition: transform 240ms cubic-bezier(.2,.85,.2,1), opacity 200ms linear !important;
+}
+.gg-companion[data-gg-ground="nav"][data-gg-nav-dragging="true"] {
+  transition: none !important;
+}
