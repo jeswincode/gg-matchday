@@ -323,7 +323,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const canWalk = currentRect && currentRect.right - currentRect.left > BODY_WIDTH + 44;
     const surfaces = state.ledges.filter((item) => {
       if (!item.rect || item.el === state.ground?.el) return false;
-      return Math.abs(item.rect.top - state.y) < 300 && item.rect.width > BODY_WIDTH + 60;
+      return Math.abs(item.rect.top - state.y) < Math.min(620, bounds.floor - bounds.top - BODY_HEIGHT) && item.rect.width > BODY_WIDTH + 60;
     });
 
     if (roll < 0.68 && canWalk) {
