@@ -57,7 +57,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
       const headX = safeDirection === "left" ? 13 : safeDirection === "right" ? 19 : 16;
       const gait = safeMotion === "walking" ? [0, 1, 0, -1][frame % 4] : 0;
       const danceStep = safeMotion === "dance" ? [0, 1, 0, -1, -1, 0, 1, 0][frame % 8] : 0;
-      const idleBob = safeMotion === "idle" ? [0, 0, -1, 0][frame % 4] : 0;
+      const idleBob = safeMotion === "idle" && !seated ? [0, 0, -1, 0][frame % 4] : 0;
       const celebrationJump = ["celebrating", "cheer"].includes(safeMotion) ? [0, -1, -3, -1][frame % 4] : 0;
       const jump = idleBob + celebrationJump;
       const bodySway = safeMotion === "dance" ? [0, 1, 0, -1, 0, -1, 0, 1][frame % 8]
