@@ -617,6 +617,36 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 .gg-companion[data-gg-phase=held] .gg-companion-button{transform-origin:50% 63%}
 @media(max-width:700px){.gg-companion[data-gg-phase=held] .gg-companion-button{transform-origin:50% 59%}}
 
+
+/* Pip's dialogue and action tray use the same theme tokens as Matchday navigation. */
+html[data-theme] .gg-companion-bubble {
+  border-color: rgba(var(--gg-neon-rgb), .48);
+  color: var(--gg-text);
+  background: color-mix(in srgb, var(--gg-surface-raised) 94%, transparent);
+  box-shadow: 0 8px 28px rgba(0,0,0,.36), 0 0 22px rgba(var(--gg-neon-rgb), .12);
+}
+html[data-theme] .gg-companion-bubble span {
+  color: var(--gg-neon-strong);
+}
+html[data-theme] .gg-companion-menu {
+  border-color: rgba(var(--gg-neon-rgb), .48);
+  color: var(--gg-text);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--gg-surface-raised) 96%, transparent),
+    color-mix(in srgb, var(--gg-surface) 96%, transparent)
+  );
+  box-shadow: 0 16px 38px rgba(0,0,0,.40), 0 0 24px rgba(var(--gg-neon-rgb), .12);
+}
+html[data-theme] .gg-companion-menu button {
+  color: var(--gg-text);
+}
+html[data-theme] .gg-companion-menu button:hover,
+html[data-theme] .gg-companion-menu button:focus-visible {
+  color: var(--gg-neon-strong);
+  background: rgba(var(--gg-neon-rgb), .15);
+}
+
 /* The account-avatar perch and identity control inherit the active Matchday neon. */
 html[data-theme] .gg-account-avatar-trigger {
   border-color: rgba(var(--gg-neon-rgb), .42);
