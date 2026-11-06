@@ -616,3 +616,26 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 /* The hand is the pivot while held; airborne spins rotate around the body centre. */
 .gg-companion[data-gg-phase=held] .gg-companion-button{transform-origin:50% 63%}
 @media(max-width:700px){.gg-companion[data-gg-phase=held] .gg-companion-button{transform-origin:50% 59%}}
+
+/* The account-avatar perch and identity control inherit the active Matchday neon. */
+html[data-theme] .gg-account-avatar-trigger {
+  border-color: rgba(var(--gg-neon-rgb), .42);
+  background:
+    radial-gradient(circle at 32% 18%, rgba(var(--gg-neon-rgb), .20), transparent 68%),
+    color-mix(in srgb, var(--gg-surface-raised) 90%, transparent);
+  box-shadow: 0 4px 16px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.12);
+}
+html[data-theme] .gg-account-avatar-trigger img,
+html[data-theme] .gg-account-avatar-trigger span {
+  color: var(--gg-text);
+  background:
+    radial-gradient(circle at 32% 18%, rgba(var(--gg-neon-rgb), .25), transparent 70%),
+    var(--gg-surface-raised);
+}
+html[data-theme] .gg-account-avatar-trigger:hover {
+  border-color: rgba(var(--gg-neon-rgb), .82);
+  box-shadow: 0 0 0 4px rgba(var(--gg-neon-rgb), .12), 0 6px 18px rgba(0,0,0,.22);
+}
+html[data-theme] .gg-account-avatar-trigger:focus-visible {
+  outline-color: var(--gg-neon-strong);
+}
