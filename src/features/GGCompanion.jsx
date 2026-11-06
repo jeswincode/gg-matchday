@@ -463,6 +463,12 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       if (suspendedRef.current || transitioning || menuOpen || dragRef.current) return;
       const state = physicsRef.current;
       if (!state.initialized || state.phase !== "idle") return;
+      // A resting avatar/nav perch is a deliberate front-facing pose. Do not
+      // let pointer glances turn the footballer sideways while he is seated.
+      if (state.ground?.kind === "profile" || state.ground?.kind === "nav") {
+        if (state.direction !== "down") pose(state, state.motion, "down");
+        return;
+      }
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
       const dx = event.clientX - (rect.left + rect.width / 2);
