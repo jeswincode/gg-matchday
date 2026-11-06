@@ -655,7 +655,9 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       rafRef.current = 0;
       timerRef.current = 0;
       if (suspendedRef.current || document.hidden) return;
-      const dt = last ? clamp((now - last) / 1000, MIN_FRAME_SECONDS, MAX_FRAME_SECONDS) : 0;
+      // Keep character speed tied to elapsed time, not the display's frame rate.
+      // Slower frames are split into small physics steps to preserve collision stability.
+      const elapsed = last ? clamp((now - last) / 1000, MIN_FRAME_SECONDS, 0.12) : MIN_FRAME_SECONDS;
       last = Math.max(last, now);
       if (!state.initialized) {
         const bounds = refreshLayout(state, now);
@@ -673,7 +675,13 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         writePosition(state);
         window.setTimeout(() => moveToActiveNavRef.current?.(), 650);
       } else {
-        physicsStep(state, dt, now);
+        const steps = Math.max(1, Math.ceil(elapsed / MAX_FRAME_SECONDS));
+        const stepSeconds = elapsed / steps;
+        const frameStart = now - elapsed * 1000;
+        for (let step = 0; step < steps; step += 1) {
+          const stepAt = frameStart + (step + 1) * stepSeconds * 1000;
+          physicsStep(state, stepSeconds, stepAt);
+        }
         writePosition(state);
       }
       schedule();
