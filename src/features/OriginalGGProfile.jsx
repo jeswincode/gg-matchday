@@ -133,7 +133,7 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
         if(!preset)throw new Error("That lookbook entry could not be found.");
         const nextAvatar={...avatar,appearance:preset.appearance};
         setAvatar(nextAvatar);
-        announceAvatarChange(nextAvatar, true);
+        announceAvatarChange(nextAvatar);
         setMessage("Preset applied. Save your character to keep this look on this device.");
       }
       if(linked)setMessage("Character preset applied.");
