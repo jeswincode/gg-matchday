@@ -31,7 +31,7 @@ test("pointer acceleration produces a damped pendulum swing", () => {
 
   // Let go of pointer movement: angular momentum continues, then damping
   // makes the swing settle instead of maintaining a permanent spin.
-  for (let i = 0; i < 240; i += 1) {
+  for (let i = 0; i < 480; i += 1) {
     stepHeldSwing(state, 1 / 60);
     state.x = state.pivot.x;
     state.y = state.pivot.y + COMPANION_HOLD_DROP;

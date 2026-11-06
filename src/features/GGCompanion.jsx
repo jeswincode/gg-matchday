@@ -482,10 +482,10 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     state.ground = ground;
     state.tween = null;
     state.angle = 0;
-    if (!state.bounced && impactSpeed > 770 && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    if (!state.bounced && impactSpeed > BOUNCE_SPEED && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       state.bounced = true;
-      state.vy = -Math.min(480, impactSpeed * 0.28);
-      state.vx *= 0.58;
+      state.vy = -impactSpeed * 0.32;
+      state.vx *= 0.6;
       state.phase = "flying";
       pose(state, "celebrating");
       showBubble("Wheee!", 1350);
