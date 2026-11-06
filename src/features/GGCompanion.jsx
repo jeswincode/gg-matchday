@@ -886,7 +886,10 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     state.phase = "jumping";
     state.tween = null;
     pose(state, "celebrating");
-    enterTimer.current = window.setTimeout(() => onEnterWorld?.(), 520);
+    enterTimer.current = window.setTimeout(() => {
+      setTransitioning(false);
+      onEnterWorld?.();
+    }, 520);
   };
 
   useEffect(() => () => {
