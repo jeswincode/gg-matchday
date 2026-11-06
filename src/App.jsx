@@ -38,12 +38,6 @@ const OriginalGGWorld = lazy(loadOriginalGGWorld);
 const OriginalGGProfile = lazy(loadOriginalGGProfile);
 const GGCompanion = lazy(loadGGCompanion);
 import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-
-import {
   getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
