@@ -79,7 +79,7 @@ function visibleRect(element) {
   return rect;
 }
 
-export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", activeTab, suspended = false }) {
+export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, playerName, playerUid = "", activeTab, suspended = false }) {
   const [avatar, setAvatar] = useState(() => savedAccountAvatar(playerUid, playerName));
   const [motion, setMotion] = useState("idle");
   const [direction, setDirection] = useState("down");
@@ -1187,6 +1187,11 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   };
 
   const enterWorld = () => {
+    if (!worldAccessAllowed) {
+      closeMenu();
+      showBubble("Original GG access requires a verified Gmail account linked by the administrator.", 4200);
+      return;
+    }
     if (transitioning || suspended || suppressClick.current) {
       suppressClick.current = false;
       return;
@@ -1234,7 +1239,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         <button type="button" role="menuitem" onClick={() => { closeMenu(); moveToActiveTab(); }}>Come to this tab</button>
         <button type="button" role="menuitem" onClick={explorePage}>Explore the page</button>
         <button type="button" role="menuitem" onClick={waveHello}>Wave hello</button>
-        <button type="button" role="menuitem" onClick={() => { closeMenu(); enterWorld(); }}>Enter Original GG</button>
+        <button type="button" role="menuitem" disabled={!worldAccessAllowed} title={!worldAccessAllowed ? "Requires a verified @gmail.com account linked by the administrator" : undefined} onClick={() => { closeMenu(); enterWorld(); }}>{worldAccessAllowed ? "Enter Original GG" : "Original GG · verified linked Gmail required"}</button>
       </div>}
       <button ref={buttonRef} type="button" className="gg-companion-button"
         onClick={() => { if (suppressClick.current) suppressClick.current = false; else landOnCurrentSurface(); }}

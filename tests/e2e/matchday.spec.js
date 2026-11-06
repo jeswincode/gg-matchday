@@ -73,6 +73,19 @@ async function enterGuestMatchday(page) {
   await expect(page.getByRole("button", { name: "Leaderboard" })).toBeVisible();
 }
 
+test("unlinked viewer cannot enter Original GG from the companion menu", async ({ page }) => {
+  await page.goto("/?e2eRole=viewer");
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  const companion = page.locator(".gg-companion-button");
+  await expect(companion).toBeVisible();
+  await companion.click({ button: "right" });
+  const companionMenu = page.getByRole("menu", { name: "Companion actions" });
+  await expect(companionMenu).toBeVisible();
+  const worldEntry = companionMenu.getByRole("menuitem", { name: /verified linked Gmail required/i });
+  await expect(worldEntry).toBeDisabled();
+});
+
 test("signed-in player can enter Original GG and explore a stored HQ interior", async ({ page }) => {
   await stubWorldApi(page);
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");

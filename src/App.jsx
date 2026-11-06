@@ -602,6 +602,15 @@ function App() {
     backendUser?.accessRequest ===
     "pending";
 
+  const e2eWorldAccess = import.meta.env.MODE !== "production" &&
+    Boolean(import.meta.env.VITE_E2E_TEST_AUTH_SECRET) &&
+    Boolean(new URLSearchParams(window.location.search).get("e2eRole")) &&
+    Boolean(backendUser?.playerProfile);
+  const canEnterOriginalGG = Boolean(backendUser?.playerProfile) && (
+    (authUser?.emailVerified === true && /^[^\s@]+@gmail\.com$/i.test(String(authUser?.email || ""))) ||
+    e2eWorldAccess
+  );
+
   // =========================================================
   // AUTH STATE
   // =========================================================
@@ -2936,7 +2945,7 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
       </Suspense>
-      {isSignedIn&&<Suspense fallback={null}><GGCompanion onEnterWorld={()=>setWorldOpen(true)} playerName={authUser?.displayName||backendUser?.name} playerUid={authUser?.uid||""} activeTab={activeTab} suspended={experience!=="app"||worldOpen||profileOpen||productMode!=="matchday"}/></Suspense>} 
+      {isSignedIn&&<Suspense fallback={null}><GGCompanion onEnterWorld={()=>setWorldOpen(true)} worldAccessAllowed={canEnterOriginalGG} playerName={authUser?.displayName||backendUser?.name} playerUid={authUser?.uid||""} activeTab={activeTab} suspended={experience!=="app"||worldOpen||profileOpen||productMode!=="matchday"}/></Suspense>} 
       {modeTransitionLayer}
     </main>
   );
