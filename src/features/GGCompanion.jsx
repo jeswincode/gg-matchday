@@ -326,25 +326,16 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     wrapper.style.top = "0px";
     wrapper.style.right = "auto";
     wrapper.style.bottom = "auto";
-    if (state.ground?.kind === "profile") {
-      // Keep Pip in the same scrolling coordinate space as the account bar.
-      // The compositor carries both together without a scroll-event chase.
-      const app = wrapper.closest(".app");
-      const appRect = app?.getBoundingClientRect();
-      wrapper.style.position = "absolute";
-      wrapper.style.transition = "none";
-      wrapper.style.transform = "translate3d(" +
-        (state.x - (appRect?.left ?? 0) - wrapperWidth / 2).toFixed(2) + "px," +
-        (state.y - (appRect?.top ?? 0) - wrapperHeight).toFixed(2) + "px,0)";
-    } else {
-      wrapper.style.position = "fixed";
-      // The physics loop already interpolates movement frame by frame.
-      // A CSS transition here restarts on every frame and makes Pip lag/snap.
-      wrapper.style.transition = "none";
-      wrapper.style.transform = "translate3d(" +
-        (state.x - wrapperWidth / 2).toFixed(2) + "px," +
-        (state.y - wrapperHeight).toFixed(2) + "px,0)";
-    }
+    // The account bar is sticky, so profile and navigation perches both live
+    // in viewport coordinates. Scroll/resize handlers remeasure sticky anchors
+    // before writing the next frame, keeping Pip attached to the real control.
+    wrapper.style.position = "fixed";
+    // Movement is interpolated by the physics loop; a CSS transition would
+    // restart every frame and make a walk look like a lagging snap.
+    wrapper.style.transition = "none";
+    wrapper.style.transform = "translate3d(" +
+      (state.x - wrapperWidth / 2).toFixed(2) + "px," +
+      (state.y - wrapperHeight).toFixed(2) + "px,0)";
     wrapper.style.setProperty("--gg-companion-angle", ((state.angle * 180) / Math.PI).toFixed(2) + "deg");
     wrapper.dataset.ggPhase = state.phase;
     wrapper.dataset.ggX = state.x.toFixed(1);
@@ -912,8 +903,15 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
           const rect = visibleRect(active);
           const perch = rect && getCompanionPerchPoint(rect, "nav");
           if (perch) {
-            state.x = perch.x;
+            // Content can resize during a tab switch. Keep Pip's current x
+            // while he is walking; only update the destination. Recentring x
+            // here would teleport him to the newly active tab before the
+            // walking physics gets a frame.
             state.y = perch.y;
+            if (state.phase === "idle") state.x = perch.x;
+            if (state.targetGround?.kind === "nav" && state.phase !== "idle") {
+              state.targetX = perch.x;
+            }
           } else state.y = bounds.navRect.top + 5;
         } else if (state.ground.kind === "floor") {
           state.y = bounds.floor;
