@@ -80,6 +80,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const [perched, setPerched] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuSide, setMenuSide] = useState("center");
 
   const wrapperRef = useRef(null);
   const buttonRef = useRef(null);
@@ -131,6 +132,10 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const openMenu = useCallback(() => {
     window.clearTimeout(bubbleTimer.current);
     setBubbleOpen(false);
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect && rect.left < 100) setMenuSide("left");
+    else if (rect && rect.right > window.innerWidth - 100) setMenuSide("right");
+    else setMenuSide("center");
     setMenuOpen(true);
   }, []);
 
@@ -935,7 +940,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         <span>{avatar.displayName || playerName || "Your teammate"}</span>
         <p>{bubble || contextualLine}</p>
       </div>
-      {menuOpen && <div className="gg-companion-menu" role="menu" aria-label="Companion actions">
+      {menuOpen && <div className={"gg-companion-menu is-" + menuSide} role="menu" aria-label="Companion actions">
         <button type="button" role="menuitem" onClick={() => { closeMenu(); moveToActiveTab(); }}>Come to this tab</button>
         <button type="button" role="menuitem" onClick={explorePage}>Explore the page</button>
         <button type="button" role="menuitem" onClick={waveHello}>Wave hello</button>
