@@ -5,7 +5,7 @@ import { COMPANION_HOLD_DROP, stepHeldSwing } from "../../shared/companionPhysic
 import { getCompanionPerchPoint } from "../../shared/companionLayout.js";
 import "./original-gg.css";
 
-const WALK_SPEED = 132;
+const WALK_SPEED = 110;
 const GRAVITY = 2600;
 const WALL_CLING_SPEED = 950;
 const WALL_BOUNCE = 0.45;
@@ -335,9 +335,9 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         (state.y - (appRect?.top ?? 0) - wrapperHeight).toFixed(2) + "px,0)";
     } else {
       wrapper.style.position = "fixed";
-      wrapper.style.transition = state.ground?.kind === "nav" && state.ground.el?.dataset.dragging !== "true"
-        ? "transform 240ms cubic-bezier(.2,.85,.2,1), opacity .2s linear"
-        : "none";
+      // The physics loop already interpolates movement frame by frame.
+      // A CSS transition here restarts on every frame and makes Pip lag/snap.
+      wrapper.style.transition = "none";
       wrapper.style.transform = "translate3d(" +
         (state.x - wrapperWidth / 2).toFixed(2) + "px," +
         (state.y - wrapperHeight).toFixed(2) + "px,0)";
@@ -961,6 +961,11 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     const onPageClick = (event) => {
       if (suspendedRef.current || transitioning || wrapperRef.current?.contains(event.target)) return;
       if (event.target?.closest?.(".bottom-nav, input, textarea, select, [role='dialog'], .gg-world")) return;
+      const currentGround = physicsRef.current.ground?.kind;
+      // The upper-left profile icon and selected navigation tab are home
+      // anchors. Ordinary card taps must not pull Pip away from either one;
+      // roaming remains available through the explicit Explore action.
+      if (currentGround === "profile" || currentGround === "nav") return;
       const target = event.target?.closest?.(".tab-content .paper-surface,.tab-content .match-card,.tab-content .card,.tab-content article,[data-gg-companion-ledge]");
       const rect = visibleRect(target);
       if (!target || !rect || rect.width < 145) return;
