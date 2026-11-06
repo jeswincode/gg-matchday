@@ -9,8 +9,10 @@ export function getCompanionPerchPoint(rect, kind = "nav") {
   const width = Number(rect.width);
   const height = Number(rect.height);
   if (![left, top, width, height].every(Number.isFinite) || width < 1 || height < 1) return null;
+  // Seat Pip over the avatar's centre so his extended legs rest across
+  // the icon, rather than hovering above its top edge.
   const y = kind === "profile"
-    ? top + Math.min(22, Math.max(10, height * 0.34))
+    ? top + height * 0.5
     : kind === "nav" ? top + 5 : top + 2;
   return { x: left + width / 2, y: Number(y.toFixed(2)) };
 }
