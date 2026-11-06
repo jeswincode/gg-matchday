@@ -85,7 +85,7 @@ The GitHub validation workflow is enabled on v4/development. It runs lint, unit 
 
 ## V4 companion, navigation and theme pass — 6 November 2026
 
-- The Matchday companion now starts on the floating **My Profile** control (with the account avatar button as a fallback) in a dedicated seated pose. The sprite draws a seated torso, hands by the hips and slightly spread legs reaching forward over the pill. The permanent gold orbit/ring has been removed.
+- The Matchday companion now starts seated on the **upper-left account avatar** (not the separate floating My Profile shortcut). The sprite draws a seated torso, hands by the hips and slightly spread legs reaching forward over the account icon. The permanent gold orbit/ring has been removed.
 - Tapping the character now plays a short landing hop and the dialogue reads “10 out of 10 landing!”. The character name is no longer repeated above the dialogue. Original GG remains available from the companion action menu, while drag/throw physics are preserved.
 - Navigation following now measures the selected tab's actual DOM rectangle and perches directly on that surface rather than walking toward it at the character's 46 px/s world speed. Scroll/resize refreshes the resting surface position. This follows Leaflet Pip's measured-footing/direct-transform principle while retaining the Matchday bottom bar as a fixed overlay.
 - On mobile, holding and dragging horizontally across the five bottom tabs selects each tab as the finger crosses it. The translucent glass highlight is positioned from the measured button bounds and follows during the drag; the tab content previews live. A vertical gesture still remains available for page scrolling.
@@ -116,3 +116,11 @@ The current V4 world already provides a draggable/zoomable football-city map, a 
 - The admin account picker disables accounts that are not explicitly verified Gmail identities, and the server independently enforces the same rule on admin linking.
 - Plot claiming, the claim endpoint, plot map markers and new default plot seeds are removed. Legacy WorldPlot/database records are intentionally left untouched; no destructive cleanup or migration runs in this pass.
 - No V4 backend deployment, database migration, or PR merge is part of this change. V3 `main` is left independent.
+
+### Follow-through — 6 November 2026
+
+- The seated account-avatar perch and active-tab perch now play restrained in-place waves/cheers (plus a tab-only dance) without walking away from either anchor. The existing 240 ms selected-tab transform remains aligned with the glass tab indicator; during a drag both move directly with the selected tab.
+- The Original GG room scene no longer draws a character-name plaque below the sprite. Room interaction dialogue remains the only character speech label; the HQ room E2E test now asserts there is no text attached to the character sprite.
+- The account avatar, Pip dialogue bubble and Pip action menu now inherit Matchday's violet dark-theme and green Gold-theme variables instead of hard-coded gold borders/surfaces.
+- The admin account-link API now independently rejects non-Gmail and unverified Gmail accounts. The API integration test covers both rejection cases and a successful verified Gmail link, in addition to the private World access-policy checks.
+- These changes are committed only on `v4/development`. The V3 `main` branch, Render production service and shared Clubs database remain untouched.
