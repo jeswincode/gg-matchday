@@ -760,6 +760,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     while (drag.samples.length > 2 && now - drag.samples[0].t > 120) drag.samples.shift();
     const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
     const state = physicsRef.current;
+    if (!drag.moved && distance > DRAG_SLOP) window.clearTimeout(longPressTimer.current);
     if (!drag.moved && distance > DRAG_SLOP) {
       drag.moved = true;
       suppressClick.current = true;
@@ -796,7 +797,11 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     window.removeEventListener("pointerup", finishPointerRef.current);
     window.removeEventListener("pointercancel", finishPointerRef.current);
     dragRef.current = null;
-    if (!drag.moved) return;
+    window.clearTimeout(longPressTimer.current);
+    if (!drag.moved) {
+      if (drag.menuOpened) window.setTimeout(() => { suppressClick.current = false; }, 180);
+      return;
+    }
     const state = physicsRef.current;
     setDragging(false);
     const samples = drag.samples;
@@ -821,13 +826,23 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
 
   const startPointer = (event) => {
     if (event.button !== undefined && event.button !== 0 || suspended || transitioning) return;
-    dragRef.current = {
+    const drag = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       moved: false,
+      menuOpened: false,
       samples: [{ t: performance.now(), x: event.clientX, y: event.clientY }],
     };
+    dragRef.current = drag;
+    if (event.pointerType === "touch" || event.pointerType === "pen") {
+      longPressTimer.current = window.setTimeout(() => {
+        if (dragRef.current !== drag || drag.moved) return;
+        drag.menuOpened = true;
+        suppressClick.current = true;
+        openMenu();
+      }, 520);
+    }
     window.addEventListener("pointermove", pointerMove, { passive: true });
     window.addEventListener("pointerup", finishPointer);
     window.addEventListener("pointercancel", finishPointer);
