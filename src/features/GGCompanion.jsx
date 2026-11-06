@@ -924,6 +924,14 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         onClick={(event) => { if (event.detail === 0) enterWorld(); else if (suppressClick.current) suppressClick.current = false; else enterWorld(); }}
         onPointerDown={startPointer}
         onContextMenu={(event) => { event.preventDefault(); openMenu(); }}
+        onKeyDown={(event) => {
+          if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+            event.preventDefault();
+            openMenu();
+          } else if (event.key === "Escape" && menuOpen) {
+            closeMenu();
+          }
+        }}
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-label={"Enter Original GG with " + (avatar.displayName || playerName || "your player")}
