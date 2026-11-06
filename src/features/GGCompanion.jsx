@@ -3,6 +3,15 @@ import { api } from "../lib/api";
 import { PlayerSprite } from "./OriginalGGWorld";
 import "./original-gg.css";
 
+const fallbackAppearance={skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white"};
+function savedAccountAvatar(playerUid,playerName) {
+  try {
+    const stored=JSON.parse(window.localStorage.getItem("gg-v4-local-avatar:"+(playerUid||"visitor"))||"null");
+    if(stored&&typeof stored==="object")return {...stored,displayName:stored.displayName||playerName||"Your player",appearance:{...fallbackAppearance,...stored.appearance}};
+  } catch { /* The companion can use its default look if local storage is unavailable. */ }
+  return {displayName:playerName||"Your player",appearance:fallbackAppearance};
+}
+
 const idleLines = [
   "Ready when you are. The city is waiting.",
   "I heard the training centre has a new record to chase.",
@@ -13,8 +22,8 @@ const idleLines = [
   "I could really go for a kickabout right now."
 ];
 
-export default function GGCompanion({ onEnterWorld, playerName, activeTab }) {
-  const [avatar,setAvatar] = useState({displayName:playerName||"Your player",appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white"}});
+export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", activeTab }) {
+  const [avatar,setAvatar] = useState(()=>savedAccountAvatar(playerUid,playerName));
   const [line,setLine] = useState(0);
   const [transitioning,setTransitioning] = useState(false);
   const [position,setPosition] = useState({x:0,y:0});
@@ -36,9 +45,10 @@ export default function GGCompanion({ onEnterWorld, playerName, activeTab }) {
     let active=true;
     api("/world/bootstrap").then((data)=>{
       if(active&&data.avatar)setAvatar(data.avatar);
+      else if(active)setAvatar(savedAccountAvatar(playerUid,playerName));
     }).catch(()=>{});
     return ()=>{active=false;};
-  },[]);
+  },[playerUid,playerName]);
   useEffect(() => {
     const interval=window.setInterval(()=>setLine((value)=>(value+1)%idleLines.length),18000);
     return ()=>window.clearInterval(interval);
