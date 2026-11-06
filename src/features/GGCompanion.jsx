@@ -271,6 +271,11 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       (state.x - BODY_WIDTH / 2).toFixed(2) + "px," +
       (state.y - BODY_HEIGHT).toFixed(2) + "px,0)";
     wrapper.style.setProperty("--gg-companion-angle", state.angle.toFixed(2) + "deg");
+    wrapper.dataset.ggPhase = state.phase;
+    wrapper.dataset.ggX = state.x.toFixed(1);
+    wrapper.dataset.ggTargetX = state.targetX.toFixed(1);
+    wrapper.dataset.ggGround = state.ground?.kind || "air";
+    wrapper.dataset.ggTargetGround = state.targetGround?.kind || "none";
   }, []);
 
   const setPhase = useCallback((state, nextPhase) => {
