@@ -127,6 +127,49 @@ test("Pip-style companion follows Matchday navigation and responds to being pick
   }, { timeout: 2500 }).toBeGreaterThan(55);
 });
 
+test("companion action menu supports right-click and opens Original GG", async ({ page }) => {
+  await stubWorldApi(page);
+  await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+
+  const companion = page.locator(".gg-companion-button");
+  await expect(companion).toBeVisible();
+  await companion.click({ button: "right" });
+  const menu = page.getByRole("menu", { name: "Companion actions" });
+  await expect(menu).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Wave hello" }).click();
+  await expect(page.getByText("Hey! Good to see you.")).toBeVisible();
+
+  await companion.click({ button: "right" });
+  await expect(menu).toBeVisible();
+  await menu.getByRole("menuitem", { name: "Enter Original GG" }).click();
+  await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
+});
+
+test("companion touch-and-hold opens its action menu", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubWorldApi(page);
+  await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+
+  const companion = page.locator(".gg-companion-button");
+  await expect(companion).toBeVisible();
+  await companion.evaluate(async (button) => {
+    const bounds = button.getBoundingClientRect();
+    button.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true, pointerId: 77, pointerType: "touch", button: 0,
+      clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2
+    }));
+    await new Promise((resolve) => window.setTimeout(resolve, 570));
+    window.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true, pointerId: 77, pointerType: "touch", button: 0,
+      clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2
+    }));
+  });
+  await expect(page.getByRole("menu", { name: "Companion actions" })).toBeVisible();
+});
 test("guest can open Matchday and reach the live leaderboard", async ({ page }) => {
   await stubPublicApi(page);
   await enterGuestMatchday(page);
