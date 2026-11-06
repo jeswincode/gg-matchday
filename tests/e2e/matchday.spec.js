@@ -78,9 +78,12 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  const companion = page.getByRole("button", { name: /Enter Original GG with/ });
+  const companion = page.locator(".gg-companion-button");
   await expect(companion).toBeVisible();
-  await companion.click();
+  await companion.click({ button: "right" });
+  const companionMenu = page.getByRole("menu", { name: "Companion actions" });
+  await expect(companionMenu).toBeVisible();
+  await companionMenu.getByRole("menuitem", { name: "Enter Original GG" }).click();
   await expect(page.locator(".gg-companion-vortex")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
   await expect(page.locator(".gg-training-challenge canvas")).toHaveCount(0);
@@ -91,55 +94,40 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await expect(page.getByRole("button", { name: /GG Community/ })).toBeVisible();
 });
 
-test("Pip-style companion follows Matchday navigation and responds to being picked up", async ({ page }) => {
+test("Pip-style companion rests on the profile icon and follows selected Matchday navigation", async ({ page }) => {
   await stubWorldApi(page);
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
 
   const companion = page.locator(".gg-companion-button");
+  const companionStage = page.locator(".gg-companion");
   const navigation = page.locator(".bottom-nav");
+  const profileAnchor = page.locator(".gg-account-avatar-trigger");
   await expect(companion).toBeVisible();
   await expect(navigation).toBeVisible();
+  await expect(profileAnchor).toBeVisible();
 
-  const isAlignedToActiveTab = async () => {
+  const isCenteredOn = async (surface) => {
     const sprite = await companion.boundingBox();
-    const active = await navigation.locator("button.active").boundingBox();
-    if (!sprite || !active) return Number.POSITIVE_INFINITY;
-    return Math.abs(sprite.x + sprite.width / 2 - active.x - active.width / 2);
+    const target = await surface.boundingBox();
+    if (!sprite || !target) return Number.POSITIVE_INFINITY;
+    return Math.abs(sprite.x + sprite.width / 2 - target.x - target.width / 2);
   };
-  await expect.poll(isAlignedToActiveTab, { timeout: 5000 }).toBeLessThan(12);
 
-  const beforeTabChange = await companion.boundingBox();
-  await navigation.getByRole("button", { name: /Leaderboard/ }).click();
-  await expect(navigation.getByRole("button", { name: /Leaderboard/ })).toHaveClass(/active/);
-  // The character must receive the new nav target, then physically arrive there.
-  const companionStage = page.locator(".gg-companion");
-  const selectedCenter = async () => {
-    const bounds = await navigation.locator("button.active").boundingBox();
-    return bounds ? bounds.x + bounds.width / 2 : 0;
-  };
-  await expect.poll(async () => {
-    const target = Number(await companionStage.getAttribute("data-gg-target-x"));
-    return Math.abs(target - await selectedCenter());
-  }, { timeout: 2500 }).toBeLessThan(3);
-  await expect(page.locator(".gg-companion.is-moving")).toBeVisible();
-  try {
-    await expect.poll(isAlignedToActiveTab, { timeout: 9000, intervals: [100, 250, 500] }).toBeLessThan(12);
-  } catch (error) {
-    const finalCompanionState = await companionStage.evaluate(element => ({
-      phase: element.dataset.ggPhase,
-      x: element.dataset.ggX,
-      targetX: element.dataset.ggTargetX,
-      ground: element.dataset.ggGround,
-      targetGround: element.dataset.ggTargetGround,
-      transform: element.style.transform,
-    }));
-    console.log("Pip navigation diagnostic:", JSON.stringify({ state: finalCompanionState, center: await selectedCenter() }));
-    throw error;
-  }
-  expect(beforeTabChange).not.toBeNull();
+  // The character rests on the profile icon until the player chooses a tab.
+  await expect.poll(() => isCenteredOn(profileAnchor), { timeout: 5000 }).toBeLessThan(12);
+  await expect(companionStage).toHaveClass(/is-profile-perched/);
+  await expect(companion.locator(".gg-companion-ring")).toHaveCount(0);
 
+  const leaderboardTab = navigation.getByRole("button", { name: /Leaderboard/ });
+  await leaderboardTab.click();
+  await expect(leaderboardTab).toHaveClass(/active/);
+  await expect.poll(() => isCenteredOn(leaderboardTab), { timeout: 5000 }).toBeLessThan(12);
+  await expect(companionStage).toHaveAttribute("data-gg-ground", "nav");
+  await expect(companionStage).toHaveClass(/is-perched/);
+
+  // Dragging still picks the character up and lets the existing throw physics run.
   const before = await companion.boundingBox();
   expect(before).not.toBeNull();
   await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
@@ -152,7 +140,6 @@ test("Pip-style companion follows Matchday navigation and responds to being pick
     return Math.hypot(after.x - before.x, after.y - before.y);
   }, { timeout: 2500 }).toBeGreaterThan(55);
 });
-
 test("companion action menu supports right-click and opens Original GG", async ({ page }) => {
   await stubWorldApi(page);
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
@@ -180,13 +167,6 @@ test("companion action menu supports right-click and opens Original GG", async (
   await companion.click({ button: "right" });
   await expect(menu).toBeVisible();
   await menu.getByRole("menuitem", { name: "Wave hello" }).click();
-  const companionState = await page.locator(".gg-companion").evaluate(element => ({
-    bubble: element.dataset.ggBubble,
-    bubbleOpen: element.dataset.ggBubbleOpen,
-    menuOpen: element.dataset.ggMenuOpen,
-    motion: element.className,
-  }));
-  console.log("Pip wave diagnostic:", JSON.stringify(companionState));
   await expect(page.getByText("Hey! Good to see you.")).toBeVisible();
 
   await companion.click({ button: "right" });
@@ -195,13 +175,14 @@ test("companion action menu supports right-click and opens Original GG", async (
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
   await page.getByRole("button", { name: /Matchday/ }).click();
   await expect(companion).toBeVisible();
-  const homeTabCenter = async () => {
+  // Closing the world remounts the companion at its default profile perch.
+  const profileAnchor = page.locator(".gg-account-avatar-trigger");
+  await expect.poll(async () => {
     const sprite = await companion.boundingBox();
-    const active = await page.locator(".bottom-nav button.active").boundingBox();
-    if (!sprite || !active) return Number.POSITIVE_INFINITY;
-    return Math.abs(sprite.x + sprite.width / 2 - active.x - active.width / 2);
-  };
-  await expect.poll(homeTabCenter, { timeout: 5000 }).toBeLessThan(12);
+    const anchor = await profileAnchor.boundingBox();
+    if (!sprite || !anchor) return Number.POSITIVE_INFINITY;
+    return Math.abs(sprite.x + sprite.width / 2 - anchor.x - anchor.width / 2);
+  }, { timeout: 5000 }).toBeLessThan(12);
 });
 
 test("companion touch-and-hold opens its action menu", async ({ page }) => {
@@ -427,7 +408,7 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
     .getByRole("button", { name: "Club Hub", exact: true });
   await expect.poll(() =>
     darkClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
-  ).toContain("225, 237, 255");
+  ).toContain("189, 130, 255");
   const darkPageFitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );
@@ -454,7 +435,7 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
     .getByRole("button", { name: "Club Hub", exact: true });
   await expect.poll(() =>
     goldClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
-  ).toContain("239, 208, 125");
+  ).toContain("121, 237, 154");
   const goldPageFitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );
