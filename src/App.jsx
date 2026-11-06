@@ -2858,7 +2858,7 @@ function App() {
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
       </Suspense>
-      {isSignedIn&&<Suspense fallback={null}><GGCompanion onEnterWorld={()=>setWorldOpen(true)} playerName={authUser?.displayName} activeTab={activeTab}/></Suspense>} 
+      {isSignedIn&&<Suspense fallback={null}><GGCompanion onEnterWorld={()=>setWorldOpen(true)} playerName={authUser?.displayName||backendUser?.name} playerUid={authUser?.uid||""} activeTab={activeTab}/></Suspense>} 
       {modeTransitionLayer}
     </main>
   );
