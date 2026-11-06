@@ -559,3 +559,27 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
   .gg-companion-bubble{transition:none!important}
   .gg-companion.is-entering .gg-companion-button{animation:none!important;opacity:0}
 }
+
+
+.gg-companion.is-idle .gg-companion-button .gg-player-sprite{
+  animation:gg-pip-idle-breathe 2.8s ease-in-out infinite!important;
+}
+.gg-companion.is-moving .gg-companion-button .gg-player-sprite{
+  animation:none!important;
+}
+.gg-companion.is-idle .gg-companion-ring{
+  animation:gg-pip-ring-breathe 3.8s ease-in-out infinite;
+}
+@keyframes gg-pip-idle-breathe{
+  0%,100%{transform:translateY(0) scaleY(1)}
+  48%{transform:translateY(-3px) scaleY(1.035)}
+  70%{transform:translateY(-1px) scaleY(1.01)}
+}
+@keyframes gg-pip-ring-breathe{
+  0%,100%{opacity:.55;box-shadow:0 0 14px #dfbd7018}
+  50%{opacity:1;box-shadow:0 0 25px #dfbd7044}
+}
+@media(prefers-reduced-motion:reduce){
+  .gg-companion.is-idle .gg-companion-button .gg-player-sprite,
+  .gg-companion.is-idle .gg-companion-ring{animation:none!important}
+}
