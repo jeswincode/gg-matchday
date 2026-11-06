@@ -872,12 +872,12 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       state.layoutDirty = true;
       if (state.ground?.kind === "nav" || state.ground?.kind === "profile" || state.ground?.kind === "floor") {
         const bounds = refreshLayout(state, performance.now());
-        if (state.awaitingProfileAnchor && !state.manuallyPlaced && bounds.profileRect) {
+        if (state.awaitingProfileAnchor && !state.manuallyPlaced && !MOVING_PHASES.has(state.phase) && bounds.profileRect) {
           const perch = getCompanionPerchPoint(bounds.profileRect, "profile");
           if (perch) {
             // Correct the temporary nav/floor fallback as soon as the actual
-            // account avatar becomes measurable. This runs only once, before
-            // the player chooses a destination.
+            // account avatar becomes measurable, but never interrupt a walk,
+            // jump or intentional drag already in progress.
             state.ground = { kind: "profile", el: bounds.profile };
             state.targetGround = state.ground;
             state.x = perch.x;
@@ -891,12 +891,18 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
             setPerched(false);
             setProfilePerched(true);
             pose(state, "idle", "down");
-          } 
+          }
         } else if (state.ground.kind === "profile" && bounds.profileRect) {
           const perch = getCompanionPerchPoint(bounds.profileRect, "profile");
-          if (perch) {
+          if (perch && !MOVING_PHASES.has(state.phase)) {
             state.x = perch.x;
             state.y = perch.y;
+          } else if (perch && state.targetGround?.kind === "profile") {
+            state.targetX = perch.x;
+            if (state.tween?.ground?.kind === "profile") {
+              state.tween.toX = perch.x;
+              state.tween.toY = perch.y;
+            }
           }
         } else if (state.ground.kind === "nav" && bounds.navRect) {
           const active = bounds.nav?.querySelector("button.active");
