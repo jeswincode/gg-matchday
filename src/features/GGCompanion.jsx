@@ -330,24 +330,6 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   }, [moveTo, transitioning]);
 
   useEffect(() => {
-    if (suspended || transitioning) return undefined;
-    const nav = document.querySelector(".bottom-nav");
-    if (!nav || typeof MutationObserver === "undefined") return undefined;
-    let frame = 0;
-    const observer = new MutationObserver(() => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        frame = window.requestAnimationFrame(() => moveToActiveTab());
-      });
-    });
-    observer.observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
-    return () => {
-      observer.disconnect();
-      window.cancelAnimationFrame(frame);
-    };
-  }, [moveToActiveTab, suspended, transitioning]);
-
-  useEffect(() => {
     const onPointerMove = (event) => {
       if (suspendedRef.current || transitioning || menuOpen || dragRef.current) return;
       const state = physicsRef.current;
