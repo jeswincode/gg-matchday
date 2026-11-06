@@ -104,6 +104,8 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await page.getByRole("button", { name: "Open GG Headquarters" }).click();
   await expect(page.getByRole("heading", { name: "Welcome to the clubhouse." })).toBeVisible();
   await expect(page.getByText("THE PLACE WHERE THE COMMUNITY MEETS.")).toBeVisible();
+  await expect(page.locator(".gg-room-character-speech p")).toBeVisible();
+  await expect(page.locator(".gg-room-character text")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /GG Community/ })).toBeVisible();
 });
 
