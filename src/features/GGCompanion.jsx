@@ -675,15 +675,20 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   }, [playerUid, playerName]);
 
   useEffect(() => {
-    if (!suspended) {
-      const state = physicsRef.current;
-      state.layoutDirty = true;
-      if (state.initialized) {
-        state.manuallyPlaced = false;
-        window.requestAnimationFrame(() => moveToActiveNavRef.current?.());
-      }
-      wakeRef.current();
+    if (suspended) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+      window.clearTimeout(timerRef.current);
+      timerRef.current = 0;
+      return;
     }
+    const state = physicsRef.current;
+    state.layoutDirty = true;
+    if (state.initialized) {
+      state.manuallyPlaced = false;
+      window.requestAnimationFrame(() => moveToActiveNavRef.current?.());
+    }
+    wakeRef.current();
   }, [suspended]);
 
   const pointerMove = useCallback((event) => {
