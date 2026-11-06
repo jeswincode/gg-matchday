@@ -324,6 +324,39 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     moveTo({ kind: "nav", el: nav }, x, { line: (tabLines[activeTabRef.current] || ["Where to next?"])[Math.floor(Math.random() * (tabLines[activeTabRef.current] || ["Where to next?"]).length)] });
   }, [moveTo, transitioning]);
 
+  useEffect(() => {
+    const onPointerMove = (event) => {
+      if (suspendedRef.current || transitioning || menuOpen || dragRef.current) return;
+      const state = physicsRef.current;
+      if (!state.initialized || state.phase !== "idle") return;
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const dx = event.clientX - (rect.left + rect.width / 2);
+      const dy = event.clientY - (rect.top + rect.height / 2);
+      if (Math.hypot(dx, dy) > 210) return;
+      const nextDirection = Math.abs(dx) > Math.abs(dy)
+        ? (dx < 0 ? "left" : "right")
+        : (dy < 0 ? "up" : "down");
+      pose(state, "idle", nextDirection);
+      window.clearTimeout(glanceTimer.current);
+      glanceTimer.current = window.setTimeout(() => {
+        const current = physicsRef.current;
+        if (!dragRef.current && current.phase === "idle" && !menuOpen) pose(current, "idle", "down");
+      }, 1800);
+    };
+    document.addEventListener("pointermove", onPointerMove, { passive: true });
+    return () => document.removeEventListener("pointermove", onPointerMove);
+  }, [menuOpen, pose, transitioning]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onOutsidePress = (event) => {
+      if (!wrapperRef.current?.contains(event.target)) closeMenu();
+    };
+    document.addEventListener("pointerdown", onOutsidePress, true);
+    return () => document.removeEventListener("pointerdown", onOutsidePress, true);
+  }, [closeMenu, menuOpen]);
+
   const chooseIdleAction = useCallback((state, now) => {
     if (suspendedRef.current || state.manuallyPlaced || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       state.nextAction = now + REST_MS;
