@@ -349,7 +349,17 @@ function Building({ kind }) {
   </svg>;
 }
 
-export default function OriginalGGWorld({ onExit, onOpenChat }) {
+function initialVisitorPosition(playerUid) {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem("gg-v4-world-position:" + (playerUid || "visitor")) || "null");
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      return { x: Math.max(30, Math.min(1770, saved.x)), y: Math.max(30, Math.min(1170, saved.y)) };
+    }
+  } catch { /* A local visitor starts at the city plaza when storage is unavailable. */ }
+  return { x: 880, y: 700 };
+}
+
+export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your player", playerUid = "" }) {
   const [data,setData] = useState(null);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
@@ -374,13 +384,14 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
   const [tutorialStep,setTutorialStep] = useState(0);
   const [tutorialClosed,setTutorialClosed] = useState(false);
   const [scale,setScale] = useState(.84);
-  const [playerPosition,setPlayerPosition] = useState({x:900,y:600});
+  const [playerPosition,setPlayerPosition] = useState(()=>initialVisitorPosition(playerUid));
   const [characterMotion,setCharacterMotion] = useState("idle");
   const [characterDirection,setCharacterDirection] = useState("down");
   const motionTimer = useRef(null);
   const [playerMotions,setPlayerMotions] = useState({});
   const playerMotionTimers = useRef(new Map());
-  const playerPositionRef = useRef({x:900,y:600});
+  const playerPositionRef = useRef(initialVisitorPosition(playerUid));
+  const playerMarkerRef = useRef(null);
   const [offset,setOffset] = useState({x:0,y:0});
   const [drag,setDrag] = useState(null);
   const mapGestureMoved = useRef(false);
@@ -413,6 +424,12 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
       if (cancelled) return;
       setData(result);
       if (result.avatar) setAvatar(result.avatar);
+      const ownPresence = result.presence?.find((item) => item.playerId === result.playerId);
+      if (ownPresence && Number.isFinite(ownPresence.x) && Number.isFinite(ownPresence.y)) {
+        const savedPosition = { x: ownPresence.x, y: ownPresence.y };
+        playerPositionRef.current = savedPosition;
+        setPlayerPosition(savedPosition);
+      }
     }).catch((cause) => {
       if (!cancelled) setError(cause.message || "The city could not load.");
     }).finally(() => {
@@ -462,7 +479,11 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
   },[playCharacterMotion]);
   const celebrateAfterVerifiedRun=useCallback(()=>playCharacterMotion(data?.playerId,"celebrating"),[playCharacterMotion,data?.playerId]);
   useOriginalGGRealtime("world",onWorldRealtime,Boolean(data?.playerId));
-  useEffect(()=>{playerPositionRef.current=playerPosition;},[playerPosition]);
+  useEffect(()=>{
+    playerPositionRef.current=playerPosition;
+    playerMarkerRef.current?.setAttribute("transform","translate("+playerPosition.x+" "+playerPosition.y+") scale(.6 1)");
+    try { window.localStorage.setItem("gg-v4-world-position:"+(playerUid||"visitor"),JSON.stringify(playerPosition)); } catch { /* Position remains available for this visit. */ }
+  },[playerPosition,playerUid]);
   useEffect(() => {
     if (!hasAvatar) return;
     const heartbeat = () => api("/world/presence",{method:"POST",body:{locationId:activeLocationId,...playerPositionRef.current,direction:characterDirection}}).catch(()=>{});
@@ -622,7 +643,8 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
   function zoomAt(nextScale,clientX,clientY){
     const bounds=mapViewportRef.current?.getBoundingClientRect();
     if(!bounds||!bounds.width||!bounds.height){setScale(nextScale);return;}
-    const pointX=(clientX-bounds.left)*1800/bounds.width;
+    const viewPointX=(clientX-bounds.left)*3000/bounds.width;
+    const pointX=900+(viewPointX-1500)/1.6666667;
     const pointY=(clientY-bounds.top)*1200/bounds.height;
     setOffset((current)=>({
       x:pointX-900-(pointX-900-current.x)*nextScale/scale,
@@ -650,9 +672,14 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
       const eased=1-Math.pow(1-progress,3);
       const position={x:Math.round(start.x+dx*eased),y:Math.round(start.y+dy*eased)};
       playerPositionRef.current=position;
-      setPlayerPosition(position);
+      playerMarkerRef.current?.setAttribute("transform","translate("+position.x+" "+position.y+") scale(.6 1)");
       if(progress<1)walkFrame.current=window.requestAnimationFrame(animate);
-      else {walkFrame.current=null;setCharacterMotion("idle");}
+      else {
+        walkFrame.current=null;
+        setPlayerPosition(position);
+        try { window.localStorage.setItem("gg-v4-world-position:"+(playerUid||"visitor"),JSON.stringify(position)); } catch { /* Position remains in this visit. */ }
+        setCharacterMotion("idle");
+      }
     };
     walkFrame.current=window.requestAnimationFrame(animate);
   }
@@ -664,7 +691,8 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
     const point=svg.createSVGPoint();
     point.x=event.clientX;point.y=event.clientY;
     const local=point.matrixTransform(matrix.inverse());
-    const x=(local.x-900-offset.x)/scale+900;
+    const transformedX=(local.x-900-offset.x)/scale+900;
+    const x=900+(transformedX-1500)/1.6666667;
     const y=(local.y-600-offset.y)/scale+600;
     walkPlayerTo({x,y});
   }
@@ -729,8 +757,9 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
       <section className="gg-world-map-shell">
         <div className="gg-world-map-topline"><div><span>THE CITY MAP</span><strong>Original GG · 1800 × 1200</strong></div><div className="gg-world-map-tools"><button onClick={()=>zoom(-.12)} aria-label="Zoom out">−</button><span>{Math.round(scale*100)}%</span><button onClick={()=>zoom(.12)} aria-label="Zoom in">+</button><button onClick={()=>{setScale(.84);setOffset({x:0,y:0});}}>Reset</button></div></div>
         <div ref={mapViewportRef} className="gg-world-map-viewport" tabIndex="0" onKeyDown={handleMapKeyDown} aria-label="Map controls: use arrow keys or WASD to move your footballer" onPointerDown={startPan} onPointerMove={movePan} onPointerUp={stopPan} onPointerCancel={stopPan} onWheel={(e)=>{e.preventDefault();zoomAt(Math.min(1.45,Math.max(.42,Number((scale+(e.deltaY<0?.06:-.06)).toFixed(2)))),e.clientX,e.clientY);}} style={{cursor:drag?"grabbing":"grab"}}>
-          <svg className="gg-world-map-art" viewBox="0 0 1800 1200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Interactive isometric football city map" onClick={handleMapBackgroundClick}>
+          <svg className="gg-world-map-art" viewBox="0 0 3000 1200" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Interactive isometric football city map" onClick={handleMapBackgroundClick}>
             <defs><pattern id="gg-grid" width="120" height="60" patternUnits="userSpaceOnUse"><path d="M60 0 L120 30 L60 60 L0 30Z" fill="none" stroke="#d3e0bf" strokeOpacity=".1"/></pattern><linearGradient id="gg-ground" x2="0" y2="1"><stop stopColor="#315c43"/><stop offset="1" stopColor="#1d3e30"/></linearGradient></defs>
+                        <g transform="translate(1500 600) scale(1.6666667 1) translate(-900 -600)">
             <g transform={"translate("+offset.x+" "+offset.y+") translate(900 600) scale("+scale+") translate(-900 -600)"}>
               <g data-layer="terrain"><rect width="1800" height="1200" fill="url(#gg-ground)"/><rect width="1800" height="1200" fill="url(#gg-grid)"/></g>
               <g data-layer="roads"><path d="M-80 570 L470 320 L930 540 L1420 290 L1900 510 M-100 900 L420 660 L900 890 L1370 650 L1900 900 M620 -80 L900 240 L1180 390 L1480 610 L1780 790" fill="none" stroke="#172f24" strokeWidth="100" opacity=".8"/>
@@ -754,9 +783,17 @@ export default function OriginalGGWorld({ onExit, onOpenChat }) {
                 <g transform="translate(350 700)"><path d="M-85 0 L0 -40 L85 0 L0 40Z" fill="#3a7e49" stroke="#d7e3ca" strokeWidth="3"/><path d="M0 -40 L0 40 M-85 0 L85 0" stroke="#e7eddc" strokeWidth="2"/><ellipse rx="16" ry="8" fill="none" stroke="#e7eddc" strokeWidth="2"/><path d="M-73 -5 L-73 5 L-54 14 L-54 -14Z M73 -5 L73 5 L54 14 L54 -14Z" fill="none" stroke="#e7eddc" strokeWidth="2"/></g>
                 <g transform="translate(1030 1040)"><path d="M-88 0 L0 -43 L88 0 L0 43Z" fill="#477e4c" stroke="#c4d3ad" strokeWidth="3"/><path d="M0 -43 L0 43 M-88 0 L88 0" stroke="#dce7d0" strokeWidth="2"/><ellipse rx="18" ry="9" fill="none" stroke="#dce7d0" strokeWidth="2"/></g>
               </g><g data-layer="buildings"><g transform="translate(460 570)"><path d="M-195 -105 L0 -195 L195 -105 L0 -15Z" fill="#1d362b" stroke="#c5aa70" strokeWidth="5"/><path d="M-145 -107 L0 -174 L145 -107 L0 -40Z" fill="#39814c" stroke="#d6d4b8" strokeWidth="4"/><path d="M-110 -108 L0 -158 L110 -108 L0 -58Z" fill="none" stroke="#e5e8ce" strokeWidth="3"/><path d="M0 -158 L0 -58 M-110 -108 L110 -108" fill="none" stroke="#e5e8ce" strokeWidth="2"/></g>
-              </g><g data-layer="interactive-zones">{mapPlaces.map((place)=><g key={place.id} transform={"translate("+place.x+" "+place.y+")"} className="gg-map-place" onPointerDown={(e)=>e.stopPropagation()} onClick={(event)=>{event.stopPropagation();mapGestureMoved.current=false;focusPlace(place);}} role="button" tabIndex="0" aria-label={"Open "+place.name} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();focusPlace(place);}}}><ellipse cy="45" rx={place.kind==="stadium"?190:125} ry="40" fill="#10291d" opacity=".35"/><g transform="translate(-90 -85)"><Building kind={place.kind}/></g><rect x="-116" y="54" width="232" height="38" rx="19" fill="#12281e" stroke="#d5b76b" strokeOpacity=".65"/><text y="79" textAnchor="middle" fill="#f7f0db" fontSize="19" fontWeight="700">{place.name}</text><circle cy="-84" r="12" fill="#e7c16a" stroke="#263c2b" strokeWidth="5"/></g>)}
-              </g><g data-layer="characters">{(data.presence||[]).filter((p)=>p.playerId!==data.playerId).map((p)=><g key={p.playerId} transform={"translate("+p.x+" "+p.y+")"} className="gg-world-player-marker" role="button" tabIndex="0" aria-label={"View "+p.displayName} onPointerDown={(e)=>e.stopPropagation()} onClick={(event)=>{event.stopPropagation();mapGestureMoved.current=false;setSelectedPlayer(p);}} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedPlayer(p);}}}><circle cy="-23" r="23" fill="#e5bf68" opacity=".18"/><foreignObject x="-20" y="-58" width="40" height="46"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={p.appearance||{}} motion={playerMotions[p.playerId]||"idle"} direction={p.direction||"down"} animated={Boolean(playerMotions[p.playerId])}/></div></foreignObject><text y="12" textAnchor="middle" fill="#fff5dd" fontSize="13" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{p.displayName.slice(0,12)}</text></g>)}
-              {data.playerId && <g pointerEvents="none"><foreignObject x={playerPosition.x-24} y={playerPosition.y-62} width="48" height="58"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={appearance} motion={characterMotion} direction={characterDirection} animated/></div></foreignObject><text x={playerPosition.x} y={playerPosition.y+8} textAnchor="middle" fill="#fff5dd" fontSize="14" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{avatar.displayName||"YOU"}</text></g>}
+              </g><g data-layer="interactive-zones">{mapPlaces.map((place)=><g key={place.id} transform={"translate("+place.x+" "+place.y+") scale(.6 1)"} className="gg-map-place" onPointerDown={(e)=>e.stopPropagation()} onClick={(event)=>{event.stopPropagation();mapGestureMoved.current=false;focusPlace(place);}} role="button" tabIndex="0" aria-label={"Open "+place.name} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();focusPlace(place);}}}><ellipse cy="45" rx={place.kind==="stadium"?190:125} ry="40" fill="#10291d" opacity=".35"/><g transform="translate(-90 -85)"><Building kind={place.kind}/></g><rect x="-116" y="54" width="232" height="38" rx="19" fill="#12281e" stroke="#d5b76b" strokeOpacity=".65"/><text y="79" textAnchor="middle" fill="#f7f0db" fontSize="19" fontWeight="700">{place.name}</text><circle cy="-84" r="12" fill="#e7c16a" stroke="#263c2b" strokeWidth="5"/></g>)}
+              </g><g data-layer="characters">{(data.presence||[]).filter((p)=>p.playerId!==data.playerId).map((p)=><g key={p.playerId} transform={"translate("+p.x+" "+p.y+") scale(.6 1)"} className="gg-world-player-marker" role="button" tabIndex="0" aria-label={"View "+p.displayName} onPointerDown={(e)=>e.stopPropagation()} onClick={(event)=>{event.stopPropagation();mapGestureMoved.current=false;setSelectedPlayer(p);}} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedPlayer(p);}}}><circle cy="-23" r="23" fill="#e5bf68" opacity=".18"/><foreignObject x="-20" y="-58" width="40" height="46"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character"><PlayerSprite appearance={p.appearance||{}} motion={playerMotions[p.playerId]||"idle"} direction={p.direction||"down"} animated={Boolean(playerMotions[p.playerId])}/></div></foreignObject><text y="12" textAnchor="middle" fill="#fff5dd" fontSize="13" stroke="#1b3326" strokeWidth="4" paintOrder="stroke">{p.displayName.slice(0,12)}</text></g>)}
+              <g ref={playerMarkerRef} transform={"translate("+playerPosition.x+" "+playerPosition.y+") scale(.6 1)"} className={data.playerId?"gg-world-own-character":"gg-world-visitor-character"} pointerEvents="none">
+                <ellipse cx="0" cy="4" rx="25" ry="9" fill="#07140c" opacity=".42"/>
+                <circle cx="0" cy="-34" r="36" fill="none" stroke="#dfbd70" strokeOpacity=".62" strokeWidth="2" strokeDasharray="5 5"/>
+                <foreignObject x="-30" y="-78" width="60" height="74"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-map-character gg-world-own-sprite"><PlayerSprite appearance={appearance} motion={characterMotion} direction={characterDirection} animated/></div></foreignObject>
+                <rect x="-91" y="14" width="182" height="29" rx="14" fill="#0e251a" stroke="#dfbd70" strokeWidth="1.5"/>
+                <text x="0" y="33" textAnchor="middle" fill="#fff5dd" fontSize="16" fontWeight="850" stroke="#102016" strokeWidth="2" paintOrder="stroke">{avatar.displayName||playerName||"YOUR PLAYER"}</text>
+                {!data.playerId&&<text x="0" y="58" textAnchor="middle" fill="#f2d795" fontSize="10" fontWeight="800" letterSpacing="2">LOCAL VISITOR</text>}
+              </g>
+            </g>
             </g>
             </g>
           </svg>
