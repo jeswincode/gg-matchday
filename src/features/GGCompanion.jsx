@@ -13,16 +13,20 @@ const idleLines = [
   "I could really go for a kickabout right now."
 ];
 
-export default function GGCompanion({ onEnterWorld, playerName }) {
+export default function GGCompanion({ onEnterWorld, playerName, activeTab }) {
   const [avatar,setAvatar] = useState({displayName:playerName||"Your player",appearance:{skinTone:"medium",bodyType:"athletic",hairStyle:"short",hairColor:"black",kitPrimary:"black",kitSecondary:"gold",bootColor:"white"}});
   const [line,setLine] = useState(0);
   const [transitioning,setTransitioning] = useState(false);
   const [position,setPosition] = useState({x:0,y:0});
+  const [perched,setPerched] = useState(false);
   const [dragging,setDragging] = useState(false);
   const [motion,setMotion] = useState("idle");
   const [direction,setDirection] = useState("down");
   const [thrown,setThrown] = useState(false);
   const drag = useRef(null);
+  const wrapperRef = useRef(null);
+  const buttonRef = useRef(null);
+  const perchTimer = useRef(null);
   const suppressClick = useRef(false);
   const timer = useRef(null);
   useEffect(() => {
@@ -37,6 +41,34 @@ export default function GGCompanion({ onEnterWorld, playerName }) {
     return ()=>window.clearInterval(interval);
   },[]);
   useEffect(()=>()=>window.clearTimeout(timer.current),[]);
+  useEffect(()=>{
+    let frame=null;
+    const perchOnActiveTab=()=>{
+      if(drag.current||dragging||thrown||transitioning)return;
+      const active=document.querySelector(".bottom-nav button.active");
+      const wrapper=wrapperRef.current;
+      const button=buttonRef.current;
+      if(!active||!wrapper||!button)return;
+      const target=active.getBoundingClientRect();
+      const current=button.getBoundingClientRect();
+      const x=target.left+target.width/2-(current.left+current.width/2);
+      const y=target.top-45-(current.top+current.height/2);
+      setMotion("walking");
+      setDirection(x<0?"left":"right");
+      setPosition({x,y});
+      setPerched(true);
+      if(perchTimer.current!==null)window.clearTimeout(perchTimer.current);
+      perchTimer.current=window.setTimeout(()=>setMotion("idle"),620);
+    };
+    frame=window.requestAnimationFrame(perchOnActiveTab);
+    window.addEventListener("resize",perchOnActiveTab);
+    return ()=>{
+      if(frame!==null)window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize",perchOnActiveTab);
+      if(perchTimer.current!==null)window.clearTimeout(perchTimer.current);
+    };
+  },[activeTab,dragging,thrown,transitioning]);
+
   function enterWorld(){
     if(transitioning)return;
     if(suppressClick.current){suppressClick.current=false;return;}
@@ -70,9 +102,9 @@ export default function GGCompanion({ onEnterWorld, playerName }) {
   }
   return <>
     <div className={"gg-companion-dim"+(transitioning?" is-active":"")} aria-hidden="true"/>
-    <div className={"gg-companion"+(transitioning?" is-entering":"")+(dragging?" is-dragging":"")+(thrown?" is-thrown":"")} style={{"--gg-companion-x":position.x+"px","--gg-companion-y":position.y+"px"}}>
-      <div className="gg-companion-bubble"><span>{avatar.displayName||playerName||"Your teammate"}</span><p>{idleLines[line]}</p></div>
-      <button type="button" className="gg-companion-button" onClick={enterWorld} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={stopDrag} onPointerCancel={stopDrag} aria-label={"Enter Original GG with "+(avatar.displayName||playerName||"your player")} title="Tap your player to enter Original GG">
+    <div ref={wrapperRef} className={"gg-companion"+(transitioning?" is-entering":"")+(dragging?" is-dragging":"")+(thrown?" is-thrown":"")+(perched?" is-perched":"")} style={{"--gg-companion-x":position.x+"px","--gg-companion-y":position.y+"px"}}>
+      <div className="gg-companion-bubble"><span>{avatar.displayName||playerName||"Your teammate"}</span><p>{({home:"Ready for the next matchday?",record:"I've got my boots on. Let's make a record.",leaderboard:"Who's climbing the leaderboard today?",calendar:"Checking the next big fixture.",players:"Let's meet the squad."})[activeTab]||idleLines[line]}</p></div>
+      <button ref={buttonRef} type="button" className="gg-companion-button" onClick={enterWorld} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={stopDrag} onPointerCancel={stopDrag} aria-label={"Enter Original GG with "+(avatar.displayName||playerName||"your player")} title="Tap your player to enter Original GG">
         <span className="gg-companion-ring"/><PlayerSprite appearance={avatar.appearance||{}} motion={motion} direction={direction} animated/>
       </button>
       <small className="gg-companion-hint">TAP TO ENTER THE CITY</small>
