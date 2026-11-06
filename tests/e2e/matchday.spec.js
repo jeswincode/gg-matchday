@@ -142,6 +142,21 @@ test("companion action menu supports right-click and opens Original GG", async (
   await companion.click({ button: "right" });
   const menu = page.getByRole("menu", { name: "Companion actions" });
   await expect(menu).toBeVisible();
+  const comeToTab = menu.getByRole("menuitem", { name: "Come to this tab" });
+  const explore = menu.getByRole("menuitem", { name: "Explore the page" });
+  await expect(comeToTab).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(explore).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(menu.getByRole("menuitem", { name: "Enter Original GG" })).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(comeToTab).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(companion).toBeFocused();
+
+  await companion.click({ button: "right" });
+  await expect(menu).toBeVisible();
   await menu.getByRole("menuitem", { name: "Wave hello" }).click();
   await expect(page.getByText("Hey! Good to see you.")).toBeVisible();
 
