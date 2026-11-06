@@ -296,6 +296,9 @@ function WalkableRoomScene({room,appearance,playerName="Your player",onOpenChat}
         <path d="M355 90V430 M845 90V430" stroke="#d2a84e" strokeWidth="28"/><path d="M337 90H372 M827 90H862 M337 430H372 M827 430H862" stroke="#f5db8c" strokeWidth="8"/>
         <rect x="420" y="135" width="360" height="268" rx="5" fill="#1b160f" stroke="#d8b96d" strokeWidth="9"/><path d="M420 135L600 62L780 135Z" fill="#8c2d34" stroke="#dfbe6a" strokeWidth="8"/>
         <path d="M465 151H735V385H465Z" fill="#32231a" stroke="#b08a47" strokeWidth="5"/><path d="M600 151V385" stroke="#e1c477" strokeWidth="8"/>
+        <rect x="475" y="166" width="250" height="74" rx="5" fill="#101811" stroke="#caa75d" strokeWidth="4"/>
+        <text x="600" y="193" textAnchor="middle" fill="#f0d38c" fontSize="15" fontWeight="900" letterSpacing="1.4">THE PLACE WHERE THE</text>
+        <text x="600" y="216" textAnchor="middle" fill="#f0d38c" fontSize="17" fontWeight="950" letterSpacing="1.2">COMMUNITY MEETS.</text>
         <circle cx="585" cy="273" r="8" fill="#efcd78"/><circle cx="615" cy="273" r="8" fill="#efcd78"/>
         <path d="M86 75V440 M110 75V440 M1089 75V440 M1114 75V440" stroke="#8e3436" strokeWidth="14"/>
         <path d="M70 75Q100 145 86 245Q80 360 110 440 M1130 75Q1100 145 1114 245Q1120 360 1090 440" fill="none" stroke="#d9b86a" strokeWidth="12"/>
