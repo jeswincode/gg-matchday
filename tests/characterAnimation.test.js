@@ -33,7 +33,7 @@ test("every supported character motion has a bounded frame profile", () => {
 });
 
 test("social gestures have finite playback durations while idle and walking loop", () => {
-  for (const motion of ["wave", "high-five", "cheer", "dance", "celebrating"]) {
+  for (const motion of ["wave", "high-five", "cheer", "kick", "dance", "celebrating"]) {
     assert.ok(getCharacterMotionDuration(motion) >= 900);
   }
   assert.equal(getCharacterMotionDuration("idle"), null);

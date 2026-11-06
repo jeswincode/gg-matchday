@@ -60,7 +60,8 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
       const idleBob = safeMotion === "idle" ? [0, 0, -1, 0][frame % 4] : 0;
       const celebrationJump = ["celebrating", "cheer"].includes(safeMotion) ? [0, -1, -3, -1][frame % 4] : 0;
       const jump = idleBob + celebrationJump;
-      const bodySway = safeMotion === "dance" ? [0, 1, 0, -1, 0, -1, 0, 1][frame % 8] : 0;
+      const bodySway = safeMotion === "dance" ? [0, 1, 0, -1, 0, -1, 0, 1][frame % 8]
+        : safeMotion === "kick" ? [0, -1, 0, 1, 0, 0][frame % 6] : 0;
       const leftLegStep = safeMotion === "walking" ? gait : safeMotion === "dance" ? danceStep : 0;
       const rightLegStep = safeMotion === "walking" ? -gait : safeMotion === "dance" ? -danceStep : 0;
       const layer = new Layer();
@@ -139,6 +140,10 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         const raisedX = safeDirection === "left" ? leftArmX-1 : rightArmX+1;
         g.rect(raisedX,12+jump+highFiveLift,3,7,skin);
         g.rect(raisedX+(safeDirection==="left"?-1:1),8+jump+highFiveLift,4,3,skin);
+      } else if (safeMotion === "kick") {
+        const balance = [0,-1,-2,0,1,0][frame%6];
+        g.rect(leftArmX-1,16+jump+balance,3,8,skin);
+        g.rect(rightArmX+1,17+jump-balance,3,8,skin);
       } else if (safeMotion === "cheer" || safeMotion === "celebrating") {
         const lift = [0,-2,-4,-2][frame%4];
         g.rect(leftArmX,12+jump+lift,3,7,skin);g.rect(leftArmX-1,8+jump+lift,4,3,skin);
@@ -170,6 +175,14 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         g.rect(bodyLeft+bodyWidth-2,26+jump,7,2,skin);
         g.rect(bodyLeft-7,28+jump,8,2,boot);
         g.rect(bodyLeft+bodyWidth-2,28+jump,8,2,boot);
+      } else if (safeMotion === "kick") {
+        const swing = [0,-1,-2,-4,-2,0][frame%6];
+        const kickX = safeDirection === "left" ? leftLegX : rightLegX;
+        const plantX = safeDirection === "left" ? rightLegX : leftLegX;
+        g.rect(plantX,25+jump,3,5,skin);
+        g.rect(plantX-2,29+jump,5,2,boot);
+        g.rect(kickX,25+jump+swing,3,5,skin);
+        g.rect(kickX-2,29+jump+swing,6,2,boot);
       } else {
         g.rect(leftLegX,25+jump+leftLegStep,3,5,skin);
         g.rect(rightLegX,25+jump+rightLegStep,3,5,skin);
@@ -377,7 +390,30 @@ function WalkableRoomScene({room,appearance,playerName="Your player",onOpenChat}
         <g data-room-item role="button" tabIndex="0" onClick={itemClick("match ball",600,620,"Fancy a kickabout?")}>
           <circle cx="600" cy="462" r="18" fill="#f5f0df" stroke="#1d3024" strokeWidth="4"/><path d="M600 445L609 458L603 475L588 470L585 454Z" fill="#1c2a20"/>
         </g>
-        <g stroke="#cfc8ac" strokeWidth="5" fill="none"><path d="M380 250V210H440V250 M760 250V210H820V250"/><path d="M390 250V215 M430 250V215 M770 250V215 M810 250V215"/></g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("left goal net",405,610,"Pick a corner. Can you find the net?")}>
+          <path d="M380 250V210H440V250 M390 250V215 M430 250V215" stroke="#cfc8ac" strokeWidth="5" fill="none"/>
+          <path d="M380 210H440L430 250H390Z" fill="#e9efe2" fillOpacity=".08" stroke="#d8e6d6" strokeWidth="2" strokeDasharray="5 4"/>
+        </g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("right goal net",795,610,"One more shot at goal!")}>
+          <path d="M760 250V210H820V250 M770 250V215 M810 250V215" stroke="#cfc8ac" strokeWidth="5" fill="none"/>
+          <path d="M760 210H820L810 250H770Z" fill="#e9efe2" fillOpacity=".08" stroke="#d8e6d6" strokeWidth="2" strokeDasharray="5 4"/>
+        </g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("scoreboard",600,585,"The scoreboard is ready for the next goal.")}>
+          <rect x="500" y="70" width="200" height="62" rx="8" fill="#0e1a12" stroke="#d8c37e" strokeWidth="5"/>
+          <text x="600" y="96" textAnchor="middle" fill="#f2e5c2" fontSize="12" fontWeight="900">MATCHDAY</text>
+          <text x="600" y="119" textAnchor="middle" fill="#90d09a" fontSize="18" fontWeight="950">HOME 0 — 0 AWAY</text>
+        </g>
+        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("training cones",460,610,"Quick feet. Keep the ball close.")}>
+          {[0,1,2,3].map((n)=><g key={n} transform={"translate("+(385+n*46)+" 0)"}><path d="M0 450L-13 480H13Z" fill="#df8a3f" stroke="#f0d9a4" strokeWidth="3"/><path d="M-9 470H9" stroke="#fff0c6" strokeWidth="4"/></g>)}
+        </g>}
+        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("agility ladder",740,610,"Fast feet through the ladder. Nice work.")}>
+          <path d="M690 440L680 490 M725 440L715 490 M760 440L750 490 M795 440L785 490" stroke="#d9d6c5" strokeWidth="6"/>
+          <path d="M682 450L790 450 M678 462L787 462 M675 475L783 475 M672 488L780 488" stroke="#dbbd79" strokeWidth="4"/>
+        </g>}
+        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("football rack",900,610,"Choose a ball and take your next touch.")}>
+          <rect x="860" y="440" width="170" height="58" rx="8" fill="#563c28" stroke="#d7bb7b" strokeWidth="5"/>
+          {[0,1,2].map((n)=><g key={n} transform={"translate("+(895+n*48)+" 0)"}><circle cy="464" r="13" fill="#f4f0df" stroke="#1d3024" strokeWidth="3"/><path d="M0 452L7 460L4 474L-8 470L-10 458Z" fill="#243327"/></g>)}
+        </g>}
       </g>}
       {tactics && <g>
         <rect x="345" y="90" width="510" height="305" rx="9" fill="#18271f" stroke="#c6a767" strokeWidth="10"/>

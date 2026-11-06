@@ -7,6 +7,7 @@ export const CHARACTER_ANIMATION_PROFILES = Object.freeze({
   wave: Object.freeze({ frameMs: 125, frames: 6, durationMs: 1250 }),
   "high-five": Object.freeze({ frameMs: 110, frames: 4, durationMs: 1050 }),
   cheer: Object.freeze({ frameMs: 140, frames: 4, durationMs: 1450 }),
+  kick: Object.freeze({ frameMs: 110, frames: 6, durationMs: 990 }),
   dance: Object.freeze({ frameMs: 125, frames: 8, durationMs: 2200 }),
 });
 
