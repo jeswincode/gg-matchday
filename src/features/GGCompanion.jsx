@@ -919,7 +919,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         <button type="button" role="menuitem" onClick={explorePage}>Explore the page</button>
         <button type="button" role="menuitem" onClick={waveHello}>Wave hello</button>
         <button type="button" role="menuitem" onClick={() => { closeMenu(); enterWorld(); }}>Enter Original GG</button>
-      </div>
+      </div>}
       <button ref={buttonRef} type="button" className="gg-companion-button"
         onClick={(event) => { if (event.detail === 0) enterWorld(); else if (suppressClick.current) suppressClick.current = false; else enterWorld(); }}
         onPointerDown={startPointer}
