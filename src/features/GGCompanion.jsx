@@ -398,8 +398,6 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     if (!nav || !navRect || !buttonRect) return;
     const state = physicsRef.current;
     if (!state.initialized) return;
-    const state = physicsRef.current;
-    if (!state.initialized) return;
     const perch = getCompanionPerchPoint(buttonRect, "nav");
     if (!perch) return;
 
