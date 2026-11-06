@@ -132,6 +132,7 @@ The current V4 world already provides a draggable/zoomable football-city map, a 
 - Wrapper positioning uses the rendered wrapper height (desktop and mobile) instead of assuming a fixed 92 px height.
 - The actual pixel sprite is bottom-aligned inside its button, compensating for transparent rows beneath the seated and standing boot pixels so the boots meet the measured perch line.
 - The selected navigation tab is reached by the frame-based walking physics across the full navigation rail. Normal tab changes no longer assign Pip's x/y directly. Only horizontal finger-scrubbing directly tracks the selected tab.
+- The layout observer no longer recentres Pip when the tab content resizes. It retargets through the same walking controller, and profile-anchor remeasurement cannot reset an in-progress jump. Both the sticky account avatar and fixed navigation now use viewport coordinates, with scroll/resize remeasurement keeping the sprite attached.
 - Removed CSS transform transitions that were being restarted on every physics frame. The animation loop now owns the movement timing.
 - Ordinary content-card clicks cannot pull Pip away from the profile or navigation resting anchors; the explicit Explore action remains available for roaming.
 - Anchored idle behavior stays front-facing and prevents cheer/dance frames that lift his feet; seated idle frames also suppress the one-pixel body bob so the boots stay level on the avatar.
