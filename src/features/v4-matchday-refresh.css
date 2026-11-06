@@ -569,8 +569,25 @@ html[data-theme] .clubs-app .clubs-panel {
   animation: none !important;
   box-shadow: none !important;
 }
-.gg-companion.is-profile-perched .gg-companion-button { transform: none !important; }
-.gg-companion.is-profile-perched .gg-companion-button .gg-player-sprite { animation: none !important; }
+/* The painted footballer pixels—not the transparent canvas box—must meet the perch. */
+.gg-companion-button .gg-player-sprite {
+  position: absolute !important;
+  left: 50% !important;
+  bottom: var(--gg-companion-foot-bleed, -2.5px) !important;
+  transform: translateX(-50%) !important;
+}
+.gg-companion.is-profile-perched {
+  --gg-companion-foot-bleed: -5px;
+}
+.gg-companion.is-profile-perched .gg-companion-button,
+.gg-companion.is-perched .gg-companion-button {
+  transform: rotate(var(--gg-companion-angle, 0deg)) !important;
+  transform-origin: 50% 100% !important;
+}
+.gg-companion.is-profile-perched .gg-companion-button .gg-player-sprite,
+.gg-companion.is-perched .gg-companion-button .gg-player-sprite {
+  animation: none !important;
+}
 .gg-companion-ring{display:none!important}
 .gg-companion:after{display:none!important}
 .gg-companion.is-perched .gg-companion-ring,
@@ -585,3 +602,7 @@ html[data-theme="golden"] .gg-companion-button .gg-player-sprite{filter:drop-sha
 .gg-companion-bubble span{display:none!important}
 html[data-theme="dark"] .gg-companion-menu{border-color:rgba(189,132,255,.42);background:linear-gradient(155deg,rgba(29,22,46,.97),rgba(9,12,22,.97))}
 html[data-theme="golden"] .gg-companion-menu{border-color:rgba(111,235,150,.42);background:linear-gradient(155deg,rgba(19,45,29,.97),rgba(8,17,13,.97))}
+@media(max-width:700px){
+  .gg-companion.is-profile-perched { --gg-companion-foot-bleed: -4.25px; }
+  .gg-companion.is-perched { --gg-companion-foot-bleed: -2.125px; }
+}
