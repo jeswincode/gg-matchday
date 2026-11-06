@@ -796,7 +796,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         (dragging ? " is-dragging" : "") +
         (perched ? " is-perched" : "") +
         (transitioning ? " is-entering" : "") +
-        (suspended ? " is-suspended" : "")}
+        (suspended ? " is-suspended" : "") + (motion === "idle" ? " is-idle" : " is-moving")}
       aria-hidden={suspended ? "true" : undefined}
     >
       <div className={"gg-companion-bubble" + (bubbleOpen ? " is-open" : "")}>
