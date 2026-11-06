@@ -294,8 +294,12 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const writePosition = useCallback((state) => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
+    // The speech bubble/menu can make the flex wrapper wider than the
+    // footballer itself. Anchor the wrapper by its measured width so the
+    // sprite centre stays exactly on the measured perch point.
+    const wrapperWidth = wrapper.offsetWidth || BODY_WIDTH;
     wrapper.style.transform = "translate3d(" +
-      (state.x - BODY_WIDTH / 2).toFixed(2) + "px," +
+      (state.x - wrapperWidth / 2).toFixed(2) + "px," +
       (state.y - BODY_HEIGHT).toFixed(2) + "px,0)";
     wrapper.style.setProperty("--gg-companion-angle", ((state.angle * 180) / Math.PI).toFixed(2) + "deg");
     wrapper.dataset.ggPhase = state.phase;
