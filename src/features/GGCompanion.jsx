@@ -1,18 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { PlayerSprite } from "./OriginalGGWorld";
+import { COMPANION_HOLD_DROP, stepHeldSwing } from "../../shared/companionPhysics.js";
 import "./original-gg.css";
 
 const WALK_SPEED = 46;
-const GRAVITY = 2200;
+const GRAVITY = 2600;
+const WALL_CLING_SPEED = 950;
+const WALL_BOUNCE = 0.45;
+const HORIZONTAL_DRAG = 0.25;
+const BOUNCE_SPEED = 520;
+const SPIN_DAMPING = 0.9;
 const BODY_WIDTH = 88;
 const BODY_HEIGHT = 92;
 const REST_MS = 240;
 const MIN_FRAME_SECONDS = 0.001;
 const MAX_FRAME_SECONDS = 0.033;
 const DRAG_SLOP = 6;
-const MAX_THROW_SPEED = 1650;
-const MOVING_PHASES = new Set(["walking", "jumping", "flying", "clinging"]);
+const FINGER_DRAG_SLOP = 10;
+const MENU_DRAG_SLOP = 18;
+const MAX_THROW_SPEED = 2800;
+const MOVING_PHASES = new Set(["walking", "jumping", "flying", "clinging", "held"]);
 
 const fallbackAppearance = {
   skinTone: "medium",
@@ -101,6 +109,8 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     vx: 0,
     vy: 0,
     angle: 0,
+    omega: 0,
+    pivot: { x: 0, y: 0, vx: 0, vy: 0 },
     phase: "idle",
     ground: null,
     targetX: 0,
@@ -212,15 +222,18 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   }, []);
 
   const readLedges = useCallback((bounds) => {
-    const selectors = [
-      ".tab-content .paper-surface",
-      ".tab-content .match-card",
-      ".tab-content .card",
-      ".tab-content .ranking-row",
-      ".tab-content article",
-      ".tab-content [data-gg-companion-ledge]",
-      "[data-gg-companion-ledge]",
-    ].join(",");
+    const compactTouch = window.innerWidth <= 700 || window.matchMedia?.("(pointer: coarse)").matches;
+    const selectors = compactTouch
+      ? "[data-gg-companion-ledge]"
+      : [
+          ".tab-content .paper-surface",
+          ".tab-content .match-card",
+          ".tab-content .card",
+          ".tab-content .ranking-row",
+          ".tab-content article",
+          ".tab-content [data-gg-companion-ledge]",
+          "[data-gg-companion-ledge]",
+        ].join(",");
     const seen = new Set();
     const results = [];
     for (const element of document.querySelectorAll(selectors)) {
@@ -270,7 +283,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     wrapper.style.transform = "translate3d(" +
       (state.x - BODY_WIDTH / 2).toFixed(2) + "px," +
       (state.y - BODY_HEIGHT).toFixed(2) + "px,0)";
-    wrapper.style.setProperty("--gg-companion-angle", state.angle.toFixed(2) + "deg");
+    wrapper.style.setProperty("--gg-companion-angle", ((state.angle * 180) / Math.PI).toFixed(2) + "deg");
     wrapper.dataset.ggPhase = state.phase;
     wrapper.dataset.ggX = state.x.toFixed(1);
     wrapper.dataset.ggTargetX = state.targetX.toFixed(1);
@@ -300,6 +313,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     state.vx = 0;
     state.vy = 0;
     state.angle = 0;
+    state.omega = 0;
     state.tween = null;
     setPhase(state, "idle");
     pose(state, "idle");
@@ -335,6 +349,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const verticalGap = Math.abs(targetY - state.y);
     const horizontalGap = Math.abs(targetX - state.x);
     state.angle = 0;
+    state.omega = 0;
     if (sameSurface && verticalGap < 24) {
       state.tween = null;
       state.phase = "walking";
@@ -487,7 +502,15 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const bounds = state.bounds;
     if (!bounds) return;
 
-    if (state.phase === "held") return;
+    if (state.phase === "held") {
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+        state.angle = 0;
+        state.omega = 0;
+      } else {
+        stepHeldSwing(state, dt);
+      }
+      return;
+    }
 
     if (state.phase === "jumping" && state.tween) {
       const tween = state.tween;
@@ -518,7 +541,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     if (state.phase === "flying") {
       const previousY = state.y;
       state.vy += GRAVITY * dt;
-      state.vx *= Math.max(0, 1 - 0.72 * dt);
+      state.vx *= Math.max(0, 1 - HORIZONTAL_DRAG * dt);
       state.x += state.vx * dt;
       state.y += state.vy * dt;
 
@@ -526,28 +549,36 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       const rightWall = bounds.right - BODY_WIDTH / 2;
       if (state.x < leftWall) {
         state.x = leftWall;
-        state.vx = Math.abs(state.vx) * 0.52;
-        if (Math.abs(state.vx) > 660) {
+        const intoWallSpeed = state.vx;
+        if (intoWallSpeed < -WALL_CLING_SPEED) {
+          state.vx = 0;
+          state.omega = 0;
+          state.angle = 0;
           state.phase = "clinging";
           state.clingSide = -1;
-          state.clingUntil = now + 900;
+          state.clingUntil = Number.POSITIVE_INFINITY;
           pose(state, "wave", "left");
           return;
         }
+        state.vx = Math.abs(intoWallSpeed) * WALL_BOUNCE;
       } else if (state.x > rightWall) {
         state.x = rightWall;
-        state.vx = -Math.abs(state.vx) * 0.52;
-        if (Math.abs(state.vx) > 660) {
+        const intoWallSpeed = state.vx;
+        if (intoWallSpeed > WALL_CLING_SPEED) {
+          state.vx = 0;
+          state.omega = 0;
+          state.angle = 0;
           state.phase = "clinging";
           state.clingSide = 1;
-          state.clingUntil = now + 900;
+          state.clingUntil = Number.POSITIVE_INFINITY;
           pose(state, "wave", "right");
           return;
         }
+        state.vx = -Math.abs(intoWallSpeed) * WALL_BOUNCE;
       }
       if (state.y < bounds.top + 44) {
         state.y = bounds.top + 44;
-        state.vy = Math.abs(state.vy) * 0.34;
+        state.vy = Math.abs(state.vy) * 0.3;
       }
 
       if (state.vy > 0) {
@@ -567,15 +598,19 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
           return;
         }
       }
-      state.angle = clamp(state.vx / 20, -32, 32);
+      state.angle += state.omega * dt;
+      state.angle = Math.atan2(Math.sin(state.angle), Math.cos(state.angle));
+      state.omega *= Math.max(0, 1 - SPIN_DAMPING * dt);
       pose(state, Math.hypot(state.vx, state.vy) > 450 ? "celebrating" : "walking", Math.abs(state.vx) > 24 ? (state.vx < 0 ? "left" : "right") : state.direction);
       return;
     }
 
     if (state.phase === "clinging") {
+      state.angle = 0;
+      state.omega = 0;
       state.x = state.clingSide < 0 ? bounds.left + BODY_WIDTH / 2 : bounds.right - BODY_WIDTH / 2;
-      state.y += 24 * dt;
-      if (state.y >= bounds.floor || now >= state.clingUntil) {
+      state.y += 34 * dt;
+      if (state.y >= bounds.floor) {
         state.phase = "flying";
         state.vy = 90;
       }
@@ -831,6 +866,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         state.vx = 0;
         state.vy = 0;
         state.angle = 0;
+        state.omega = 0;
         state.actionUntil = performance.now() + 1250;
         state.nextAction = state.actionUntil;
         setPerched(false);
@@ -867,8 +903,9 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     while (drag.samples.length > 2 && now - drag.samples[0].t > 120) drag.samples.shift();
     const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
     const state = physicsRef.current;
-    if (!drag.moved && distance > DRAG_SLOP) window.clearTimeout(longPressTimer.current);
-    if (!drag.moved && distance > DRAG_SLOP) {
+    const dragSlop = drag.menuOpened ? MENU_DRAG_SLOP : drag.isTouchPointer ? FINGER_DRAG_SLOP : DRAG_SLOP;
+    if (!drag.moved && distance > dragSlop) window.clearTimeout(longPressTimer.current);
+    if (!drag.moved && distance > dragSlop) {
       drag.moved = true;
       suppressClick.current = true;
       state.phase = "held";
@@ -877,6 +914,10 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       state.vx = 0;
       state.vy = 0;
       state.angle = 0;
+      state.omega = 0;
+      state.pivot = { x: event.clientX, y: event.clientY, vx: 0, vy: 0 };
+      state.x = event.clientX;
+      state.y = event.clientY + COMPANION_HOLD_DROP;
       state.manuallyPlaced = true;
       setDragging(true);
       setPerched(false);
@@ -886,15 +927,14 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     if (!drag.moved) return;
     const bounds = state.bounds || measureBounds();
     state.x = clamp(event.clientX, bounds.left + BODY_WIDTH / 2, bounds.right - BODY_WIDTH / 2);
-    state.y = clamp(event.clientY + 34, bounds.top + 40, bounds.floor - 5);
+    state.y = clamp(event.clientY + COMPANION_HOLD_DROP, bounds.top + 40, bounds.floor - 5);
     const sample = drag.samples.length > 1 ? drag.samples[drag.samples.length - 1] : null;
     const previous = drag.samples.length > 1 ? drag.samples[drag.samples.length - 2] : null;
     if (sample && previous) {
-      const dt = Math.max(1, sample.t - previous.t);
-      state.angle = clamp(((sample.x - previous.x) / dt) * -8, -28, 28);
       pose(state, "wave", Math.abs(sample.x - previous.x) > 1 ? (sample.x < previous.x ? "left" : "right") : state.direction);
     }
     writePosition(state);
+    wakeRef.current();
   }, [measureBounds, pose, showBubble, writePosition]);
 
   const finishPointer = useCallback((event) => {
@@ -915,12 +955,10 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const first = samples[0];
     const last = samples[samples.length - 1];
     const elapsed = Math.max(16, last.t - first.t);
-    state.vx = clamp(((last.x - first.x) / elapsed) * 1000, -MAX_THROW_SPEED, MAX_THROW_SPEED);
-    state.vy = clamp(((last.y - first.y) / elapsed) * 1000, -MAX_THROW_SPEED, MAX_THROW_SPEED);
-    if (Math.hypot(state.vx, state.vy) < 140) {
-      state.vx *= 0.3;
-      state.vy = 170;
-    }
+    const cancelled = event.type === "pointercancel";
+    state.vx = cancelled ? 0 : clamp(((last.x - first.x) / elapsed) * 1000, -MAX_THROW_SPEED, MAX_THROW_SPEED);
+    state.vy = cancelled ? 0 : clamp(((last.y - first.y) / elapsed) * 1000, -MAX_THROW_SPEED, MAX_THROW_SPEED);
+    state.omega = -state.omega;
     state.phase = "flying";
     state.ground = null;
     state.tween = null;
@@ -939,16 +977,17 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       startY: event.clientY,
       moved: false,
       menuOpened: false,
+      isTouchPointer: event.pointerType === "touch" || event.pointerType === "pen",
       samples: [{ t: performance.now(), x: event.clientX, y: event.clientY }],
     };
     dragRef.current = drag;
-    if (event.pointerType === "touch" || event.pointerType === "pen") {
+    if (drag.isTouchPointer) {
       longPressTimer.current = window.setTimeout(() => {
         if (dragRef.current !== drag || drag.moved) return;
         drag.menuOpened = true;
         suppressClick.current = true;
         openMenu();
-      }, 520);
+      }, 500);
     }
     window.addEventListener("pointermove", pointerMove, { passive: true });
     window.addEventListener("pointerup", finishPointer);

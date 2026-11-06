@@ -516,7 +516,7 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 .gg-companion-button{
   position:absolute!important;inset:0!important;width:88px!important;height:92px!important;
   display:grid!important;place-items:center!important;margin:0!important;padding:0!important;
-  pointer-events:auto;transform:rotate(var(--gg-companion-angle,0deg));transform-origin:50% 78%;
+  pointer-events:auto;transform:rotate(var(--gg-companion-angle,0deg));transform-origin:50% 50%;
   transition:none!important;touch-action:none;cursor:grab;overflow:visible;
 }
 .gg-companion-button:active{cursor:grabbing}
@@ -611,3 +611,7 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 .gg-companion-menu.is-center{left:50%;transform:translateX(-50%)}
 @media(max-width:700px){.gg-companion-menu{width:178px;max-width:calc(100vw - 16px);padding:6px}.gg-companion-menu button{min-height:38px}}
 @media(prefers-reduced-motion:reduce){.gg-companion-menu{animation:none!important}.gg-companion-menu button{transition:none!important}}
+
+/* The hand is the pivot while held; airborne spins rotate around the body centre. */
+.gg-companion[data-gg-phase=held] .gg-companion-button{transform-origin:50% 63%}
+@media(max-width:700px){.gg-companion[data-gg-phase=held] .gg-companion-button{transform-origin:50% 59%}}
