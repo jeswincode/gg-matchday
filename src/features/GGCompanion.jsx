@@ -5,7 +5,7 @@ import { COMPANION_HOLD_DROP, stepHeldSwing } from "../../shared/companionPhysic
 import { getCompanionPerchPoint } from "../../shared/companionLayout.js";
 import "./original-gg.css";
 
-const WALK_SPEED = 46;
+const WALK_SPEED = 132;
 const GRAVITY = 2600;
 const WALL_CLING_SPEED = 950;
 const WALL_BOUNCE = 0.45;
@@ -286,7 +286,19 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     const rect = visibleRect(anchor);
     if (!rect) return null;
     const perch = getCompanionPerchPoint(rect, ground.kind);
-    if ((ground.kind === "profile" || ground.kind === "nav") && perch) {
+    if (ground.kind === "nav" && perch) {
+      // The entire navigation rail is the walking surface. The selected tab
+      // determines the foot-line height and destination, not the platform's
+      // horizontal bounds; otherwise Pip falls as soon as he leaves one tab.
+      const navRect = visibleRect(ground.el);
+      if (!navRect) return null;
+      return {
+        left: Math.max(bounds.left, navRect.left),
+        right: Math.min(bounds.right, navRect.right),
+        top: perch.y,
+      };
+    }
+    if (ground.kind === "profile" && perch) {
       return {
         left: Math.max(bounds.left, perch.x - BODY_WIDTH / 2),
         right: Math.min(bounds.right, perch.x + BODY_WIDTH / 2),
@@ -306,6 +318,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     // The speech bubble/menu can make the flex wrapper wider than the
     // footballer itself. Anchor its sprite centre to the measured perch.
     const wrapperWidth = wrapper.offsetWidth || BODY_WIDTH;
+    const wrapperHeight = wrapper.offsetHeight || BODY_HEIGHT;
     wrapper.style.left = "0px";
     wrapper.style.top = "0px";
     wrapper.style.right = "auto";
@@ -319,7 +332,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       wrapper.style.transition = "none";
       wrapper.style.transform = "translate3d(" +
         (state.x - (appRect?.left ?? 0) - wrapperWidth / 2).toFixed(2) + "px," +
-        (state.y - (appRect?.top ?? 0) - BODY_HEIGHT).toFixed(2) + "px,0)";
+        (state.y - (appRect?.top ?? 0) - wrapperHeight).toFixed(2) + "px,0)";
     } else {
       wrapper.style.position = "fixed";
       wrapper.style.transition = state.ground?.kind === "nav" && state.ground.el?.dataset.dragging !== "true"
@@ -327,7 +340,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         : "none";
       wrapper.style.transform = "translate3d(" +
         (state.x - wrapperWidth / 2).toFixed(2) + "px," +
-        (state.y - BODY_HEIGHT).toFixed(2) + "px,0)";
+        (state.y - wrapperHeight).toFixed(2) + "px,0)";
     }
     wrapper.style.setProperty("--gg-companion-angle", ((state.angle * 180) / Math.PI).toFixed(2) + "deg");
     wrapper.dataset.ggPhase = state.phase;
@@ -431,35 +444,41 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     if (suspendedRef.current || transitioning) return;
     const nav = document.querySelector(".bottom-nav");
     const active = nav?.querySelector("button.active");
-    const navRect = visibleRect(nav);
     const buttonRect = visibleRect(active);
-    if (!nav || !navRect || !buttonRect) return;
+    if (!nav || !visibleRect(nav) || !buttonRect) return;
     const state = physicsRef.current;
     if (!state.initialized) return;
     const perch = getCompanionPerchPoint(buttonRect, "nav");
     if (!perch) return;
 
-    // Navigation is a moving surface, not a destination that should take a
-    // 46 px/s walk. Perch directly on the selected button's current geometry.
-    state.x = perch.x;
-    state.y = perch.y;
-    state.ground = { kind: "nav", el: nav };
-    state.targetGround = state.ground;
-    state.targetX = state.x;
-    state.tween = null;
-    state.vx = 0;
-    state.vy = 0;
-    state.angle = 0;
-    state.omega = 0;
-    state.phase = "idle";
-    state.manuallyPlaced = false;
-    pose(state, "idle", "down");
-    setPerched(true);
-    setProfilePerched(false);
-    writePosition(state);
-    state.nextAction = performance.now() + 5000;
-    wakeRef.current();
-  }, [pose, transitioning, writePosition]);
+    const ground = { kind: "nav", el: nav };
+    if (nav.dataset.dragging === "true") {
+      // During finger scrubbing Pip tracks the selected tab directly.
+      state.x = perch.x;
+      state.y = perch.y;
+      state.ground = ground;
+      state.targetGround = ground;
+      state.targetX = perch.x;
+      state.tween = null;
+      state.vx = 0;
+      state.vy = 0;
+      state.angle = 0;
+      state.omega = 0;
+      state.phase = "idle";
+      state.manuallyPlaced = false;
+      pose(state, "idle", "down");
+      setPerched(true);
+      setProfilePerched(false);
+      writePosition(state);
+      state.nextAction = performance.now() + 5000;
+      wakeRef.current();
+      return;
+    }
+
+    // On an ordinary tab change, walk along the full navigation rail. This
+    // keeps Pip grounded between tabs instead of snapping to each new centre.
+    moveTo(ground, perch.x);
+  }, [moveTo, pose, setPerched, setProfilePerched, transitioning, writePosition]);
 
   useEffect(() => {
     const onPointerMove = (event) => {
