@@ -91,6 +91,42 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await expect(page.getByRole("button", { name: /GG Community/ })).toBeVisible();
 });
 
+test("Pip-style companion follows Matchday navigation and responds to being picked up", async ({ page }) => {
+  await stubWorldApi(page);
+  await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
+  await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+
+  const companion = page.locator(".gg-companion-button");
+  const navigation = page.locator(".bottom-nav");
+  await expect(companion).toBeVisible();
+  await expect(navigation).toBeVisible();
+
+  const isAlignedToActiveTab = async () => {
+    const sprite = await companion.boundingBox();
+    const active = await navigation.locator("button.active").boundingBox();
+    if (!sprite || !active) return Number.POSITIVE_INFINITY;
+    return Math.abs(sprite.x + sprite.width / 2 - active.x - active.width / 2);
+  };
+  await expect.poll(isAlignedToActiveTab, { timeout: 5000 }).toBeLessThan(12);
+
+  await navigation.getByRole("button", { name: /Leaderboard/ }).click();
+  await expect(navigation.getByRole("button", { name: /Leaderboard/ })).toHaveClass(/active/);
+  await expect.poll(isAlignedToActiveTab, { timeout: 5000 }).toBeLessThan(12);
+
+  const before = await companion.boundingBox();
+  expect(before).not.toBeNull();
+  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(before.x + before.width / 2 - 105, before.y + before.height / 2 - 90, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(async () => {
+    const after = await companion.boundingBox();
+    if (!after) return 0;
+    return Math.hypot(after.x - before.x, after.y - before.y);
+  }, { timeout: 2500 }).toBeGreaterThan(55);
+});
+
 test("guest can open Matchday and reach the live leaderboard", async ({ page }) => {
   await stubPublicApi(page);
   await enterGuestMatchday(page);
