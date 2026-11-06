@@ -180,6 +180,13 @@ test("companion action menu supports right-click and opens Original GG", async (
   await companion.click({ button: "right" });
   await expect(menu).toBeVisible();
   await menu.getByRole("menuitem", { name: "Wave hello" }).click();
+  const companionState = await page.locator(".gg-companion").evaluate(element => ({
+    bubble: element.dataset.ggBubble,
+    bubbleOpen: element.dataset.ggBubbleOpen,
+    menuOpen: element.dataset.ggMenuOpen,
+    motion: element.className,
+  }));
+  console.log("Pip wave diagnostic:", JSON.stringify(companionState));
   await expect(page.getByText("Hey! Good to see you.")).toBeVisible();
 
   await companion.click({ button: "right" });
