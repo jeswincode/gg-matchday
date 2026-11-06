@@ -9,6 +9,20 @@ after(async()=>{await syncHistory().catch(()=>{});server?.closeAllConnections();
 const payload=()=>({date:'2026-01-04',name:'Test Sunday',teamA:{label:'Test A',score:99},teamB:{label:'Test B',score:99},participants:[{player:String(p1._id),team:'A',rating:8.9,defensivePerformance:8},{player:String(p2._id),team:'B',rating:7,defensivePerformance:6}],events:[{player:String(p1._id),type:'goal'}]});
 test('API responses include a safe request id and invalid ids remain client errors',async()=>{const health=await request('/health');assert.equal(health.status,503);assert.equal(health.data.status,'degraded');assert.equal(health.data.database,'connected');assert.equal(health.data.clubsDatabase,'disconnected');assert.match(health.requestId,/^[0-9a-f-]{36}$/i);const invalid=await request('/players/not-an-object-id');assert.equal(invalid.status,400);assert.equal(invalid.data.message,'Invalid resource id.');assert.match(invalid.requestId,/^[0-9a-f-]{36}$/i);assert.doesNotMatch(JSON.stringify(invalid.data),/mongodb|secret|password/i);});
 test('API rejects unauthenticated and viewer match writes',async()=>{assert.equal((await request('/matches',{method:'POST',body:payload()})).status,401);assert.equal((await request('/matches',{token:'viewer',method:'POST',body:payload()})).status,403);assert.equal((await request('/auth/me',{token:'invalid'})).status,401);});
+test('Original GG exposes only a static public map while private bootstrap requires linked verified Gmail access',async()=>{
+  const publicMap=await request('/world/public-map');
+  assert.equal(publicMap.status,200,JSON.stringify(publicMap.data));
+  assert.equal(publicMap.data.slug,'original-gg');
+  assert.ok(publicMap.data.locations.some((location)=>location.id==='gg-hq'));
+  for(const field of ['plots','presence','residences','training','messages','economy','players']) {
+    assert.equal(Object.hasOwn(publicMap.data,field),false,field+' must not be public');
+  }
+  assert.ok(publicMap.data.locations.every((location)=>!Object.hasOwn(location,'interior')&&!Object.hasOwn(location,'ownerPlayerId')));
+  const privateBootstrap=await request('/world/bootstrap',{token:'viewer'});
+  assert.equal(privateBootstrap.status,403,JSON.stringify(privateBootstrap.data));
+  assert.equal(privateBootstrap.data.code,'ORIGINAL_GG_LINK_REQUIRED');
+});
+
 test('configured admin privileges require a verified matching identity and stale admin role is removed',async()=>{
   const unverified=await request('/auth/me',{token:'unverified-admin'});
   assert.equal(unverified.status,200,JSON.stringify(unverified.data));
