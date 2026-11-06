@@ -711,12 +711,32 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     if (suspended || transitioning) return undefined;
     let first = 0;
     let second = 0;
+    let navFrame = 0;
+    const nav = document.querySelector(".bottom-nav");
+    const followSelectedTab = () => {
+      window.cancelAnimationFrame(navFrame);
+      navFrame = window.requestAnimationFrame(() => {
+        navFrame = window.requestAnimationFrame(() => moveToActiveNavRef.current?.());
+      });
+    };
+    const observer = typeof MutationObserver !== "undefined" && nav
+      ? new MutationObserver((records) => {
+          if (records.some((record) => record.type === "attributes" && record.attributeName === "class")) {
+            followSelectedTab();
+          }
+        })
+      : null;
+    observer?.observe(nav, { subtree: true, attributes: true, attributeFilter: ["class"] });
+    nav?.addEventListener("click", followSelectedTab);
     first = window.requestAnimationFrame(() => {
       second = window.requestAnimationFrame(() => moveToActiveTab());
     });
     return () => {
       window.cancelAnimationFrame(first);
       window.cancelAnimationFrame(second);
+      window.cancelAnimationFrame(navFrame);
+      observer?.disconnect();
+      nav?.removeEventListener("click", followSelectedTab);
     };
   }, [activeTab, moveToActiveTab, suspended, transitioning]);
 
