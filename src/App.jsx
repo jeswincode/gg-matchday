@@ -606,8 +606,12 @@ function App() {
     Boolean(import.meta.env.VITE_E2E_TEST_AUTH_SECRET) &&
     Boolean(new URLSearchParams(window.location.search).get("e2eRole")) &&
     Boolean(backendUser?.playerProfile);
+  const normalizedAuthEmail = String(authUser?.email || "").trim().toLowerCase();
+  const normalizedBackendEmail = String(backendUser?.email || "").trim().toLowerCase();
   const canEnterOriginalGG = Boolean(backendUser?.playerProfile) && (
-    (authUser?.emailVerified === true && /^[^\s@]+@gmail\.com$/i.test(String(authUser?.email || ""))) ||
+    (authUser?.emailVerified === true &&
+      normalizedAuthEmail === normalizedBackendEmail &&
+      /^[^\s@]+@gmail\.com$/.test(normalizedAuthEmail)) ||
     e2eWorldAccess
   );
 
