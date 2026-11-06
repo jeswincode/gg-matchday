@@ -396,7 +396,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       }
       const progress = clamp((now - tween.startedAt) / tween.duration, 0, 1);
       const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-      state.x = tween.fromX + (rect.left + (tween.toX - tween.fromX) - tween.fromX) * eased;
+      state.x = tween.fromX + (clamp(tween.toX, rect.left + BODY_WIDTH / 2, rect.right - BODY_WIDTH / 2) - tween.fromX) * eased;
       state.y = tween.fromY + (rect.top - tween.fromY) * eased - Math.sin(Math.PI * progress) * tween.arc;
       if (progress >= 1) {
         state.x = clamp(tween.toX, rect.left + BODY_WIDTH / 2, rect.right - BODY_WIDTH / 2);
