@@ -848,6 +848,34 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     window.addEventListener("pointercancel", finishPointer);
   };
 
+  const explorePage = () => {
+    closeMenu();
+    const state = physicsRef.current;
+    const options = state.ledges.filter((item) => item.kind !== "nav" && item.rect && item.rect.width > BODY_WIDTH + 60);
+    if (!options.length) {
+      showBubble("I am looking for somewhere to explore.", 2100);
+      return;
+    }
+    const target = options[Math.floor(Math.random() * options.length)];
+    const targetX = target.rect.left + BODY_WIDTH / 2 + 16 + Math.random() * Math.max(1, target.rect.width - BODY_WIDTH - 32);
+    moveToRef.current({ kind: target.kind, el: target.el }, targetX, { line: "Found a good place to perch!" });
+  };
+
+  const waveHello = () => {
+    closeMenu();
+    const state = physicsRef.current;
+    state.tween = null;
+    state.vx = 0;
+    state.vy = 0;
+    if (!state.ground) settle(state, performance.now(), { kind: "floor" });
+    state.phase = "idle";
+    state.actionUntil = performance.now() + 1100;
+    state.nextAction = state.actionUntil;
+    pose(state, "wave");
+    showBubble("Hey! Good to see you.", 2100);
+    wakeRef.current();
+  };
+
   const enterWorld = () => {
     if (transitioning || suspended || suppressClick.current) {
       suppressClick.current = false;
@@ -864,6 +892,8 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   useEffect(() => () => {
     window.clearTimeout(enterTimer.current);
     window.clearTimeout(bubbleTimer.current);
+    window.clearTimeout(longPressTimer.current);
+    window.clearTimeout(glanceTimer.current);
     window.removeEventListener("pointermove", pointerMove);
     window.removeEventListener("pointerup", finishPointer);
     window.removeEventListener("pointercancel", finishPointer);
@@ -880,14 +910,22 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         (suspended ? " is-suspended" : "") + (motion === "idle" ? " is-idle" : " is-moving")}
       aria-hidden={suspended ? "true" : undefined}
     >
-      <div className={"gg-companion-bubble" + (bubbleOpen ? " is-open" : "")}>
+      <div className={"gg-companion-bubble" + (bubbleOpen && !menuOpen ? " is-open" : "")}>
         <span>{avatar.displayName || playerName || "Your teammate"}</span>
         <p>{bubble || contextualLine}</p>
       </div>
+      {menuOpen && <div className="gg-companion-menu" role="menu" aria-label="Companion actions">
+        <button type="button" role="menuitem" onClick={() => { closeMenu(); moveToActiveTab(); }}>Come to this tab</button>
+        <button type="button" role="menuitem" onClick={explorePage}>Explore the page</button>
+        <button type="button" role="menuitem" onClick={waveHello}>Wave hello</button>
+        <button type="button" role="menuitem" onClick={() => { closeMenu(); enterWorld(); }}>Enter Original GG</button>
+      </div>
       <button ref={buttonRef} type="button" className="gg-companion-button"
-        onClick={(event) => { if (event.detail === 0 || !suppressClick.current) enterWorld(); }}
+        onClick={(event) => { if (event.detail === 0) enterWorld(); else if (suppressClick.current) suppressClick.current = false; else enterWorld(); }}
         onPointerDown={startPointer}
-        onContextMenu={(event) => { event.preventDefault(); showBubble("Tap me to visit Original GG, or drag me around the page.", 3200); }}
+        onContextMenu={(event) => { event.preventDefault(); openMenu(); }}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
         aria-label={"Enter Original GG with " + (avatar.displayName || playerName || "your player")}
         title="Tap to enter Original GG · drag to pick up and throw"
         tabIndex={suspended ? -1 : 0}
