@@ -353,7 +353,7 @@ function WalkableRoomScene({room,appearance,playerName="Your player",onOpenChat}
       </g>
     </svg>
     <div className="gg-room-character-speech"><span>{playerName}</span><p>{line}</p></div>
-    <div className="gg-room-bottomline"><span>{activeItem||room?.name||"Explore the room"}</span>{onOpenChat&&(/grand-hall|club-lounge|supporters|fan|meeting/.test(id))&&<button type="button" onClick={onOpenChat}>Open community chat</button>}</div>
+    <div className="gg-room-bottomline">{hq&&<strong className="gg-room-feature-motto">THE PLACE WHERE THE COMMUNITY MEETS.</strong>}<span>{activeItem||room?.name||"Explore the room"}</span>{onOpenChat&&(/grand-hall|club-lounge|supporters|fan|meeting/.test(id))&&<button type="button" onClick={onOpenChat}>Open community chat</button>}</div>
   </div>;
 }
 
