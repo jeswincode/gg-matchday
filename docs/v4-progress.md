@@ -96,3 +96,11 @@ The GitHub validation workflow is enabled on v4/development. It runs lint, unit 
 ### Remaining world-depth work
 
 The current V4 world already provides a draggable/zoomable football-city map, a persistent character marker, landmark entry points, walkable room scenes, furniture interactions and training challenges. These are still the initial playable scenes, not a full Leaflet-scale simulation. The next world pass should deepen the resident/house interiors, arena activity loops, player-to-player social interactions, animation/state persistence and district-specific environmental interactions. The visual/theme pass above does not claim those deeper systems are complete.
+
+
+### Room interaction pass — 6 November 2026
+
+- Existing clickable room props now resolve to contextual player actions after the footballer walks to the object: sitting on sofas/benches/tactics tables/gaming stations, celebrating at football/training objects, and waving at banners/trophy displays.
+- Character speech now appears after the approach animation completes, so the dialogue corresponds to the object being reached rather than starting at the far side of the room.
+- Keyboard Enter/Space activates focused room objects as well as click/touch.
+- The room interaction mapping is isolated in `shared/worldRoomInteractions.js` and covered by `tests/worldRoomInteractions.test.js`.
