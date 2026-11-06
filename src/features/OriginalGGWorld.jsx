@@ -285,7 +285,7 @@ function WalkableRoomScene({room,appearance,playerName="Your player",onOpenChat}
   const esports=/arena|esports|neon/.test(id);
   const hq=/grand-hall|headquarters|club-lounge/.test(id)||theme.includes("gold");
   const accent=training?"#91b77b":pitch?"#9cbb8d":trophy||hq?"#e3c374":market?"#d7a66c":esports?"#8dd9e0":garden?"#8db987":"#d5b77a";
-  const walkTo=(x,y,reason="")=>{
+  const walkTo=useCallback((x,y,reason="")=>{
     lastInput.current=performance.now();
     if(walkFrame.current!==null)window.cancelAnimationFrame(walkFrame.current);
     const from={...position.current};
@@ -307,7 +307,7 @@ function WalkableRoomScene({room,appearance,playerName="Your player",onOpenChat}
       else{walkFrame.current=null;setMotion("idle");}
     };
     walkFrame.current=window.requestAnimationFrame(frame);
-  };
+  },[]);
   function handleSceneClick(event){
     if(event.target?.closest?.("[data-room-item]"))return;
     const matrix=event.currentTarget.getScreenCTM?.();
@@ -334,7 +334,7 @@ function WalkableRoomScene({room,appearance,playerName="Your player",onOpenChat}
     };
     schedule();
     return ()=>{cancelled=true;if(idleTimer.current!==null)window.clearTimeout(idleTimer.current);if(walkFrame.current!==null)window.cancelAnimationFrame(walkFrame.current);};
-  },[reduced,room?.id]);
+  },[reduced,room?.id,walkTo]);
   const itemClick=(label,x,y,dialogue)=>event=>{event.stopPropagation();walkTo(x,y,dialogue||("Let's take a closer look at the "+label.toLowerCase()+"."));};
   return <div className="gg-walkable-room">
     <div className="gg-room-scene-topline"><span>{String(room?.theme||"ORIGINAL GG").replaceAll("-"," ").toUpperCase()}</span><small>CLICK THE FLOOR TO WALK · WASD / ARROWS ALSO WORK</small></div>
@@ -924,6 +924,13 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
   }
   function handleMapKeyDown(event){const directions={ArrowUp:[0,-24],w:[0,-24],ArrowDown:[0,24],s:[0,24],ArrowLeft:[-24,0],a:[-24,0],ArrowRight:[24,0],d:[24,0]};const move=directions[event.key]||directions[event.key.toLowerCase()];if(move){event.preventDefault();movePlayer(move[0],move[1]);}}
   const liveCount=data && data.presence ? data.presence.length : 0;
+  const roomListFor=(id)=>data?.world?.layout?.locations?.find((place)=>place.id===id)?.interior?.rooms||[];
+  const headquartersRooms=roomListFor("gg-hq");
+  const trainingRooms=roomListFor("training-centre");
+  const marketRooms=roomListFor("market-square");
+  const currentHeadquartersRoom=headquartersRooms[activeFacilityRoom]||headquartersRooms[0];
+  const currentTrainingRoom=trainingRooms[activeFacilityRoom]||trainingRooms[0];
+  const currentMarketRoom=marketRooms[activeFacilityRoom]||marketRooms[0];
   return <main className="gg-world">
     <header className="gg-world-header"><div className="gg-world-brand"><span className="gg-world-crest">GG</span><div><p>THE ORIGINAL GG WORLD</p><h1>Football City</h1></div></div><div className="gg-world-header-actions"><button className="gg-world-back" onClick={onExit}>← Matchday</button></div></header>
     
@@ -979,14 +986,16 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
         <section className="gg-world-facility-window">
           <header className="gg-world-facility-heading"><div><span>THE GOLDEN GOONER HEADQUARTERS</span><h2 id="gg-world-hq-title">Welcome to the clubhouse.</h2><p>{liveCount} players are exploring Original GG right now.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
           <div className="gg-world-hq-visitors"><div><span>AT THE HEADQUARTERS</span><strong>{(data.presence||[]).filter((player)=>player.locationId===activeLocationId).length} players here</strong></div><div>{(data.presence||[]).filter((player)=>player.locationId===activeLocationId).length ? (data.presence||[]).filter((player)=>player.locationId===activeLocationId).map((player)=><article key={player.playerId}><PlayerSprite appearance={player.appearance||{}} motion={playerMotions[player.playerId]||"idle"} direction={player.direction||"down"} animated={Boolean(playerMotions[player.playerId])}/><span>{player.displayName}</span></article>) : <p>It's quiet in the clubhouse. Be the first to arrive.</p>}</div></div>
-          <div className="gg-world-hq-stage"><div className="gg-world-hq-curtains" aria-hidden="true"><span/><span/></div><div className="gg-world-hq-wall"><span>GOLDEN GOONERS · ORIGINAL GG</span><h3>THE PLACE WHERE THE COMMUNITY MEETS.</h3><p>Show your player card, celebrate your records, meet other characters and chat with the city.</p><div className="gg-world-hq-plaques"><small>WEAK PEOPLE START</small><small>LUBRICATE AND KEEP</small><small>GOOD VIBES. GOLDEN RULES.</small></div></div></div>
+          <RoomTabs rooms={headquartersRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>
+          {currentHeadquartersRoom&&<WalkableRoomScene key={"hq-"+currentHeadquartersRoom.id} room={currentHeadquartersRoom} appearance={appearance} playerName={avatar.displayName||playerName} onOpenChat={onOpenChat}/>}
+</div>
           {data.playerId&&<WorldSocialPanel playerId={data.playerId} locationId={activeLocationId}/>}
         </section>
       </div>}
       {facility==="training" && <div className="gg-world-facility-overlay gg-world-training-overlay" role="dialog" aria-modal="true" aria-labelledby="gg-world-training-title">
         <section className="gg-world-facility-window">
           <header className="gg-world-facility-heading"><div><span>ORIGINAL GG · TRAINING CENTRE</span><h2 id="gg-world-training-title">Step onto the training pitch.</h2><p>Track your personal workouts, then take on the ball-control challenge.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
-          <div className="gg-world-training-scene" aria-hidden="true"><div className="gg-world-training-stand gg-world-training-stand-left"/><div className="gg-world-training-stand gg-world-training-stand-right"/><div className="gg-world-training-gate"><span>GG TRAINING CENTRE</span><i/></div><div className="gg-world-training-pitch"><i/><b/></div></div>
+          <RoomTabs rooms={trainingRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>{currentTrainingRoom&&<WalkableRoomScene key={"training-"+currentTrainingRoom.id} room={currentTrainingRoom} appearance={appearance} playerName={avatar.displayName||playerName}/>} 
           <section className="gg-world-training-workbench">
             <div className="gg-world-section-title"><span>YOUR PERSONAL RECORD</span><h2>Log a workout</h2><p>Rename each counter to track any exercise you prefer. Totals and personal bests stay in your training history.</p></div>
             <div className="gg-world-training-grid">
@@ -1006,6 +1015,8 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
       {facility==="market" && <div className="gg-world-facility-overlay gg-world-market-overlay" role="dialog" aria-modal="true" aria-label="Original GG Market Square">
         <section className="gg-world-facility-window">
           <header className="gg-world-facility-heading"><div><span>ORIGINAL GG · MARKET SQUARE</span><h2>Build your football identity.</h2><p>Character cosmetics, home furnishings and residence upgrades.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
+          <RoomTabs rooms={marketRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>
+          {currentMarketRoom&&<WalkableRoomScene key={"market-"+currentMarketRoom.id} room={currentMarketRoom} appearance={appearance} playerName={avatar.displayName||playerName}/>}
           <WorldEconomyPanel onEquipped={(nextAppearance)=>setAvatar((current)=>({...current,appearance:nextAppearance}))}/>
         </section>
       </div>}
