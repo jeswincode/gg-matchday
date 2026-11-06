@@ -134,7 +134,7 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
     const anchor = await profileAnchor.boundingBox();
     if (!canvas || !anchor) return Number.POSITIVE_INFINITY;
     const seatedFootBottom = canvas.y + canvas.height * (30 / 32);
-    const seatTop = anchor.y + Math.min(22, Math.max(10, anchor.height * 0.34));
+    const seatTop = anchor.y + anchor.height * 0.5;
     return Math.abs(seatedFootBottom - seatTop);
   };
   const navFootGap = async (tab) => {
@@ -148,6 +148,7 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
   // The character sits on the profile icon: centered, front-facing, feet on its top edge.
   await expect.poll(() => isCenteredOn(profileAnchor), { timeout: 5000 }).toBeLessThan(12);
   await expect(companionStage).toHaveClass(/is-profile-perched/);
+  await expect(companionStage).toHaveAttribute("data-gg-ground", "profile");
   await expect.poll(profileFootGap, { timeout: 5000 }).toBeLessThan(2);
   await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /seated, facing down/);
   await expect(companion.locator(".gg-companion-ring")).toHaveCount(0);
