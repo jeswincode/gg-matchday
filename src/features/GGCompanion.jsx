@@ -903,14 +903,14 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
           const rect = visibleRect(active);
           const perch = rect && getCompanionPerchPoint(rect, "nav");
           if (perch) {
-            // Content can resize during a tab switch. Keep Pip's current x
-            // while he is walking; only update the destination. Recentring x
-            // here would teleport him to the newly active tab before the
-            // walking physics gets a frame.
+            // A tab's active class and the tab-content resize can arrive in
+            // either order. Never assign x from layout: ask the movement
+            // controller to walk to the new centre instead.
             state.y = perch.y;
-            if (state.phase === "idle") state.x = perch.x;
-            if (state.targetGround?.kind === "nav" && state.phase !== "idle") {
+            if (state.phase !== "idle" && state.targetGround?.kind === "nav") {
               state.targetX = perch.x;
+            } else if (state.phase === "idle" && Math.abs(state.x - perch.x) > 4) {
+              moveToActiveNavRef.current?.();
             }
           } else state.y = bounds.navRect.top + 5;
         } else if (state.ground.kind === "floor") {
