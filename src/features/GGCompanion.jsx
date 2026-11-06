@@ -1019,6 +1019,9 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
         (transitioning ? " is-entering" : "") +
         (suspended ? " is-suspended" : "") + (motion === "idle" ? " is-idle" : " is-moving")}
       aria-hidden={suspended ? "true" : undefined}
+      data-gg-bubble={bubble}
+      data-gg-bubble-open={String(bubbleOpen)}
+      data-gg-menu-open={String(menuOpen)}
     >
       <div className={"gg-companion-bubble" + (bubbleOpen && !menuOpen ? " is-open" : "")}>
         <span>{avatar.displayName || playerName || "Your teammate"}</span>
