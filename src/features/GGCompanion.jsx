@@ -284,6 +284,16 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const rect = visibleRect(ground.el);
     if (!rect) return null;
     const perch = getCompanionPerchPoint(rect, ground.kind);
+    if (ground.kind === "profile" && perch) {
+      // A profile icon is much narrower than the footballer sprite. Treat it
+      // as a soft central perch, not a hard ledge whose 38px width clamps an
+      // 88px character away from the icon centre.
+      return {
+        left: Math.max(bounds.left, perch.x - BODY_WIDTH / 2),
+        right: Math.min(bounds.right, perch.x + BODY_WIDTH / 2),
+        top: perch.y,
+      };
+    }
     return {
       left: Math.max(bounds.left, rect.left),
       right: Math.min(bounds.right, rect.right),
