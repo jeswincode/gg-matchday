@@ -35,7 +35,9 @@ export function stepHeldSwing(state, dt) {
     * Math.max(0, 1 - SWING_DAMPING * step);
 
   state.pivot = { x: px, y: py, vx, vy };
-  state.omega = omega;
-  state.angle = -Math.atan2(Math.sin(theta + omega * step), Math.cos(theta + omega * step));
+  // Normalize floating-point negative zero so snapshots and strict tests are stable.
+  state.omega = Math.abs(omega) < 1e-12 ? 0 : omega;
+  const angle = -Math.atan2(Math.sin(theta + omega * step), Math.cos(theta + omega * step));
+  state.angle = Math.abs(angle) < 1e-12 ? 0 : angle;
   return state;
 }
