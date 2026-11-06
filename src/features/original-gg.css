@@ -507,7 +507,8 @@ html:has(.gg-world),body:has(.gg-world),#root:has(.gg-world){height:100%;overflo
 
 /* Pip-style companion stage: viewport coordinates are written directly by the physics loop. */
 .gg-companion{
-  position:fixed!important;left:0!important;top:0!important;right:auto!important;bottom:auto!important;
+  /* JS selects fixed for nav/drag and absolute for the scrolling profile perch. */
+  position:fixed;left:0;top:0;right:auto;bottom:auto;
   width:88px!important;height:92px!important;display:block!important;gap:0!important;
   margin:0!important;padding:0!important;transform:translate3d(0,0,0);
   transform-origin:50% 82%;transition:none!important;will-change:transform;z-index:501;
