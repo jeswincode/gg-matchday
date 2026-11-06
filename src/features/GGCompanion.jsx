@@ -18,6 +18,9 @@ export default function GGCompanion({ onEnterWorld, playerName, activeTab }) {
   const [line,setLine] = useState(0);
   const [transitioning,setTransitioning] = useState(false);
   const [position,setPosition] = useState({x:0,y:0});
+  const positionRef = useRef({x:0,y:0});
+  const draggedByUser = useRef(false);
+  const previousTab = useRef(activeTab);
   const [perched,setPerched] = useState(false);
   const [dragging,setDragging] = useState(false);
   const [motion,setMotion] = useState("idle");
@@ -44,7 +47,9 @@ export default function GGCompanion({ onEnterWorld, playerName, activeTab }) {
   useEffect(()=>{
     let frame=null;
     const perchOnActiveTab=()=>{
-      if(drag.current||dragging||thrown||transitioning)return;
+      const tabChanged=previousTab.current!==activeTab;
+      if(tabChanged){previousTab.current=activeTab;draggedByUser.current=false;}
+      if(drag.current||dragging||thrown||transitioning||(!tabChanged&&draggedByUser.current))return;
       const active=document.querySelector(".bottom-nav button.active");
       const wrapper=wrapperRef.current;
       const button=buttonRef.current;
@@ -55,7 +60,9 @@ export default function GGCompanion({ onEnterWorld, playerName, activeTab }) {
       const y=target.top-45-(current.top+current.height/2);
       setMotion("walking");
       setDirection(x<0?"left":"right");
-      setPosition({x,y});
+      const nextPosition={x:positionRef.current.x+x,y:positionRef.current.y+y};
+      positionRef.current=nextPosition;
+      setPosition(nextPosition);
       setPerched(true);
       if(perchTimer.current!==null)window.clearTimeout(perchTimer.current);
       perchTimer.current=window.setTimeout(()=>setMotion("idle"),620);
@@ -77,6 +84,7 @@ export default function GGCompanion({ onEnterWorld, playerName, activeTab }) {
   }
   function startDrag(event){
     if(event.button!==undefined&&event.button!==0)return;
+    draggedByUser.current=true;
     drag.current={x:event.clientX,y:event.clientY,startX:position.x,startY:position.y,moved:false,lastX:event.clientX,lastY:event.clientY,lastAt:performance.now(),vx:0,vy:0};
     suppressClick.current=false;
     setDragging(true);
@@ -90,7 +98,9 @@ export default function GGCompanion({ onEnterWorld, playerName, activeTab }) {
     drag.current.lastX=event.clientX;drag.current.lastY=event.clientY;drag.current.lastAt=now;
     if(Math.abs(dx)>4||Math.abs(dy)>4){drag.current.moved=true;setMotion("walking");if(Math.abs(dx)>Math.abs(dy))setDirection(dx<0?"left":"right");else setDirection(dy<0?"up":"down");}
     const maxX=Math.max(30,window.innerWidth/2-50),maxY=Math.max(30,window.innerHeight/2-65);
-    setPosition({x:Math.max(-maxX,Math.min(maxX,drag.current.startX+dx)),y:Math.max(-maxY,Math.min(maxY,drag.current.startY+dy))});
+    const nextPosition={x:Math.max(-maxX,Math.min(maxX,drag.current.startX+dx)),y:Math.max(-maxY,Math.min(maxY,drag.current.startY+dy))};
+    positionRef.current=nextPosition;
+    setPosition(nextPosition);
   }
   function stopDrag(){
     const didMove=Boolean(drag.current?.moved);
