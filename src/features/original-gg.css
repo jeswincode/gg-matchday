@@ -669,3 +669,35 @@ html[data-theme] .gg-account-avatar-trigger:hover {
 html[data-theme] .gg-account-avatar-trigger:focus-visible {
   outline-color: var(--gg-neon-strong);
 }
+
+/* Final Pip perch geometry. This file is loaded with the companion after the
+   base Matchday stylesheet, so these rules deliberately follow legacy sprite
+   centring, idle-bob and button-transform declarations above. */
+.gg-companion-button .gg-player-sprite {
+  position: absolute !important;
+  left: 50% !important;
+  bottom: var(--gg-companion-foot-bleed, -2.5px) !important;
+  transform: translateX(-50%) !important;
+}
+.gg-companion.is-profile-perched {
+  --gg-companion-foot-bleed: -5px;
+}
+.gg-companion.is-profile-perched .gg-companion-button,
+.gg-companion.is-perched .gg-companion-button {
+  transform: rotate(var(--gg-companion-angle, 0deg)) !important;
+  transform-origin: 50% 100% !important;
+}
+.gg-companion.is-profile-perched .gg-companion-button .gg-player-sprite,
+.gg-companion.is-perched .gg-companion-button .gg-player-sprite {
+  animation: none !important;
+}
+.gg-companion[data-gg-ground="nav"]:not([data-gg-nav-dragging="true"]) {
+  transition: transform 240ms cubic-bezier(.2,.85,.2,1), opacity 200ms linear !important;
+}
+.gg-companion[data-gg-ground="nav"][data-gg-nav-dragging="true"] {
+  transition: none !important;
+}
+@media(max-width:700px) {
+  .gg-companion.is-profile-perched { --gg-companion-foot-bleed: -4.25px; }
+  .gg-companion.is-perched { --gg-companion-foot-bleed: -2.125px; }
+}
