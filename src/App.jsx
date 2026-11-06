@@ -121,63 +121,6 @@ function App() {
   const [modeTransition,setModeTransition]=useState(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
 
-  const handleNavPointerDown=useCallback((event)=>{
-    const coarse=event.pointerType==="touch"||event.pointerType==="pen"||window.matchMedia?.("(pointer:coarse)").matches;
-    if(!coarse||!event.target?.closest?.(".bottom-nav button[data-tab]"))return;
-    tabDragRef.current={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,moved:false};
-    try{event.currentTarget.setPointerCapture(event.pointerId);}catch{/* Some embedded browsers do not expose pointer capture. */}
-  },[]);
-  const handleNavPointerMove=useCallback((event)=>{
-    const drag=tabDragRef.current;
-    if(!drag||drag.pointerId!==event.pointerId)return;
-    const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;
-    if(!drag.moved&&Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy)*1.12){
-      drag.moved=true;
-      suppressTabClickRef.current=true;
-      setNavDragging(true);
-    }
-    if(!drag.moved)return;
-    event.preventDefault();
-    const buttons=Array.from(event.currentTarget.querySelectorAll("button[data-tab]"));
-    if(!buttons.length)return;
-    let nearest=buttons[0],distance=Infinity;
-    for(const button of buttons){
-      const rect=button.getBoundingClientRect();
-      const nextDistance=Math.abs(event.clientX-(rect.left+rect.width/2));
-      if(nextDistance<distance){nearest=button;distance=nextDistance;}
-    }
-    const nextTab=nearest.dataset.tab;
-    const navRect=event.currentTarget.getBoundingClientRect();
-    const nearestRect=nearest.getBoundingClientRect();
-    event.currentTarget.style.setProperty("--gg-active-offset",(nearestRect.left-navRect.left)+"px");
-    event.currentTarget.style.setProperty("--gg-active-width",nearestRect.width+"px");
-    if(TAB_ORDER.includes(nextTab)&&nextTab!==activeTab)setActiveTab(nextTab);
-  },[activeTab,setActiveTab]);
-  const finishNavPointer=useCallback((event)=>{
-    const drag=tabDragRef.current;
-    if(!drag||drag.pointerId!==event.pointerId)return;
-    tabDragRef.current=null;
-    if(drag.moved){
-      setNavDragging(false);
-      window.setTimeout(()=>{suppressTabClickRef.current=false;},260);
-    }
-  },[]);
-  const guardNavClick=useCallback((event)=>{
-    if(!suppressTabClickRef.current)return;
-    event.preventDefault();
-    event.stopPropagation();
-  },[]);
-
-  useEffect(()=>{
-    const nav=navRef.current;
-    const active=nav?.querySelector("button.active");
-    if(!nav||!active)return;
-    const navRect=nav.getBoundingClientRect();
-    const activeRect=active.getBoundingClientRect();
-    nav.style.setProperty("--gg-active-offset",(activeRect.left-navRect.left)+"px");
-    nav.style.setProperty("--gg-active-width",activeRect.width+"px");
-  },[activeTab,navDragging]);
-
   useEffect(()=>{
     let cancelled=false;
     let idleHandle=null;
@@ -337,6 +280,63 @@ function App() {
   const setActiveTab = useCallback((nextTab)=>{
     startTransition(()=>setActiveTabState(nextTab));
   },[]);
+
+  const handleNavPointerDown=useCallback((event)=>{
+    const coarse=event.pointerType==="touch"||event.pointerType==="pen"||window.matchMedia?.("(pointer:coarse)").matches;
+    if(!coarse||!event.target?.closest?.(".bottom-nav button[data-tab]"))return;
+    tabDragRef.current={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,moved:false};
+    try{event.currentTarget.setPointerCapture(event.pointerId);}catch{/* Some embedded browsers do not expose pointer capture. */}
+  },[]);
+  const handleNavPointerMove=useCallback((event)=>{
+    const drag=tabDragRef.current;
+    if(!drag||drag.pointerId!==event.pointerId)return;
+    const dx=event.clientX-drag.startX,dy=event.clientY-drag.startY;
+    if(!drag.moved&&Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy)*1.12){
+      drag.moved=true;
+      suppressTabClickRef.current=true;
+      setNavDragging(true);
+    }
+    if(!drag.moved)return;
+    event.preventDefault();
+    const buttons=Array.from(event.currentTarget.querySelectorAll("button[data-tab]"));
+    if(!buttons.length)return;
+    let nearest=buttons[0],distance=Infinity;
+    for(const button of buttons){
+      const rect=button.getBoundingClientRect();
+      const nextDistance=Math.abs(event.clientX-(rect.left+rect.width/2));
+      if(nextDistance<distance){nearest=button;distance=nextDistance;}
+    }
+    const nextTab=nearest.dataset.tab;
+    const navRect=event.currentTarget.getBoundingClientRect();
+    const nearestRect=nearest.getBoundingClientRect();
+    event.currentTarget.style.setProperty("--gg-active-offset",(nearestRect.left-navRect.left)+"px");
+    event.currentTarget.style.setProperty("--gg-active-width",nearestRect.width+"px");
+    if(TAB_ORDER.includes(nextTab)&&nextTab!==activeTab)setActiveTab(nextTab);
+  },[activeTab,setActiveTab]);
+  const finishNavPointer=useCallback((event)=>{
+    const drag=tabDragRef.current;
+    if(!drag||drag.pointerId!==event.pointerId)return;
+    tabDragRef.current=null;
+    if(drag.moved){
+      setNavDragging(false);
+      window.setTimeout(()=>{suppressTabClickRef.current=false;},260);
+    }
+  },[]);
+  const guardNavClick=useCallback((event)=>{
+    if(!suppressTabClickRef.current)return;
+    event.preventDefault();
+    event.stopPropagation();
+  },[]);
+
+  useEffect(()=>{
+    const nav=navRef.current;
+    const active=nav?.querySelector("button.active");
+    if(!nav||!active)return;
+    const navRect=nav.getBoundingClientRect();
+    const activeRect=active.getBoundingClientRect();
+    nav.style.setProperty("--gg-active-offset",(activeRect.left-navRect.left)+"px");
+    nav.style.setProperty("--gg-active-width",activeRect.width+"px");
+  },[activeTab,navDragging]);
 
   // =========================================================
   // AUTH
