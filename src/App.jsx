@@ -2002,6 +2002,9 @@ function App() {
           ? "Match updated."
           : "Match recorded."
       );
+      window.dispatchEvent(new CustomEvent("gg-match-saved", {
+        detail: { action: editingMatchId ? "updated" : "recorded" },
+      }));
     } catch (error) {
       console.error(error);
 
