@@ -691,12 +691,6 @@ html[data-theme] .gg-account-avatar-trigger:focus-visible {
 .gg-companion.is-perched .gg-companion-button .gg-player-sprite {
   animation: none !important;
 }
-.gg-companion[data-gg-ground="nav"]:not([data-gg-nav-dragging="true"]) {
-  transition: transform 240ms cubic-bezier(.2,.85,.2,1), opacity 200ms linear !important;
-}
-.gg-companion[data-gg-ground="nav"][data-gg-nav-dragging="true"] {
-  transition: none !important;
-}
 @media(max-width:700px) {
   .gg-companion.is-profile-perched { --gg-companion-foot-bleed: -4.25px; }
   .gg-companion.is-perched { --gg-companion-foot-bleed: -2.125px; }
