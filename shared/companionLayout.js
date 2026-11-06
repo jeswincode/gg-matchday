@@ -12,7 +12,7 @@ export function getCompanionPerchPoint(rect, kind = "nav") {
   const y = kind === "profile"
     ? top + Math.min(22, Math.max(10, height * 0.34))
     : kind === "nav" ? top + 5 : top + 2;
-  return { x: left + width / 2, y };
+  return { x: left + width / 2, y: Number(y.toFixed(2)) };
 }
 
 export function nearestCenterIndex(rects, x) {
