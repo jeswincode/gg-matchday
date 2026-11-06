@@ -81,7 +81,7 @@ export default function OriginalGGProfile({ authUser, backendUser, onBack }) {
       if (active) setLoading(false);
     });
     return () => { active = false; };
-  },[backendUser?.playerProfile]);
+  },[backendUser?.playerProfile,authUser]);
   function updateAppearance(key,value) {
     setAvatar((current)=>({...current,appearance:{...current.appearance,[key]:value}}));
   }

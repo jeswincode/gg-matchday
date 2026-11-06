@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { PlayerSprite } from "./OriginalGGWorld";
 import { COMPANION_HOLD_DROP, stepHeldSwing } from "../../shared/companionPhysics.js";
+import { getCompanionPerchPoint } from "../../shared/companionLayout.js";
 import "./original-gg.css";
 
 const WALK_SPEED = 46;
@@ -86,6 +87,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const [bubbleOpen, setBubbleOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [perched, setPerched] = useState(false);
+  const [profilePerched, setProfilePerched] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuSide, setMenuSide] = useState("center");

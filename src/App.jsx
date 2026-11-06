@@ -152,7 +152,7 @@ function App() {
     event.currentTarget.style.setProperty("--gg-active-offset",(nearestRect.left-navRect.left)+"px");
     event.currentTarget.style.setProperty("--gg-active-width",nearestRect.width+"px");
     if(TAB_ORDER.includes(nextTab)&&nextTab!==activeTab)setActiveTab(nextTab);
-  },[activeTab]);
+  },[activeTab,setActiveTab]);
   const finishNavPointer=useCallback((event)=>{
     const drag=tabDragRef.current;
     if(!drag||drag.pointerId!==event.pointerId)return;
