@@ -87,11 +87,8 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   const dragRef = useRef(null);
   const suppressClick = useRef(false);
   const activeTabRef = useRef(activeTab);
-  activeTabRef.current = activeTab;
   const suspendedRef = useRef(suspended);
-  suspendedRef.current = suspended;
-
-  const physics = useRef({
+  const physicsRef = useRef({
     initialized: false,
     x: 0,
     y: 0,
@@ -249,7 +246,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   }, [measureBounds, pose, rectForGround, setPhase]);
 
   const moveTo = useCallback((ground, x, options = {}) => {
-    const state = physics.current;
+    const state = physicsRef.current;
     if (!state.initialized || suspendedRef.current || transitioning) return;
     const bounds = state.bounds || measureBounds();
     const rect = rectForGround(ground, bounds);
@@ -296,7 +293,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const navRect = visibleRect(nav);
     const buttonRect = visibleRect(active);
     if (!nav || !navRect || !buttonRect) return;
-    const state = physics.current;
+    const state = physicsRef.current;
     if (!state.initialized) return;
     const x = buttonRect.left + buttonRect.width / 2;
     moveTo({ kind: "nav", el: nav }, x, { line: (tabLines[activeTabRef.current] || ["Where to next?"])[Math.floor(Math.random() * (tabLines[activeTabRef.current] || ["Where to next?"]).length)] });
@@ -520,28 +517,36 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
 
   const wakeRef = useRef(() => {});
   const moveToRef = useRef(moveTo);
-  moveToRef.current = moveTo;
+  const moveToActiveNavRef = useRef(() => {});
+  const rafRef = useRef(0);
+  const timerRef = useRef(0);
+
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  useEffect(() => { suspendedRef.current = suspended; }, [suspended]);
+  useEffect(() => { moveToRef.current = moveTo; }, [moveTo]);
+  useEffect(() => { moveToActiveNavRef.current = moveToActiveTab; }, [moveToActiveTab]);
 
   useEffect(() => {
-    let raf = 0;
-    let timer = 0;
     let last = performance.now();
     let mounted = true;
-    const state = physics.current;
+    const state = physicsRef.current;
 
     const schedule = () => {
-      if (!mounted || raf || timer) return;
+      if (!mounted || rafRef.current || timerRef.current) return;
       const moving = MOVING_PHASES.has(state.phase) || state.tween !== null;
       if (moving && !document.hidden && !suspendedRef.current) {
-        raf = window.requestAnimationFrame(tick);
+        rafRef.current = window.requestAnimationFrame(tick);
       } else {
-        timer = window.setTimeout(() => tick(performance.now()), REST_MS);
+        timerRef.current = window.setTimeout(() => {
+          timerRef.current = 0;
+          tick(performance.now());
+        }, REST_MS);
       }
     };
 
     const tick = (now) => {
-      raf = 0;
-      timer = 0;
+      rafRef.current = 0;
+      timerRef.current = 0;
       const dt = last ? clamp((now - last) / 1000, MIN_FRAME_SECONDS, MAX_FRAME_SECONDS) : 0;
       last = Math.max(last, now);
       if (!state.initialized) {
@@ -565,11 +570,11 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
 
     wakeRef.current = () => {
       if (!mounted || suspendedRef.current || document.hidden) return;
-      window.clearTimeout(timer);
-      timer = 0;
-      if (!raf) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = 0;
+      if (!rafRef.current) {
         last = performance.now();
-        raf = window.requestAnimationFrame(tick);
+        rafRef.current = window.requestAnimationFrame(tick);
       }
     };
 
@@ -584,8 +589,8 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     };
     const onVisibility = () => {
       if (document.hidden) {
-        window.cancelAnimationFrame(raf);
-        raf = 0;
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
       } else {
         last = performance.now();
         state.layoutDirty = true;
@@ -599,12 +604,14 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const app = document.querySelector(".app");
     const observer = typeof ResizeObserver !== "undefined" && app ? new ResizeObserver(onLayout) : null;
     if (observer && app) observer.observe(app);
-    raf = window.requestAnimationFrame(tick);
+    rafRef.current = window.requestAnimationFrame(tick);
 
     return () => {
       mounted = false;
-      window.cancelAnimationFrame(raf);
-      window.clearTimeout(timer);
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+      window.clearTimeout(timerRef.current);
+      timerRef.current = 0;
       window.clearTimeout(bubbleTimer.current);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("resize", onLayout);
@@ -614,8 +621,6 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     };
   }, [physicsStep, pose, refreshLayout, writePosition]);
 
-  const moveToActiveNavRef = useRef(() => {});
-  moveToActiveNavRef.current = moveToActiveTab;
   useEffect(() => {
     if (suspended || transitioning) return undefined;
     let first = 0;
@@ -636,7 +641,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       const target = event.target?.closest?.(".tab-content .paper-surface,.tab-content .match-card,.tab-content .card,.tab-content article,[data-gg-companion-ledge]");
       const rect = visibleRect(target);
       if (!target || !rect || rect.width < 145) return;
-      const bounds = physics.current.bounds || measureBounds();
+      const bounds = physicsRef.current.bounds || measureBounds();
       if (rect.top < bounds.top + 65 || rect.top > bounds.floor - 24) return;
       const x = clamp(event.clientX, rect.left + BODY_WIDTH / 2, rect.right - BODY_WIDTH / 2);
       moveToRef.current({ kind: "ledge", el: target }, x, { line: "I saw that. Let's take a closer look." });
@@ -669,26 +674,24 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
 
   useEffect(() => {
     if (!suspended) {
-      const state = physics.current;
+      const state = physicsRef.current;
       state.layoutDirty = true;
       if (state.initialized) {
         state.manuallyPlaced = false;
         window.requestAnimationFrame(() => moveToActiveNavRef.current?.());
       }
       wakeRef.current();
-    } else {
-      setBubbleOpen(false);
     }
   }, [suspended]);
 
-  const pointerMove = (event) => {
+  const pointerMove = useCallback((event) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     const now = performance.now();
     drag.samples.push({ t: now, x: event.clientX, y: event.clientY });
     while (drag.samples.length > 2 && now - drag.samples[0].t > 120) drag.samples.shift();
     const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
-    const state = physics.current;
+    const state = physicsRef.current;
     if (!drag.moved && distance > DRAG_SLOP) {
       drag.moved = true;
       suppressClick.current = true;
@@ -716,9 +719,9 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       pose(state, "wave", Math.abs(sample.x - previous.x) > 1 ? (sample.x < previous.x ? "left" : "right") : state.direction);
     }
     writePosition(state);
-  };
+  }, [measureBounds, pose, showBubble, writePosition]);
 
-  const finishPointer = (event) => {
+  const finishPointer = useCallback((event) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     window.removeEventListener("pointermove", pointerMove);
@@ -726,7 +729,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     window.removeEventListener("pointercancel", finishPointer);
     dragRef.current = null;
     if (!drag.moved) return;
-    const state = physics.current;
+    const state = physicsRef.current;
     setDragging(false);
     const samples = drag.samples;
     const first = samples[0];
@@ -745,7 +748,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     pose(state, "celebrating");
     window.setTimeout(() => { suppressClick.current = false; }, 120);
     wakeRef.current();
-  };
+  }, [pose]);
 
   const startPointer = (event) => {
     if (event.button !== undefined && event.button !== 0 || suspended || transitioning) return;
@@ -767,7 +770,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
       return;
     }
     setTransitioning(true);
-    const state = physics.current;
+    const state = physicsRef.current;
     state.phase = "jumping";
     state.tween = null;
     pose(state, "celebrating");
@@ -780,7 +783,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     window.removeEventListener("pointermove", pointerMove);
     window.removeEventListener("pointerup", finishPointer);
     window.removeEventListener("pointercancel", finishPointer);
-  }, []);
+  }, [finishPointer, pointerMove]);
 
   const contextualLine = (tabLines[activeTab] || idleLines.map((line) => line))[0];
 
