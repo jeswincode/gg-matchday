@@ -95,6 +95,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
   function startDrag(event){
     if(event.button!==undefined&&event.button!==0)return;
     draggedByUser.current=true;
+    setPerched(false);
     drag.current={x:event.clientX,y:event.clientY,startX:position.x,startY:position.y,moved:false,lastX:event.clientX,lastY:event.clientY,lastAt:performance.now(),vx:0,vy:0};
     suppressClick.current=false;
     setDragging(true);
