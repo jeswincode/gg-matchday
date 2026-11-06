@@ -545,7 +545,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const state = physicsRef.current;
 
     const schedule = () => {
-      if (!mounted || rafRef.current || timerRef.current) return;
+      if (!mounted || suspendedRef.current || document.hidden || rafRef.current || timerRef.current) return;
       const moving = MOVING_PHASES.has(state.phase) || state.tween !== null;
       if (moving && !document.hidden && !suspendedRef.current) {
         rafRef.current = window.requestAnimationFrame(tick);
@@ -560,6 +560,7 @@ export default function GGCompanion({ onEnterWorld, playerName, playerUid = "", 
     const tick = (now) => {
       rafRef.current = 0;
       timerRef.current = 0;
+      if (suspendedRef.current || document.hidden) return;
       const dt = last ? clamp((now - last) / 1000, MIN_FRAME_SECONDS, MAX_FRAME_SECONDS) : 0;
       last = Math.max(last, now);
       if (!state.initialized) {
