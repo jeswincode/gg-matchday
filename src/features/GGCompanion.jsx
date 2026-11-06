@@ -125,6 +125,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     ledges: [],
     layoutDirty: true,
     manuallyPlaced: false,
+    awaitingProfileAnchor: false,
     bounced: false,
     clingUntil: 0,
     clingSide: 1,
@@ -398,6 +399,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     state.targetX = targetX;
     state.targetGround = ground;
     state.manuallyPlaced = false;
+    state.awaitingProfileAnchor = false;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       state.x = targetX;
       state.y = targetY;
@@ -454,6 +456,8 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     if (!perch) return;
 
     const ground = { kind: "nav", el: nav };
+    // A real tab selection intentionally replaces the initial profile perch.
+    state.awaitingProfileAnchor = false;
     if (nav.dataset.dragging === "true") {
       // During finger scrubbing Pip tracks the selected tab directly.
       state.x = perch.x;
@@ -829,12 +833,16 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
           state.x = profilePerch.x;
           state.y = profilePerch.y;
           state.ground = { kind: "profile", el: bounds.profile };
+          state.awaitingProfileAnchor = false;
         } else {
           state.x = navPerch
             ? navPerch.x
             : clamp(bounds.right - 94, bounds.left + BODY_WIDTH / 2, bounds.right - BODY_WIDTH / 2);
           state.y = navPerch?.y ?? (bounds.navRect ? bounds.navRect.top + 5 : bounds.floor);
           state.ground = bounds.nav ? { kind: "nav", el: bounds.nav } : { kind: "floor" };
+          // The avatar may mount a frame after the companion. Keep this
+          // temporary fallback eligible for a one-time correction.
+          state.awaitingProfileAnchor = true;
         }
         state.targetX = state.x;
         state.targetGround = state.ground;
@@ -873,7 +881,27 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       state.layoutDirty = true;
       if (state.ground?.kind === "nav" || state.ground?.kind === "profile" || state.ground?.kind === "floor") {
         const bounds = refreshLayout(state, performance.now());
-        if (state.ground.kind === "profile" && bounds.profileRect) {
+        if (state.awaitingProfileAnchor && !state.manuallyPlaced && bounds.profileRect) {
+          const perch = getCompanionPerchPoint(bounds.profileRect, "profile");
+          if (perch) {
+            // Correct the temporary nav/floor fallback as soon as the actual
+            // account avatar becomes measurable. This runs only once, before
+            // the player chooses a destination.
+            state.ground = { kind: "profile", el: bounds.profile };
+            state.targetGround = state.ground;
+            state.x = perch.x;
+            state.y = perch.y;
+            state.targetX = perch.x;
+            state.tween = null;
+            state.phase = "idle";
+            state.vx = 0;
+            state.vy = 0;
+            state.awaitingProfileAnchor = false;
+            setPerched(false);
+            setProfilePerched(true);
+            pose(state, "idle", "down");
+          } 
+        } else if (state.ground.kind === "profile" && bounds.profileRect) {
           const perch = getCompanionPerchPoint(bounds.profileRect, "profile");
           if (perch) {
             state.x = perch.x;
@@ -913,6 +941,14 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     const app = document.querySelector(".app");
     const observer = typeof ResizeObserver !== "undefined" && app ? new ResizeObserver(onLayout) : null;
     if (observer && app) observer.observe(app);
+    const anchorObserver = typeof MutationObserver !== "undefined" && app
+      ? new MutationObserver(() => {
+          if (state.awaitingProfileAnchor && visibleRect(
+            app.querySelector("[data-gg-companion-home], .gg-account-avatar-trigger"),
+          )) onLayout();
+        })
+      : null;
+    anchorObserver?.observe(app, { childList: true, subtree: true });
     rafRef.current = window.requestAnimationFrame(tick);
 
     return () => {
@@ -926,6 +962,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       window.removeEventListener("resize", onLayout);
       window.removeEventListener("scroll", onLayout, true);
       observer?.disconnect();
+      anchorObserver?.disconnect();
       wakeRef.current = () => {};
     };
   }, [physicsStep, pose, refreshLayout, writePosition]);
