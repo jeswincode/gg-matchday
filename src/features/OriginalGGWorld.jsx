@@ -54,7 +54,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
       const seated = pose === "seated";
       const sideFacing = safeDirection === "left" || safeDirection === "right";
       const facingBack = safeDirection === "up";
-      const headX = safeDirection === "left" ? 13 : safeDirection === "right" ? 19 : 16;
+      const headX = (safeDirection === "left" ? 13 : safeDirection === "right" ? 19 : 16) + (seated ? -1 : 0);
       const gait = safeMotion === "walking" ? [0, 1, 0, -1][frame % 4] : 0;
       const danceStep = safeMotion === "dance" ? [0, 1, 0, -1, -1, 0, 1, 0][frame % 8] : 0;
       const idleBob = safeMotion === "idle" && !seated ? [0, 0, -1, 0][frame % 4] : 0;
@@ -112,10 +112,17 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
 
       const baseLeft = appearance.bodyType === "slim" ? 13 : appearance.bodyType === "stocky" ? 9 : 11;
       const baseWidth = appearance.bodyType === "slim" ? 6 : appearance.bodyType === "stocky" ? 14 : 10;
-      const bodyLeft = sideFacing ? headX-3 : baseLeft;
-      const bodyWidth = sideFacing ? 7 : baseWidth;
-      const bodyTop = (seated ? 14 : 15)+jump+bodySway;
-      g.stamp((l)=>l.rect(bodyLeft,bodyTop,bodyWidth,10,kit));
+      const bodyLeft = sideFacing ? headX-3 : seated ? baseLeft-1 : baseLeft;
+      const bodyWidth = sideFacing ? 7 : seated ? baseWidth+2 : baseWidth;
+      const bodyTop = (seated ? 13 : 15)+jump+bodySway;
+      if (seated) {
+        // A shallow diagonal waist/shoulder line gives the seated torso a
+        // relaxed backward lean instead of the old straight standing block.
+        g.rect(bodyLeft+1,bodyTop,bodyWidth-1,7,kit);
+        g.rect(bodyLeft+3,bodyTop+6,bodyWidth-3,4,kit);
+      } else {
+        g.stamp((l)=>l.rect(bodyLeft,bodyTop,bodyWidth,10,kit));
+      }
       if (facingBack) {
         g.rect(bodyLeft+Math.floor(bodyWidth/2)-1,19+jump+bodySway,3,4,trim);
       } else {
@@ -183,10 +190,10 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         g.rect(bodyLeft-2,21+jump,bodyWidth+4,3,kit);
         g.rect(bodyLeft-4,23+jump,7,2,skin);
         g.rect(bodyLeft+bodyWidth-3,23+jump,7,2,skin);
-        g.rect(bodyLeft-6,25+jump+seatedKick,8,2,skin);
-        g.rect(bodyLeft+bodyWidth-2,25+jump,8,2,skin);
-        g.rect(bodyLeft-8,27+jump+seatedKick,8,2,boot);
-        g.rect(bodyLeft+bodyWidth,27+jump,8,2,boot);
+        g.rect(bodyLeft-6,25+jump,8,2,skin);
+        g.rect(bodyLeft+bodyWidth-2,25+jump+seatedKick,8,2,skin);
+        g.rect(bodyLeft-8,28+jump,8,2,boot);
+        g.rect(bodyLeft+bodyWidth,28+jump+seatedKick,8,2,boot);
       } else if (safeMotion === "juggle" || safeMotion === "stepover" || safeMotion === "rainbow") {
         const trickLift = safeMotion === "juggle"
           ? [0,-1,-3,-4,-2,0,1,0][frame%8]
