@@ -14,6 +14,10 @@ residenceTransferSchema.index(
   { residenceId: 1, status: 1 },
   { unique: true, partialFilterExpression: { status: "pending" } },
 );
+residenceTransferSchema.index(
+  { toPlayerId: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: "pending" } },
+);
 residenceTransferSchema.index({ toPlayerId: 1, status: 1, expiresAt: 1 });
 residenceTransferSchema.index({ fromPlayerId: 1, status: 1, expiresAt: 1 });
 
