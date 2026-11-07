@@ -348,7 +348,17 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
     const schedule=()=>{
       idleTimer.current=window.setTimeout(()=>{
         if(cancelled)return;
-        if(performance.now()-lastInput.current>8000)walkTo(185+Math.random()*830,560+Math.random()*76,"Just having a look around.");
+        if(performance.now()-lastInput.current>8000) {
+          if(Math.random()<0.52) {
+            const skills=["juggle","stepover","rainbow"];
+            const skill=skills[Math.floor(Math.random()*skills.length)];
+            setMotion(skill);
+            interactionTimer.current=window.setTimeout(()=>setMotion("idle"),skill==="stepover"?1680:skill==="rainbow"?1840:1920);
+            lastInput.current=performance.now();
+          } else {
+            walkTo(185+Math.random()*830,560+Math.random()*76,"Just having a look around.");
+          }
+        }
         schedule();
       },5200+Math.random()*3400);
     };
@@ -696,6 +706,8 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
   const [characterMotion,setCharacterMotion] = useState("idle");
   const [characterDirection,setCharacterDirection] = useState("down");
   const motionTimer = useRef(null);
+  const idleSkillTimer = useRef(null);
+  const idleSkillReturnTimer = useRef(null);
   const [playerMotions,setPlayerMotions] = useState({});
   const playerMotionTimers = useRef(new Map());
   const playerPositionRef = useRef(initialVisitorPosition(playerUid));
@@ -752,6 +764,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     const duration=getCharacterMotionDuration(nextMotion);
     if(!playerKey||duration===null)return;
     if(playerKey===String(data?.playerId||"")){
+      if(idleSkillReturnTimer.current)window.clearTimeout(idleSkillReturnTimer.current);
       setCharacterMotion(nextMotion);
       if(motionTimer.current)window.clearTimeout(motionTimer.current);
       motionTimer.current=window.setTimeout(()=>setCharacterMotion("idle"),duration);
@@ -799,6 +812,27 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     const timer=window.setInterval(heartbeat,4500);
     return ()=>window.clearInterval(timer);
   },[hasAvatar,activeLocationId,characterDirection]);
+
+  useEffect(() => {
+    if (!hasAvatar || facility || selected || loading || characterMotion !== "idle" ||
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return undefined;
+    idleSkillTimer.current=window.setTimeout(() => {
+      const skills=["juggle","stepover","rainbow"];
+      const skill=skills[Math.floor(Math.random()*skills.length)];
+      const duration=skill==="stepover"?1680:skill==="rainbow"?1840:1920;
+      setCharacterMotion(skill);
+      idleSkillReturnTimer.current=window.setTimeout(()=>setCharacterMotion("idle"),duration);
+    },4800+Math.random()*3600);
+    return () => {
+      if(idleSkillTimer.current)window.clearTimeout(idleSkillTimer.current);
+      idleSkillTimer.current=null;
+    };
+  },[hasAvatar,facility,selected,loading,characterMotion]);
+
+  useEffect(()=>()=> {
+    if(idleSkillTimer.current)window.clearTimeout(idleSkillTimer.current);
+    if(idleSkillReturnTimer.current)window.clearTimeout(idleSkillReturnTimer.current);
+  },[]);
   useEffect(()=>()=>{
     if(walkFrame.current)window.cancelAnimationFrame(walkFrame.current);
     if(motionTimer.current)window.clearTimeout(motionTimer.current);
@@ -944,6 +978,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
   function zoom(amount){const next=Math.min(1.45,Math.max(.42,Number((scale+amount).toFixed(2))));const bounds=mapViewportRef.current?.getBoundingClientRect();if(bounds)zoomAt(next,bounds.left+bounds.width/2,bounds.top+bounds.height/2);else setScale(next);}
   function walkPlayerTo(target){
     if(walkFrame.current)window.cancelAnimationFrame(walkFrame.current);
+    if(idleSkillReturnTimer.current)window.clearTimeout(idleSkillReturnTimer.current);
     const start={...(playerPositionRef.current||playerPosition)};
     const destination={x:Math.max(30,Math.min(1770,target.x)),y:Math.max(30,Math.min(1170,target.y))};
     const dx=destination.x-start.x,dy=destination.y-start.y;
