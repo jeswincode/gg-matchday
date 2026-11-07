@@ -2,6 +2,7 @@ import {useState} from "react";
 import DatabaseHealth from "../../components/DatabaseHealth";
 import AccessDenied from "../../components/ui/AccessDenied";
 import GGAdminPanel from "./GGAdminPanel";
+import WorldModerationPanel from "./WorldModerationPanel.jsx";
 
 export default function AdminPage({
   isAdmin,
@@ -320,6 +321,7 @@ export default function AdminPage({
             )}
           </section>
 
+          <WorldModerationPanel />
           <DatabaseHealth />
           <GGAdminPanel />
 
