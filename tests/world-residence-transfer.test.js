@@ -11,8 +11,11 @@ const identities = {
   owner: { email: "owner@gmail.com", verified: true },
   recipient: { email: "recipient@gmail.com", verified: true },
   outsider: { email: "outsider@gmail.com", verified: true },
+  unlinked: { email: "unlinked@gmail.com", verified: true },
   unverified: { email: "unverified@gmail.com", verified: false },
   customised: { email: "customised@gmail.com", verified: true },
+  declineRecipient: { email: "decline-recipient@gmail.com", verified: true },
+  cancelRecipient: { email: "cancel-recipient@gmail.com", verified: true },
 };
 
 mock.module("../server/config/firebaseAdmin.js", {
@@ -110,9 +113,12 @@ before(async () => {
 
   await createIdentity("owner", "Transfer Owner");
   await createIdentity("recipient", "Transfer Recipient");
-  await createIdentity("outsider", null);
+  await createIdentity("outsider", "Linked Outsider");
+  await createIdentity("unlinked", null);
   await createIdentity("unverified", "Unverified Recipient");
   await createIdentity("customised", "Customised Home Recipient");
+  await createIdentity("declineRecipient", "Decline Recipient");
+  await createIdentity("cancelRecipient", "Cancel Recipient");
 
   server = app.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.on("listening", resolve));
@@ -135,7 +141,7 @@ test("only a linked verified-Gmail owner can invite a recipient", async () => {
   }));
 
   const unlinked = await request("/world/residences/me/transfers", {
-    token: "outsider", method: "POST", body: { toPlayerId: String(players.recipient._id) },
+    token: "unlinked", method: "POST", body: { toPlayerId: String(players.recipient._id) },
   });
   assert.equal(unlinked.status, 403);
 
@@ -164,7 +170,7 @@ test("only the intended recipient can accept; acceptance transfers the home and 
   const wrongRecipient = await request("/world/residences/transfers/" + transfer._id + "/accept", {
     token: "outsider", method: "POST",
   });
-  assert.equal(wrongRecipient.status, 403);
+  assert.equal(wrongRecipient.status, 404);
 
   const starter = await PlayerResidence.create(residencePayload(players.recipient, {
     name: "Transfer Recipient's Starter Home",
@@ -206,7 +212,7 @@ test("recipient can decline and owner can cancel a pending invitation", async ()
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   const declinedInvite = await request("/world/residences/me/transfers", {
-    token: "owner", method: "POST", body: { toPlayerId: String(players.recipient._id) },
+    token: "owner", method: "POST", body: { toPlayerId: String(players.declineRecipient._id) },
   });
   assert.equal(declinedInvite.status, 201, JSON.stringify(declinedInvite.data));
   const declined = await request("/world/residences/transfers/" + declinedInvite.data.transfer.id + "/decline", {
@@ -217,7 +223,7 @@ test("recipient can decline and owner can cancel a pending invitation", async ()
   assert.equal(String((await PlayerResidence.findById(ownerHome._id).lean()).ownerPlayerId), String(players.owner._id));
 
   const cancelledInvite = await request("/world/residences/me/transfers", {
-    token: "owner", method: "POST", body: { toPlayerId: String(players.recipient._id) },
+    token: "owner", method: "POST", body: { toPlayerId: String(players.cancelRecipient._id) },
   });
   assert.equal(cancelledInvite.status, 201, JSON.stringify(cancelledInvite.data));
   const cancelled = await request("/world/residences/me/transfers/" + cancelledInvite.data.transfer.id + "/cancel", {
@@ -229,15 +235,15 @@ test("recipient can decline and owner can cancel a pending invitation", async ()
 
 test("expired invitations are marked expired and cannot be accepted", async () => {
   const invite = await request("/world/residences/me/transfers", {
-    token: "owner", method: "POST", body: { toPlayerId: String(players.recipient._id) },
+    token: "owner", method: "POST", body: { toPlayerId: String(players.declineRecipient._id) },
   });
   assert.equal(invite.status, 201, JSON.stringify(invite.data));
   await ResidenceTransfer.updateOne({ _id: invite.data.transfer.id }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
-  const listed = await request("/world/residences/me/transfers", { token: "recipient" });
+  const listed = await request("/world/residences/me/transfers", { token: "declineRecipient" });
   assert.equal(listed.status, 200);
   assert.ok(listed.data.transfers.some((item) => item.id === invite.data.transfer.id && item.status === "expired"));
   const accepted = await request("/world/residences/transfers/" + invite.data.transfer.id + "/accept", {
-    token: "recipient", method: "POST",
+    token: "declineRecipient", method: "POST",
   });
   assert.equal(accepted.status, 404);
   assert.equal((await ResidenceTransfer.findById(invite.data.transfer.id).lean()).status, "expired");
