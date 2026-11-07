@@ -161,6 +161,10 @@ test("only a linked verified-Gmail owner can invite a recipient", async () => {
   assert.equal(invited.status, 201, JSON.stringify(invited.data));
   assert.equal(invited.data.transfer.status, "pending");
   assert.equal(await ResidenceTransfer.countDocuments({ residenceId: ownerHome._id, status: "pending" }), 1);
+  const duplicateRecipient = await request("/world/residences/me/transfers", {
+    token: "owner", method: "POST", body: { toPlayerId: String(players.recipient._id) },
+  });
+  assert.equal(duplicateRecipient.status, 409);
 });
 
 test("only the intended recipient can accept; acceptance transfers the home and resets access safely", async () => {
@@ -233,17 +237,37 @@ test("recipient can decline and owner can cancel a pending invitation", async ()
   assert.equal((await ResidenceTransfer.findById(cancelledInvite.data.transfer.id).lean()).status, "cancelled");
 });
 
-test("expired invitations are marked expired and cannot be accepted", async () => {
+test("a recipient who upgrades their starter home after invitation cannot have it overwritten", async () => {
+  const ownerHome = await PlayerResidence.findOne({ ownerPlayerId: players.owner._id });
+  assert.ok(ownerHome);
   const invite = await request("/world/residences/me/transfers", {
     token: "owner", method: "POST", body: { toPlayerId: String(players.declineRecipient._id) },
   });
   assert.equal(invite.status, 201, JSON.stringify(invite.data));
+
+  const recipientHome = await PlayerResidence.create(residencePayload(players.declineRecipient, {
+    level: 2,
+  }));
+  const accepted = await request("/world/residences/transfers/" + invite.data.transfer.id + "/accept", {
+    token: "declineRecipient", method: "POST",
+  });
+  assert.equal(accepted.status, 409);
+  assert.ok(await PlayerResidence.exists({ _id: recipientHome._id, ownerPlayerId: players.declineRecipient._id }));
+  assert.ok(await PlayerResidence.exists({ _id: ownerHome._id, ownerPlayerId: players.owner._id }));
+  assert.equal((await ResidenceTransfer.findById(invite.data.transfer.id).lean()).status, "pending");
+});
+
+test("expired invitations are marked expired and cannot be accepted", async () => {
+  const invite = await request("/world/residences/me/transfers", {
+    token: "owner", method: "POST", body: { toPlayerId: String(players.cancelRecipient._id) },
+  });
+  assert.equal(invite.status, 201, JSON.stringify(invite.data));
   await ResidenceTransfer.updateOne({ _id: invite.data.transfer.id }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
-  const listed = await request("/world/residences/me/transfers", { token: "declineRecipient" });
+  const listed = await request("/world/residences/me/transfers", { token: "cancelRecipient" });
   assert.equal(listed.status, 200);
   assert.ok(listed.data.transfers.some((item) => item.id === invite.data.transfer.id && item.status === "expired"));
   const accepted = await request("/world/residences/transfers/" + invite.data.transfer.id + "/accept", {
-    token: "declineRecipient", method: "POST",
+    token: "cancelRecipient", method: "POST",
   });
   assert.equal(accepted.status, 404);
   assert.equal((await ResidenceTransfer.findById(invite.data.transfer.id).lean()).status, "expired");
