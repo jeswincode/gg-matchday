@@ -97,7 +97,7 @@ export default function ResidenceAccessPanel({ onClose, onUpdated }) {
       await refreshTransfers();
       if (action === "accept") {
         await refreshHomeSettings();
-        onUpdated?.();
+        await onUpdated?.();
       }
     } catch (error) {
       setNotice(error.message || "Could not update the home transfer.");
