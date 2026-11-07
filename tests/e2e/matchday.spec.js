@@ -112,6 +112,14 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await expect(roomDialogue).toHaveText("Every badge has a story.", { timeout: 3500 });
   await expect(roomDialogue).toHaveText("Give them something to sing about.", { timeout: 3500 });
   await expect(page.getByRole("button", { name: /GG Community/ })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const walkUp = page.getByRole("button", { name: "Walk up" });
+  await expect(walkUp).toBeVisible();
+  const roomCharacter = page.locator(".gg-room-character");
+  const beforeWalk = await roomCharacter.getAttribute("transform");
+  await walkUp.click();
+  await expect.poll(() => roomCharacter.getAttribute("transform")).not.toBe(beforeWalk);
 });
 
 test("Pip-style companion rests on the profile icon and follows selected Matchday navigation", async ({ page }) => {
