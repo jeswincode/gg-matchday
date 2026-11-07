@@ -18,8 +18,8 @@ function validDatabaseName(value) {
 export function resolveV4PreviewDatabaseNames(env = process.env) {
   if (String(env.V4_PREVIEW_MODE || "").toLowerCase() !== "true") return null;
 
-  const liveCore = databaseNameFromUri(env.MONGODB_URI);
-  const liveClubs = String(env.CLUBS_DB_NAME || databaseNameFromUri(env.CLUBS_MONGODB_URI)).trim();
+  const liveCore = String(env.V4_PREVIEW_SOURCE_CORE_DB_NAME || databaseNameFromUri(env.MONGODB_URI)).trim();
+  const liveClubs = String(env.V4_PREVIEW_SOURCE_CLUBS_DB_NAME || env.CLUBS_DB_NAME || databaseNameFromUri(env.CLUBS_MONGODB_URI)).trim();
   const previewCore = String(env.V4_PREVIEW_CORE_DB_NAME || "").trim();
   const previewClubs = String(env.V4_PREVIEW_CLUBS_DB_NAME || "").trim();
 
