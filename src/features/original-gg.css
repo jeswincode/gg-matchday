@@ -695,3 +695,12 @@ html[data-theme] .gg-account-avatar-trigger:focus-visible {
   .gg-companion.is-profile-perched { --gg-companion-foot-bleed: -4.25px; }
   .gg-companion.is-perched { --gg-companion-foot-bleed: -2.125px; }
 }
+
+/* Walkable-room controls: touch-friendly movement without hiding tap-to-walk. */
+.gg-room-touch-controls{display:none;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border-top:1px solid rgba(var(--gg-neon-rgb,217 184 106),.2);background:color-mix(in srgb,var(--gg-surface,#101b14) 88%,transparent)}
+.gg-room-touch-controls>div{display:flex;gap:6px}
+.gg-room-touch-controls button{display:grid;place-items:center;width:38px;height:36px;border:1px solid rgba(var(--gg-neon-rgb,217 184 106),.34);border-radius:10px;color:var(--gg-neon-strong,#f1d28c);background:rgba(var(--gg-neon-rgb,217 184 106),.09);font-size:17px;font-weight:800;touch-action:manipulation;cursor:pointer}
+.gg-room-touch-controls button:active{transform:scale(.94);background:rgba(var(--gg-neon-rgb,217 184 106),.18)}
+.gg-room-touch-controls button:focus-visible{outline:2px solid var(--gg-neon-strong,#f1d28c);outline-offset:2px}
+@media(max-width:760px){.gg-room-touch-controls{display:flex}.gg-room-bottomline{min-height:34px;padding:6px 9px;gap:7px;font-size:9px}.gg-room-bottomline>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+@media(prefers-reduced-motion:reduce){.gg-room-touch-controls button:active{transform:none}}
