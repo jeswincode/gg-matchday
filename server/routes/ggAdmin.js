@@ -242,7 +242,10 @@ router.get("/world-messages", async (req, res) => {
     if (!["open", "resolved", "all"].includes(requested)) {
       return res.status(400).json({ message: "Choose open, resolved or all moderation reports." });
     }
-    const reportFilter = requested === "all" ? {} : { reviewStatus: requested };
+    // Older reports were stored before reviewStatus existed; treat them as open.
+    const reportFilter = requested === "all" ? {}
+      : requested === "open" ? { $or: [{ reviewStatus: "open" }, { reviewStatus: { $exists: false } }] }
+        : { reviewStatus: requested };
     const reports = await WorldMessageReport.find(reportFilter)
       .sort({ createdAt: -1 })
       .limit(400)
