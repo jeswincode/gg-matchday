@@ -220,7 +220,7 @@ test("recipient can decline and owner can cancel a pending invitation", async ()
   });
   assert.equal(declinedInvite.status, 201, JSON.stringify(declinedInvite.data));
   const declined = await request("/world/residences/transfers/" + declinedInvite.data.transfer.id + "/decline", {
-    token: "recipient", method: "POST",
+    token: "declineRecipient", method: "POST",
   });
   assert.equal(declined.status, 200);
   assert.equal((await ResidenceTransfer.findById(declinedInvite.data.transfer.id).lean()).status, "declined");
