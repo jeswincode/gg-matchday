@@ -27,6 +27,8 @@ test("goals trigger a striking sequence and a score-focused dialogue", () => {
   assert.equal(action.duration, 990);
   assert.match(action.dialogue[0], /corner/i);
   assert.match(action.dialogue[2], /keeper/i);
+  assert.equal(getRoomInteraction("scoreboard").motion, "cheer");
+  assert.match(getRoomInteraction("scoreboard").dialogue[2], /celebrating/i);
 });
 
 test("cones and agility ladders trigger a stepover drill sequence", () => {
