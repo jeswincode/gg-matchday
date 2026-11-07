@@ -10,14 +10,34 @@ export default function ResidenceAccessPanel({ onClose }) {
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
   const [notice,setNotice] = useState("");
+  const [transfers,setTransfers] = useState([]);
+  const [transferQuery,setTransferQuery] = useState("");
+  const [transferResults,setTransferResults] = useState([]);
+  const [transferSaving,setTransferSaving] = useState(false);
+  const [respondingId,setRespondingId] = useState("");
+
+  async function refreshHomeSettings() {
+    const result = await api("/world/residences/me/access");
+    setPrivacy(result.residence?.privacy || "private");
+    setVisitors(result.visitors || []);
+  }
+
+  async function refreshTransfers() {
+    const result = await api("/world/residences/me/transfers");
+    setTransfers(result.transfers || []);
+  }
 
   useEffect(() => {
     let active = true;
-    api("/world/residences/me/access").then((result) => {
+    Promise.all([
+      api("/world/residences/me/access"),
+      api("/world/residences/me/transfers"),
+    ]).then(([homeResult, transferResult]) => {
       if (!active) return;
-      setPrivacy(result.residence?.privacy || "private");
-      setVisitors(result.visitors || []);
-    }).catch((error) => { if (active) setNotice(error.message || "Could not load visitor settings."); })
+      setPrivacy(homeResult.residence?.privacy || "private");
+      setVisitors(homeResult.visitors || []);
+      setTransfers(transferResult.transfers || []);
+    }).catch((error) => { if (active) setNotice(error.message || "Could not load home settings."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -33,6 +53,52 @@ export default function ResidenceAccessPanel({ onClose }) {
     }, 250);
     return () => { active = false; window.clearTimeout(timer); };
   }, [query, visitors]);
+
+  useEffect(() => {
+    const text = transferQuery.trim();
+    if (text.length < 2) { setTransferResults([]); return undefined; }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      api("/world/residence-directory/players?search=" + encodeURIComponent(text)).then((result) => {
+        if (active) setTransferResults(result.players || []);
+      }).catch(() => { if (active) setTransferResults([]); });
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [transferQuery]);
+
+  async function inviteTransfer(target) {
+    setTransferSaving(true);
+    setNotice("");
+    try {
+      const result = await api("/world/residences/me/transfers", {
+        method: "POST",
+        body: { toPlayerId: target.playerId },
+      });
+      setNotice("Home transfer invitation sent to " + (result.transfer?.recipientName || target.displayName) + ".");
+      setTransferQuery("");
+      setTransferResults([]);
+      await refreshTransfers();
+    } catch (error) {
+      setNotice(error.message || "Could not send the home transfer invitation.");
+    } finally {
+      setTransferSaving(false);
+    }
+  }
+
+  async function respondToTransfer(transfer, action) {
+    setRespondingId(transfer.id);
+    setNotice("");
+    try {
+      await api("/world/residences/transfers/" + transfer.id + "/" + action, { method: "POST" });
+      setNotice(action === "accept" ? "Home ownership transferred successfully." : "Home transfer invitation " + (action === "decline" ? "declined." : "cancelled."));
+      await refreshTransfers();
+      if (action === "accept") await refreshHomeSettings();
+    } catch (error) {
+      setNotice(error.message || "Could not update the home transfer.");
+    } finally {
+      setRespondingId("");
+    }
+  }
 
   function addVisitor(visitor) {
     if (visitors.length >= 30) { setNotice("You can invite up to 30 visitors."); return; }
@@ -68,6 +134,28 @@ export default function ResidenceAccessPanel({ onClose }) {
         <div className="gg-access-explain">{privacy==="private"?"Your home interior is visible only to you.":privacy==="friends"?"Only you and the players in your visitor list can enter.":"Any signed-in GG player can enter your home."}</div>
         <div className="gg-access-search"><label htmlFor="gg-residence-search">Invite a player</label><input id="gg-residence-search" value={query} maxLength={32} onChange={(event)=>setQuery(event.target.value)} placeholder="Search player names…"/>{query.trim().length>=2&&results.length>0&&<div className="gg-access-results">{results.map((visitor)=><button type="button" key={visitor.playerId} onClick={()=>addVisitor(visitor)}><span>{visitor.displayName}</span><b>+ Invite</b></button>)}</div>}</div>
         <div className="gg-access-visitors"><div><strong>Invited visitors</strong><small>{visitors.length}/30</small></div>{visitors.length?visitors.map((visitor)=><div className="gg-access-visitor" key={visitor.playerId}><span>{visitor.displayName}</span><button type="button" onClick={()=>removeVisitor(visitor.playerId)} aria-label={"Remove "+visitor.displayName}>Remove</button></div>):<p>No visitors invited yet.</p>}</div>
+        <section className="gg-access-transfer">
+          <div><strong>Transfer home ownership</strong><p>Invite a verified, linked GG player to take ownership. They must accept within 7 days. Their untouched Level 1 starter home is replaced; upgraded or furnished homes are protected.</p></div>
+          <label htmlFor="gg-residence-transfer-search">Invite a new owner</label>
+          <input id="gg-residence-transfer-search" value={transferQuery} maxLength={32} onChange={(event)=>setTransferQuery(event.target.value)} placeholder="Search player names…"/>
+          {transferQuery.trim().length>=2&&transferResults.length>0&&<div className="gg-access-results">{transferResults.map((target)=><button type="button" key={target.playerId} disabled={transferSaving} onClick={()=>inviteTransfer(target)}><span>{target.displayName}</span><b>{transferSaving?"Sending…":"Invite to own home"}</b></button>)}</div>}
+          <div className="gg-access-transfer-list">
+            {transfers.filter((item)=>item.status==="pending").map((item)=>(
+              <div className="gg-access-visitor" key={item.id}>
+                <span>{item.role==="incoming"?"From "+item.otherPlayerName:"To "+item.otherPlayerName}</span>
+                {item.role==="incoming"?(
+                  <span className="gg-access-transfer-actions">
+                    <button type="button" disabled={Boolean(respondingId)} onClick={()=>respondToTransfer(item,"accept")}>{respondingId===item.id?"Saving…":"Accept"}</button>
+                    <button type="button" disabled={Boolean(respondingId)} onClick={()=>respondToTransfer(item,"decline")}>Decline</button>
+                  </span>
+                ):(
+                  <button type="button" disabled={Boolean(respondingId)} onClick={()=>respondToTransfer(item,"cancel")}>{respondingId===item.id?"Saving…":"Cancel invite"}</button>
+                )}
+              </div>
+            ))}
+            {!transfers.some((item)=>item.status==="pending")&&<p>No pending home transfers.</p>}
+          </div>
+        </section>
         <div className="gg-access-actions"><button type="button" className="gg-world-back" onClick={onClose}>Cancel</button><button type="button" className="gg-world-primary" onClick={save} disabled={saving}>{saving?"Saving…":"Save access settings"}</button></div>
       </>}
       {notice&&<p className="gg-world-notice" role="status">{notice}</p>}
