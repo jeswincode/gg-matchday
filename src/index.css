@@ -2539,3 +2539,25 @@ textarea:focus {
 .calendar-world-teams span{font-size:10px;line-height:1.3}
 .calendar-world-fixture small{justify-content:flex-start;font-size:9px;font-weight:600}
 @media(max-width:700px){.calendar-world-fixtures{grid-template-columns:1fr}}
+
+/* Original GG community moderation — admin-only review queue */
+.gg-world-moderation { margin-top: 22px; }
+.gg-world-moderation-filter { display:flex; align-items:center; gap:12px; margin:14px 0; color:var(--text-secondary,#9298a8); }
+.gg-world-moderation-filter select { min-width:170px; padding:9px 12px; border:1px solid var(--border,#343844); border-radius:10px; background:var(--surface,#151922); color:var(--text,#f4f5f8); }
+.gg-world-moderation-notice,.gg-world-moderation-error { padding:10px 12px; border-radius:10px; }
+.gg-world-moderation-notice { background:rgba(53,170,113,.12); color:#78d4a4; }
+.gg-world-moderation-error { background:rgba(220,70,70,.12); color:#ff9999; }
+.gg-world-moderation-list { display:grid; gap:12px; }
+.gg-world-moderation-item { display:grid; gap:12px; padding:16px; border:1px solid var(--border,#343844); border-radius:14px; background:var(--surface-raised,rgba(20,24,34,.76)); }
+.gg-world-moderation-meta,.gg-world-moderation-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.gg-world-moderation-meta span { padding:4px 8px; border-radius:999px; color:var(--text-secondary,#9298a8); background:rgba(130,140,160,.12); font-size:12px; }
+.gg-world-moderation-item blockquote { margin:0; padding:12px 14px; border-left:3px solid var(--gg-neon-strong,#8d69cc); border-radius:0 9px 9px 0; background:rgba(110,110,140,.08); color:var(--text,#f4f5f8); overflow-wrap:anywhere; }
+.gg-world-moderation-reports { display:grid; gap:6px; }
+.gg-world-moderation-reports>div { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--text-secondary,#9298a8); font-size:13px; }
+.gg-world-moderation-item label { display:grid; gap:6px; color:var(--text-secondary,#9298a8); font-size:13px; }
+.gg-world-moderation-item input { width:100%; padding:10px 12px; border:1px solid var(--border,#343844); border-radius:9px; background:var(--surface,#151922); color:var(--text,#f4f5f8); }
+@media(max-width:640px) {
+ .gg-world-moderation-filter { align-items:stretch; flex-direction:column; }
+ .gg-world-moderation-filter select { width:100%; }
+ .gg-world-moderation-reports>div { align-items:flex-start; flex-direction:column; gap:2px; }
+}
