@@ -568,6 +568,14 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
       </g>
     </svg>
     <div className="gg-room-character-speech" role="status" aria-live="polite" data-testid="room-character-dialogue"><p>{line}</p></div>
+    <div className="gg-room-touch-controls" aria-label="Move your character">
+      <button type="button" onClick={()=>walkTo(position.current.x,position.current.y-28)} aria-label="Walk up">↑</button>
+      <div>
+        <button type="button" onClick={()=>walkTo(position.current.x-56,position.current.y)} aria-label="Walk left">←</button>
+        <button type="button" onClick={()=>walkTo(position.current.x,position.current.y+28)} aria-label="Walk down">↓</button>
+        <button type="button" onClick={()=>walkTo(position.current.x+56,position.current.y)} aria-label="Walk right">→</button>
+      </div>
+    </div>
     <div className="gg-room-bottomline">{hq&&<strong className="gg-room-feature-motto">THE PLACE WHERE THE COMMUNITY MEETS.</strong>}<span>{activeItem||room?.name||"Explore the room"}</span>{onOpenChat&&(/grand-hall|club-lounge|supporters|fan|meeting/.test(id))&&<button type="button" onClick={onOpenChat}>Open community chat</button>}</div>
   </div>;
 }
