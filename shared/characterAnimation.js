@@ -8,6 +8,9 @@ export const CHARACTER_ANIMATION_PROFILES = Object.freeze({
   "high-five": Object.freeze({ frameMs: 110, frames: 4, durationMs: 1050 }),
   cheer: Object.freeze({ frameMs: 140, frames: 4, durationMs: 1450 }),
   kick: Object.freeze({ frameMs: 110, frames: 6, durationMs: 990 }),
+  juggle: Object.freeze({ frameMs: 120, frames: 8, durationMs: 1920 }),
+  stepover: Object.freeze({ frameMs: 105, frames: 8, durationMs: 1680 }),
+  rainbow: Object.freeze({ frameMs: 115, frames: 8, durationMs: 1840 }),
   dance: Object.freeze({ frameMs: 125, frames: 8, durationMs: 2200 }),
 });
 
