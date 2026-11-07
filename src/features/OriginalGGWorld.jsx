@@ -288,7 +288,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
   const supporters=/supporters|fan|clubhouse/.test(id);
   const hq=/grand-hall|headquarters|club-lounge/.test(id)||theme.includes("gold");
   const accent=training?"#91b77b":pitch?"#9cbb8d":trophy||hq?"#e3c374":market?"#d7a66c":esports?"#8dd9e0":garden?"#8db987":"#d5b77a";
-  const playDialogue=(lines,fallback="")=>{
+  const playDialogue=useCallback((lines,fallback="")=>{
     if(dialogueTimer.current!==null)window.clearTimeout(dialogueTimer.current);
     const sequence=(Array.isArray(lines)?lines:[]).filter((entry)=>typeof entry==="string"&&entry.trim());
     const token=++dialogueSequence.current;
@@ -302,7 +302,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
       else dialogueTimer.current=null;
     };
     advance();
-  };
+  },[]);
   const walkTo=useCallback((x,y,reason="",interaction={pose:"standing",motion:"idle",duration:0})=>{
     lastInput.current=performance.now();
     if(walkFrame.current!==null)window.cancelAnimationFrame(walkFrame.current);
@@ -342,7 +342,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
       }
     };
     walkFrame.current=window.requestAnimationFrame(frame);
-  },[]);
+  },[playDialogue]);
   function handleSceneClick(event){
     if(event.target?.closest?.("[data-room-item]"))return;
     const matrix=event.currentTarget.getScreenCTM?.();
