@@ -85,7 +85,7 @@ after(async () => {
   await database?.stop();
 });
 
-async function createReportedMessage(text = "Please review this community message.") {
+async function createReportedMessage(text = "Please review this community message.", legacy = false) {
   const message = await WorldMessage.create({
     locationId: "city-plaza",
     senderPlayerId: new mongoose.Types.ObjectId(),
@@ -93,11 +93,22 @@ async function createReportedMessage(text = "Please review this community messag
     text,
     expiresAt: new Date(Date.now() + 60 * 60 * 1000),
   });
-  await WorldMessageReport.create([{
-    messageId: message._id,
-    playerId: reporterId,
-    reason: "harassment",
-  }]);
+  if (legacy) {
+    const now = new Date();
+    await WorldMessageReport.collection.insertOne({
+      messageId: message._id,
+      playerId: reporterId,
+      reason: "harassment",
+      createdAt: now,
+      updatedAt: now,
+    });
+  } else {
+    await WorldMessageReport.create([{
+      messageId: message._id,
+      playerId: reporterId,
+      reason: "harassment",
+    }]);
+  }
   return message;
 }
 
@@ -108,6 +119,15 @@ test("only admins can view the Original GG moderation queue", async () => {
   const result = await request("/admin/gg/world-messages?status=open");
   assert.equal(result.status, 200);
   assert.ok(result.data.messages.some((item) => item.id === String(message._id)));
+});
+
+test("legacy reports without reviewStatus remain visible in the open moderation queue", async () => {
+  const message = await createReportedMessage("A legacy report from before the moderation queue.", true);
+  const result = await request("/admin/gg/world-messages?status=open");
+  assert.equal(result.status, 200);
+  const row = result.data.messages.find((item) => item.id === String(message._id));
+  assert.ok(row);
+  assert.equal(row.reports[0].reviewStatus, "open");
 });
 
 test("admin hide resolves reports and restore makes the message visible again", async () => {
