@@ -16,6 +16,8 @@ const identities = {
   customised: { email: "customised@gmail.com", verified: true },
   declineRecipient: { email: "decline-recipient@gmail.com", verified: true },
   cancelRecipient: { email: "cancel-recipient@gmail.com", verified: true },
+  privacyRecipient: { email: "privacy-recipient@gmail.com", verified: true },
+  namedRecipient: { email: "named-recipient@gmail.com", verified: true },
 };
 
 mock.module("../server/config/firebaseAdmin.js", {
@@ -123,6 +125,8 @@ before(async () => {
   await createIdentity("customised", "Customised Home Recipient");
   await createIdentity("declineRecipient", "Decline Recipient");
   await createIdentity("cancelRecipient", "Cancel Recipient");
+  await createIdentity("privacyRecipient", "Privacy Recipient");
+  await createIdentity("namedRecipient", "Named Recipient");
 }, { timeout: 120000 });
 
 after(async () => {
@@ -186,7 +190,7 @@ test("only the intended recipient can accept; acceptance transfers the home and 
   assert.equal(wrongRecipient.status, 404);
 
   const starter = await PlayerResidence.create(residencePayload(players.recipient, {
-    name: "Transfer Recipient's Starter Home",
+    name: "Transfer Recipient's Home",
   }));
   const accepted = await request("/world/residences/transfers/" + transfer._id + "/accept", {
     token: "recipient", method: "POST",
@@ -216,6 +220,28 @@ test("upgraded or furnished recipient homes are never overwritten", async () => 
   });
   assert.equal(result.status, 409);
   assert.ok(await PlayerResidence.exists({ ownerPlayerId: players.customised._id }));
+});
+
+test("public, invited and renamed starter homes cannot be silently replaced", async () => {
+  await PlayerResidence.create(residencePayload(players.owner));
+  await PlayerResidence.create(residencePayload(players.privacyRecipient, {
+    privacy: "public",
+    visitorPlayerIds: [players.outsider._id],
+  }));
+  await PlayerResidence.create(residencePayload(players.namedRecipient, {
+    name: "A home with a personal name",
+  }));
+
+  const publicHome = await request("/world/residences/me/transfers", {
+    token: "owner", method: "POST", body: { toPlayerId: String(players.privacyRecipient._id) },
+  });
+  assert.equal(publicHome.status, 409);
+  const namedHome = await request("/world/residences/me/transfers", {
+    token: "owner", method: "POST", body: { toPlayerId: String(players.namedRecipient._id) },
+  });
+  assert.equal(namedHome.status, 409);
+  assert.ok(await PlayerResidence.exists({ ownerPlayerId: players.privacyRecipient._id }));
+  assert.ok(await PlayerResidence.exists({ ownerPlayerId: players.namedRecipient._id }));
 });
 
 test("recipient can decline and owner can cancel a pending invitation", async () => {
