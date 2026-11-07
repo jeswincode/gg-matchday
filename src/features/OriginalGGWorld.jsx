@@ -272,6 +272,8 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
   const [line,setLine]=useState("The room is yours. Tap the floor and I'll take a look around.");
   const [activeItem,setActiveItem]=useState("");
   const interactionTimer=useRef(null);
+  const dialogueTimer=useRef(null);
+  const dialogueSequence=useRef(0);
   const reduced=typeof window!=="undefined"&&window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const id=String(room?.id||"lounge").toLowerCase();
   const theme=String(room?.theme||"").toLowerCase();
@@ -286,10 +288,27 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
   const supporters=/supporters|fan|clubhouse/.test(id);
   const hq=/grand-hall|headquarters|club-lounge/.test(id)||theme.includes("gold");
   const accent=training?"#91b77b":pitch?"#9cbb8d":trophy||hq?"#e3c374":market?"#d7a66c":esports?"#8dd9e0":garden?"#8db987":"#d5b77a";
+  const playDialogue=(lines,fallback="")=>{
+    if(dialogueTimer.current!==null)window.clearTimeout(dialogueTimer.current);
+    const sequence=(Array.isArray(lines)?lines:[]).filter((entry)=>typeof entry==="string"&&entry.trim());
+    const token=++dialogueSequence.current;
+    if(!sequence.length){if(fallback)setLine(fallback);return;}
+    let index=0;
+    const advance=()=>{
+      if(token!==dialogueSequence.current)return;
+      setLine(sequence[index]);
+      index+=1;
+      if(index<sequence.length)dialogueTimer.current=window.setTimeout(advance,1850);
+      else dialogueTimer.current=null;
+    };
+    advance();
+  };
   const walkTo=useCallback((x,y,reason="",interaction={pose:"standing",motion:"idle",duration:0})=>{
     lastInput.current=performance.now();
     if(walkFrame.current!==null)window.cancelAnimationFrame(walkFrame.current);
     if(interactionTimer.current!==null)window.clearTimeout(interactionTimer.current);
+    if(dialogueTimer.current!==null)window.clearTimeout(dialogueTimer.current);
+    dialogueSequence.current+=1;
     const action=interaction||{pose:"standing",motion:"idle",duration:0};
     const from={...position.current};
     const to={x:Math.max(92,Math.min(1108,x)),y:Math.max(525,Math.min(660,y))};
@@ -297,7 +316,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
     if(reason)setActiveItem(reason);
     setScenePose("standing");
     if(distance<2){
-      if(reason)setLine(reason);
+      playDialogue(action.dialogue,reason);
       setScenePose(action.pose||"standing");
       setMotion(action.motion||"idle");
       if(action.duration>0)interactionTimer.current=window.setTimeout(()=>setMotion("idle"),action.duration);
@@ -316,7 +335,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
       if(t<1)walkFrame.current=window.requestAnimationFrame(frame);
       else{
         walkFrame.current=null;
-        if(reason)setLine(reason);
+        playDialogue(action.dialogue,reason);
         setScenePose(action.pose||"standing");
         setMotion(action.motion||"idle");
         if(action.duration>0)interactionTimer.current=window.setTimeout(()=>setMotion("idle"),action.duration);
@@ -368,6 +387,8 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
       if(idleTimer.current!==null)window.clearTimeout(idleTimer.current);
       if(walkFrame.current!==null)window.cancelAnimationFrame(walkFrame.current);
       if(interactionTimer.current!==null)window.clearTimeout(interactionTimer.current);
+      if(dialogueTimer.current!==null)window.clearTimeout(dialogueTimer.current);
+      dialogueSequence.current+=1;
     };
   },[reduced,room?.id,walkTo]);
   const itemClick=(label,x,y,dialogue)=>event=>{
@@ -546,7 +567,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
         <foreignObject x="-29" y="-78" width="58" height="74"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-room-character-sprite"><PlayerSprite appearance={appearance||{}} motion={motion} direction={direction} animated pose={scenePose}/></div></foreignObject>
       </g>
     </svg>
-    <div className="gg-room-character-speech"><p>{line}</p></div>
+    <div className="gg-room-character-speech" role="status" aria-live="polite" data-testid="room-character-dialogue"><p>{line}</p></div>
     <div className="gg-room-bottomline">{hq&&<strong className="gg-room-feature-motto">THE PLACE WHERE THE COMMUNITY MEETS.</strong>}<span>{activeItem||room?.name||"Explore the room"}</span>{onOpenChat&&(/grand-hall|club-lounge|supporters|fan|meeting/.test(id))&&<button type="button" onClick={onOpenChat}>Open community chat</button>}</div>
   </div>;
 }
