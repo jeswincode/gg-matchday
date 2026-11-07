@@ -97,7 +97,11 @@ function residencePayload(owner, patch = {}) {
     visitorPlayerIds: [],
     furnishingVersion: 1,
     interior: {
-      rooms: [{ id: "lounge", name: "Lounge", furniture: [] }],
+      rooms: [
+        { id: "lounge", name: "Player Lounge", furniture: [] },
+        { id: "trophy-room", name: "Trophy Room", furniture: [] },
+        { id: "training-corner", name: "Training Corner", furniture: [] },
+      ],
     },
     ...patch,
   };
