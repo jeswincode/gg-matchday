@@ -132,6 +132,15 @@ after(async () => {
   await database?.stop();
 });
 
+test("the home invite directory excludes unlinked and unverified Gmail players", async () => {
+  const result = await request("/world/residence-directory/players?search=Recipient", { token: "owner" });
+  assert.equal(result.status, 200, JSON.stringify(result.data));
+  const ids = new Set((result.data.players || []).map((item) => item.playerId));
+  assert.ok(ids.has(String(players.recipient._id)));
+  assert.equal(ids.has(String(players.unverified._id)), false);
+  assert.equal(ids.has(String(players.customised._id)), true);
+});
+
 test("only a linked verified-Gmail owner can invite a recipient", async () => {
   const ownerHome = await PlayerResidence.create(residencePayload(players.owner, {
     level: 3,
