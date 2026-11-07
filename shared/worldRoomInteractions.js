@@ -10,9 +10,14 @@ const ROOM_INTERACTIONS = [
     dialogue: ["A few keepy-uppies first.", "Keep the ball close and your eyes up.", "That touch is getting sharper."],
   },
   {
-    test: /goal|scoreboard|\bnet(s)?\b/i,
+    test: /goal|\bnet(s)?\b/i,
     pose: "standing", motion: "kick", duration: 990,
     dialogue: ["Pick your corner.", "Plant your foot and strike through the ball.", "That's how you make the keeper work."],
+  },
+  {
+    test: /scoreboard/i,
+    pose: "standing", motion: "cheer", duration: 1450,
+    dialogue: ["The board is waiting for a new score.", "Make the next chance count.", "Now that's a result worth celebrating."],
   },
   {
     test: /training cones|cone drill|agility ladder/i,
