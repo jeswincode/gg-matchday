@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import "./original-gg.css";
 
-export default function ResidenceAccessPanel({ onClose }) {
+export default function ResidenceAccessPanel({ onClose, onUpdated }) {
   const [privacy,setPrivacy] = useState("private");
   const [visitors,setVisitors] = useState([]);
   const [query,setQuery] = useState("");
@@ -95,7 +95,10 @@ export default function ResidenceAccessPanel({ onClose }) {
       await api(endpoint, { method: "POST" });
       setNotice(action === "accept" ? "Home ownership transferred successfully." : "Home transfer invitation " + (action === "decline" ? "declined." : "cancelled."));
       await refreshTransfers();
-      if (action === "accept") await refreshHomeSettings();
+      if (action === "accept") {
+        await refreshHomeSettings();
+        onUpdated?.();
+      }
     } catch (error) {
       setNotice(error.message || "Could not update the home transfer.");
     } finally {
