@@ -302,12 +302,12 @@ router.patch("/world-messages/:messageId/moderation", async (req, res) => {
     if (action === "hide") message.moderationStatus = "hidden";
     if (action === "restore") message.moderationStatus = "visible";
     await message.save();
-    const resolution = action === "hide" ? "hidden" : action === "restore" ? "restored" : undefined;
+    const resolution = action === "hide" ? "hidden" : action === "restore" ? "restored" : "dismissed";
     await WorldMessageReport.updateMany(
-      { messageId: message._id, reviewStatus: "open" },
+      { messageId: message._id },
       { $set: {
         reviewStatus: "resolved",
-        ...(resolution ? { resolution } : {}),
+        resolution,
         reviewedBy: req.user?._id || null,
         reviewedAt: new Date(),
         adminNote: note,
