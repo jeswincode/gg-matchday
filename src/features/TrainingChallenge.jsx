@@ -115,12 +115,15 @@ export default function TrainingChallenge({onCelebrate}={}){
       }
       ctx.clearRect(0,0,WIDTH,HEIGHT);
       const gradient=ctx.createLinearGradient(0,0,0,HEIGHT);gradient.addColorStop(0,"#254c36");gradient.addColorStop(1,"#122d20");ctx.fillStyle=gradient;ctx.fillRect(0,0,WIDTH,HEIGHT);
-      ctx.strokeStyle="#d5e4c622";ctx.lineWidth=1;
+      const isGoldTheme=document.documentElement.dataset.theme==="golden";
+      const neon=isGoldTheme?"#79ed9a":"#bd82ff";
+      const neonSoft=isGoldTheme?"#79ed9a55":"#bd82ff55";
+      ctx.strokeStyle=neonSoft;ctx.lineWidth=1;
       for(let x=0;x<=WIDTH;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,HEIGHT);ctx.stroke();}
       for(let y=0;y<=HEIGHT;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(WIDTH,y);ctx.stroke();}
-      ctx.strokeStyle="#f4e9c977";ctx.lineWidth=3;ctx.strokeRect(8,8,WIDTH-16,HEIGHT-16);
+      ctx.strokeStyle=neonSoft;ctx.lineWidth=3;ctx.strokeRect(8,8,WIDTH-16,HEIGHT-16);
       ctx.setLineDash([9,10]);ctx.beginPath();ctx.moveTo(WIDTH/2,12);ctx.lineTo(WIDTH/2,HEIGHT-12);ctx.stroke();ctx.setLineDash([]);
-      ctx.fillStyle="#f5e5bd";ctx.font="bold 11px system-ui";ctx.fillText("GG TRAINING ARENA",22,27);
+      ctx.fillStyle=neon;ctx.font="bold 11px system-ui";ctx.fillText("GG TRAINING ARENA",22,27);
       for(const o of (game.engine?.obstacles||[])){
         ctx.fillStyle="#a94d3f";ctx.fillRect(o.x,o.y,o.width,o.height);
         ctx.fillStyle="#e4bd7a";ctx.fillRect(o.x+4,o.y+4,o.width-8,5);
@@ -128,9 +131,23 @@ export default function TrainingChallenge({onCelebrate}={}){
       }
       const p=game.engine?.player||{x:92,y:HEIGHT/2};
       ctx.fillStyle="#0008";ctx.beginPath();ctx.ellipse(p.x+3,p.y+10,15,6,0,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle="#f0d080";ctx.beginPath();ctx.arc(p.x,p.y,PLAYER_R,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle="#fff0bd";ctx.lineWidth=2;ctx.stroke();
-      ctx.fillStyle="#263b2b";ctx.beginPath();ctx.arc(p.x-3,p.y-2,4,0,Math.PI*2);ctx.fill();
+      // The controlled object is a spinning match ball, not a generic player token.
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate((game.engine?.elapsed||0)*4.8);
+      ctx.fillStyle="#f4f0df";ctx.beginPath();ctx.arc(0,0,PLAYER_R,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="#1c2b22";ctx.lineWidth=1.7;ctx.stroke();
+      ctx.fillStyle="#263b2b";ctx.beginPath();
+      for(let i=0;i<5;i++){
+        const angle=-Math.PI/2+i*Math.PI*2/5;
+        const x=Math.cos(angle)*5.1,y=Math.sin(angle)*5.1;
+        if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      ctx.closePath();ctx.fill();
+      for(let i=0;i<5;i++){
+        const angle=-Math.PI/2+i*Math.PI*2/5;
+        ctx.beginPath();ctx.moveTo(Math.cos(angle)*5.1,Math.sin(angle)*5.1);
+        ctx.lineTo(Math.cos(angle)*11.3,Math.sin(angle)*11.3);ctx.stroke();
+      }
+      ctx.restore();
       ctx.fillStyle="#f5eddb";ctx.font="bold 14px system-ui";ctx.fillText((game.running||game.over?game.elapsed:0).toFixed(1)+"s",WIDTH-75,27);
       if(!game.running){ctx.fillStyle="#07160dcc";ctx.fillRect(0,0,WIDTH,HEIGHT);ctx.textAlign="center";ctx.fillStyle="#f3d68e";ctx.font="900 25px system-ui";ctx.fillText(game.over?"FULL TIME":"READY FOR KICK-OFF",WIDTH/2,HEIGHT/2-8);ctx.fillStyle="#f4f0df";ctx.font="13px system-ui";ctx.fillText(game.over?"Press Play Again to chase a new best":"Press Start Run when you're ready",WIDTH/2,HEIGHT/2+20);ctx.textAlign="left";}
       frameRef.current=requestAnimationFrame(draw);
