@@ -41,8 +41,7 @@ export default function WorldModerationPanel() {
           : action === "restore" ? "Message restored and its open reports resolved."
             : "Reports dismissed; the message was left unchanged.",
       );
-      setMessages((current) => current.filter((item) => item.id !== message.id));
-      if (result.action !== action) await load();
+      await load();
     } catch (cause) {
       setError(cause.message || "Could not apply the moderation decision.");
     } finally {
