@@ -607,3 +607,43 @@ html[data-theme="golden"] .gg-companion-menu{border-color:rgba(111,235,150,.42);
   .gg-companion.is-perched { --gg-companion-foot-bleed: -2.125px; }
 }
 
+/* The verified training arcade follows the same active neon theme as Matchday. */
+html[data-theme] .gg-training-challenge{
+  border-color:rgba(var(--gg-neon-rgb),.28);
+  color:var(--gg-text);
+  background:
+    radial-gradient(ellipse at 8% 0%,rgba(var(--gg-neon-rgb),.11),transparent 48%),
+    linear-gradient(145deg,var(--gg-surface-raised),var(--gg-surface));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 16px 42px rgba(0,0,0,.16);
+}
+html[data-theme] .gg-training-challenge-heading span,
+html[data-theme] .gg-training-best strong,
+html[data-theme] .gg-training-challenge-footer b,
+html[data-theme] .gg-training-leaderboard-row b,
+html[data-theme] .gg-training-leaderboard-row span,
+html[data-theme] .gg-training-leaderboard>div:first-child span{
+  color:var(--gg-neon-strong);
+}
+html[data-theme] .gg-training-best,
+html[data-theme] .gg-training-leaderboard{
+  border-color:rgba(var(--gg-neon-rgb),.24);
+}
+html[data-theme] .gg-training-best{background:rgba(var(--gg-neon-rgb),.055)}
+html[data-theme] .gg-training-challenge-heading h2,
+html[data-theme] .gg-training-leaderboard-row strong{color:var(--gg-text)}
+html[data-theme] .gg-training-challenge-heading p,
+html[data-theme] .gg-training-challenge-footer p,
+html[data-theme] .gg-training-challenge-note,
+html[data-theme] .gg-training-best small,
+html[data-theme] .gg-training-leaderboard>div:first-child small{color:var(--gg-muted)}
+html[data-theme] .gg-training-touch button{
+  border-color:rgba(var(--gg-neon-rgb),.35);
+  color:var(--gg-neon-strong);
+  background:rgba(var(--gg-neon-rgb),.09);
+}
+html[data-theme] .gg-training-challenge-footer .gg-world-primary{
+  border-color:rgba(var(--gg-neon-rgb),.55);
+  color:var(--gg-text);
+  background:linear-gradient(135deg,rgba(var(--gg-neon-rgb),.28),rgba(var(--gg-neon-rgb),.12));
+  box-shadow:0 0 20px rgba(var(--gg-neon-rgb),.12);
+}
