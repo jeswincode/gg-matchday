@@ -115,6 +115,10 @@ async function createReportedMessage(text = "Please review this community messag
 test("only admins can view the Original GG moderation queue", async () => {
   const message = await createReportedMessage();
   assert.equal((await request("/admin/gg/world-messages", { token: "viewer" })).status, 403);
+  assert.equal((await request("/admin/gg/world-messages/" + message._id + "/moderation", {
+    token: "viewer", method: "PATCH", body: { action: "hide" },
+  })).status, 403);
+  assert.equal((await WorldMessage.findById(message._id).lean()).moderationStatus, "visible");
   assert.equal((await request("/admin/gg/world-messages")).status, 200);
   const result = await request("/admin/gg/world-messages?status=open");
   assert.equal(result.status, 200);
