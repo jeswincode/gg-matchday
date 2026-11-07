@@ -239,6 +239,10 @@ test("recipient can decline and owner can cancel a pending invitation", async ()
     token: "owner", method: "POST", body: { toPlayerId: String(players.cancelRecipient._id) },
   });
   assert.equal(cancelledInvite.status, 201, JSON.stringify(cancelledInvite.data));
+  const deniedCancel = await request("/world/residences/me/transfers/" + cancelledInvite.data.transfer.id + "/cancel", {
+    token: "outsider", method: "POST",
+  });
+  assert.equal(deniedCancel.status, 404);
   const cancelled = await request("/world/residences/me/transfers/" + cancelledInvite.data.transfer.id + "/cancel", {
     token: "owner", method: "POST",
   });
