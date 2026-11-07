@@ -69,10 +69,10 @@ Existing clubs, player profiles, contracts, wallets, transactions, match history
 
 ## Remaining V4 work
 
-1. Add a dedicated V4 API preview service or another isolated preview API target; do not point the V4 frontend at a production backend that lacks these routes.
+1. Complete signed-in V4 API runtime verification and run the full API/E2E suite against the isolated preview databases; the dedicated V4 API service is now deployed.
 2. Build detailed, bespoke isometric tile/building art and true 2D room scenes; current landmark rooms are structured and navigable previews.
 3. Build full HQ social spaces: realtime in-world chat, notifications, player-to-player interactions, moderation and presence safeguards.
-4. Build club-ground ownership controls, club-specific interiors, residence visitor permissions and broader furnishing sets.
+4. Expand club-ground ownership/transfer administration and club-specific interiors. Residence privacy, invited visitors and consent-based residence ownership transfer are now implemented on the V4 branch.
 5. Playtest and tune the Ball Control Challenge, including difficulty progression, mobile controls, replay edge cases, leaderboard abuse monitoring and score-validation coverage.
 6. Extend the economy with broader furnishing collections, plot and club-ground upgrade sinks, reward tuning from playtest data, seasonal catalogues and abuse monitoring. The initial server-authoritative XP/coin wallet, ledger, capped training rewards, achievements, data-driven cosmetics catalogue/equipping, avatar presets and player-home upgrades are implemented on the V4 branch. Do not add real-money purchases in the initial release.
 7. Extend the new Original GG movement, directional sprites and interaction animations into the other Matchday pages; add context-aware idle activities and celebration triggers there as well.
@@ -152,3 +152,13 @@ The current V4 world already provides a draggable/zoomable football-city map, a 
 - Read-only Atlas verification confirms both V4 staging databases exist separately from the V3 databases, with 13 Core collections and 35 Clubs collections. No V3 records were copied or altered by this setup.
 - Vercel's `VITE_API_URL` is branch-scoped to `v4/development` and points at `https://gg-matchday-v4-api.onrender.com/api`. The latest V4 frontend deployment is READY; production remains on the restored V3 `main` commit `c78e25c3d40e0e3319c5e5b27735c12e1e8cb2e1`.
 - The new moderation integration tests and existing full unit/API/E2E suites are committed but have not yet been executed in this session. Browser-level visual confirmation of Pip and the complete signed-in V4 flows remains outstanding.
+
+
+### Residence ownership transfer — 7 November 2026
+
+- Added persistent `ResidenceTransfer` invitations with pending/accepted/declined/cancelled/expired states, seven-day expiry, audit timestamps and unique pending-transfer indexes for both the source residence and intended recipient.
+- Home owners can search and invite only verified, linked Gmail players. The residence directory now filters out players who cannot enter Original GG.
+- Only the intended recipient can accept or decline. Only the current owner can cancel. Acceptance uses a Clubs-database transaction to transfer the residence, replace only an untouched Level 1 recipient starter home, reset privacy to private and clear the previous owner's visitor list.
+- Upgraded or furnished recipient homes are never overwritten. The acceptance route rechecks the recipient's home immediately before applying the transfer, so a home upgraded after invitation remains protected.
+- The home privacy panel now displays incoming/outgoing invitations, accept/decline/cancel actions and refreshes the World map after a transfer is accepted.
+- Added isolated integration tests for Gmail/link requirements, directory filtering, wrong-recipient acceptance, ownership transfer, access reset, existing-home protection, decline/cancel, expiry and post-invitation upgrades. Tests are committed but have not yet been executed in this session.
