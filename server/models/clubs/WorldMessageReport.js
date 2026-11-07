@@ -6,7 +6,7 @@ const worldMessageReportSchema = new mongoose.Schema({
   playerId: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true, index: true },
   reason: { type: String, enum: ["spam", "harassment", "inappropriate", "other"], default: "other" },
   reviewStatus: { type: String, enum: ["open", "resolved"], default: "open", index: true },
-  resolution: { type: String, enum: ["hidden", "restored"], default: undefined },
+  resolution: { type: String, enum: ["hidden", "restored", "dismissed"], default: undefined },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, default: null },
   reviewedAt: { type: Date, default: null },
   adminNote: { type: String, trim: true, maxlength: 300, default: "" },
