@@ -792,9 +792,19 @@ router.get("/residence-directory/players", async (req, res, next) => {
     const escaped = [...search].map(char => ".*+?^${}()|[]".includes(char) || char === String.fromCharCode(92) ? String.fromCharCode(92) + char : char).join("");
     const players = await Player.find({ _id: { $ne: playerId }, name: { $regex: escaped, $options: "i" } }).select("name").limit(12).lean();
     const ids = players.map((item) => item._id);
-    const avatars = await PlayerAvatar.find({ playerId: { $in: ids } }).select("playerId displayName").lean();
+    const [avatars, linkedAccounts] = await Promise.all([
+      PlayerAvatar.find({ playerId: { $in: ids } }).select("playerId displayName").lean(),
+      User.find({ playerProfile: { $in: ids }, emailVerified: true }).select("playerProfile email emailVerified").lean(),
+    ]);
     const displayNames = new Map(avatars.map((item) => [String(item.playerId), item.displayName]));
-    return res.json({ players: players.map((item) => ({ playerId: String(item._id), displayName: displayNames.get(String(item._id)) || item.name })) });
+    const eligiblePlayerIds = new Set(linkedAccounts
+      .filter((account) => isVerifiedGmailAddress(account.email, account.emailVerified))
+      .map((account) => String(account.playerProfile)));
+    return res.json({
+      players: players
+        .filter((item) => eligiblePlayerIds.has(String(item._id)))
+        .map((item) => ({ playerId: String(item._id), displayName: displayNames.get(String(item._id)) || item.name })),
+    });
   } catch (error) { return next(error); }
 });
 
