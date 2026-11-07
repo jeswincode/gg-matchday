@@ -89,7 +89,10 @@ export default function ResidenceAccessPanel({ onClose }) {
     setRespondingId(transfer.id);
     setNotice("");
     try {
-      await api("/world/residences/transfers/" + transfer.id + "/" + action, { method: "POST" });
+      const endpoint = action === "cancel"
+        ? "/world/residences/me/transfers/" + transfer.id + "/cancel"
+        : "/world/residences/transfers/" + transfer.id + "/" + action;
+      await api(endpoint, { method: "POST" });
       setNotice(action === "accept" ? "Home ownership transferred successfully." : "Home transfer invitation " + (action === "decline" ? "declined." : "cancelled."));
       await refreshTransfers();
       if (action === "accept") await refreshHomeSettings();
