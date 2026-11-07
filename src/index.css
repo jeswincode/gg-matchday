@@ -2561,3 +2561,20 @@ textarea:focus {
  .gg-world-moderation-filter select { width:100%; }
  .gg-world-moderation-reports>div { align-items:flex-start; flex-direction:column; gap:2px; }
 }
+
+/* Consent-based Original GG home ownership transfer controls */
+.gg-access-transfer { display:grid; gap:12px; margin-top:20px; padding:16px; border:1px solid var(--border,#343844); border-radius:14px; background:rgba(100,100,130,.07); }
+.gg-access-transfer>div:first-child p { margin:6px 0 0; color:var(--text-secondary,#9298a8); font-size:13px; line-height:1.5; }
+.gg-access-transfer>label { color:var(--text-secondary,#9298a8); font-size:13px; }
+.gg-access-transfer>input { width:100%; padding:10px 12px; border:1px solid var(--border,#343844); border-radius:9px; background:var(--surface,#151922); color:var(--text,#f4f5f8); }
+.gg-access-transfer-list { display:grid; gap:8px; }
+.gg-access-transfer-actions { display:flex; gap:8px; }
+.gg-access-transfer .gg-access-visitor>button,
+.gg-access-transfer-actions button { padding:7px 10px; border:1px solid var(--border,#343844); border-radius:8px; background:var(--surface,#151922); color:var(--text,#f4f5f8); }
+.gg-access-transfer .gg-access-visitor>button:first-child,
+.gg-access-transfer-actions button:first-child { border-color:rgba(123,93,170,.65); }
+@media(max-width:560px) {
+ .gg-access-transfer .gg-access-visitor { align-items:flex-start; flex-direction:column; gap:8px; }
+ .gg-access-transfer-actions { width:100%; }
+ .gg-access-transfer-actions button { flex:1; }
+}
