@@ -154,12 +154,22 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         g.rect(leftArmX,14+jump+leftLift,3,7,skin);g.rect(leftArmX-1,12+jump+leftLift,4,3,skin);
         g.rect(rightArmX,14+jump+rightLift,3,7,skin);g.rect(rightArmX-1,12+jump+rightLift,4,3,skin);
       } else if (seated) {
-        // Relaxed hands rest beside the hips; legs extend forward and slightly
-        // apart so the footballer visibly sits on the floating profile button.
-        g.rect(leftArmX-1,17+jump,3,6,skin);
-        g.rect(leftArmX-2,21+jump,4,2,skin);
-        g.rect(rightArmX+1,17+jump,3,6,skin);
-        g.rect(rightArmX+1,21+jump,4,2,skin);
+        // Reclined Pip-style seat: shoulders lean back and both palms brace
+        // against the avatar rim, leaving the hips planted on the icon.
+        g.rect(bodyLeft-3,17+jump,3,5,skin);
+        g.rect(bodyLeft-5,21+jump,4,2,skin);
+        g.rect(bodyLeft-7,23+jump,4,2,skin);
+        g.rect(bodyLeft+bodyWidth,17+jump,3,5,skin);
+        g.rect(bodyLeft+bodyWidth+2,21+jump,4,2,skin);
+        g.rect(bodyLeft+bodyWidth+3,23+jump,4,2,skin);
+      } else if (safeMotion === "juggle") {
+        const handLift = [0,-1,-2,-1,0,1,0,-1][frame%8];
+        g.rect(leftArmX-1,17+jump+handLift,3,7,skin);
+        g.rect(rightArmX+1,17+jump-handLift,3,7,skin);
+      } else if (safeMotion === "stepover" || safeMotion === "rainbow") {
+        const balance = [0,-1,-2,-1,0,1,0,-1][frame%8];
+        g.rect(leftArmX-1,15+jump+balance,3,8,skin);
+        g.rect(rightArmX+1,15+jump-balance,3,8,skin);
       } else {
         g.stamp((l)=>l.rect(leftArmX,16+jump+walkingLeftArm+idleFidget,3,8,skin));
         g.stamp((l)=>l.rect(rightArmX,16+jump+walkingRightArm-idleFidget,3,8,skin));
@@ -168,13 +178,24 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
       const leftLegX = bodyLeft+1;
       const rightLegX = bodyLeft+bodyWidth-4;
       if (seated) {
+        const seatedKick = safeMotion === "juggle" ? [0,0,-1,-2,-1,0,0,0][frame%8] : 0;
+        // Shorts sit over the avatar; knees extend forward and slightly apart.
         g.rect(bodyLeft-2,21+jump,bodyWidth+4,3,kit);
-        g.rect(bodyLeft-4,23+jump,7,3,skin);
-        g.rect(bodyLeft+bodyWidth-3,23+jump,7,3,skin);
-        g.rect(bodyLeft-6,26+jump,7,2,skin);
-        g.rect(bodyLeft+bodyWidth-2,26+jump,7,2,skin);
-        g.rect(bodyLeft-7,28+jump,8,2,boot);
-        g.rect(bodyLeft+bodyWidth-2,28+jump,8,2,boot);
+        g.rect(bodyLeft-4,23+jump,7,2,skin);
+        g.rect(bodyLeft+bodyWidth-3,23+jump,7,2,skin);
+        g.rect(bodyLeft-6,25+jump+seatedKick,8,2,skin);
+        g.rect(bodyLeft+bodyWidth-2,25+jump,8,2,skin);
+        g.rect(bodyLeft-8,27+jump+seatedKick,8,2,boot);
+        g.rect(bodyLeft+bodyWidth,27+jump,8,2,boot);
+      } else if (safeMotion === "juggle" || safeMotion === "stepover" || safeMotion === "rainbow") {
+        const trickLift = safeMotion === "juggle"
+          ? [0,-1,-3,-4,-2,0,1,0][frame%8]
+          : safeMotion === "stepover" ? [0,-1,-2,-1,0,1,2,1][frame%8]
+            : [0,-2,-4,-2,1,3,0,-1][frame%8];
+        g.rect(leftLegX,25+jump,3,5,skin);
+        g.rect(leftLegX-2,29+jump,5,2,boot);
+        g.rect(rightLegX,25+jump+trickLift,3,5,skin);
+        g.rect(rightLegX-2,29+jump+trickLift,6,2,boot);
       } else if (safeMotion === "kick") {
         const swing = [0,-1,-2,-4,-2,0][frame%6];
         const kickX = safeDirection === "left" ? leftLegX : rightLegX;
@@ -188,6 +209,18 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         g.rect(rightLegX,25+jump+rightLegStep,3,5,skin);
         g.rect(leftLegX-2,29+jump+leftLegStep,5,2,boot);
         g.rect(rightLegX-1,29+jump+rightLegStep,5,2,boot);
+      }
+
+      if (["juggle","stepover","rainbow"].includes(safeMotion)) {
+        const ballX = safeMotion === "rainbow" ? [25,23,20,17,14,11,8,6][frame%8]
+          : safeMotion === "stepover" ? [24,22,20,18,20,22,24,22][frame%8]
+            : [25,23,20,17,15,17,20,23][frame%8];
+        const ballY = safeMotion === "rainbow" ? [23,17,10,5,7,13,20,24][frame%8]
+          : safeMotion === "stepover" ? [27,26,25,27,28,27,26,27][frame%8]
+            : [23,18,13,10,12,16,21,24][frame%8];
+        g.stamp((l)=>l.ell(ballX,ballY,2,2,"#f5f4ed"));
+        g.rect(ballX-1,ballY,3,1,"#26303c");
+        g.rect(ballX,ballY-1,1,3,"#26303c");
       }
 
       const image = new ImageData(N,N);
