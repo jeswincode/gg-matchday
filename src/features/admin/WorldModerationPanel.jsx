@@ -108,21 +108,23 @@ export default function WorldModerationPanel() {
                     placeholder="Optional moderation note"
                   />
                 </label>
-                {status !== "resolved" && (
-                  <div className="gg-world-moderation-actions">
-                    <button type="button" className="danger-button" disabled={Boolean(busyId)} onClick={() => review(message, "hide")}>
-                      {busyId === message.id ? "Saving…" : "Hide message"}
-                    </button>
-                    <button type="button" className="save-button" disabled={Boolean(busyId)} onClick={() => review(message, "dismiss")}>
-                      Dismiss reports
-                    </button>
-                    {message.moderationStatus === "hidden" && (
-                      <button type="button" className="approve-button" disabled={Boolean(busyId)} onClick={() => review(message, "restore")}>
-                        Restore message
+                <div className="gg-world-moderation-actions">
+                  {status !== "resolved" && (
+                    <>
+                      <button type="button" className="danger-button" disabled={Boolean(busyId)} onClick={() => review(message, "hide")}>
+                        {busyId === message.id ? "Saving…" : "Hide message"}
                       </button>
-                    )}
-                  </div>
-                )}
+                      <button type="button" className="save-button" disabled={Boolean(busyId)} onClick={() => review(message, "dismiss")}>
+                        Dismiss reports
+                      </button>
+                    </>
+                  )}
+                  {message.moderationStatus === "hidden" && (
+                    <button type="button" className="approve-button" disabled={Boolean(busyId)} onClick={() => review(message, "restore")}>
+                      Restore message
+                    </button>
+                  )}
+                </div>
               </article>
             ))}
           </div>
