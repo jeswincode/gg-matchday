@@ -111,6 +111,10 @@ before(async () => {
   await clubsConnection.openUri(uri, { dbName: "clubs_residence_transfer_test" });
   await Promise.all([User, Player, PlayerResidence, ResidenceTransfer].map((model) => model.init()));
 
+  server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.on("listening", resolve));
+  origin = "http://127.0.0.1:" + server.address().port;
+
   await createIdentity("owner", "Transfer Owner");
   await createIdentity("recipient", "Transfer Recipient");
   await createIdentity("outsider", "Linked Outsider");
@@ -119,10 +123,6 @@ before(async () => {
   await createIdentity("customised", "Customised Home Recipient");
   await createIdentity("declineRecipient", "Decline Recipient");
   await createIdentity("cancelRecipient", "Cancel Recipient");
-
-  server = app.listen(0, "127.0.0.1");
-  await new Promise((resolve) => server.on("listening", resolve));
-  origin = "http://127.0.0.1:" + server.address().port;
 }, { timeout: 120000 });
 
 after(async () => {
