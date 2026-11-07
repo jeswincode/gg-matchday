@@ -4,8 +4,11 @@ import { randomInt, randomUUID } from "node:crypto";
 import { normalizeChallengeInput, simulateChallengeRun } from "../../shared/trainingChallengeEngine.js";
 import { requireAuth, requireOriginalGGAccess } from "../middleware/auth.js";
 import { createPublicWorldMapProjection } from "../services/worldMapProjection.js";
+import { isVerifiedGmailAddress } from "../services/worldAccessPolicy.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import Player from "../models/Player.js";
+import User from "../models/User.js";
+import ResidenceTransfer from "../models/clubs/ResidenceTransfer.js";
 import Club from "../models/clubs/Club.js";
 import ClubGround from "../models/clubs/ClubGround.js";
 import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
@@ -818,6 +821,225 @@ router.patch("/residences/me/access", async (req, res, next) => {
     ).select("name privacy visitorPlayerIds").lean();
     return res.json({ success: true, residence: { name: home.name, privacy: home.privacy, visitorPlayerIds: (home.visitorPlayerIds || []).map(String) } });
   } catch (error) { return next(error); }
+});
+
+
+function isReplaceableStarterResidence(home) {
+  if (!home) return true;
+  if (Number(home.level || 1) > 1 || Number(home.furnishingVersion || 1) > 1) return false;
+  const rooms = Array.isArray(home.interior?.rooms) ? home.interior.rooms : [];
+  return rooms.every((room) => !Array.isArray(room.furniture) || room.furniture.length === 0);
+}
+
+router.get("/residences/me/transfers", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  try {
+    const now = new Date();
+    await ResidenceTransfer.updateMany(
+      {
+        $or: [{ fromPlayerId: playerId }, { toPlayerId: playerId }],
+        status: "pending",
+        expiresAt: { $lte: now },
+      },
+      { $set: { status: "expired", respondedAt: now } },
+    );
+    const transfers = await ResidenceTransfer.find({
+      $or: [{ fromPlayerId: playerId }, { toPlayerId: playerId }],
+    }).sort({ createdAt: -1 }).limit(30).lean();
+    const otherIds = [...new Set(transfers.map((item) =>
+      String(item.fromPlayerId) === String(playerId) ? String(item.toPlayerId) : String(item.fromPlayerId)
+    ))].map((id) => new mongoose.Types.ObjectId(id));
+    const [players, avatars] = await Promise.all([
+      Player.find({ _id: { $in: otherIds } }).select("name").lean(),
+      PlayerAvatar.find({ playerId: { $in: otherIds } }).select("playerId displayName").lean(),
+    ]);
+    const names = new Map(players.map((item) => [String(item._id), item.name]));
+    const displayNames = new Map(avatars.map((item) => [String(item.playerId), item.displayName]));
+    return res.json({
+      transfers: transfers.map((item) => {
+        const incoming = String(item.toPlayerId) === String(playerId);
+        const otherId = incoming ? String(item.fromPlayerId) : String(item.toPlayerId);
+        return {
+          id: String(item._id),
+          role: incoming ? "incoming" : "outgoing",
+          otherPlayerId: otherId,
+          otherPlayerName: displayNames.get(otherId) || names.get(otherId) || "GG Player",
+          status: item.status,
+          createdAt: item.createdAt,
+          expiresAt: item.expiresAt,
+          respondedAt: item.respondedAt || null,
+        };
+      }),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/residences/me/transfers", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const fromPlayerId = linkedPlayerId(req, res);
+  if (!fromPlayerId) return;
+  const toPlayerId = String(req.body?.toPlayerId || "").trim();
+  if (!mongoose.isValidObjectId(toPlayerId) || toPlayerId === String(fromPlayerId)) {
+    return res.status(400).json({ message: "Choose another valid player to receive your home." });
+  }
+  try {
+    const [residence, recipient, recipientAccount] = await Promise.all([
+      PlayerResidence.findOne({ ownerPlayerId: fromPlayerId }).lean(),
+      Player.findById(toPlayerId).select("name").lean(),
+      User.findOne({ playerProfile: toPlayerId }).select("email emailVerified").lean(),
+    ]);
+    if (!residence) return res.status(404).json({ message: "Your residence has not been created yet." });
+    if (!recipient) return res.status(404).json({ message: "The selected player is no longer available." });
+    if (!recipientAccount || !isVerifiedGmailAddress(recipientAccount.email, recipientAccount.emailVerified)) {
+      return res.status(409).json({ message: "Home transfers can only be sent to a player linked to a verified Gmail account." });
+    }
+    const recipientHome = await PlayerResidence.findOne({ ownerPlayerId: toPlayerId }).lean();
+    if (!isReplaceableStarterResidence(recipientHome)) {
+      return res.status(409).json({ message: "This player already has a customised or upgraded home. They must keep it; transfers can only replace an untouched starter home." });
+    }
+    const now = new Date();
+    await ResidenceTransfer.updateMany(
+      { status: "pending", expiresAt: { $lte: now }, $or: [{ fromPlayerId }, { toPlayerId }] },
+      { $set: { status: "expired", respondedAt: now } },
+    );
+    const pending = await ResidenceTransfer.findOne({
+      status: "pending",
+      expiresAt: { $gt: now },
+      $or: [{ residenceId: residence._id }, { toPlayerId }],
+    }).lean();
+    if (pending) return res.status(409).json({ message: "This home or recipient already has a pending transfer invitation." });
+    const transfer = await ResidenceTransfer.create({
+      residenceId: residence._id,
+      fromPlayerId,
+      toPlayerId,
+      status: "pending",
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+    });
+    return res.status(201).json({
+      success: true,
+      transfer: {
+        id: String(transfer._id),
+        toPlayerId,
+        recipientName: recipient.name,
+        status: transfer.status,
+        expiresAt: transfer.expiresAt,
+      },
+    });
+  } catch (error) {
+    if (error?.code === 11000) return res.status(409).json({ message: "A home transfer invitation is already pending." });
+    return next(error);
+  }
+});
+
+router.post("/residences/transfers/:transferId/accept", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.transferId)) return res.status(400).json({ message: "Invalid home transfer invitation." });
+  const recipient = await Player.findById(playerId).select("name").lean();
+  if (!recipient) return res.status(404).json({ message: "Your GG player profile could not be found." });
+  const session = await getClubsConnection().startSession();
+  try {
+    let result = null;
+    await session.withTransaction(async () => {
+      const now = new Date();
+      const transfer = await ResidenceTransfer.findOne({
+        _id: req.params.transferId,
+        toPlayerId: playerId,
+        status: "pending",
+      }).session(session);
+      if (!transfer) {
+        result = { errorStatus: 404, message: "This home transfer invitation is no longer pending." };
+        return;
+      }
+      if (transfer.expiresAt <= now) {
+        transfer.status = "expired";
+        transfer.respondedAt = now;
+        await transfer.save({ session });
+        result = { errorStatus: 410, message: "This home transfer invitation has expired." };
+        return;
+      }
+      const residence = await PlayerResidence.findOne({
+        _id: transfer.residenceId,
+        ownerPlayerId: transfer.fromPlayerId,
+      }).session(session);
+      if (!residence) {
+        transfer.status = "cancelled";
+        transfer.respondedAt = now;
+        await transfer.save({ session });
+        result = { errorStatus: 409, message: "The current owner no longer owns this home." };
+        return;
+      }
+      const existingHome = await PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session);
+      if (!isReplaceableStarterResidence(existingHome?.toObject?.() || existingHome)) {
+        result = { errorStatus: 409, message: "Your current home is customised or upgraded and cannot be replaced by this transfer." };
+        return;
+      }
+      if (existingHome) await PlayerResidence.deleteOne({ _id: existingHome._id }).session(session);
+      residence.ownerPlayerId = playerId;
+      residence.name = (recipient.name || "GG Player") + "'s Home";
+      residence.privacy = "private";
+      residence.visitorPlayerIds = [];
+      await residence.save({ session });
+      transfer.status = "accepted";
+      transfer.respondedAt = now;
+      await transfer.save({ session });
+      result = {
+        success: true,
+        message: "Home ownership transferred. Your previous untouched starter home was replaced.",
+        residence: { ownerPlayerId: String(playerId), name: residence.name, level: residence.level },
+      };
+    });
+    if (result?.errorStatus) return res.status(result.errorStatus).json({ message: result.message });
+    return res.json(result || { success: true });
+  } catch (error) {
+    if (error?.code === 11000) return res.status(409).json({ message: "You already own a home. Your current home must be an untouched starter home before accepting this transfer." });
+    return next(error);
+  } finally {
+    await session.endSession();
+  }
+});
+
+router.post("/residences/transfers/:transferId/decline", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.transferId)) return res.status(400).json({ message: "Invalid home transfer invitation." });
+  try {
+    const now = new Date();
+    const transfer = await ResidenceTransfer.findOneAndUpdate(
+      { _id: req.params.transferId, toPlayerId: playerId, status: "pending" },
+      { $set: { status: "declined", respondedAt: now } },
+      { returnDocument: "after", runValidators: true },
+    ).lean();
+    if (!transfer) return res.status(404).json({ message: "This home transfer invitation is no longer pending." });
+    return res.json({ success: true, status: transfer.status });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post("/residences/me/transfers/:transferId/cancel", async (req, res, next) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = linkedPlayerId(req, res);
+  if (!playerId) return;
+  if (!mongoose.isValidObjectId(req.params.transferId)) return res.status(400).json({ message: "Invalid home transfer invitation." });
+  try {
+    const now = new Date();
+    const transfer = await ResidenceTransfer.findOneAndUpdate(
+      { _id: req.params.transferId, fromPlayerId: playerId, status: "pending" },
+      { $set: { status: "cancelled", respondedAt: now } },
+      { returnDocument: "after", runValidators: true },
+    ).lean();
+    if (!transfer) return res.status(404).json({ message: "This home transfer invitation is no longer pending." });
+    return res.json({ success: true, status: transfer.status });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 router.patch("/club-grounds/:clubId/manage", async (req, res, next) => {
