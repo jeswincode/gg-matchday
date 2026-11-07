@@ -316,7 +316,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
     if(reason)setActiveItem(reason);
     setScenePose("standing");
     if(distance<2){
-      playDialogue(action.dialogue,reason);
+      playDialogue(action.dialogue,reason||"Let's have a look around.");
       setScenePose(action.pose||"standing");
       setMotion(action.motion||"idle");
       if(action.duration>0)interactionTimer.current=window.setTimeout(()=>setMotion("idle"),action.duration);
@@ -335,7 +335,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
       if(t<1)walkFrame.current=window.requestAnimationFrame(frame);
       else{
         walkFrame.current=null;
-        playDialogue(action.dialogue,reason);
+        playDialogue(action.dialogue,reason||"Let's have a look around.");
         setScenePose(action.pose||"standing");
         setMotion(action.motion||"idle");
         if(action.duration>0)interactionTimer.current=window.setTimeout(()=>setMotion("idle"),action.duration);
