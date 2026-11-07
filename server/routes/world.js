@@ -845,6 +845,8 @@ function isReplaceableStarterResidence(home, expectedName = "") {
     (Array.isArray(home.visitorPlayerIds) && home.visitorPlayerIds.length > 0)
   ) return false;
   const rooms = Array.isArray(home.interior?.rooms) ? home.interior.rooms : [];
+  const starterRoomIds = ["lounge", "trophy-room", "training-corner"];
+  if (rooms.length !== starterRoomIds.length || rooms.some((room, index) => room.id !== starterRoomIds[index])) return false;
   return rooms.every((room) => !Array.isArray(room.furniture) || room.furniture.length === 0);
 }
 
