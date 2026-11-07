@@ -5,6 +5,7 @@ import { api } from "../lib/api";
 import "./original-gg.css";
 import { G, Layer, N, rgba } from "./companion/leaflet-pip-engine.js";
 import { normalizeCharacterDirection, normalizeCharacterMotion, getCharacterAnimationProfile, getCharacterMotionDuration } from "../../shared/characterAnimation.js";
+import { findWorldWalkPath, worldPathLength, worldPathPosition } from "../../shared/worldNavigation.js";
 import TrainingChallenge from "./TrainingChallenge.jsx";
 import WorldEconomyPanel from "./WorldEconomyPanel.jsx";
 import WorldSocialPanel from "./WorldSocialPanel.jsx";
@@ -1009,28 +1010,43 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     if(walkFrame.current)window.cancelAnimationFrame(walkFrame.current);
     if(idleSkillReturnTimer.current)window.clearTimeout(idleSkillReturnTimer.current);
     const start={...(playerPositionRef.current||playerPosition)};
-    const destination={x:Math.max(30,Math.min(1770,target.x)),y:Math.max(30,Math.min(1170,target.y))};
-    const dx=destination.x-start.x,dy=destination.y-start.y;
-    const distance=Math.hypot(dx,dy);
-    if(distance<2){setCharacterMotion("idle");return;}
-    if(Math.abs(dx)>Math.abs(dy))setCharacterDirection(dx<0?"left":"right");
-    else setCharacterDirection(dy<0?"up":"down");
+    const path=findWorldWalkPath(start,target,mapPlaces);
+    if(!path||path.length<2){setCharacterMotion("idle");return;}
+    const totalDistance=worldPathLength(path);
+    if(totalDistance<2){setCharacterMotion("idle");return;}
     setCharacterMotion("walking");
     if(motionTimer.current)window.clearTimeout(motionTimer.current);
-    const duration=Math.min(1500,Math.max(300,distance*.52));
-    let began=null;
+
+    // Keep movement at one world-space speed across short and long journeys.
+    // Only the direction changes at path corners; the sprite stays on the
+    // compositor through the same direct SVG transform used by Leaflet.
+    let previousAt=null;
+    let travelled=0;
+    let lastSegment=-1;
     const animate=(now)=>{
-      if(began===null)began=now;
-      const progress=Math.min(1,(now-began)/duration);
-      const eased=1-Math.pow(1-progress,3);
-      const position={x:Math.round(start.x+dx*eased),y:Math.round(start.y+dy*eased)};
+      if(previousAt!==null)travelled+=Math.min(50,Math.max(0,now-previousAt))*430/1000;
+      previousAt=now;
+      const point=worldPathPosition(path,travelled);
+      if(!point){walkFrame.current=null;setCharacterMotion("idle");return;}
+      if(point.segmentIndex!==lastSegment){
+        const from=path[point.segmentIndex];
+        const to=path[Math.min(path.length-1,point.segmentIndex+1)];
+        const dx=to.x-from.x,dy=to.y-from.y;
+        if(Math.abs(dx)>Math.abs(dy))setCharacterDirection(dx<0?"left":"right");
+        else if(Math.abs(dy)>0)setCharacterDirection(dy<0?"up":"down");
+        lastSegment=point.segmentIndex;
+      }
+      const position={x:Math.round(point.x),y:Math.round(point.y)};
       playerPositionRef.current=position;
       playerMarkerRef.current?.setAttribute("transform","translate("+position.x+" "+position.y+") scale(.6 1)");
-      if(progress<1)walkFrame.current=window.requestAnimationFrame(animate);
-      else {
+      if(travelled<totalDistance)walkFrame.current=window.requestAnimationFrame(animate);
+      else{
         walkFrame.current=null;
-        setPlayerPosition(position);
-        try { window.localStorage.setItem("gg-v4-world-position:"+(playerUid||"visitor"),JSON.stringify(position)); } catch { /* Position remains in this visit. */ }
+        const destination={x:Math.round(path[path.length-1].x),y:Math.round(path[path.length-1].y)};
+        playerPositionRef.current=destination;
+        playerMarkerRef.current?.setAttribute("transform","translate("+destination.x+" "+destination.y+") scale(.6 1)");
+        setPlayerPosition(destination);
+        try { window.localStorage.setItem("gg-v4-world-position:"+(playerUid||"visitor"),JSON.stringify(destination)); } catch { /* Position remains in this visit. */ }
         setCharacterMotion("idle");
       }
     };
@@ -1080,16 +1096,8 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     }
   }
   function movePlayer(dx,dy){
-    setPlayerPosition((p)=>{
-      const next={x:Math.max(30,Math.min(1770,p.x+dx)),y:Math.max(30,Math.min(1170,p.y+dy))};
-      playerPositionRef.current=next;
-      return next;
-    });
-    if(Math.abs(dx)>Math.abs(dy))setCharacterDirection(dx<0?"left":"right");
-    else if(dy!==0)setCharacterDirection(dy<0?"up":"down");
-    setCharacterMotion("walking");
-    if(motionTimer.current)window.clearTimeout(motionTimer.current);
-    motionTimer.current=window.setTimeout(()=>setCharacterMotion("idle"),190);
+    const current=playerPositionRef.current||playerPosition;
+    walkPlayerTo({x:current.x+dx,y:current.y+dy});
   }
   async function sendCharacterInteraction(type){
     if(!selectedPlayer)return;
