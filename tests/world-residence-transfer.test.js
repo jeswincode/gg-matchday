@@ -264,6 +264,10 @@ test("a recipient who upgrades their starter home after invitation cannot have i
   assert.ok(await PlayerResidence.exists({ _id: recipientHome._id, ownerPlayerId: players.declineRecipient._id }));
   assert.ok(await PlayerResidence.exists({ _id: ownerHome._id, ownerPlayerId: players.owner._id }));
   assert.equal((await ResidenceTransfer.findById(invite.data.transfer.id).lean()).status, "pending");
+  const cancelled = await request("/world/residences/me/transfers/" + invite.data.transfer.id + "/cancel", {
+    token: "owner", method: "POST",
+  });
+  assert.equal(cancelled.status, 200);
 });
 
 test("expired invitations are marked expired and cannot be accepted", async () => {
