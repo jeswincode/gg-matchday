@@ -10,7 +10,7 @@ export function getClubsConnection() {
   return clubsConnection;
 }
 
-export async function connectClubsDatabase() {
+export async function connectClubsDatabase({ databaseNameOverride } = {}) {
   const uri = String(process.env.CLUBS_MONGODB_URI || "").trim();
 
   if (!uri) {
@@ -24,7 +24,7 @@ export async function connectClubsDatabase() {
     return connection;
   }
 
-  const dbName = String(process.env.CLUBS_DB_NAME || "").trim();
+  const dbName = String(databaseNameOverride || process.env.CLUBS_DB_NAME || "").trim();
 
   await connection.openUri(uri, {
     ...(dbName ? { dbName } : {}),
