@@ -137,3 +137,14 @@ The current V4 world already provides a draggable/zoomable football-city map, a 
 - Ordinary content-card clicks cannot pull Pip away from the profile or navigation resting anchors; the explicit Explore action remains available for roaming.
 - Anchored idle behavior stays front-facing and prevents cheer/dance frames that lift his feet; seated idle frames also suppress the one-pixel body bob so the boots stay level on the avatar.
 - The Matchday E2E test now checks the seated profile pose, actual foot-to-avatar alignment, standing navigation foot contact, and that switching between navigation tabs enters the walking phase. These tests are committed but have not yet been run in a fresh deployed preview.
+
+
+### Community moderation follow-through — 7 November 2026
+
+- Added an authenticated administrator-only Original GG moderation queue at `/admin/gg/world-messages`, with open, resolved and all-report filters.
+- Administrators can hide a message, restore a previously hidden message, or dismiss its reports without changing the message. Decisions, reviewer identity, timestamp and optional note are retained on report records.
+- The queue groups multiple reports against the same message and shows the message, location, sender, moderation state and individual report reasons.
+- The player-facing live chat now removes hidden messages and inserts restored messages from the server event stream.
+- Added an isolated integration test suite using separate in-memory Core and Clubs databases. It covers admin-only access, hide/restore/dismiss lifecycle, audit notes and invalid moderation requests.
+- Render inspection found a dedicated V4 service on `v4/development`, but its last successful deployment is from 5 November and is older than the current branch. Its logs confirm Core and Clubs connections and `V4_PREVIEW_MODE`, but the deployed source explicitly shares the existing V3 Core and Clubs databases. No real database writes or environment changes were made during this audit.
+- Render's available connection exposes service details, deploy history and logs but does not expose a read-only environment-variable-name listing. V4 backend promotion remains blocked until separate staging database targets are confirmed.
