@@ -29,6 +29,9 @@ export default function WorldSocialPanel({ playerId, locationId = "city-plaza" }
     if (type === "social:message_hidden") {
       setMessages((current) => current.filter((item) => item.id !== payload?.id));
     }
+    if (type === "social:message_restored" && payload?.locationId === locationId) {
+      setMessages((current) => current.some((item) => item.id === payload.id) ? current : [...current, payload].slice(-60));
+    }
     if (type === "social:interaction" && String(payload?.toPlayerId) === String(playerId)) {
       setIncoming((current) => [{ ...payload, receivedAt: Date.now() }, ...current].slice(0, 4));
       setNotice(payload.fromName + " sent you a " + payload.type.replace("-", " ") + ".");
