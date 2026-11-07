@@ -176,3 +176,15 @@ The current V4 world already provides a draggable/zoomable football-city map, a 
 - Security audit: `GET /world/public-map` is a static geometry-only projection; `router.use(requireAuth, requireOriginalGGAccess)` protects private World routes. Production access requires a verified `@gmail.com` Firebase identity matching the backend account email and an administrator-linked player profile. The policy rejects unverified, non-Gmail, mismatched and unlinked identities.
 - PR #152, “Single-World Global Map and admin-linked Gmail access”, is already merged into the repository history (merge commit `e60d27435f69f7ac92f88cd24dd4dced5e264070`, merged 5 November). It cannot truthfully be described as still open or held for approval. No new merge or migration was performed in this pass.
 - PR #152's comments record Vercel's historical free-tier deployment limit (`api-deployments-free-per-day`, more than 100 deployments/day). The current V4 preview for the latest companion commit is READY, so that earlier quota failure is not the present preview's build status.
+
+
+### Walkable room interactions and training arcade polish — 7 November 2026
+
+- Room props now resolve to distinct football actions and short, three-line character dialogue sequences: ball props trigger juggling; goals trigger shooting/kicking; cones and agility ladders trigger stepovers; supporter banners trigger a wave; trophy displays trigger a celebration; benches and sofas retain the seated pose.
+- Scoreboards are treated separately from goal nets: scoreboards trigger a celebration rather than a shooting action.
+- Dialogue advances in timed beats after the character reaches the selected object. A new movement/interaction cancels the previous sequence, and the sequence timer is cleared when the room unmounts. Empty-floor movement receives a fresh exploration line rather than leaving stale dialogue on screen.
+- Walkable interiors now include an on-screen directional pad on mobile. The existing tap-to-walk and WASD/arrow-key controls remain available. Touch buttons respect the active neon theme and reduced-motion preference.
+- The verified Ball Control Challenge now renders a rotating black-and-white football instead of a generic gold circular player token. Its pitch grid, boundary, label, best-score panel, controls and call-to-action inherit the Dark violet / Gold green neon theme; the football pitch itself remains football-green.
+- Added unit coverage for room action profiles and dialogue copy, plus Playwright coverage for the HQ dialogue sequence and mobile directional movement.
+- The Vercel preview for the current V4 branch head is READY. The deployment's built OriginalGGWorld chunk was fetched and checked to contain the new dialogue sequence, football skill profiles, mobile walk controls and dialogue accessibility markup; the corresponding CSS chunk contains the touch-control and theme styles.
+- Vercel build success confirms the frontend compiles. GitHub Actions unit/E2E suites have not yet reported a completed run for this pass, so those behavioral checks remain pending execution.
