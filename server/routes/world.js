@@ -834,9 +834,16 @@ router.patch("/residences/me/access", async (req, res, next) => {
 });
 
 
-function isReplaceableStarterResidence(home) {
+function isReplaceableStarterResidence(home, expectedName = "") {
   if (!home) return true;
-  if (Number(home.level || 1) > 1 || Number(home.furnishingVersion || 1) > 1) return false;
+  if (
+    Number(home.level || 1) > 1 ||
+    Number(home.furnishingVersion || 1) > 1 ||
+    (expectedName && home.name !== expectedName) ||
+    (home.plotId && String(home.plotId).trim()) ||
+    (home.privacy || "private") !== "private" ||
+    (Array.isArray(home.visitorPlayerIds) && home.visitorPlayerIds.length > 0)
+  ) return false;
   const rooms = Array.isArray(home.interior?.rooms) ? home.interior.rooms : [];
   return rooms.every((room) => !Array.isArray(room.furniture) || room.furniture.length === 0);
 }
@@ -908,7 +915,7 @@ router.post("/residences/me/transfers", async (req, res, next) => {
       return res.status(409).json({ message: "Home transfers can only be sent to a player linked to a verified Gmail account." });
     }
     const recipientHome = await PlayerResidence.findOne({ ownerPlayerId: toPlayerId }).lean();
-    if (!isReplaceableStarterResidence(recipientHome)) {
+    if (!isReplaceableStarterResidence(recipientHome, recipient.name + "'s Home")) {
       return res.status(409).json({ message: "This player already has a customised or upgraded home. They must keep it; transfers can only replace an untouched starter home." });
     }
     const now = new Date();
@@ -985,7 +992,7 @@ router.post("/residences/transfers/:transferId/accept", async (req, res, next) =
         return;
       }
       const existingHome = await PlayerResidence.findOne({ ownerPlayerId: playerId }).session(session);
-      if (!isReplaceableStarterResidence(existingHome?.toObject?.() || existingHome)) {
+      if (!isReplaceableStarterResidence(existingHome?.toObject?.() || existingHome, recipient.name + "'s Home")) {
         result = { errorStatus: 409, message: "Your current home is customised or upgraded and cannot be replaced by this transfer." };
         return;
       }
