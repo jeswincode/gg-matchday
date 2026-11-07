@@ -127,6 +127,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     manuallyPlaced: false,
     awaitingProfileAnchor: false,
     bounced: false,
+    landingFeedbackPending: false,
     clingUntil: 0,
     clingSide: 1,
     lastFrame: 0,
@@ -376,7 +377,11 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     pose(state, "idle", state.ground.kind === "profile" || state.ground.kind === "nav" ? "down" : undefined);
     state.nextAction = now + 3500 + Math.random() * 5500;
     state.bounced = false;
-  }, [measureBounds, pose, rectForGround, setPhase]);
+    if (state.landingFeedbackPending) {
+      state.landingFeedbackPending = false;
+      showBubble("10 out of 10 landing!", 2200);
+    }
+  }, [measureBounds, pose, rectForGround, setPhase, showBubble]);
 
   const moveTo = useCallback((ground, x, options = {}) => {
     const state = physicsRef.current;
@@ -525,7 +530,14 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     // anchors. Only wave while perched: cheer/dance frames lift the legs and
     // make the footballer look as though he is floating off the surface.
     if (state.ground?.kind === "profile" || state.ground?.kind === "nav") {
-      if (Math.random() < 0.12) {
+      const profileSeat = state.ground.kind === "profile";
+      const roll = Math.random();
+      if (profileSeat && roll < 0.34) {
+        pose(state, "juggle", "down");
+        state.actionUntil = now + 1900;
+        state.nextAction = state.actionUntil;
+        if (Math.random() < 0.38) showBubble("Just keeping my touches sharp. ⚽", 1900);
+      } else if (roll < 0.43) {
         pose(state, "wave", "down");
         state.actionUntil = now + 900;
         state.nextAction = state.actionUntil;
@@ -535,21 +547,29 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         }
       } else {
         state.actionUntil = 0;
-        state.nextAction = now + 4200 + Math.random() * 3000;
+        state.nextAction = now + 3200 + Math.random() * 2600;
         pose(state, "idle", "down");
       }
       return;
     }
     const roll = Math.random();
-    if (roll < 0.2) {
-      const gestures = ["wave", "cheer", "dance"];
-      const gesture = gestures[Math.floor(Math.random() * gestures.length)];
+    if (roll < 0.46) {
+      const skills = ["juggle", "stepover", "rainbow", "kick"];
+      const gesture = skills[Math.floor(Math.random() * skills.length)];
       pose(state, gesture, state.direction);
-      state.actionUntil = now + (gesture === "dance" ? 1500 : 900);
+      state.actionUntil = now + (gesture === "stepover" ? 1680 : gesture === "rainbow" ? 1840 : gesture === "juggle" ? 1920 : 990);
       state.nextAction = state.actionUntil;
-      if (gesture === "wave" && Math.random() < 0.45) {
-        showBubble("Hey! Over here.", 1900);
+      if (Math.random() < 0.24) {
+        showBubble(["A few keepy-uppies! ⚽", "Little stepover practice.", "Rainbow flick!"][Math.floor(Math.random() * 3)], 1900);
       }
+      return;
+    }
+    if (roll < 0.58) {
+      const gesture = Math.random() < 0.6 ? "wave" : "cheer";
+      pose(state, gesture, state.direction);
+      state.actionUntil = now + 950;
+      state.nextAction = state.actionUntil;
+      if (gesture === "wave" && Math.random() < 0.45) showBubble("Hey! Over here.", 1900);
       return;
     }
 
@@ -764,7 +784,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
 
     if (state.actionUntil && now >= state.actionUntil) {
       state.actionUntil = 0;
-      pose(state, "idle");
+      pose(state, "idle", state.ground?.kind === "profile" || state.ground?.kind === "nav" ? "down" : undefined);
     }
     if (state.phase === "idle" && now >= state.nextAction) {
       state.nextAction = now + 3500 + Math.random() * 5500;
@@ -1165,6 +1185,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     }
     const state = physicsRef.current;
     setDragging(false);
+    if (event.type === "pointercancel") state.landingFeedbackPending = false;
     const samples = drag.samples;
     const first = samples[0];
     const last = samples[samples.length - 1];
@@ -1177,6 +1198,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     state.ground = null;
     state.tween = null;
     state.bounced = false;
+    state.landingFeedbackPending = !cancelled;
     pose(state, "celebrating");
     window.setTimeout(() => { suppressClick.current = false; }, 120);
     wakeRef.current();
@@ -1253,6 +1275,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       return;
     }
     const now = performance.now();
+    state.landingFeedbackPending = false;
     state.tween = {
       fromX: state.x,
       fromY: state.y - 24,
