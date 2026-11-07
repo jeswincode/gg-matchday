@@ -185,6 +185,7 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
     if (!after) return 0;
     return Math.hypot(after.x - before.x, after.y - before.y);
   }, { timeout: 2500 }).toBeGreaterThan(55);
+  await expect(page.locator(".gg-companion-bubble")).toContainText("10 out of 10 landing!", { timeout: 7000 });
 });
 test("companion action menu supports right-click and opens Original GG", async ({ page }) => {
   await stubWorldApi(page);
