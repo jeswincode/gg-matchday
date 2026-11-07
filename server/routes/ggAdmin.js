@@ -1,6 +1,8 @@
 import express from "express";
 import mongoose from "mongoose";
 import Match from "../models/Match.js";
+import WorldMessage from "../models/clubs/WorldMessage.js";
+import WorldMessageReport from "../models/clubs/WorldMessageReport.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import { calculateGGParticipantRatings, calculateMatchRatings, normalizePerformanceCodes } from "../services/ratings/match.js";
 
@@ -232,5 +234,101 @@ router.post("/migration/:matchId", saveRatings);
 router.put("/migration/:matchId", saveRatings);
 
 router.post("/recalculate/:matchId/confirm", saveRatings);
+
+
+router.get("/world-messages", async (req, res) => {
+  try {
+    const requested = String(req.query.status || "open");
+    if (!["open", "resolved", "all"].includes(requested)) {
+      return res.status(400).json({ message: "Choose open, resolved or all moderation reports." });
+    }
+    const reportFilter = requested === "all" ? {} : { reviewStatus: requested };
+    const reports = await WorldMessageReport.find(reportFilter)
+      .sort({ createdAt: -1 })
+      .limit(400)
+      .lean();
+    const messageIds = [...new Set(reports.map((report) => String(report.messageId)))];
+    const messages = await WorldMessage.find({ _id: { $in: messageIds } }).lean();
+    const messagesById = new Map(messages.map((message) => [String(message._id), message]));
+    const grouped = new Map();
+    for (const report of reports) {
+      const key = String(report.messageId);
+      const message = messagesById.get(key);
+      if (!message) continue;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: key,
+          locationId: message.locationId,
+          senderPlayerId: String(message.senderPlayerId),
+          displayName: message.displayName,
+          text: message.text,
+          messageCreatedAt: message.createdAt,
+          expiresAt: message.expiresAt,
+          moderationStatus: message.moderationStatus,
+          reportCount: message.reportCount || 0,
+          reports: [],
+        });
+      }
+      grouped.get(key).reports.push({
+        id: String(report._id),
+        reporterPlayerId: String(report.playerId),
+        reason: report.reason,
+        reviewStatus: report.reviewStatus || "open",
+        resolution: report.resolution || null,
+        createdAt: report.createdAt,
+        reviewedAt: report.reviewedAt || null,
+        adminNote: report.adminNote || "",
+      });
+    }
+    return res.json({ messages: [...grouped.values()] });
+  } catch {
+    return res.status(500).json({ message: "Could not load World message moderation." });
+  }
+});
+
+router.patch("/world-messages/:messageId/moderation", async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.messageId)) {
+    return res.status(400).json({ message: "Invalid World message." });
+  }
+  const action = String(req.body?.action || "");
+  const note = String(req.body?.note || "").trim();
+  if (!["hide", "restore", "dismiss"].includes(action)) {
+    return res.status(400).json({ message: "Choose hide, restore or dismiss." });
+  }
+  if (note.length > 300) return res.status(400).json({ message: "Moderation notes must be 300 characters or fewer." });
+  try {
+    const message = await WorldMessage.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ message: "World message not found." });
+    if (action === "hide") message.moderationStatus = "hidden";
+    if (action === "restore") message.moderationStatus = "visible";
+    await message.save();
+    const resolution = action === "hide" ? "hidden" : action === "restore" ? "restored" : undefined;
+    await WorldMessageReport.updateMany(
+      { messageId: message._id, reviewStatus: "open" },
+      { $set: {
+        reviewStatus: "resolved",
+        ...(resolution ? { resolution } : {}),
+        reviewedBy: req.user?._id || null,
+        reviewedAt: new Date(),
+        adminNote: note,
+      } },
+    );
+    if (action === "hide") {
+      // Reuse the World event bus without exposing moderation tools to players.
+      const { publishWorldEvent } = await import("../services/worldRealtime.js");
+      publishWorldEvent("social:message_hidden", { id: String(message._id), locationId: message.locationId }, { locationId: "world" });
+    } else if (action === "restore") {
+      const { publishWorldEvent } = await import("../services/worldRealtime.js");
+      publishWorldEvent("social:message_restored", {
+        id: String(message._id), locationId: message.locationId,
+        senderPlayerId: String(message.senderPlayerId), displayName: message.displayName,
+        text: message.text, createdAt: message.createdAt,
+      }, { locationId: "world" });
+    }
+    return res.json({ success: true, action, moderationStatus: message.moderationStatus });
+  } catch {
+    return res.status(500).json({ message: "Could not apply the moderation decision." });
+  }
+});
 
 export default router;
