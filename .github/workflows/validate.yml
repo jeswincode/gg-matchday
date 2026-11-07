@@ -29,6 +29,7 @@ jobs:
       - run: node --check server/routes/worldEconomy.js
       - run: node --check server/services/worldProgression.js
       - run: node --check server/config/ggWorldRules.js
+      - run: node --check server/config/previewDatabaseGuard.js
       - run: node --check server/config/worldProgression.js
       - run: node --check scripts/resolve-mongodb-db-name.mjs
       - run: node --check scripts/parse-mongodb-uri.mjs
