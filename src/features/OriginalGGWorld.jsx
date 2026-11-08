@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRoomInteraction } from "../../shared/worldRoomInteractions.js";
+import { findRoomWalkPath, roomPathLength, roomPathPosition, roomObstaclesFromBoxes } from "../../shared/roomNavigation.js";
 import { useOriginalGGRealtime } from "./useOriginalGGRealtime";
 import { api } from "../lib/api";
 import "./original-gg.css";
@@ -262,6 +263,7 @@ function RoomTabs({rooms=[],activeIndex=0,onSelect}) {
 }
 
 function WalkableRoomScene({room,appearance,onOpenChat}) {
+  const sceneRef=useRef(null);
   const characterRef=useRef(null);
   const walkFrame=useRef(null);
   const idleTimer=useRef(null);
@@ -304,6 +306,29 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
     };
     advance();
   },[]);
+  const readRoomObstacles=useCallback(()=>{
+    const svg=sceneRef.current;
+    if(!svg)return [];
+    const boxes=[];
+    for(const item of svg.querySelectorAll("[data-room-item]")){
+      try{
+        const box=item.getBBox();
+        if(box.width>0&&box.height>0)boxes.push({x:box.x,y:box.y,width:box.width,height:box.height});
+      }catch{
+        // A detached or not-yet-painted SVG item is not a collision surface.
+      }
+    }
+    return roomObstaclesFromBoxes(boxes);
+  },[]);
+  const finishInteraction=useCallback((action,reason)=>{
+    playDialogue(action.dialogue,reason||"Let's have a look around.");
+    setScenePose(action.pose||"standing");
+    setMotion(action.motion||"idle");
+    if(action.duration>0)interactionTimer.current=window.setTimeout(()=>{
+      setMotion("idle");
+      setScenePose("standing");
+    },action.duration);
+  },[playDialogue]);
   const walkTo=useCallback((x,y,reason="",interaction={pose:"standing",motion:"idle",duration:0})=>{
     lastInput.current=performance.now();
     if(walkFrame.current!==null)window.cancelAnimationFrame(walkFrame.current);
@@ -312,38 +337,62 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
     dialogueSequence.current+=1;
     const action=interaction||{pose:"standing",motion:"idle",duration:0};
     const from={...position.current};
-    const to={x:Math.max(92,Math.min(1108,x)),y:Math.max(525,Math.min(660,y))};
-    const dx=to.x-from.x,dy=to.y-from.y,distance=Math.hypot(dx,dy);
+    const obstacles=readRoomObstacles();
+    const path=findRoomWalkPath(from,{x,y},obstacles);
     if(reason)setActiveItem(reason);
     setScenePose("standing");
-    if(distance<2){
-      playDialogue(action.dialogue,reason||"Let's have a look around.");
-      setScenePose(action.pose||"standing");
-      setMotion(action.motion||"idle");
-      if(action.duration>0)interactionTimer.current=window.setTimeout(()=>setMotion("idle"),action.duration);
+    if(!path){
+      setMotion("idle");
+      setLine("That way is blocked. Let's try another spot.");
       return;
     }
-    setDirection(Math.abs(dx)>Math.abs(dy)?(dx<0?"left":"right"):(dy<0?"up":"down"));
+    const totalDistance=roomPathLength(path);
+    if(totalDistance<2){
+      finishInteraction(action,reason);
+      return;
+    }
     setMotion("walking");
-    const duration=Math.min(1500,Math.max(280,distance*1.05));
-    let began=null;
-    const frame=(now)=>{
-      if(began===null)began=now;
-      const t=Math.min(1,(now-began)/duration),eased=1-Math.pow(1-t,3);
-      const next={x:from.x+dx*eased,y:from.y+dy*eased};
+
+    // The sprite follows the same smoothed path used for collision planning.
+    // A short acceleration and braking envelope gives each walk a little
+    // weight, while speed remains continuous through each turn.
+    let previousAt=null;
+    let elapsed=0;
+    let travelled=0;
+    let lastSegment=-1;
+    const animate=(now)=>{
+      if(previousAt!==null){
+        const delta=Math.min(40,Math.max(0,now-previousAt));
+        elapsed+=delta;
+        const point=roomPathPosition(path,travelled);
+        const remaining=point?Math.hypot(path[path.length-1].x-point.x,path[path.length-1].y-point.y):0;
+        const speed=238*Math.min(1,elapsed/180,Math.max(.12,remaining/95));
+        travelled=Math.min(totalDistance,travelled+speed*delta/1000);
+      }
+      previousAt=now;
+      const point=roomPathPosition(path,travelled);
+      if(!point){walkFrame.current=null;setMotion("idle");return;}
+      if(point.segmentIndex!==lastSegment){
+        const fromPoint=path[point.segmentIndex];
+        const toPoint=path[Math.min(path.length-1,point.segmentIndex+1)];
+        const dx=toPoint.x-fromPoint.x,dy=toPoint.y-fromPoint.y;
+        setDirection(Math.abs(dx)>Math.abs(dy)?(dx<0?"left":"right"):(dy<0?"up":"down"));
+        lastSegment=point.segmentIndex;
+      }
+      const next={x:point.x,y:point.y};
       position.current=next;
       characterRef.current?.setAttribute("transform","translate("+next.x+" "+next.y+")");
-      if(t<1)walkFrame.current=window.requestAnimationFrame(frame);
+      if(travelled<totalDistance)walkFrame.current=window.requestAnimationFrame(animate);
       else{
         walkFrame.current=null;
-        playDialogue(action.dialogue,reason||"Let's have a look around.");
-        setScenePose(action.pose||"standing");
-        setMotion(action.motion||"idle");
-        if(action.duration>0)interactionTimer.current=window.setTimeout(()=>setMotion("idle"),action.duration);
+        const destination={x:path[path.length-1].x,y:path[path.length-1].y};
+        position.current=destination;
+        characterRef.current?.setAttribute("transform","translate("+destination.x+" "+destination.y+")");
+        finishInteraction(action,reason);
       }
     };
-    walkFrame.current=window.requestAnimationFrame(frame);
-  },[playDialogue]);
+    walkFrame.current=window.requestAnimationFrame(animate);
+  },[finishInteraction,readRoomObstacles]);
   function handleSceneClick(event){
     if(event.target?.closest?.("[data-room-item]"))return;
     const matrix=event.currentTarget.getScreenCTM?.();
@@ -401,9 +450,10 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
       getRoomInteraction(label),
     );
   };
+  const moveStep=(dx,dy)=>walkTo(position.current.x+dx,position.current.y+dy);
   return <div className="gg-walkable-room">
     <div className="gg-room-scene-topline"><span>{String(room?.theme||"ORIGINAL GG").replaceAll("-"," ").toUpperCase()}</span><small>CLICK THE FLOOR TO WALK · WASD / ARROWS ALSO WORK</small></div>
-    <svg className="gg-room-scene-svg" viewBox="0 0 1200 720" role="img" aria-label={room?.name||"Interactive 2D room"} tabIndex="0" onClick={handleSceneClick} onKeyDown={handleSceneKey}>
+    <svg ref={sceneRef} className="gg-room-scene-svg" viewBox="0 0 1200 720" role="img" aria-label={room?.name||"Interactive 2D room"} tabIndex="0" onClick={handleSceneClick} onKeyDown={handleSceneKey}>
       <defs>
         <linearGradient id="gg-room-wall" x1="0" y1="0" x2="0" y2="1"><stop stopColor={hq?"#392a18":esports?"#171b37":garden?"#315a3f":"#354c39"}/><stop offset="1" stopColor={hq?"#151a13":esports?"#111326":garden?"#193424":"#1a2b21"}/></linearGradient>
         <linearGradient id="gg-room-floor" x1="0" y1="0" x2="0" y2="1"><stop stopColor={garden?"#59764a":hq||trophy?"#765a38":"#8c7555"}/><stop offset="1" stopColor={garden?"#304c32":hq||trophy?"#35281f":"#3b4439"}/></linearGradient>
@@ -439,8 +489,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
         <text x="600" y="193" textAnchor="middle" fill="#f0d38c" fontSize="15" fontWeight="900" letterSpacing="1.4">THE PLACE WHERE THE</text>
         <text x="600" y="216" textAnchor="middle" fill="#f0d38c" fontSize="17" fontWeight="950" letterSpacing="1.2">COMMUNITY MEETS.</text>
         <circle cx="585" cy="273" r="8" fill="#efcd78"/><circle cx="615" cy="273" r="8" fill="#efcd78"/>
-        <path d="M86 75V440 M110 75V440 M1089 75V440 M1114 75V440" stroke="#8e3436" strokeWidth="14"/>
-        <path d="M70 75Q100 145 86 245Q80 360 110 440 M1130 75Q1100 145 1114 245Q1120 360 1090 440" fill="none" stroke="#d9b86a" strokeWidth="12"/>
+        <path d="M86 75V440 M110 75V440 M1089 75V440 M1114 75V440" stroke="#8e3436" strokeWidth="14"/><path d="M70 75Q100 145 86 245Q80 360 110 440 M1130 75Q1100 145 1114 245Q1120 360 1090 440" fill="none" stroke="#d9b86a" strokeWidth="12"/>
         <circle cx="600" cy="55" r="24" fill="#e4c679"/><path d="M600 55L555 30L645 30Z" fill="#e4c679"/>
         <g data-room-item role="button" tabIndex="0" onClick={itemClick("club banners",230,590,"The club banners look grand from here.")}><path d="M150 175V90L220 110L150 132 M980 175V90L1050 110L980 132" fill="#9b3038" stroke="#e6c97b" strokeWidth="6"/></g>
 
@@ -450,106 +499,54 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
         </g>
         <g data-room-item role="button" tabIndex="0" onClick={itemClick("clubhouse sofas",345,630,"Take a seat. This is the clubhouse.")}>
           <path d="M130 450H355V500H130Z" fill="#8d3438" stroke="#d6b76b" strokeWidth="5"/><path d="M146 435H339V468H146Z" fill="#ad4a4c" stroke="#d6b76b" strokeWidth="4"/><path d="M150 500V516 M335 500V516" stroke="#c7a66c" strokeWidth="10"/>
-          <path d="M845 450H1070V500H845Z" fill="#8d3438" stroke="#d6b76b" strokeWidth="5"/><path d="M861 435H1054V468H861Z" fill="#ad4a4c" stroke="#d6b76b" strokeWidth="4"/>
-          <path d="M485 470L600 420L715 470L600 520Z" fill="#593f2a" stroke="#dbb96a" strokeWidth="6"/>
+          <path d="M845 450H1070V500H845Z" fill="#8d3438" stroke="#d6b76b" strokeWidth="5"/><path d="M861 435H1054V468H861Z" fill="#ad4a4c" stroke="#d6b76b" strokeWidth="4"/><path d="M485 470L600 420L715 470L600 520Z" fill="#593f2a" stroke="#dbb96a" strokeWidth="6"/>
         </g>
       </g>}
       {pitch && <g>
-        <rect x="362" y="112" width="476" height="290" fill="#285b37" stroke="#e4e8d2" strokeWidth="8"/><path d="M600 112V402 M362 257H838 M480 112V402 M720 112V402" stroke="#e7eddd" strokeWidth="4" opacity=".6"/>
-        <ellipse cx="600" cy="257" rx="75" ry="55" fill="none" stroke="#e7eddd" strokeWidth="4"/><rect x="475" y="112" width="250" height="60" fill="none" stroke="#e7eddd" strokeWidth="4"/>
+        <rect x="362" y="112" width="476" height="290" fill="#285b37" stroke="#e4e8d2" strokeWidth="8"/><path d="M600 112V402 M362 257H838 M480 112V402 M720 112V402" stroke="#e7eddd" strokeWidth="4" opacity=".6"/><ellipse cx="600" cy="257" rx="75" ry="55" fill="none" stroke="#e7eddd" strokeWidth="4"/><rect x="475" y="112" width="250" height="60" fill="none" stroke="#e7eddd" strokeWidth="4"/>
         <path d="M510 400V443 M690 400V443" stroke="#d7c28f" strokeWidth="7"/>
-
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("match ball",600,620,"Fancy a kickabout?")}>
-          <circle cx="600" cy="462" r="18" fill="#f5f0df" stroke="#1d3024" strokeWidth="4"/><path d="M600 445L609 458L603 475L588 470L585 454Z" fill="#1c2a20"/>
-        </g>
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("left goal net",405,610,"Pick a corner. Can you find the net?")}>
-          <path d="M380 250V210H440V250 M390 250V215 M430 250V215" stroke="#cfc8ac" strokeWidth="5" fill="none"/>
-          <path d="M380 210H440L430 250H390Z" fill="#e9efe2" fillOpacity=".08" stroke="#d8e6d6" strokeWidth="2" strokeDasharray="5 4"/>
-        </g>
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("right goal net",795,610,"One more shot at goal!")}>
-          <path d="M760 250V210H820V250 M770 250V215 M810 250V215" stroke="#cfc8ac" strokeWidth="5" fill="none"/>
-          <path d="M760 210H820L810 250H770Z" fill="#e9efe2" fillOpacity=".08" stroke="#d8e6d6" strokeWidth="2" strokeDasharray="5 4"/>
-        </g>
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("scoreboard",600,585,"The scoreboard is ready for the next goal.")}>
-          <rect x="500" y="70" width="200" height="62" rx="8" fill="#0e1a12" stroke="#d8c37e" strokeWidth="5"/>
-          <text x="600" y="96" textAnchor="middle" fill="#f2e5c2" fontSize="12" fontWeight="900">MATCHDAY</text>
-          <text x="600" y="119" textAnchor="middle" fill="#90d09a" fontSize="18" fontWeight="950">HOME 0 — 0 AWAY</text>
-        </g>
-        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("training cones",460,610,"Quick feet. Keep the ball close.")}>
-          {[0,1,2,3].map((n)=><g key={n} transform={"translate("+(385+n*46)+" 0)"}><path d="M0 450L-13 480H13Z" fill="#df8a3f" stroke="#f0d9a4" strokeWidth="3"/><path d="M-9 470H9" stroke="#fff0c6" strokeWidth="4"/></g>)}
-        </g>}
-        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("agility ladder",740,610,"Fast feet through the ladder. Nice work.")}>
-          <path d="M690 440L680 490 M725 440L715 490 M760 440L750 490 M795 440L785 490" stroke="#d9d6c5" strokeWidth="6"/>
-          <path d="M682 450L790 450 M678 462L787 462 M675 475L783 475 M672 488L780 488" stroke="#dbbd79" strokeWidth="4"/>
-        </g>}
-        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("football rack",900,610,"Choose a ball and take your next touch.")}>
-          <rect x="860" y="440" width="170" height="58" rx="8" fill="#563c28" stroke="#d7bb7b" strokeWidth="5"/>
-          {[0,1,2].map((n)=><g key={n} transform={"translate("+(895+n*48)+" 0)"}><circle cy="464" r="13" fill="#f4f0df" stroke="#1d3024" strokeWidth="3"/><path d="M0 452L7 460L4 474L-8 470L-10 458Z" fill="#243327"/></g>)}
-        </g>}
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("match ball",600,620,"Fancy a kickabout?")}><circle cx="600" cy="462" r="18" fill="#f5f0df" stroke="#1d3024" strokeWidth="4"/><path d="M600 445L609 458L603 475L588 470L585 454Z" fill="#1c2a20"/></g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("left goal net",405,610,"Pick a corner. Can you find the net?")}><path d="M380 250V210H440V250 M390 250V215 M430 250V215" stroke="#cfc8ac" strokeWidth="5" fill="none"/><path d="M380 210H440L430 250H390Z" fill="#e9efe2" fillOpacity=".08" stroke="#d8e6d6" strokeWidth="2" strokeDasharray="5 4"/></g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("right goal net",795,610,"One more shot at goal!")}><path d="M760 250V210H820V250 M770 250V215 M810 250V215" stroke="#cfc8ac" strokeWidth="5" fill="none"/><path d="M760 210H820L810 250H770Z" fill="#e9efe2" fillOpacity=".08" stroke="#d8e6d6" strokeWidth="2" strokeDasharray="5 4"/></g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("scoreboard",600,585,"The scoreboard is ready for the next goal.")}><rect x="500" y="70" width="200" height="62" rx="8" fill="#0e1a12" stroke="#d8c37e" strokeWidth="5"/><text x="600" y="96" textAnchor="middle" fill="#f2e5c2" fontSize="12" fontWeight="900">MATCHDAY</text><text x="600" y="119" textAnchor="middle" fill="#90d09a" fontSize="18" fontWeight="950">HOME 0 — 0 AWAY</text></g>
+        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("training cones",460,610,"Quick feet. Keep the ball close.")}>{[0,1,2,3].map((n)=><g key={n} transform={"translate("+(385+n*46)+" 0)"}><path d="M0 450L-13 480H13Z" fill="#df8a3f" stroke="#f0d9a4" strokeWidth="3"/><path d="M-9 470H9" stroke="#fff0c6" strokeWidth="4"/></g>)}</g>}
+        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("agility ladder",740,610,"Fast feet through the ladder. Nice work.")}><path d="M690 440L680 490 M725 440L715 490 M760 440L750 490 M795 440L785 490" stroke="#d9d6c5" strokeWidth="6"/><path d="M682 450L790 450 M678 462L787 462 M675 475L783 475 M672 488L780 488" stroke="#dbbd79" strokeWidth="4"/></g>}
+        {training && <g data-room-item role="button" tabIndex="0" onClick={itemClick("football rack",900,610,"Choose a ball and take your next touch.")}><rect x="860" y="440" width="170" height="58" rx="8" fill="#563c28" stroke="#d7bb7b" strokeWidth="5"/>{[0,1,2].map((n)=><g key={n} transform={"translate("+(895+n*48)+" 0)"}><circle cy="464" r="13" fill="#f4f0df" stroke="#1d3024" strokeWidth="3"/><path d="M0 452L7 460L4 474L-8 470L-10 458Z" fill="#243327"/></g>)}</g>}
       </g>}
       {tactics && <g>
-        <rect x="345" y="90" width="510" height="305" rx="9" fill="#18271f" stroke="#c6a767" strokeWidth="10"/>
-        <path d="M600 90V395 M345 242H855 M420 90V395 M780 90V395" stroke="#e6e7d6" strokeOpacity=".3" strokeWidth="4"/>
+        <rect x="345" y="90" width="510" height="305" rx="9" fill="#18271f" stroke="#c6a767" strokeWidth="10"/><path d="M600 90V395 M345 242H855 M420 90V395 M780 90V395" stroke="#e6e7d6" strokeOpacity=".3" strokeWidth="4"/>
         {Array.from({length:11},(_,i)=><g key={i}><circle cx={420+(i%4)*105} cy={160+Math.floor(i/4)*78} r="18" fill={i%2?"#c35a4e":"#d7bc71"} stroke="#141e16" strokeWidth="6"/></g>)}
         <path d="M375 435H825" stroke="#c7a66a" strokeWidth="12"/>
-
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("tactics table",600,620,"Let's work on the next formation.")}>
-          <path d="M360 445L600 380L840 445L600 520Z" fill="#64472f" stroke="#d8b86d" strokeWidth="7"/><path d="M390 446L600 390L810 446L600 503Z" fill="#a47a48"/>
-          <path d="M435 485V520 M765 485V520" stroke="#493323" strokeWidth="13"/>
-          {[0,1,2,3].map(i=><g key={i} transform={"translate("+(445+i*205)+" 0)"}><path d="M-32 545V510H32V545Z" fill="#7a3337" stroke="#d4b46c" strokeWidth="4"/><path d="M-25 510V485H25V510Z" fill="#ac4a4d"/></g>)}
-        </g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("tactics table",600,620,"Let's work on the next formation.")}><path d="M360 445L600 380L840 445L600 520Z" fill="#64472f" stroke="#d8b86d" strokeWidth="7"/><path d="M390 446L600 390L810 446L600 503Z" fill="#a47a48"/><path d="M435 485V520 M765 485V520" stroke="#493323" strokeWidth="13"/>{[0,1,2,3].map(i=><g key={i} transform={"translate("+(445+i*205)+" 0)"}><path d="M-32 545V510H32V545Z" fill="#7a3337" stroke="#d4b46c" strokeWidth="4"/><path d="M-25 510V485H25V510Z" fill="#ac4a4d"/></g>)}</g>
       </g>}
       {training && !pitch && <g>
         <rect x="190" y="128" width="820" height="260" fill="#18221d" stroke="#9cba89" strokeWidth="9"/>
         {[0,1,2,3,4,5,6,7].map(i=><g key={i} transform={"translate("+(235+i*105)+" 0)"}><path d="M0 370V170H60V370" fill="none" stroke="#8c9b89" strokeWidth="13"/><circle cx="30" cy="165" r="22" fill="#d3b56d"/><path d="M-10 205H70" stroke="#d3b56d" strokeWidth="10"/></g>)}
         <rect x="395" y="405" width="410" height="28" rx="8" fill="#8b6844"/><circle cx="485" cy="420" r="35" fill="#222824"/><circle cx="715" cy="420" r="35" fill="#222824"/>
-
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("weight rack",390,610,"Start with a light set. Warm up first.")}>
-          <path d="M160 410V250 M170 410V250 M145 275H185 M145 300H185 M145 325H185 M145 350H185" stroke="#b8c2ad" strokeWidth="10"/><rect x="130" y="270" width="28" height="70" rx="6" fill="#5a6261"/><rect x="173" y="270" width="28" height="70" rx="6" fill="#5a6261"/>
-        </g>
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("training bench",795,610,"One good rep at a time.")}>
-          <path d="M820 420L1025 360" stroke="#8b6844" strokeWidth="18" strokeLinecap="round"/><path d="M850 413V450 M995 370V408" stroke="#58685a" strokeWidth="11"/><circle cx="820" cy="420" r="20" fill="#202824" stroke="#d2b36d" strokeWidth="5"/><circle cx="1025" cy="360" r="20" fill="#202824" stroke="#d2b36d" strokeWidth="5"/>
-        </g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("weight rack",390,610,"Start with a light set. Warm up first.")}><path d="M160 410V250 M170 410V250 M145 275H185 M145 300H185 M145 325H185 M145 350H185" stroke="#b8c2ad" strokeWidth="10"/><rect x="130" y="270" width="28" height="70" rx="6" fill="#5a6261"/><rect x="173" y="270" width="28" height="70" rx="6" fill="#5a6261"/></g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("training bench",795,610,"One good rep at a time.")}><path d="M820 420L1025 360" stroke="#8b6844" strokeWidth="18" strokeLinecap="round"/><path d="M850 413V450 M995 370V408" stroke="#58685a" strokeWidth="11"/><circle cx="820" cy="420" r="20" fill="#202824" stroke="#d2b36d" strokeWidth="5"/><circle cx="1025" cy="360" r="20" fill="#202824" stroke="#d2b36d" strokeWidth="5"/></g>
       </g>}
       {trophy && <g>
         <rect x="300" y="100" width="600" height="300" rx="8" fill="#142017" stroke="#d6b76b" strokeWidth="10"/>
         {Array.from({length:7},(_,i)=><g key={i} transform={"translate("+(350+i*82)+" 0)"}><path d="M0 205L-26 175L-20 122L20 122L26 175Z" fill={i%2?"#d9b86a":"#ad8744"} stroke="#f5d889" strokeWidth="4"/><path d="M-20 142H-53Q-51 185 -5 184 M20 142H53Q51 185 5 184" fill="none" stroke="#e6c878" strokeWidth="10"/><path d="M-10 205H10L18 242H-18Z" fill="#a98242"/><rect x="-35" y="242" width="70" height="13" fill="#563c23"/></g>)}
         <path d="M324 300H876" stroke="#d8bc76" strokeWidth="7"/>
-
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("trophy cabinet",900,610,"Some legends are remembered in silverware.")}>
-          <rect x="165" y="170" width="120" height="210" fill="#18231b" stroke="#d8bd76" strokeWidth="7"/><rect x="178" y="184" width="94" height="170" fill="#334638" stroke="#977a44" strokeWidth="4"/>
-          {[0,1,2].map(i=><g key={i} transform={"translate(0 "+(215+i*55)+")"}><path d="M224 0L205 -13L208 16L224 31L240 16L243 -13Z" fill="#d9b96e"/><path d="M205 -5L190 -5Q190 18 214 18 M243 -5L258 -5Q258 18 234 18" fill="none" stroke="#e6c878" strokeWidth="5"/></g>)}
-        </g>
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("honours plaques",900,630,"Take a moment to remember the big wins.")}>
-          <rect x="915" y="170" width="120" height="210" fill="#17241b" stroke="#d8bd76" strokeWidth="7"/>
-          {[0,1,2].map(i=><g key={i} transform={"translate(0 "+(205+i*58)+")"}><rect x="930" y="0" width="90" height="40" rx="4" fill="#b38b45" stroke="#f0d88e" strokeWidth="3"/><path d="M946 10H1004 M946 20H990 M946 30H997" stroke="#6b4e28" strokeWidth="3"/></g>)}
-        </g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("trophy cabinet",900,610,"Some legends are remembered in silverware.")}><rect x="165" y="170" width="120" height="210" fill="#18231b" stroke="#d8bd76" strokeWidth="7"/><rect x="178" y="184" width="94" height="170" fill="#334638" stroke="#977a44" strokeWidth="4"/>{[0,1,2].map(i=><g key={i} transform={"translate(0 "+(215+i*55)+")"}><path d="M224 0L205 -13L208 16L224 31L240 16L243 -13Z" fill="#d9b96e"/><path d="M205 -5L190 -5Q190 18 214 18 M243 -5L258 -5Q258 18 234 18" fill="none" stroke="#e6c878" strokeWidth="5"/></g>)}</g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("honours plaques",900,630,"Take a moment to remember the big wins.")}><rect x="915" y="170" width="120" height="210" fill="#17241b" stroke="#d8bd76" strokeWidth="7"/>{[0,1,2].map(i=><g key={i} transform={"translate(0 "+(205+i*58)+")"}><rect x="930" y="0" width="90" height="40" rx="4" fill="#b38b45" stroke="#f0d88e" strokeWidth="3"/><path d="M946 10H1004 M946 20H990 M946 30H997" stroke="#6b4e28" strokeWidth="3"/></g>)}</g>
       </g>}
       {market && <g>
         <rect x="165" y="300" width="870" height="115" rx="10" fill="#513a29" stroke="#e2c47c" strokeWidth="7"/>
         {[0,1,2,3].map(i=><g key={i} transform={"translate("+(260+i*210)+" 0)"}><path d="M-68 295V150H68V295Z" fill="#17221a" stroke="#d9bf7d" strokeWidth="7"/><path d="M-65 148L0 115L65 148" fill="#9c3137"/><circle cy="192" r="28" fill={["#c74447","#dfc579","#4277a8","#6b5597"][i]} stroke="#f1e5c8" strokeWidth="5"/><path d="M-20 238H20" stroke="#e5cc8b" strokeWidth="7"/></g>)}
-
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("kit counter",600,610,"Try a new kit colour. Make it yours.")}>
-          <path d="M210 440H990V505H210Z" fill="#5b3e28" stroke="#dfc27a" strokeWidth="6"/><path d="M225 450H975V485H225Z" fill="#a77b47"/>
-          <path d="M360 455L385 448L410 455L402 485H368Z" fill="#c33f45" stroke="#f0d6a0" strokeWidth="3"/><path d="M575 455L600 448L625 455L617 485H583Z" fill="#3f73ab" stroke="#f0d6a0" strokeWidth="3"/><path d="M790 455L815 448L840 455L832 485H798Z" fill="#d3b86c" stroke="#f0d6a0" strokeWidth="3"/>
-        </g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("kit counter",600,610,"Try a new kit colour. Make it yours.")}><path d="M210 440H990V505H210Z" fill="#5b3e28" stroke="#dfc27a" strokeWidth="6"/><path d="M225 450H975V485H225Z" fill="#a77b47"/><path d="M360 455L385 448L410 455L402 485H368Z" fill="#c33f45" stroke="#f0d6a0" strokeWidth="3"/><path d="M575 455L600 448L625 455L617 485H583Z" fill="#3f73ab" stroke="#f0d6a0" strokeWidth="3"/><path d="M790 455L815 448L840 455L832 485H798Z" fill="#d3b86c" stroke="#f0d6a0" strokeWidth="3"/></g>
       </g>}
       {esports && <g>
         <rect x="155" y="86" width="890" height="330" rx="18" fill="#14182b" stroke="#73cdd3" strokeWidth="8"/>
         {[0,1,2].map(i=><g key={i} transform={"translate("+(245+i*260)+" 0)"}><rect x="-100" y="130" width="200" height="165" rx="12" fill="#25264b" stroke="#d4bd77" strokeWidth="6"/><rect x="-78" y="151" width="156" height="103" fill="#5159a0"/><path d="M0 151V254 M-78 203H78" stroke="#81d6d6" strokeWidth="5"/><circle cy="203" r="21" fill="#e2bf72"/></g>)}
-
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("gaming station",600,620,"Queue up and show them your skills.")}>
-          {[0,1,2].map(i=><g key={i} transform={"translate("+(255+i*345)+" 0)"}><path d="M-115 420V385H115V420Z" fill="#32385f" stroke="#72d0d3" strokeWidth="5"/><rect x="-82" y="350" width="164" height="55" rx="7" fill="#15192d" stroke="#d4b66d" strokeWidth="5"/><path d="M-63 368H63 M-63 382H20" stroke="#86d8d7" strokeWidth="4"/><circle cy="438" r="23" fill="#26283b" stroke="#c7b16e" strokeWidth="4"/></g>)}
-        </g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("gaming station",600,620,"Queue up and show them your skills.")}>{[0,1,2].map(i=><g key={i} transform={"translate("+(255+i*345)+" 0)"}><path d="M-115 420V385H115V420Z" fill="#32385f" stroke="#72d0d3" strokeWidth="5"/><rect x="-82" y="350" width="164" height="55" rx="7" fill="#15192d" stroke="#d4b66d" strokeWidth="5"/><path d="M-63 368H63 M-63 382H20" stroke="#86d8d7" strokeWidth="4"/><circle cy="438" r="23" fill="#26283b" stroke="#c7b16e" strokeWidth="4"/></g>)}</g>
       </g>}
       {station && <g>
-        <rect x="260" y="110" width="680" height="260" rx="8" fill="#19231d" stroke="#d0ba82" strokeWidth="8"/><rect x="325" y="150" width="550" height="72" rx="6" fill="#101a15" stroke="#e1cb83" strokeWidth="5"/>
-        <text x="600" y="195" textAnchor="middle" fill="#f0d891" fontSize="30" fontWeight="900">MATCHDAY · DEPARTURES</text>
+        <rect x="260" y="110" width="680" height="260" rx="8" fill="#19231d" stroke="#d0ba82" strokeWidth="8"/><rect x="325" y="150" width="550" height="72" rx="6" fill="#101a15" stroke="#e1cb83" strokeWidth="5"/><text x="600" y="195" textAnchor="middle" fill="#f0d891" fontSize="30" fontWeight="900">MATCHDAY · DEPARTURES</text>
         {[0,1,2].map(i=><g key={i} transform={"translate("+(400+i*190)+" 0)"}><rect x="-45" y="270" width="90" height="110" fill="#36473b" stroke="#e1c37a" strokeWidth="5"/><rect x="-24" y="285" width="48" height="65" fill="#8cb0ab"/></g>)}
-
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("ticket gates",600,620,"The next Matchday is boarding.")}>
-          {[0,1,2,3].map(i=><g key={i} transform={"translate("+(390+i*145)+" 0)"}><path d="M-32 450V365H32V450Z" fill="#384b40" stroke="#d7c17f" strokeWidth="5"/><path d="M-32 375L-77 348 M32 375L77 348" stroke="#d7c17f" strokeWidth="10"/><rect x="-18" y="385" width="36" height="14" fill="#9ac2b3"/><circle cy="420" r="7" fill="#e2c16d"/></g>)}
-        </g>
+        <g data-room-item role="button" tabIndex="0" onClick={itemClick("ticket gates",600,620,"The next Matchday is boarding.")}>{[0,1,2,3].map(i=><g key={i} transform={"translate("+(390+i*145)+" 0)"}><path d="M-32 450V365H32V450Z" fill="#384b40" stroke="#d7c17f" strokeWidth="5"/><path d="M-32 375L-77 348 M32 375L77 348" stroke="#d7c17f" strokeWidth="10"/><rect x="-18" y="385" width="36" height="14" fill="#9ac2b3"/><circle cy="420" r="7" fill="#e2c16d"/></g>)}</g>
       </g>}
       {supporters && <g>
         <path d="M160 170H1040V395H160Z" fill="#38202a" stroke="#d6b56d" strokeWidth="8"/><path d="M190 198H1010V370H190Z" fill="#1a281f" stroke="#9f343b" strokeWidth="5"/>
@@ -570,11 +567,11 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
     </svg>
     <div className="gg-room-character-speech" role="status" aria-live="polite" data-testid="room-character-dialogue"><p>{line}</p></div>
     <div className="gg-room-touch-controls" aria-label="Move your character">
-      <button type="button" onClick={()=>walkTo(position.current.x,position.current.y-28)} aria-label="Walk up">↑</button>
+      <button type="button" onClick={()=>moveStep(0,-28)} aria-label="Walk up">↑</button>
       <div>
-        <button type="button" onClick={()=>walkTo(position.current.x-56,position.current.y)} aria-label="Walk left">←</button>
-        <button type="button" onClick={()=>walkTo(position.current.x,position.current.y+28)} aria-label="Walk down">↓</button>
-        <button type="button" onClick={()=>walkTo(position.current.x+56,position.current.y)} aria-label="Walk right">→</button>
+        <button type="button" onClick={()=>moveStep(-56,0)} aria-label="Walk left">←</button>
+        <button type="button" onClick={()=>moveStep(0,28)} aria-label="Walk down">↓</button>
+        <button type="button" onClick={()=>moveStep(56,0)} aria-label="Walk right">→</button>
       </div>
     </div>
     <div className="gg-room-bottomline">{hq&&<strong className="gg-room-feature-motto">THE PLACE WHERE THE COMMUNITY MEETS.</strong>}<span>{activeItem||room?.name||"Explore the room"}</span>{onOpenChat&&(/grand-hall|club-lounge|supporters|fan|meeting/.test(id))&&<button type="button" onClick={onOpenChat}>Open community chat</button>}</div>
