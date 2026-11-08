@@ -476,11 +476,12 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
 
     // Tab selection is a journey, not a teleport. Speak while walking and
     // follow with the second part of the tab-specific Pip line on arrival.
+    const selectedTab = activeTabRef.current;
     moveTo(ground, perch.x, {
-      line: tabLines[activeTab]?.[0] || "Let's see what's happening on this tab.",
-      followUpLine: tabLines[activeTab]?.[1] || "I'm right here if you need me.",
+      line: tabLines[selectedTab]?.[0] || "Let's see what's happening on this tab.",
+      followUpLine: tabLines[selectedTab]?.[1] || "I'm right here if you need me.",
     });
-  }, [activeTab, moveTo, transitioning]);
+  }, [moveTo, transitioning]);
 
   useEffect(() => {
     const onPointerMove = (event) => {
