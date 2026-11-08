@@ -704,3 +704,10 @@ html[data-theme] .gg-account-avatar-trigger:focus-visible {
 .gg-room-touch-controls button:focus-visible{outline:2px solid var(--gg-neon-strong,#f1d28c);outline-offset:2px}
 @media(max-width:760px){.gg-room-touch-controls{display:flex}.gg-room-bottomline{min-height:34px;padding:6px 9px;gap:7px;font-size:9px}.gg-room-bottomline>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 @media(prefers-reduced-motion:reduce){.gg-room-touch-controls button:active{transform:none}}
+
+/* Live guests inside walkable Original GG interiors. */
+.gg-room-guest{cursor:pointer;pointer-events:all;outline:none}
+.gg-room-guest:hover>circle,.gg-room-guest:focus-visible>circle{opacity:.3}
+.gg-room-guest text{font-family:Inter,system-ui,sans-serif;font-weight:800;paint-order:stroke;pointer-events:none}
+.gg-room-guest .gg-player-sprite{width:62px;height:62px;image-rendering:pixelated;filter:drop-shadow(0 5px 5px #0009)}
+.gg-room-guest:focus-visible{filter:drop-shadow(0 0 5px #f1d28c)}
