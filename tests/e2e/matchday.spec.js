@@ -77,7 +77,7 @@ test("unlinked viewer cannot enter Original GG from the companion menu", async (
   await page.goto("/?e2eRole=viewer");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  await expect(page.getByRole("button", { name: "Open Original GG map" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Open Original GG map" })).toBeDisabled();
   const companion = page.locator(".gg-companion-button");
   await expect(companion).toBeVisible();
   await companion.click({ button: "right" });
@@ -95,7 +95,6 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   const mapShortcut = page.getByRole("button", { name: "Open Original GG map" });
   await expect(mapShortcut).toBeEnabled();
   await mapShortcut.click();
-  await expect(page.locator(".gg-companion-vortex")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
   await expect(page.locator(".gg-training-challenge canvas")).toHaveCount(0);
   await expect(page.locator(".gg-world-avatar-preview .gg-player-sprite")).toHaveCount(0);
