@@ -14,7 +14,10 @@ function e2eAuthHeaders() {
   const params = new URLSearchParams(window.location.search);
   const role = params.get('e2eRole') || VITE_ENV.VITE_E2E_TEST_ROLE || 'viewer';
   if (role === 'guest') return {};
-  const playerId = params.get('e2ePlayerId') || VITE_ENV.VITE_E2E_TEST_PLAYER_ID || '';
+  // The build-time player ID belongs only to the default editor fixture.
+  // An explicit viewer/admin role must remain unlinked unless a test supplies
+  // its own e2ePlayerId in the URL.
+  const playerId = params.get('e2ePlayerId') || (role === 'editor' ? VITE_ENV.VITE_E2E_TEST_PLAYER_ID || '' : '');
   return {
     'X-E2E-Test-Token': VITE_ENV.VITE_E2E_TEST_AUTH_SECRET,
     'X-E2E-Test-Role': role,

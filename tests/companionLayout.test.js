@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getCompanionPerchPoint, nearestCenterIndex } from "../shared/companionLayout.js";
+import { getCompanionPerchPoint, nearestCenterIndex, isPointOverCompanionProfile, shouldPraiseProfileLanding, PROFILE_LANDING_PRAISE_CHANCE } from "../shared/companionLayout.js";
 
 test("profile perch centres Pip over the upper-left account avatar", () => {
   assert.deepEqual(
@@ -31,4 +31,21 @@ test("horizontal tab scrubbing chooses the nearest button center", () => {
   assert.equal(nearestCenterIndex(rects, 122), 2);
   assert.equal(nearestCenterIndex(rects, 58), 0);
   assert.equal(nearestCenterIndex([], 40), -1);
+});
+
+test("only a release over the profile area counts as a deliberate perch placement", () => {
+  const profile = { left: 18, top: 24, width: 42, height: 42 };
+  assert.equal(isPointOverCompanionProfile(profile, 39, 45), true);
+  assert.equal(isPointOverCompanionProfile(profile, 10, 45), true);
+  assert.equal(isPointOverCompanionProfile(profile, 140, 80), false);
+  assert.equal(isPointOverCompanionProfile(null, 39, 45), false);
+});
+
+test("the special profile-hop landing line is occasional, never guaranteed", () => {
+  assert.equal(PROFILE_LANDING_PRAISE_CHANCE, 0.26);
+  assert.equal(shouldPraiseProfileLanding(0.1), true);
+  assert.equal(shouldPraiseProfileLanding(0.25), true);
+  assert.equal(shouldPraiseProfileLanding(0.26), false);
+  assert.equal(shouldPraiseProfileLanding(0.8), false);
+  assert.equal(shouldPraiseProfileLanding(Number.NaN), false);
 });

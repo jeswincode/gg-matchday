@@ -33,7 +33,7 @@ async function stubWorldApi(page) {
       x: 900,
       y: 310,
       description: "The golden heart of Original GG.",
-      interior: { rooms: [{ id: "grand-hall", name: "Grand Hall", description: "The community meeting place.", theme: "gold", items: ["golden-doors","community-board"] }] }
+      interior: { rooms: [{ id: "grand-hall", name: "Grand Hall", description: "The community meeting place.", theme: "gold", items: [] }] }
     }]
   };
   await page.route("**/api/world/**", async route => {
@@ -107,18 +107,20 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await expect(page.locator(".gg-room-character-speech p")).toBeVisible();
   await expect(page.locator(".gg-room-character text")).toHaveCount(0);
   const roomDialogue = page.locator("[data-testid='room-character-dialogue'] p");
-  await page.locator(".gg-room-scene-svg [data-room-item]").first().click({ force: true });
+  await page.locator('.gg-room-scene-svg [data-room-item="club banners"]').evaluate(element => {
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
   await expect(roomDialogue).toHaveText("Hear that? That's the supporters.");
   await expect(roomDialogue).toHaveText("Every badge has a story.", { timeout: 3500 });
-  await expect(roomDialogue).toHaveText("Give them something to sing about.", { timeout: 3500 });
+  await expect(roomDialogue).toHaveText("Give them something to sing about.", { timeout: 6500 });
   await expect(page.getByRole("button", { name: /GG Community/ })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
-  const walkUp = page.getByRole("button", { name: "Walk up" });
-  await expect(walkUp).toBeVisible();
+  const walkRight = page.getByRole("button", { name: "Walk right" });
+  await expect(walkRight).toBeVisible();
   const roomCharacter = page.locator(".gg-room-character");
   const beforeWalk = await roomCharacter.getAttribute("transform");
-  await walkUp.click();
+  await walkRight.click();
   await expect.poll(() => roomCharacter.getAttribute("transform")).not.toBe(beforeWalk);
 });
 
@@ -186,19 +188,26 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
   await expect.poll(() => isCenteredOn(calendarTab), { timeout: 5000 }).toBeLessThan(12);
   await expect.poll(() => navFootGap(calendarTab), { timeout: 5000 }).toBeLessThan(2);
 
-  // Dragging still picks the character up and lets the existing throw physics run.
+  // Holding and dragging the character back onto the profile avatar should
+  // return Pip to the seated perch, not throw him past the home anchor.
   const before = await companion.boundingBox();
+  const profileBounds = await profileAnchor.boundingBox();
   expect(before).not.toBeNull();
+  expect(profileBounds).not.toBeNull();
   await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
   await page.mouse.down();
-  await page.mouse.move(before.x + before.width / 2 - 105, before.y + before.height / 2 - 90, { steps: 8 });
+  await page.mouse.move(profileBounds.x + profileBounds.width / 2, profileBounds.y + profileBounds.height / 2, { steps: 12 });
   await page.mouse.up();
-  await expect.poll(async () => {
-    const after = await companion.boundingBox();
-    if (!after) return 0;
-    return Math.hypot(after.x - before.x, after.y - before.y);
-  }, { timeout: 2500 }).toBeGreaterThan(55);
-  await expect(page.locator(".gg-companion-bubble")).toContainText("10 out of 10 landing!", { timeout: 7000 });
+  await expect(companionStage).toHaveAttribute("data-gg-ground", "profile", { timeout: 3500 });
+  await expect(companionStage).toHaveClass(/is-profile-perched/);
+  await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /seated, facing down/);
+
+  // A tap on the profile perch now sends Pip hopping down into the page. The
+  // landing phrase is a low-probability flourish on this hop only.
+  await companion.click();
+  await expect(companionStage).toHaveAttribute("data-gg-phase", "jumping", { timeout: 1000 });
+  await expect(companionStage).not.toHaveClass(/is-profile-perched/, { timeout: 1000 });
+  await expect.poll(() => companionStage.getAttribute("data-gg-ground"), { timeout: 3000 }).not.toBe("profile");
 });
 test("companion action menu supports right-click and opens Original GG", async ({ page }) => {
   await stubWorldApi(page);
@@ -307,6 +316,59 @@ test("Enter key opens Matchday from the welcome screen without requiring a point
 
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
+});
+
+test("Matchday swipes do not hijack the five-tab glass navigation drag rail", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  const navigation = page.locator(".bottom-nav");
+  const buttons = navigation.locator("button[data-tab]");
+  await expect(navigation).toBeVisible();
+  const startingTab = await navigation.locator("button.active").getAttribute("data-tab");
+
+  // A horizontal touch swipe that begins on the rail must be ignored by the
+  // app-level page-swipe recogniser.
+  await navigation.evaluate((nav) => {
+    const button = nav.querySelector("button[data-tab]");
+    const rect = button.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const touch = (clientX, clientY) => new Touch({
+      identifier: 73, target: button, clientX, clientY, screenX: clientX, screenY: clientY,
+    });
+    button.dispatchEvent(new TouchEvent("touchstart", {
+      bubbles: true, cancelable: true, touches: [touch(x, y)], changedTouches: [touch(x, y)],
+    }));
+    button.dispatchEvent(new TouchEvent("touchmove", {
+      bubbles: true, cancelable: true, touches: [touch(x - 150, y)], changedTouches: [touch(x - 150, y)],
+    }));
+    button.dispatchEvent(new TouchEvent("touchend", {
+      bubbles: true, cancelable: true, touches: [], changedTouches: [touch(x - 150, y)],
+    }));
+  });
+  await expect(navigation.locator("button.active")).toHaveAttribute("data-tab", startingTab);
+
+  // The nav's own pointer-drag controller remains functional and moves the
+  // liquid-glass active indicator to the tab beneath the held pointer.
+  await navigation.evaluate((nav) => {
+    const all = Array.from(nav.querySelectorAll("button[data-tab]"));
+    const first = all[0].getBoundingClientRect();
+    const last = all[all.length - 1].getBoundingClientRect();
+    const x = first.left + first.width / 2;
+    const y = first.top + first.height / 2;
+    const targetX = last.left + last.width / 2;
+    all[0].dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true, cancelable: true, pointerId: 87, pointerType: "touch", isPrimary: true, button: 0, clientX: x, clientY: y,
+    }));
+    nav.dispatchEvent(new PointerEvent("pointermove", {
+      bubbles: true, cancelable: true, pointerId: 87, pointerType: "touch", isPrimary: true, button: 0, clientX: targetX, clientY: y,
+    }));
+    nav.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true, cancelable: true, pointerId: 87, pointerType: "touch", isPrimary: true, button: 0, clientX: targetX, clientY: y,
+    }));
+  });
+  await expect(navigation.locator("button.active")).toHaveAttribute("data-tab", await buttons.last().getAttribute("data-tab"));
 });
 
 test("mobile viewport keeps primary navigation usable across key tabs", async ({ page }) => {

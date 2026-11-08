@@ -33,3 +33,26 @@ export function nearestCenterIndex(rects, x) {
   });
   return nearest;
 }
+
+// Only a hop down from the profile-avatar perch can earn the occasional line.
+export const PROFILE_LANDING_PRAISE_CHANCE = 0.26;
+
+export function isPointOverCompanionProfile(rect, x, y, padding = 20) {
+  if (!rect) return false;
+  const left = Number(rect.left);
+  const top = Number(rect.top);
+  const width = Number(rect.width);
+  const height = Number(rect.height);
+  const px = Number(x);
+  const py = Number(y);
+  const margin = Number(padding);
+  if (![left, top, width, height, px, py, margin].every(Number.isFinite) ||
+      width < 1 || height < 1 || margin < 0) return false;
+  return px >= left - margin && px <= left + width + margin &&
+    py >= top - margin && py <= top + height + margin;
+}
+
+export function shouldPraiseProfileLanding(roll) {
+  const value = Number(roll);
+  return Number.isFinite(value) && value >= 0 && value < PROFILE_LANDING_PRAISE_CHANCE;
+}

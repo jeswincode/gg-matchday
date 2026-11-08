@@ -164,6 +164,10 @@ function App() {
   function isTouchInteractionExcluded(target) {
     if (!(target instanceof Element)) return false;
 
+    // The five-tab liquid-glass rail owns its own hold-and-drag gesture.
+    // Do not let the page-level swipe recogniser change tabs from a gesture
+    // that starts on this navigation control.
+    if (target.closest(".bottom-nav")) return true;
     if (target.closest('[role="dialog"]')) return true;
 
     let current=target;
@@ -624,7 +628,9 @@ function App() {
       let active = true;
       const params = new URLSearchParams(window.location.search);
       const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
-      const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
+      // Only the editor's default fixture may inherit the build-time player ID.
+      // Viewers/admins remain unlinked unless the test explicitly supplies one.
+      const playerId = params.get("e2ePlayerId") || (role === "editor" ? import.meta.env.VITE_E2E_TEST_PLAYER_ID || "" : "");
       if (role === "guest") {
         // Initial state is already signed out and not loading for explicit E2E
         // guest mode, so avoid redundant state updates during effect setup.
@@ -987,7 +993,9 @@ function App() {
     if (import.meta.env.VITE_E2E_TEST_AUTH_SECRET) {
       const params = new URLSearchParams(window.location.search);
       const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
-      const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
+      // Only the editor's default fixture may inherit the build-time player ID.
+      // Viewers/admins remain unlinked unless the test explicitly supplies one.
+      const playerId = params.get("e2ePlayerId") || (role === "editor" ? import.meta.env.VITE_E2E_TEST_PLAYER_ID || "" : "");
       return fetch(url, {
         ...options,
         headers: {

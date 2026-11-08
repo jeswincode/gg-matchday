@@ -556,7 +556,7 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
         <circle cx="585" cy="273" r="8" fill="#efcd78"/><circle cx="615" cy="273" r="8" fill="#efcd78"/>
         <path d="M86 75V440 M110 75V440 M1089 75V440 M1114 75V440" stroke="#8e3436" strokeWidth="14"/><path d="M70 75Q100 145 86 245Q80 360 110 440 M1130 75Q1100 145 1114 245Q1120 360 1090 440" fill="none" stroke="#d9b86a" strokeWidth="12"/>
         <circle cx="600" cy="55" r="24" fill="#e4c679"/><path d="M600 55L555 30L645 30Z" fill="#e4c679"/>
-        <g data-room-item role="button" tabIndex="0" onClick={itemClick("club banners",230,590,"The club banners look grand from here.")}><path d="M150 175V90L220 110L150 132 M980 175V90L1050 110L980 132" fill="#9b3038" stroke="#e6c97b" strokeWidth="6"/></g>
+        <g data-room-item="club banners" aria-label="Club banners" role="button" tabIndex="0" onClick={itemClick("club banners",230,590,"The club banners look grand from here.")}><path d="M150 175V90L220 110L150 132 M980 175V90L1050 110L980 132" fill="#9b3038" stroke="#e6c97b" strokeWidth="6"/></g>
 
         <g data-room-item role="button" tabIndex="0" onClick={itemClick("honours display",600,585,"A lot of history on these walls.")}>
           <rect x="170" y="300" width="210" height="116" rx="8" fill="#5b4028" stroke="#cba75f" strokeWidth="7"/><rect x="188" y="318" width="174" height="78" fill="#182219" stroke="#dfc37f" strokeWidth="4"/>

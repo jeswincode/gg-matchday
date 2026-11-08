@@ -227,6 +227,9 @@ test("upgraded or furnished recipient homes are never overwritten", async () => 
 });
 
 test("public, invited and renamed starter homes cannot be silently replaced", async () => {
+  // The prior test leaves the owner's home in place after a rejected transfer;
+  // reset that fixture so this case starts with a clean, known starter home.
+  await PlayerResidence.deleteOne({ ownerPlayerId: players.owner._id });
   await PlayerResidence.create(residencePayload(players.owner));
   await PlayerResidence.create(residencePayload(players.privacyRecipient, {
     privacy: "public",
