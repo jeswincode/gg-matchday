@@ -44,14 +44,17 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     const profile = getCharacterAnimationProfile(safeMotion);
     let motionAllowed = animated && !motionQuery?.matches;
     let frame = animationStateRef.current.motion === safeMotion ? animationStateRef.current.frame : 0;
-    let lastFrameAt = 0, animationFrame = null;
+    let lastFrameAt = null, animationFrame = null;
     animationStateRef.current = { motion: safeMotion, frame };
     const drawFrame = (now = 0) => {
-      if (motionAllowed && now - lastFrameAt >= profile.frameMs) {
-        const elapsedFrames = Math.max(1, Math.floor((now - lastFrameAt) / profile.frameMs));
-        frame = (frame + elapsedFrames) % profile.frames;
-        lastFrameAt += elapsedFrames * profile.frameMs;
-        animationStateRef.current = { motion: safeMotion, frame };
+      if (motionAllowed) {
+        if(lastFrameAt===null)lastFrameAt=now;
+        else if(now - lastFrameAt >= profile.frameMs) {
+          const elapsedFrames = Math.max(1, Math.floor((now - lastFrameAt) / profile.frameMs));
+          frame = (frame + elapsedFrames) % profile.frames;
+          lastFrameAt += elapsedFrames * profile.frameMs;
+          animationStateRef.current = { motion: safeMotion, frame };
+        }
       }
 
       const seated = pose === "seated";
@@ -251,6 +254,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     };
     const onMotionPreferenceChange = (event) => {
       motionAllowed = animated && !event.matches;
+      lastFrameAt=null;
       if (!motionAllowed && animationFrame!==null) { window.cancelAnimationFrame(animationFrame); animationFrame=null; }
       if (motionAllowed && animationFrame===null) animationFrame=window.requestAnimationFrame(drawFrame);
       if (!motionAllowed) drawFrame(0);
