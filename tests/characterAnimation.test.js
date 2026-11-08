@@ -50,6 +50,16 @@ test("animation frame selection wraps deterministically", () => {
   assert.equal(getCharacterAnimationFrame("dance", Number.NaN), 0);
 });
 
+test("walking uses a longer alternating eight-frame footstep cycle", () => {
+  const walking = getCharacterAnimationProfile("walking");
+  assert.equal(walking.frames, 8);
+  assert.equal(walking.frameMs, 82);
+  assert.equal(getCharacterAnimationFrame("walking", 0), 0);
+  assert.equal(getCharacterAnimationFrame("walking", 82), 1);
+  assert.equal(getCharacterAnimationFrame("walking", 4 * 82), 4);
+  assert.equal(getCharacterAnimationFrame("walking", 8 * 82), 0);
+});
+
 test("world presence accepts and normalizes facing direction", () => {
   assert.deepEqual(normalizePresencePayload({ x: 128.7, y: 64.2, direction: "LEFT" }), {
     locationId: "city-plaza", x: 129, y: 64, direction: "left",

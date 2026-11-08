@@ -2,7 +2,7 @@ export const CHARACTER_DIRECTIONS = Object.freeze(["down", "up", "left", "right"
 
 export const CHARACTER_ANIMATION_PROFILES = Object.freeze({
   idle: Object.freeze({ frameMs: 360, frames: 4, durationMs: null }),
-  walking: Object.freeze({ frameMs: 105, frames: 4, durationMs: null }),
+  walking: Object.freeze({ frameMs: 82, frames: 8, durationMs: null }),
   celebrating: Object.freeze({ frameMs: 145, frames: 4, durationMs: 1200 }),
   wave: Object.freeze({ frameMs: 125, frames: 6, durationMs: 1250 }),
   "high-five": Object.freeze({ frameMs: 110, frames: 4, durationMs: 1050 }),

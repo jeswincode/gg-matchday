@@ -28,6 +28,7 @@ const emptyTraining = { pushups:"", pullups:"", squats:"", planks:"" };
 
 export function PlayerSprite({ appearance = {}, motion = "idle", direction = "down", animated = false, pose = "standing" }) {
   const canvasRef = useRef(null);
+  const animationStateRef = useRef({ motion: "idle", frame: 0 });
   const safeMotion = normalizeCharacterMotion(motion);
   const safeDirection = normalizeCharacterDirection(direction);
   useEffect(() => {
@@ -42,30 +43,34 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     const profile = getCharacterAnimationProfile(safeMotion);
     let motionAllowed = animated && !motionQuery?.matches;
-    let frame = 0, lastFrameAt = 0, animationFrame = null;
+    let frame = animationStateRef.current.motion === safeMotion ? animationStateRef.current.frame : 0;
+    let lastFrameAt = 0, animationFrame = null;
+    animationStateRef.current = { motion: safeMotion, frame };
     const drawFrame = (now = 0) => {
-      if (motionAllowed && now - lastFrameAt < profile.frameMs) {
-        animationFrame = window.requestAnimationFrame(drawFrame);
-        return;
-      }
-      if (motionAllowed) {
-        frame = (frame + 1) % profile.frames;
-        lastFrameAt = now;
+      if (motionAllowed && now - lastFrameAt >= profile.frameMs) {
+        const elapsedFrames = Math.max(1, Math.floor((now - lastFrameAt) / profile.frameMs));
+        frame = (frame + elapsedFrames) % profile.frames;
+        lastFrameAt += elapsedFrames * profile.frameMs;
+        animationStateRef.current = { motion: safeMotion, frame };
       }
 
       const seated = pose === "seated";
       const sideFacing = safeDirection === "left" || safeDirection === "right";
       const facingBack = safeDirection === "up";
       const headX = (safeDirection === "left" ? 13 : safeDirection === "right" ? 19 : 16) + (seated ? -1 : 0);
-      const gait = safeMotion === "walking" ? [0, 1, 0, -1][frame % 4] : 0;
+      const gait = safeMotion === "walking" ? [0, -1, -2, -1, 0, 1, 2, 1][frame % 8] : 0;
+      const walkingBob = safeMotion === "walking" ? [0, -1, -2, -1, 0, -1, -2, -1][frame % 8] : 0;
+      const walkingReach = safeMotion === "walking" ? [0, -1, -2, -1, 0, 1, 2, 1][frame % 8] : 0;
       const danceStep = safeMotion === "dance" ? [0, 1, 0, -1, -1, 0, 1, 0][frame % 8] : 0;
       const idleBob = safeMotion === "idle" && !seated ? [0, 0, -1, 0][frame % 4] : 0;
       const celebrationJump = ["celebrating", "cheer"].includes(safeMotion) ? [0, -1, -3, -1][frame % 4] : 0;
-      const jump = idleBob + celebrationJump;
+      const jump = idleBob + celebrationJump + walkingBob;
       const bodySway = safeMotion === "dance" ? [0, 1, 0, -1, 0, -1, 0, 1][frame % 8]
         : safeMotion === "kick" ? [0, -1, 0, 1, 0, 0][frame % 6] : 0;
       const leftLegStep = safeMotion === "walking" ? gait : safeMotion === "dance" ? danceStep : 0;
       const rightLegStep = safeMotion === "walking" ? -gait : safeMotion === "dance" ? -danceStep : 0;
+      const leftLegReach = safeMotion === "walking" ? walkingReach : 0;
+      const rightLegReach = safeMotion === "walking" ? -walkingReach : 0;
       const layer = new Layer();
       const g = new G(layer,{outline:"#211b17"},0);
 
@@ -134,8 +139,9 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
 
       const leftArmX = bodyLeft-3;
       const rightArmX = bodyLeft+bodyWidth;
-      const walkingLeftArm = safeMotion === "walking" ? -gait*2 : 0;
-      const walkingRightArm = safeMotion === "walking" ? gait*2 : 0;
+      const walkingArmSwing = safeMotion === "walking" ? [0, -1, -2, -1, 0, 1, 2, 1][frame % 8] : 0;
+      const walkingLeftArm = -walkingArmSwing;
+      const walkingRightArm = walkingArmSwing;
       const idleFidget = safeMotion === "idle" ? [0,0,-1,0][frame%4] : 0;
 
       if (safeMotion === "wave") {
@@ -214,10 +220,10 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         g.rect(kickX,25+jump+swing,3,5,skin);
         g.rect(kickX-2,29+jump+swing,6,2,boot);
       } else {
-        g.rect(leftLegX,25+jump+leftLegStep,3,5,skin);
-        g.rect(rightLegX,25+jump+rightLegStep,3,5,skin);
-        g.rect(leftLegX-2,29+jump+leftLegStep,5,2,boot);
-        g.rect(rightLegX-1,29+jump+rightLegStep,5,2,boot);
+        g.rect(leftLegX+leftLegReach,25+jump+leftLegStep,3,5,skin);
+        g.rect(rightLegX+rightLegReach,25+jump+rightLegStep,3,5,skin);
+        g.rect(leftLegX-2+leftLegReach,29+jump+leftLegStep,5,2,boot);
+        g.rect(rightLegX-1+rightLegReach,29+jump+rightLegStep,5,2,boot);
       }
 
       if (["juggle","stepover","rainbow"].includes(safeMotion)) {
