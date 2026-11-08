@@ -348,9 +348,6 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
     if(interactionTimer.current!==null)window.clearTimeout(interactionTimer.current);
     interactionTimer.current=window.setTimeout(()=>setMotion("idle"),1250);
   },[roomPlayers,presencePoint,motion,scenePose,activeItem,playDialogue,focusedGuestId]);
-  useEffect(()=>{
-    if(focusedGuestId&&!focusedGuest)setFocusedGuestId("");
-  },[focusedGuestId,focusedGuest,roomPlayers]);
   const readRoomObstacles=useCallback(()=>{
     const svg=sceneRef.current;
     if(!svg)return [];
