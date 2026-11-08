@@ -128,6 +128,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     awaitingProfileAnchor: false,
     bounced: false,
     landingFeedbackPending: false,
+    arrivalLine: "",
     clingUntil: 0,
     clingSide: 1,
     lastFrame: 0,
@@ -381,11 +382,17 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       state.landingFeedbackPending = false;
       showBubble("10 on 10 landing!", 2200);
     }
+    if (state.arrivalLine) {
+      const line = state.arrivalLine;
+      state.arrivalLine = "";
+      showBubble(line, 2100);
+    }
   }, [measureBounds, pose, rectForGround, setPhase, showBubble]);
 
   const moveTo = useCallback((ground, x, options = {}) => {
     const state = physicsRef.current;
     if (!state.initialized || suspendedRef.current || transitioning) return;
+    state.arrivalLine = options.followUpLine || "";
     const bounds = state.bounds || measureBounds();
     const rect = rectForGround(ground, bounds);
     if (!rect) return;
@@ -448,39 +455,24 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     if (!nav || !visibleRect(nav) || !buttonRect) return;
     const state = physicsRef.current;
     if (!state.initialized) return;
+
+    // The account-avatar perch is Pip's permanent home. A tab change must
+    // never pull him away from it; only tapping Pip performs the hop down.
+    if (state.ground?.kind === "profile" && state.phase === "idle") return;
+
     const perch = getCompanionPerchPoint(buttonRect, "nav");
     if (!perch) return;
 
     const ground = { kind: "nav", el: nav };
-    // A real tab selection intentionally replaces the initial profile perch.
     state.awaitingProfileAnchor = false;
-    if (nav.dataset.dragging === "true") {
-      // During finger scrubbing Pip tracks the selected tab directly.
-      state.x = perch.x;
-      state.y = perch.y;
-      state.ground = ground;
-      state.targetGround = ground;
-      state.targetX = perch.x;
-      state.tween = null;
-      state.vx = 0;
-      state.vy = 0;
-      state.angle = 0;
-      state.omega = 0;
-      state.phase = "idle";
-      state.manuallyPlaced = false;
-      pose(state, "idle", "down");
-      setPerched(true);
-      setProfilePerched(false);
-      writePosition(state);
-      state.nextAction = performance.now() + 5000;
-      wakeRef.current();
-      return;
-    }
 
-    // On an ordinary tab change, walk along the full navigation rail. This
-    // keeps Pip grounded between tabs instead of snapping to each new centre.
-    moveTo(ground, perch.x);
-  }, [moveTo, pose, setPerched, setProfilePerched, transitioning, writePosition]);
+    // Tab selection is a journey, not a teleport. Speak while walking and
+    // follow with the second part of the tab-specific Pip line on arrival.
+    moveTo(ground, perch.x, {
+      line: tabLines[activeTab]?.[0] || "Let's see what's happening on this tab.",
+      followUpLine: tabLines[activeTab]?.[1] || "I'm right here if you need me.",
+    });
+  }, [activeTab, moveTo, transitioning]);
 
   useEffect(() => {
     const onPointerMove = (event) => {
