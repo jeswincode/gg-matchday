@@ -33,11 +33,9 @@ export async function requireAuth(
       const roleHeader = String(req.headers["x-e2e-test-role"] || "viewer");
       const role = ["viewer", "editor", "admin"].includes(roleHeader) ? roleHeader : "viewer";
       const requestedPlayerId = String(req.headers["x-e2e-test-player-id"] || "");
-      // An administrator is not a player account; ignore the Vite default
-      // player ID so concurrent admin/editor test sessions cannot claim one profile.
-      // Only editor test identities represent a player. Viewer entry is
-      // deliberately unlinked, and admin actions must not claim a player.
-      const playerProfile = role === "editor" && mongoose.isValidObjectId(requestedPlayerId)
+      // The client omits the build-time default player ID for viewer/admin
+      // roles, while explicit test fixtures may still link any role to a player.
+      const playerProfile = mongoose.isValidObjectId(requestedPlayerId)
         ? new mongoose.Types.ObjectId(requestedPlayerId)
         : null;
       const uid = `e2e-test:${role}:${playerProfile ? String(playerProfile) : "unlinked"}`;
