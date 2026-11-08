@@ -107,7 +107,7 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await expect(page.locator(".gg-room-character-speech p")).toBeVisible();
   await expect(page.locator(".gg-room-character text")).toHaveCount(0);
   const roomDialogue = page.locator("[data-testid='room-character-dialogue'] p");
-  await page.locator('.gg-room-scene-svg [data-room-item="club banners"]').click({ force: true });
+  await page.locator('.gg-room-scene-svg [data-room-item="club banners"] path:first-child').click({ force: true });
   await expect(roomDialogue).toHaveText("Hear that? That's the supporters.");
   await expect(roomDialogue).toHaveText("Every badge has a story.", { timeout: 3500 });
   await expect(roomDialogue).toHaveText("Give them something to sing about.", { timeout: 3500 });
