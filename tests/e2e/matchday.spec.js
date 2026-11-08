@@ -33,7 +33,7 @@ async function stubWorldApi(page) {
       x: 900,
       y: 310,
       description: "The golden heart of Original GG.",
-      interior: { rooms: [{ id: "grand-hall", name: "Grand Hall", description: "The community meeting place.", theme: "gold", items: ["golden-doors","community-board"] }] }
+      interior: { rooms: [{ id: "grand-hall", name: "Grand Hall", description: "The community meeting place.", theme: "gold", items: [] }] }
     }]
   };
   await page.route("**/api/world/**", async route => {
