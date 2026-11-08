@@ -1,10 +1,10 @@
 import test,{before,after,mock} from 'node:test';import assert from 'node:assert/strict';import mongoose from 'mongoose';import {MongoMemoryReplSet} from 'mongodb-memory-server';
 process.env.ADMIN_EMAIL='admin@example.invalid';process.env.GEMINI_API_KEY='';process.env.CHAT_ENABLED='true';process.env.NODE_ENV='test';process.env.E2E_TEST_AUTH_SECRET='api-test-e2e-auth-secret';
 mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other','racer','unverified-admin','gmail-viewer','unverified-gmail'].includes(token))throw new Error('Invalid test token');const email=token==='unverified-admin'?'admin@example.invalid':token==='gmail-viewer'?'player@gmail.com':token==='unverified-gmail'?'unverified@gmail.com':`${token}@example.invalid`;return {uid:`test-${token}`,email,email_verified:!['unverified-admin','unverified-gmail'].includes(token),name:`Test ${token}`};}})});
-const {default:app}=await import('../server/app.js');const {default:User}=await import('../server/models/User.js');const {default:Match}=await import('../server/models/Match.js');const {default:Player}=await import('../server/models/Player.js');const {default:Award}=await import('../server/models/Award.js');const {default:Achievement}=await import('../server/models/Achievement.js');const {default:Vote}=await import('../server/models/Vote.js');const {default:ProfileChangeRequest}=await import('../server/models/ProfileChangeRequest.js');const {default:RatingDispute}=await import("../server/models/RatingDispute.js");const {default:ChatMessage}=await import('../server/models/ChatMessage.js');const {syncHistory}=await import('../server/services/history.js');
+const {default:app}=await import('../server/app.js');const {requireAuth}=await import('../server/middleware/auth.js');const {default:User}=await import('../server/models/User.js');const {default:Match}=await import('../server/models/Match.js');const {default:Player}=await import('../server/models/Player.js');const {default:Award}=await import('../server/models/Award.js');const {default:Achievement}=await import('../server/models/Achievement.js');const {default:Vote}=await import('../server/models/Vote.js');const {default:ProfileChangeRequest}=await import('../server/models/ProfileChangeRequest.js');const {default:RatingDispute}=await import("../server/models/RatingDispute.js");const {default:ChatMessage}=await import('../server/models/ChatMessage.js');const {syncHistory}=await import('../server/services/history.js');
 let database,server,origin,p1,p2,matchId,viewer,gmailViewer,unverifiedGmail;
 async function request(path,{token,method='GET',body}={}){const response=await fetch(origin+'/api'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,requestId:response.headers.get('x-request-id'),data:await response.json()};}
-async function requestE2E(role,playerId){const response=await fetch(origin+'/api/auth/me',{headers:{'x-e2e-test-token':process.env.E2E_TEST_AUTH_SECRET,'x-e2e-test-role':role,...(playerId?{'x-e2e-test-player-id':String(playerId)}:{})}});return {status:response.status,data:await response.json()};}
+async function invokeE2EAuth(role,playerId){const req={headers:{'x-e2e-test-token':process.env.E2E_TEST_AUTH_SECRET,'x-e2e-test-role':role,...(playerId?{'x-e2e-test-player-id':String(playerId)}:{})}};const res={status(code){this.statusCode=code;return this;},json(body){this.body=body;return this;}};let continued=false;await requireAuth(req,res,()=>{continued=true;});return {continued,status:res.statusCode||200,user:req.user,message:res.body?.message};}
 before(async()=>{database=await MongoMemoryReplSet.create({binary:{version:'8.2.6'},replSet:{count:1}});await mongoose.connect(database.getUri());await Promise.all([User,Match,Player,Award,Achievement,Vote,ProfileChangeRequest,RatingDispute,ChatMessage].map(m=>m.init()));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.on('listening',r));origin=`http://127.0.0.1:${server.address().port}`;for(const token of ['admin','viewer','other','gmail-viewer','unverified-gmail'])await request('/auth/me',{token});viewer=await User.findOne({firebaseUid:'test-viewer'});gmailViewer=await User.findOne({firebaseUid:'test-gmail-viewer'});unverifiedGmail=await User.findOne({firebaseUid:'test-unverified-gmail'});p1=await Player.create({name:'Test Forward'});p2=await Player.create({name:'Test Keeper'});}, {timeout:120000});
 after(async()=>{await syncHistory().catch(()=>{});server?.closeAllConnections();if(server)await new Promise(r=>server.close(r));await mongoose.disconnect();await database?.stop();});
 const payload=()=>({date:'2026-01-04',name:'Test Sunday',teamA:{label:'Test A',score:99},teamB:{label:'Test B',score:99},participants:[{player:String(p1._id),team:'A',rating:8.9,defensivePerformance:8},{player:String(p2._id),team:'B',rating:7,defensivePerformance:6}],events:[{player:String(p1._id),type:'goal'}]});
@@ -158,21 +158,23 @@ test('concurrent first sign-ins for one Firebase UID safely reuse the created us
 });
 
 test('concurrent E2E sign-ins reuse one player identity and leave administrator actors unlinked',async()=>{
-  const playerResults=await Promise.all(Array.from({length:12},()=>requestE2E('editor',p2._id)));
-  assert.ok(playerResults.every(result=>result.status===200),JSON.stringify(playerResults));
-  const playerUser=await User.findOne({firebaseUid:`e2e-test:editor:${p2._id}`});
+  const isolatedPlayer=await Player.create({name:'Isolated E2E authentication player'});
+  assert.equal(await User.countDocuments({playerProfile:isolatedPlayer._id}),0);
+  const playerResults=await Promise.all(Array.from({length:12},()=>invokeE2EAuth('editor',isolatedPlayer._id)));
+  assert.ok(playerResults.every(result=>result.continued&&result.status===200),JSON.stringify(playerResults.map(result=>({continued:result.continued,status:result.status,message:result.message}))));
+  const playerUser=await User.findOne({firebaseUid:`e2e-test:editor:${isolatedPlayer._id}`});
   assert.ok(playerUser);
-  assert.equal(String(playerUser.playerProfile),String(p2._id));
-  assert.equal(await User.countDocuments({playerProfile:p2._id}),1);
+  assert.equal(String(playerUser.playerProfile),String(isolatedPlayer._id));
+  assert.equal(await User.countDocuments({playerProfile:isolatedPlayer._id}),1);
 
-  const viewerResults=await Promise.all(Array.from({length:6},()=>requestE2E('viewer',p1._id)));
-  assert.ok(viewerResults.every(result=>result.status===200),JSON.stringify(viewerResults));
+  const viewerResults=await Promise.all(Array.from({length:6},()=>invokeE2EAuth('viewer',null)));
+  assert.ok(viewerResults.every(result=>result.continued&&result.status===200),JSON.stringify(viewerResults.map(result=>({continued:result.continued,status:result.status,message:result.message}))));
   const viewerUser=await User.findOne({firebaseUid:'e2e-test:viewer:unlinked'});
   assert.ok(viewerUser);
   assert.equal(viewerUser.playerProfile,null);
 
-  const adminResults=await Promise.all(Array.from({length:6},()=>requestE2E('admin',p1._id)));
-  assert.ok(adminResults.every(result=>result.status===200),JSON.stringify(adminResults));
+  const adminResults=await Promise.all(Array.from({length:6},()=>invokeE2EAuth('admin',null)));
+  assert.ok(adminResults.every(result=>result.continued&&result.status===200),JSON.stringify(adminResults.map(result=>({continued:result.continued,status:result.status,message:result.message}))));
   const adminUser=await User.findOne({firebaseUid:'e2e-test:admin:unlinked'});
   assert.ok(adminUser);
   assert.equal(adminUser.playerProfile,null);
