@@ -92,12 +92,9 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  const companion = page.locator(".gg-companion-button");
-  await expect(companion).toBeVisible();
-  await companion.click({ button: "right" });
-  const companionMenu = page.getByRole("menu", { name: "Companion actions" });
-  await expect(companionMenu).toBeVisible();
-  await companionMenu.getByRole("menuitem", { name: "Enter Original GG" }).click();
+  const mapShortcut = page.getByRole("button", { name: "Open Original GG map" });
+  await expect(mapShortcut).toBeEnabled();
+  await mapShortcut.click();
   await expect(page.locator(".gg-companion-vortex")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
   await expect(page.locator(".gg-training-challenge canvas")).toHaveCount(0);
