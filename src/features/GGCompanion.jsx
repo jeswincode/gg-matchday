@@ -395,7 +395,10 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     state.arrivalLine = options.followUpLine || "";
     const bounds = state.bounds || measureBounds();
     const rect = rectForGround(ground, bounds);
-    if (!rect) return;
+    if (!rect) {
+      state.arrivalLine = "";
+      return;
+    }
     const targetX = clamp(x, rect.left + BODY_WIDTH / 2, rect.right - BODY_WIDTH / 2);
     const targetY = rect.top;
     if (Math.abs(state.targetX - targetX) < 8 && state.targetGround?.el === ground.el && MOVING_PHASES.has(state.phase)) return;
