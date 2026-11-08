@@ -77,6 +77,7 @@ test("unlinked viewer cannot enter Original GG from the companion menu", async (
   await page.goto("/?e2eRole=viewer");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await expect(page.getByRole("button", { name: "Open Original GG map" })).toBeEnabled();
   const companion = page.locator(".gg-companion-button");
   await expect(companion).toBeVisible();
   await companion.click({ button: "right" });
