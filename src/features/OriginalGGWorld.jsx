@@ -7,6 +7,7 @@ import "./original-gg.css";
 import { G, Layer, N, rgba } from "./companion/leaflet-pip-engine.js";
 import { normalizeCharacterDirection, normalizeCharacterMotion, getCharacterAnimationProfile, getCharacterMotionDuration } from "../../shared/characterAnimation.js";
 import { findWorldWalkPath, worldPathLength, worldPathPosition } from "../../shared/worldNavigation.js";
+import { normalizeRoomParticipants, findNearbyRoomParticipant } from "../../shared/worldRoomPresence.js";
 import TrainingChallenge from "./TrainingChallenge.jsx";
 import WorldEconomyPanel from "./WorldEconomyPanel.jsx";
 import WorldSocialPanel from "./WorldSocialPanel.jsx";
@@ -272,7 +273,7 @@ function RoomTabs({rooms=[],activeIndex=0,onSelect}) {
   </div>;
 }
 
-function WalkableRoomScene({room,appearance,onOpenChat}) {
+function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,roomPlayers=[],playerMotions={},onSelectRoomPlayer}) {
   const sceneRef=useRef(null);
   const characterRef=useRef(null);
   const walkFrame=useRef(null);
@@ -281,6 +282,10 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
   const position=useRef({x:600,y:610});
   const [motion,setMotion]=useState("idle");
   const [direction,setDirection]=useState("down");
+  const directionRef=useRef(direction);
+  directionRef.current=direction;
+  const [presencePoint,setPresencePoint]=useState({x:600,y:610});
+  const greetedGuests=useRef(new Set());
   const [scenePose,setScenePose]=useState("standing");
   const [line,setLine]=useState("The room is yours. Tap the floor and I'll take a look around.");
   const [activeItem,setActiveItem]=useState("");
@@ -301,6 +306,32 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
   const supporters=/supporters|fan|clubhouse/.test(id);
   const hq=/grand-hall|headquarters|club-lounge/.test(id)||theme.includes("gold");
   const accent=training?"#91b77b":pitch?"#9cbb8d":trophy||hq?"#e3c374":market?"#d7a66c":esports?"#8dd9e0":garden?"#8db987":"#d5b77a";
+  useEffect(()=>{
+    if(!hasAvatar||!locationId)return undefined;
+    const heartbeat=()=>api("/world/presence",{
+      method:"POST",
+      body:{locationId,...position.current,direction:directionRef.current},
+    }).catch(()=>{});
+    heartbeat();
+    const timer=window.setInterval(heartbeat,4500);
+    return ()=>window.clearInterval(timer);
+  },[hasAvatar,locationId]);
+  useEffect(()=>{
+    const presentIds=new Set(roomPlayers.map((guest)=>guest.playerId));
+    for(const guestId of greetedGuests.current){
+      const guest=roomPlayers.find((item)=>item.playerId===guestId);
+      if(!guest||Math.hypot(guest.x-presencePoint.x,guest.y-presencePoint.y)>180)greetedGuests.current.delete(guestId);
+    }
+    const nearby=findNearbyRoomParticipant(roomPlayers,presencePoint,122);
+    if(!nearby||motion!=="idle"||scenePose!=="standing"||activeItem)return;
+    if(greetedGuests.current.has(nearby.playerId))return;
+    greetedGuests.current.add(nearby.playerId);
+    setDirection(nearby.x<presencePoint.x?"left":"right");
+    setMotion("wave");
+    playDialogue(["Hey "+nearby.displayName+"!","Welcome in. Fancy a kickabout?"]);
+    if(interactionTimer.current!==null)window.clearTimeout(interactionTimer.current);
+    interactionTimer.current=window.setTimeout(()=>setMotion("idle"),1250);
+  },[roomPlayers,presencePoint,motion,scenePose,activeItem,playDialogue]);
   const playDialogue=useCallback((lines,fallback="")=>{
     if(dialogueTimer.current!==null)window.clearTimeout(dialogueTimer.current);
     const sequence=(Array.isArray(lines)?lines:[]).filter((entry)=>typeof entry==="string"&&entry.trim());
@@ -404,6 +435,7 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
         const destination={x:path[path.length-1].x,y:path[path.length-1].y};
         position.current=destination;
         characterRef.current?.setAttribute("transform","translate("+destination.x+" "+destination.y+")");
+        setPresencePoint(destination);
         finishInteraction(action,reason);
       }
     };
@@ -576,6 +608,25 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
         <rect x="360" y="380" width="480" height="18" fill="#94744d"/>
       </g>}
       <g opacity=".8"><path d="M82 44V104 M1118 44V104" stroke={accent} strokeWidth="5"/><path d="M82 44L112 62L82 80Z M1118 44L1088 62L1118 80Z" fill={accent}/><circle cx="600" cy="48" r="16" fill={accent}/><circle cx="600" cy="48" r="7" fill="#fff0bf"/></g>
+      <g data-layer="room-players" aria-label="Other players in this room">
+        {roomPlayers.slice().sort((a,b)=>a.y-b.y).map((guest)=><g key={guest.playerId}
+          transform={"translate("+guest.x+" "+guest.y+")"}
+          className="gg-room-guest"
+          role="button"
+          tabIndex="0"
+          aria-label={"View "+guest.displayName}
+          onClick={(event)=>{event.stopPropagation();onSelectRoomPlayer?.(guest);}}
+          onKeyDown={(event)=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();event.stopPropagation();onSelectRoomPlayer?.(guest);}}}>
+          <ellipse cy="3" rx="26" ry="9" fill="#08110b" opacity=".55"/>
+          <circle cy="-42" r="35" fill="#e5bf68" opacity=".08"/>
+          <foreignObject x="-29" y="-78" width="58" height="74">
+            <div xmlns="http://www.w3.org/1999/xhtml" className="gg-room-character-sprite">
+              <PlayerSprite appearance={guest.appearance||{}} motion={playerMotions[guest.playerId]||"idle"} direction={guest.direction||"down"} animated={Boolean(playerMotions[guest.playerId])}/>
+            </div>
+          </foreignObject>
+          <text y="17" textAnchor="middle" fill="#fff5dd" fontSize="12" stroke="#1b3326" strokeWidth="3" paintOrder="stroke">{guest.displayName.slice(0,16)}</text>
+        </g>)}
+      </g>
       <g ref={characterRef} className="gg-room-character" transform="translate(600 610)" pointerEvents="none">
         <ellipse cx="0" cy="3" rx="26" ry="9" fill="#08110b" opacity=".55"/>
         <foreignObject x="-29" y="-78" width="58" height="74"><div xmlns="http://www.w3.org/1999/xhtml" className="gg-room-character-sprite"><PlayerSprite appearance={appearance||{}} motion={motion} direction={direction} animated pose={scenePose}/></div></foreignObject>
@@ -849,12 +900,14 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
     try { window.localStorage.setItem("gg-v4-world-position:"+(playerUid||"visitor"),JSON.stringify(playerPosition)); } catch { /* Position remains available for this visit. */ }
   },[playerPosition,playerUid]);
   useEffect(() => {
-    if (!hasAvatar) return;
+    // Interior scenes publish their own room-local coordinates. Keep the city
+    // heartbeat paused until the player returns to the outdoor map.
+    if (!hasAvatar || interior || facility==="training" || facility==="market") return undefined;
     const heartbeat = () => api("/world/presence",{method:"POST",body:{locationId:activeLocationId,...playerPositionRef.current,direction:characterDirection}}).catch(()=>{});
     heartbeat();
     const timer=window.setInterval(heartbeat,4500);
     return ()=>window.clearInterval(timer);
-  },[hasAvatar,activeLocationId,characterDirection]);
+  },[hasAvatar,activeLocationId,characterDirection,interior,facility]);
 
   useEffect(() => {
     if (!hasAvatar || facility || selected || loading || characterMotion !== "idle" ||
@@ -1128,6 +1181,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
   const currentHeadquartersRoom=headquartersRooms[activeFacilityRoom]||headquartersRooms[0];
   const currentTrainingRoom=trainingRooms[activeFacilityRoom]||trainingRooms[0];
   const currentMarketRoom=marketRooms[activeFacilityRoom]||marketRooms[0];
+  const currentRoomPlayers=normalizeRoomParticipants(data?.presence||[],activeLocationId,data?.playerId);
   return <main className="gg-world">
     <header className="gg-world-header"><div className="gg-world-brand"><span className="gg-world-crest">GG</span><div><p>THE ORIGINAL GG WORLD</p><h1>Football City</h1></div></div><div className="gg-world-header-actions"><button className="gg-world-back" onClick={onExit}>← Matchday</button></div></header>
     
@@ -1244,7 +1298,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
         <section className="gg-world-facility-window">
           <header className="gg-world-facility-heading"><div><span>ORIGINAL GG · MARKET SQUARE</span><h2>Build your football identity.</h2><p>Character cosmetics, home furnishings and residence upgrades.</p></div><button type="button" className="gg-world-back" onClick={()=>setFacility(null)}>← Back to city</button></header>
           <RoomTabs rooms={marketRooms} activeIndex={activeFacilityRoom} onSelect={setActiveFacilityRoom}/>
-          {currentMarketRoom&&<WalkableRoomScene key={"market-"+currentMarketRoom.id} room={currentMarketRoom} appearance={appearance}/>}
+          {currentMarketRoom&&<WalkableRoomScene key={"market-"+currentMarketRoom.id} room={currentMarketRoom} appearance={appearance} locationId={activeLocationId} hasAvatar={hasAvatar} roomPlayers={currentRoomPlayers} playerMotions={playerMotions} onSelectRoomPlayer={setSelectedPlayer}/>}
           <WorldEconomyPanel onEquipped={(nextAppearance)=>setAvatar((current)=>({...current,appearance:nextAppearance}))}/>
         </section>
       </div>}
@@ -1264,7 +1318,7 @@ export default function OriginalGGWorld({ onExit, onOpenChat, playerName = "Your
       <section className="gg-world-facility-window gg-world-room-window">
         <header className="gg-world-facility-heading"><div><span>{interior.type==="residence"?"PLAYER RESIDENCE":"ORIGINAL GG · "+(interior.type||"FACILITY").replaceAll("-"," ").toUpperCase()} · LEVEL {interior.level||1}</span><h2 id="gg-world-interior-title">{interior.name||"Facility interior"}</h2><p>Explore the room. Click the floor to move your character, or use WASD / arrow keys.</p></div><button className="gg-world-back" onClick={()=>{setInterior(null);setActiveLocationId("city-plaza");}}>← Back to city</button></header>
         <RoomTabs rooms={interior.interior?.rooms||[]} activeIndex={activeRoomIndex} onSelect={setActiveRoomIndex}/>
-        {(interior.interior?.rooms||[]).length>0 ? <WalkableRoomScene key={(interior.interior.rooms[activeRoomIndex]||interior.interior.rooms[0]).id} room={interior.interior.rooms[activeRoomIndex]||interior.interior.rooms[0]} appearance={appearance} onOpenChat={onOpenChat}/> : <WalkableRoomScene key={interior.type||interior.name} room={{id:"lounge",name:interior.name||"Player Lounge",theme:"clubhouse",items:[]}} appearance={appearance} onOpenChat={onOpenChat}/>}
+        {(interior.interior?.rooms||[]).length>0 ? <WalkableRoomScene key={(interior.interior.rooms[activeRoomIndex]||interior.interior.rooms[0]).id} room={interior.interior.rooms[activeRoomIndex]||interior.interior.rooms[0]} appearance={appearance} onOpenChat={onOpenChat} locationId={activeLocationId} hasAvatar={hasAvatar} roomPlayers={currentRoomPlayers} playerMotions={playerMotions} onSelectRoomPlayer={setSelectedPlayer}/> : <WalkableRoomScene key={interior.type||interior.name} room={{id:"lounge",name:interior.name||"Player Lounge",theme:"clubhouse",items:[]}} appearance={appearance} onOpenChat={onOpenChat} locationId={activeLocationId} hasAvatar={hasAvatar} roomPlayers={currentRoomPlayers} playerMotions={playerMotions} onSelectRoomPlayer={setSelectedPlayer}/>}
         <div className="gg-world-room-inventory"><span>IN THIS ROOM</span>{((interior.interior?.rooms||[])[activeRoomIndex]?.items||[]).map((item)=><small key={item}>{item.replaceAll("-"," ")}</small>)}{((interior.interior?.rooms||[])[activeRoomIndex]?.furniture||[]).map((item,index)=><small key={item.itemId+":"+index}>✦ {item.name}</small>)}</div>
         {interior.type==="residence"&&<button type="button" className="gg-world-interior-secondary" onClick={()=>setResidenceAccessOpen(true)}>Manage visitors and privacy</button>}
       </section>
