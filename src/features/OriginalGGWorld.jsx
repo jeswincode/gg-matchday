@@ -7,7 +7,7 @@ import "./original-gg.css";
 import { G, Layer, N, rgba } from "./companion/leaflet-pip-engine.js";
 import { normalizeCharacterDirection, normalizeCharacterMotion, getCharacterAnimationProfile, getCharacterMotionDuration } from "../../shared/characterAnimation.js";
 import { findWorldWalkPath, worldPathLength, worldPathPosition } from "../../shared/worldNavigation.js";
-import { normalizeRoomParticipants, findNearbyRoomParticipant } from "../../shared/worldRoomPresence.js";
+import { normalizeRoomParticipants, findNearbyRoomParticipant, getRoomApproachPoint, getRoomFacingDirection } from "../../shared/worldRoomPresence.js";
 import TrainingChallenge from "./TrainingChallenge.jsx";
 import WorldEconomyPanel from "./WorldEconomyPanel.jsx";
 import WorldSocialPanel from "./WorldSocialPanel.jsx";
@@ -282,9 +282,11 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
   const position=useRef({x:600,y:610});
   const [motion,setMotion]=useState("idle");
   const [direction,setDirection]=useState("down");
-  const directionRef=useRef(direction);
-  directionRef.current=direction;
+  const directionRef=useRef("down");
+  useEffect(()=>{directionRef.current=direction;},[direction]);
   const [presencePoint,setPresencePoint]=useState({x:600,y:610});
+  const [focusedGuestId,setFocusedGuestId]=useState("");
+  const focusedGuest=roomPlayers.find((guest)=>guest.playerId===focusedGuestId)||null;
   const greetedGuests=useRef(new Set());
   const [scenePose,setScenePose]=useState("standing");
   const [line,setLine]=useState("The room is yours. Tap the floor and I'll take a look around.");
@@ -316,22 +318,6 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
     const timer=window.setInterval(heartbeat,4500);
     return ()=>window.clearInterval(timer);
   },[hasAvatar,locationId]);
-  useEffect(()=>{
-    const presentIds=new Set(roomPlayers.map((guest)=>guest.playerId));
-    for(const guestId of greetedGuests.current){
-      const guest=roomPlayers.find((item)=>item.playerId===guestId);
-      if(!guest||Math.hypot(guest.x-presencePoint.x,guest.y-presencePoint.y)>180)greetedGuests.current.delete(guestId);
-    }
-    const nearby=findNearbyRoomParticipant(roomPlayers,presencePoint,122);
-    if(!nearby||motion!=="idle"||scenePose!=="standing"||activeItem)return;
-    if(greetedGuests.current.has(nearby.playerId))return;
-    greetedGuests.current.add(nearby.playerId);
-    setDirection(nearby.x<presencePoint.x?"left":"right");
-    setMotion("wave");
-    playDialogue(["Hey "+nearby.displayName+"!","Welcome in. Fancy a kickabout?"]);
-    if(interactionTimer.current!==null)window.clearTimeout(interactionTimer.current);
-    interactionTimer.current=window.setTimeout(()=>setMotion("idle"),1250);
-  },[roomPlayers,presencePoint,motion,scenePose,activeItem,playDialogue]);
   const playDialogue=useCallback((lines,fallback="")=>{
     if(dialogueTimer.current!==null)window.clearTimeout(dialogueTimer.current);
     const sequence=(Array.isArray(lines)?lines:[]).filter((entry)=>typeof entry==="string"&&entry.trim());
@@ -347,6 +333,24 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
     };
     advance();
   },[]);
+  useEffect(()=>{
+    const nearby=findNearbyRoomParticipant(roomPlayers,presencePoint,122);
+    for(const guestId of greetedGuests.current){
+      const guest=roomPlayers.find((item)=>item.playerId===guestId);
+      if(!guest||Math.hypot(guest.x-presencePoint.x,guest.y-presencePoint.y)>180)greetedGuests.current.delete(guestId);
+    }
+    if(!nearby||nearby.playerId===focusedGuestId||motion!=="idle"||scenePose!=="standing"||activeItem)return;
+    if(greetedGuests.current.has(nearby.playerId))return;
+    greetedGuests.current.add(nearby.playerId);
+    setDirection(getRoomFacingDirection(presencePoint,nearby));
+    setMotion("wave");
+    playDialogue(["Hey "+nearby.displayName+"!","Welcome in. Fancy a kickabout?"]);
+    if(interactionTimer.current!==null)window.clearTimeout(interactionTimer.current);
+    interactionTimer.current=window.setTimeout(()=>setMotion("idle"),1250);
+  },[roomPlayers,presencePoint,motion,scenePose,activeItem,playDialogue,focusedGuestId]);
+  useEffect(()=>{
+    if(focusedGuestId&&!focusedGuest)setFocusedGuestId("");
+  },[focusedGuestId,focusedGuest,roomPlayers]);
   const readRoomObstacles=useCallback(()=>{
     const svg=sceneRef.current;
     if(!svg)return [];
@@ -370,6 +374,7 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
   const finishInteraction=useCallback((action,reason)=>{
     playDialogue(action.dialogue,reason||"Let's have a look around.");
     setScenePose(action.pose||"standing");
+    if(action.direction)setDirection(action.direction);
     setMotion(action.motion||"idle");
     if(action.duration>0)interactionTimer.current=window.setTimeout(()=>{
       setMotion("idle");
@@ -441,6 +446,21 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
     };
     walkFrame.current=window.requestAnimationFrame(animate);
   },[finishInteraction,readRoomObstacles]);
+  const approachRoomGuest=useCallback((guest)=>{
+    if(!guest?.playerId)return;
+    const target=getRoomApproachPoint(position.current,guest);
+    if(!target)return;
+    const facing=getRoomFacingDirection(target,guest);
+    greetedGuests.current.add(guest.playerId);
+    setFocusedGuestId(guest.playerId);
+    walkTo(target.x,target.y,"Walking over to "+guest.displayName+".",{
+      pose:"standing",
+      motion:"wave",
+      duration:1250,
+      direction:facing,
+      dialogue:["Hey "+guest.displayName+"!","Good to see you. How's training going?"],
+    });
+  },[walkTo]);
   function handleSceneClick(event){
     if(event.target?.closest?.("[data-room-item]"))return;
     const matrix=event.currentTarget.getScreenCTM?.();
@@ -615,8 +635,8 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
           role="button"
           tabIndex="0"
           aria-label={"View "+guest.displayName}
-          onClick={(event)=>{event.stopPropagation();onSelectRoomPlayer?.(guest);}}
-          onKeyDown={(event)=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();event.stopPropagation();onSelectRoomPlayer?.(guest);}}}>
+          onClick={(event)=>{event.stopPropagation();approachRoomGuest(guest);}}
+          onKeyDown={(event)=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();event.stopPropagation();approachRoomGuest(guest);}}}>
           <ellipse cy="3" rx="26" ry="9" fill="#08110b" opacity=".55"/>
           <circle cy="-42" r="35" fill="#e5bf68" opacity=".08"/>
           <foreignObject x="-29" y="-78" width="58" height="74">
@@ -641,7 +661,7 @@ function WalkableRoomScene({room,appearance,onOpenChat,locationId,hasAvatar,room
         <button type="button" onClick={()=>moveStep(56,0)} aria-label="Walk right">→</button>
       </div>
     </div>
-    <div className="gg-room-bottomline">{hq&&<strong className="gg-room-feature-motto">THE PLACE WHERE THE COMMUNITY MEETS.</strong>}<span>{activeItem||room?.name||"Explore the room"}</span>{onOpenChat&&(/grand-hall|club-lounge|supporters|fan|meeting/.test(id))&&<button type="button" onClick={onOpenChat}>Open community chat</button>}</div>
+    <div className="gg-room-bottomline">{hq&&<strong className="gg-room-feature-motto">THE PLACE WHERE THE COMMUNITY MEETS.</strong>}<span>{focusedGuest?"Talking with "+focusedGuest.displayName:activeItem||room?.name||"Explore the room"}</span>{focusedGuest&&<><button type="button" onClick={()=>onSelectRoomPlayer?.(focusedGuest)}>Player profile</button><button type="button" onClick={()=>setFocusedGuestId("")}>End conversation</button></>}{onOpenChat&&(/grand-hall|club-lounge|supporters|fan|meeting/.test(id))&&<button type="button" onClick={onOpenChat}>Open community chat</button>}</div>
   </div>;
 }
 

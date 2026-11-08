@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { normalizeRoomParticipants, findNearbyRoomParticipant } from "../shared/worldRoomPresence.js";
+import { normalizeRoomParticipants, findNearbyRoomParticipant, getRoomApproachPoint, getRoomFacingDirection } from "../shared/worldRoomPresence.js";
 
 const ownPlayerId = "player-self";
 const locationId = "gg-hq";
@@ -49,4 +49,21 @@ test("nearest guest wins when multiple players are close", () => {
     { playerId: "near", displayName: "Near", x: 620, y: 610 },
   ];
   assert.equal(findNearbyRoomParticipant(guests, { x: 600, y: 610 }, 122).playerId, "near");
+});
+
+test("room approach points stop beside a player rather than on top of them", () => {
+  assert.deepEqual(getRoomApproachPoint({ x: 400, y: 610 }, { x: 700, y: 610 }), { x: 642, y: 610 });
+  assert.deepEqual(getRoomApproachPoint({ x: 800, y: 600 }, { x: 700, y: 600 }), { x: 758, y: 600 });
+});
+
+test("vertical room approaches preserve a face-to-face direction", () => {
+  const point = getRoomApproachPoint({ x: 600, y: 550 }, { x: 600, y: 640 });
+  assert.deepEqual(point, { x: 600, y: 582 });
+  assert.equal(getRoomFacingDirection(point, { x: 600, y: 640 }), "down");
+  assert.equal(getRoomFacingDirection({ x: 700, y: 620 }, { x: 600, y: 620 }), "left");
+});
+
+test("room approach coordinates remain on the playable floor", () => {
+  assert.deepEqual(getRoomApproachPoint({ x: 1100, y: 600 }, { x: 1106, y: 600 }), { x: 1048, y: 600 });
+  assert.equal(getRoomApproachPoint(null, { x: 600, y: 610 }), null);
 });

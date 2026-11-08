@@ -28,7 +28,7 @@ test("V4 preview refuses to start when staging database names are not explicitly
   const missing = { ...base };
   delete missing.V4_PREVIEW_CORE_DB_NAME;
   delete missing.V4_PREVIEW_CLUBS_DB_NAME;
-  assert.throws(() => resolveV4PreviewDatabaseNames(missing), /V4_PREVIEW_CORE_DB_NAME and V4_PREVIEW_CLUBS_DB_NAME/);
+  assert.throws(() => resolveV4PreviewDatabaseNames(missing), /set valid V4_PREVIEW_CORE_DB_NAME and V4_PREVIEW_CLUBS_DB_NAME staging database names/);
 });
 
 test("V4 preview refuses either V3 database as a staging target", () => {
