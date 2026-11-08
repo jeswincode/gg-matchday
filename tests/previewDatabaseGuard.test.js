@@ -25,8 +25,10 @@ test("V4 preview selects two explicit staging databases", () => {
 });
 
 test("V4 preview refuses to start when staging database names are not explicitly configured", () => {
-  const { V4_PREVIEW_CORE_DB_NAME, V4_PREVIEW_CLUBS_DB_NAME, ...missing } = base;
-  assert.throws(() => resolveV4PreviewDatabaseNames(missing), /V4_PREVIEW_CORE_DB_NAME and V4_PREVIEW_CLUBS_DB_NAME/);
+  const missing = { ...base };
+  delete missing.V4_PREVIEW_CORE_DB_NAME;
+  delete missing.V4_PREVIEW_CLUBS_DB_NAME;
+  assert.throws(() => resolveV4PreviewDatabaseNames(missing), /set valid V4_PREVIEW_CORE_DB_NAME and V4_PREVIEW_CLUBS_DB_NAME staging database names/);
 });
 
 test("V4 preview refuses either V3 database as a staging target", () => {
@@ -48,12 +50,14 @@ test("V4 preview refuses to share one database between Core and Clubs", () => {
 });
 
 test("V4 preview requires explicit source database names when connection strings omit a path", () => {
-  const { V4_PREVIEW_SOURCE_CORE_DB_NAME, ...missingCore } = base;
+  const missingCore = { ...base };
+  delete missingCore.V4_PREVIEW_SOURCE_CORE_DB_NAME;
   assert.throws(() => resolveV4PreviewDatabaseNames({
     ...missingCore,
     V4_PREVIEW_SOURCE_CLUBS_DB_NAME: base.V4_PREVIEW_SOURCE_CLUBS_DB_NAME,
   }), /source database names must be explicit/);
-  const { V4_PREVIEW_SOURCE_CLUBS_DB_NAME, ...missingClubs } = base;
+  const missingClubs = { ...base };
+  delete missingClubs.V4_PREVIEW_SOURCE_CLUBS_DB_NAME;
   assert.throws(() => resolveV4PreviewDatabaseNames({
     ...missingClubs,
     V4_PREVIEW_SOURCE_CORE_DB_NAME: base.V4_PREVIEW_SOURCE_CORE_DB_NAME,

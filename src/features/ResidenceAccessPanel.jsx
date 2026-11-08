@@ -56,7 +56,7 @@ export default function ResidenceAccessPanel({ onClose, onUpdated }) {
 
   useEffect(() => {
     const text = transferQuery.trim();
-    if (text.length < 2) { setTransferResults([]); return undefined; }
+    if (text.length < 2) return undefined;
     let active = true;
     const timer = window.setTimeout(() => {
       api("/world/residence-directory/players?search=" + encodeURIComponent(text)).then((result) => {
@@ -143,7 +143,7 @@ export default function ResidenceAccessPanel({ onClose, onUpdated }) {
         <section className="gg-access-transfer">
           <div><strong>Transfer home ownership</strong><p>Invite a verified, linked GG player to take ownership. They must accept within 7 days. Their untouched Level 1 starter home is replaced; upgraded or furnished homes are protected.</p></div>
           <label htmlFor="gg-residence-transfer-search">Invite a new owner</label>
-          <input id="gg-residence-transfer-search" value={transferQuery} maxLength={32} onChange={(event)=>setTransferQuery(event.target.value)} placeholder="Search player names…"/>
+          <input id="gg-residence-transfer-search" value={transferQuery} maxLength={32} onChange={(event)=>{setTransferQuery(event.target.value);setTransferResults([]);}} placeholder="Search player names…"/>
           {transferQuery.trim().length>=2&&transferResults.length>0&&<div className="gg-access-results">{transferResults.map((target)=><button type="button" key={target.playerId} disabled={transferSaving} onClick={()=>inviteTransfer(target)}><span>{target.displayName}</span><b>{transferSaving?"Sending…":"Invite to own home"}</b></button>)}</div>}
           <div className="gg-access-transfer-list">
             {transfers.filter((item)=>item.status==="pending").map((item)=>(

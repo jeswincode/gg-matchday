@@ -30,7 +30,8 @@ export function resolveV4PreviewDatabaseNames(env = process.env) {
     throw new Error("V4 preview is blocked: set valid V4_PREVIEW_CORE_DB_NAME and V4_PREVIEW_CLUBS_DB_NAME staging database names.");
   }
 
-  const liveNames = new Set([liveCore, liveClubs]);
+  // Reserve the known V3 namespaces even when a test or deployment URI omits its path.
+  const liveNames = new Set([liveCore, liveClubs, "gg_matchday_core", "gg_matchday_clubs"]);
   if (liveNames.has(previewCore) || liveNames.has(previewClubs)) {
     throw new Error("V4 preview is blocked: staging database names must not match either V3 Core or Clubs database.");
   }
