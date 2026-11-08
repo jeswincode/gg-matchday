@@ -222,9 +222,11 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         const kickX = safeDirection === "left" ? leftLegX : rightLegX;
         const plantX = safeDirection === "left" ? rightLegX : leftLegX;
         g.rect(plantX,25+jump,3,5,skin);
-        g.rect(plantX-2,29+jump,5,2,boot);
+        const plantToe = safeDirection === "left" ? rightBootToe : leftBootToe;
+        g.rect(plantX+plantToe,29+jump,5,2,boot);
         g.rect(kickX,25+jump+swing,3,5,skin);
-        g.rect(kickX-2,29+jump+swing,6,2,boot);
+        const kickToe = safeDirection === "left" ? leftBootToe : rightBootToe;
+        g.rect(kickX+kickToe,29+jump+swing,6,2,boot);
       } else {
         g.rect(leftLegX+leftLegReach,25+jump+leftLegStep,3,5,skin);
         g.rect(rightLegX+rightLegReach,25+jump+rightLegStep,3,5,skin);
