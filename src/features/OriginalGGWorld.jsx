@@ -317,11 +317,17 @@ function WalkableRoomScene({room,appearance,onOpenChat}) {
     if(!svg)return [];
     const boxes=[];
     for(const item of svg.querySelectorAll("[data-room-item]")){
-      try{
-        const box=item.getBBox();
-        if(box.width>0&&box.height>0)boxes.push({x:box.x,y:box.y,width:box.width,height:box.height});
-      }catch{
-        // A detached or not-yet-painted SVG item is not a collision surface.
+      // An interaction target can group separate pieces (for example, two
+      // sofas and a coffee table). Keep their individual hit geometry so the
+      // planner doesn't turn the empty space between them into a wall.
+      const shapes=item.children?.length?Array.from(item.children):[item];
+      for(const shape of shapes){
+        try{
+          const box=shape.getBBox();
+          if(box.width>=8&&box.height>=8)boxes.push({x:box.x,y:box.y,width:box.width,height:box.height});
+        }catch{
+          // A detached or not-yet-painted SVG item is not a collision surface.
+        }
       }
     }
     return roomObstaclesFromBoxes(boxes);
