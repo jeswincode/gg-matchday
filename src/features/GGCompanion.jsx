@@ -417,6 +417,11 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       setProfilePerched(ground.kind === "profile");
       writePosition(state);
       if (options.line) showBubble(options.line, 2100);
+      if (state.arrivalLine) {
+        const line = state.arrivalLine;
+        state.arrivalLine = "";
+        showBubble(line, 2100);
+      }
       return;
     }
     const sameSurface = state.ground?.el === ground.el && state.ground?.kind === ground.kind;
@@ -710,6 +715,11 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         setPerched(tween.ground.kind === "nav");
         setProfilePerched(tween.ground.kind === "profile");
         state.nextAction = now + 3300 + Math.random() * 4300;
+        if (state.arrivalLine) {
+          const line = state.arrivalLine;
+          state.arrivalLine = "";
+          showBubble(line, 2100);
+        }
       }
       return;
     }
