@@ -116,8 +116,6 @@ function App() {
   const navRef=useRef(null);
   const suppressTabClickRef=useRef(false);
   const [navDragging,setNavDragging]=useState(false);
-  const [navDragX,setNavDragX]=useState(null);
-  const [navPreviewTab,setNavPreviewTab]=useState(null);
   const [swipeOffset,setSwipeOffset]=useState(0);
   const [swipeAnimating,setSwipeAnimating]=useState(false);
   const [modeTransition,setModeTransition]=useState(null);
@@ -288,9 +286,8 @@ function App() {
   },[]);
 
   const handleNavPointerDown=useCallback((event)=>{
-    const coarse=event.pointerType==="touch"||event.pointerType==="pen"||window.matchMedia?.("(pointer:coarse)").matches;
     const pressedButton=event.target?.closest?.(".bottom-nav button[data-tab]");
-    if(!coarse||!pressedButton)return;
+    if(!pressedButton||event.button!==0)return;
     tabDragRef.current={
       pointerId:event.pointerId,
       startX:event.clientX,
@@ -332,8 +329,6 @@ function App() {
     event.currentTarget.style.setProperty("--gg-active-width",nearestRect.width+"px");
     drag.lastX=event.clientX;
     drag.lastTab=nextTab;
-    setNavDragX(event.clientX);
-    setNavPreviewTab(current=>current===nextTab?current:nextTab);
   },[]);
   const finishNavPointer=useCallback((event)=>{
     const drag=tabDragRef.current;
@@ -342,8 +337,6 @@ function App() {
     if(drag.moved){
       if(TAB_ORDER.includes(drag.lastTab)&&drag.lastTab!==activeTab)setActiveTab(drag.lastTab);
       setNavDragging(false);
-      setNavDragX(null);
-      setNavPreviewTab(null);
       window.setTimeout(()=>{suppressTabClickRef.current=false;},260);
     }
   },[activeTab,setActiveTab]);
@@ -2571,7 +2564,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button>{isSignedIn&&<button className="secondary-button" type="button" onClick={()=>setWorldOpen(true)} disabled={!canEnterOriginalGG} title={!canEnterOriginalGG?"Requires a verified Gmail account linked by the administrator":"Open the Original GG football city map"} aria-label="Open Original GG map">🌍 World</button>}<div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
