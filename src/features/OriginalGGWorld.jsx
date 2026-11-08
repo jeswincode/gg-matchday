@@ -5,7 +5,7 @@ import { useOriginalGGRealtime } from "./useOriginalGGRealtime";
 import { api } from "../lib/api";
 import "./original-gg.css";
 import { G, Layer, N, rgba } from "./companion/leaflet-pip-engine.js";
-import { normalizeCharacterDirection, normalizeCharacterMotion, getCharacterAnimationProfile, getCharacterMotionDuration } from "../../shared/characterAnimation.js";
+import { normalizeCharacterDirection, normalizeCharacterMotion, getCharacterAnimationProfile, getCharacterMotionDuration, getCharacterBootToeOffset } from "../../shared/characterAnimation.js";
 import { findWorldWalkPath, worldPathLength, worldPathPosition } from "../../shared/worldNavigation.js";
 import { normalizeRoomParticipants, findNearbyRoomParticipant, getRoomApproachPoint, getRoomFacingDirection } from "../../shared/worldRoomPresence.js";
 import TrainingChallenge from "./TrainingChallenge.jsx";
@@ -196,6 +196,8 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
 
       const leftLegX = bodyLeft+1;
       const rightLegX = bodyLeft+bodyWidth-4;
+      const leftBootToe = getCharacterBootToeOffset(safeDirection, "left");
+      const rightBootToe = getCharacterBootToeOffset(safeDirection, "right");
       if (seated) {
         const seatedKick = safeMotion === "juggle" ? [0,0,-1,-2,-1,0,0,0][frame%8] : 0;
         // Shorts sit over the avatar; knees extend forward and slightly apart.
@@ -212,9 +214,9 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
           : safeMotion === "stepover" ? [0,-1,-2,-1,0,1,2,1][frame%8]
             : [0,-2,-4,-2,1,3,0,-1][frame%8];
         g.rect(leftLegX,25+jump,3,5,skin);
-        g.rect(leftLegX-2,29+jump,5,2,boot);
+        g.rect(leftLegX+leftBootToe,29+jump,5,2,boot);
         g.rect(rightLegX,25+jump+trickLift,3,5,skin);
-        g.rect(rightLegX-2,29+jump+trickLift,6,2,boot);
+        g.rect(rightLegX+rightBootToe,29+jump+trickLift,6,2,boot);
       } else if (safeMotion === "kick") {
         const swing = [0,-1,-2,-4,-2,0][frame%6];
         const kickX = safeDirection === "left" ? leftLegX : rightLegX;
@@ -226,8 +228,8 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
       } else {
         g.rect(leftLegX+leftLegReach,25+jump+leftLegStep,3,5,skin);
         g.rect(rightLegX+rightLegReach,25+jump+rightLegStep,3,5,skin);
-        g.rect(leftLegX-2+leftLegReach,29+jump+leftLegStep,5,2,boot);
-        g.rect(rightLegX-1+rightLegReach,29+jump+rightLegStep,5,2,boot);
+        g.rect(leftLegX+leftBootToe+leftLegReach,29+jump+leftLegStep,5,2,boot);
+        g.rect(rightLegX+rightBootToe+rightLegReach,29+jump+rightLegStep,5,2,boot);
       }
 
       if (["juggle","stepover","rainbow"].includes(safeMotion)) {
