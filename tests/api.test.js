@@ -165,6 +165,12 @@ test('concurrent E2E sign-ins reuse one player identity and leave administrator 
   assert.equal(String(playerUser.playerProfile),String(p2._id));
   assert.equal(await User.countDocuments({playerProfile:p2._id}),1);
 
+  const viewerResults=await Promise.all(Array.from({length:6},()=>requestE2E('viewer',p1._id)));
+  assert.ok(viewerResults.every(result=>result.status===200),JSON.stringify(viewerResults));
+  const viewerUser=await User.findOne({firebaseUid:'e2e-test:viewer:unlinked'});
+  assert.ok(viewerUser);
+  assert.equal(viewerUser.playerProfile,null);
+
   const adminResults=await Promise.all(Array.from({length:6},()=>requestE2E('admin',p1._id)));
   assert.ok(adminResults.every(result=>result.status===200),JSON.stringify(adminResults));
   const adminUser=await User.findOne({firebaseUid:'e2e-test:admin:unlinked'});
