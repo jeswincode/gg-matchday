@@ -1253,3 +1253,17 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* The account/profile shelf stays mounted above every Matchday tab. */
+@media (max-width: 650px) {
+  .account-bar {
+    position: sticky !important;
+    top: 0;
+    z-index: 75;
+    align-items: stretch;
+    background: color-mix(in srgb, var(--bg, #111722) 92%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+  }
+}
