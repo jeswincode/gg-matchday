@@ -288,6 +288,7 @@ function App() {
   const handleNavPointerDown=useCallback((event)=>{
     const pressedButton=event.target?.closest?.(".bottom-nav button[data-tab]");
     if(!pressedButton||event.button!==0)return;
+    const coarse=event.pointerType==="touch"||event.pointerType==="pen"||window.matchMedia?.("(pointer:coarse)").matches;
     tabDragRef.current={
       pointerId:event.pointerId,
       startX:event.clientX,
@@ -296,7 +297,12 @@ function App() {
       lastTab:pressedButton.dataset.tab,
       moved:false
     };
-    try{event.currentTarget.setPointerCapture(event.pointerId);}catch{/* Some embedded browsers do not expose pointer capture. */}
+    // Capture touch/pen pointers so a finger can stay on the capsule while it
+    // moves across the child buttons. Mouse clicks are left uncaptured so
+    // their click target remains the actual navigation button.
+    if(coarse){
+      try{event.currentTarget.setPointerCapture(event.pointerId);}catch{/* Embedded browsers may omit pointer capture. */}
+    }
   },[]);
   const handleNavPointerMove=useCallback((event)=>{
     const drag=tabDragRef.current;
