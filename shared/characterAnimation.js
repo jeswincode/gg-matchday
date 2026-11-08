@@ -37,3 +37,15 @@ export function getCharacterAnimationFrame(motion, elapsedMs = 0) {
 export function getCharacterMotionDuration(motion) {
   return getCharacterAnimationProfile(motion).durationMs;
 }
+
+/**
+ * The pixel boots have a visible toe on each side. Keep the toe ahead of the
+ * body when Pip faces right, while preserving the existing left-facing and
+ * front-facing silhouette.
+ */
+export function getCharacterBootToeOffset(direction, leg = "left") {
+  const facing = normalizeCharacterDirection(direction);
+  const rightLeg = leg === "right";
+  if (facing === "right") return rightLeg ? 2 : 1;
+  return rightLeg ? -1 : -2;
+}
