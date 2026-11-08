@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { findWorldWalkPath, worldPathLength, worldPathPosition } from "../shared/worldNavigation.js";
 
 const building = { id: "hq", kind: "hq", x: 900, y: 560 };
-const paddedBuilding = { left: 812, right: 988, top: 431, bottom: 630 };
+const paddedBuilding = { left: 764, right: 1036, top: 431, bottom: 630 };
 
 function segmentHitsRect(a, b, rect) {
   const length = Math.hypot(b.x - a.x, b.y - a.y);

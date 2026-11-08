@@ -35,11 +35,11 @@ function collectObstacles(places, padding = DEFAULT_PADDING) {
         top: custom.top - padding, bottom: custom.bottom + padding,
       }];
     }
-    // Building artwork occupies roughly x ±72 and y -113…+54 from its map anchor.
+    // Building artwork spans roughly x ±120 and y -113…+54 from its map anchor.
     // Padding keeps the character's body and shadow clear of the façade.
     return [{
-      left: x - 72 - padding,
-      right: x + 72 + padding,
+      left: x - 120 - padding,
+      right: x + 120 + padding,
       top: y - 113 - padding,
       bottom: y + 54 + padding,
     }];
