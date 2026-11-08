@@ -1,9 +1,10 @@
 import test,{before,after,mock} from 'node:test';import assert from 'node:assert/strict';import mongoose from 'mongoose';import {MongoMemoryReplSet} from 'mongodb-memory-server';
-process.env.ADMIN_EMAIL='admin@example.invalid';process.env.GEMINI_API_KEY='';process.env.CHAT_ENABLED='true';
+process.env.ADMIN_EMAIL='admin@example.invalid';process.env.GEMINI_API_KEY='';process.env.CHAT_ENABLED='true';process.env.NODE_ENV='test';process.env.E2E_TEST_AUTH_SECRET='api-test-e2e-auth-secret';
 mock.module('../server/config/firebaseAdmin.js',{defaultExport:()=>({verifyIdToken:async token=>{if(!['admin','viewer','other','racer','unverified-admin','gmail-viewer','unverified-gmail'].includes(token))throw new Error('Invalid test token');const email=token==='unverified-admin'?'admin@example.invalid':token==='gmail-viewer'?'player@gmail.com':token==='unverified-gmail'?'unverified@gmail.com':`${token}@example.invalid`;return {uid:`test-${token}`,email,email_verified:!['unverified-admin','unverified-gmail'].includes(token),name:`Test ${token}`};}})});
 const {default:app}=await import('../server/app.js');const {default:User}=await import('../server/models/User.js');const {default:Match}=await import('../server/models/Match.js');const {default:Player}=await import('../server/models/Player.js');const {default:Award}=await import('../server/models/Award.js');const {default:Achievement}=await import('../server/models/Achievement.js');const {default:Vote}=await import('../server/models/Vote.js');const {default:ProfileChangeRequest}=await import('../server/models/ProfileChangeRequest.js');const {default:RatingDispute}=await import("../server/models/RatingDispute.js");const {default:ChatMessage}=await import('../server/models/ChatMessage.js');const {syncHistory}=await import('../server/services/history.js');
 let database,server,origin,p1,p2,matchId,viewer,gmailViewer,unverifiedGmail;
 async function request(path,{token,method='GET',body}={}){const response=await fetch(origin+'/api'+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,requestId:response.headers.get('x-request-id'),data:await response.json()};}
+async function requestE2E(role,playerId){const response=await fetch(origin+'/api/auth/me',{headers:{'x-e2e-test-token':process.env.E2E_TEST_AUTH_SECRET,'x-e2e-test-role':role,...(playerId?{'x-e2e-test-player-id':String(playerId)}:{})}});return {status:response.status,data:await response.json()};}
 before(async()=>{database=await MongoMemoryReplSet.create({binary:{version:'8.2.6'},replSet:{count:1}});await mongoose.connect(database.getUri());await Promise.all([User,Match,Player,Award,Achievement,Vote,ProfileChangeRequest,RatingDispute,ChatMessage].map(m=>m.init()));server=app.listen(0,'127.0.0.1');await new Promise(r=>server.on('listening',r));origin=`http://127.0.0.1:${server.address().port}`;for(const token of ['admin','viewer','other','gmail-viewer','unverified-gmail'])await request('/auth/me',{token});viewer=await User.findOne({firebaseUid:'test-viewer'});gmailViewer=await User.findOne({firebaseUid:'test-gmail-viewer'});unverifiedGmail=await User.findOne({firebaseUid:'test-unverified-gmail'});p1=await Player.create({name:'Test Forward'});p2=await Player.create({name:'Test Keeper'});}, {timeout:120000});
 after(async()=>{await syncHistory().catch(()=>{});server?.closeAllConnections();if(server)await new Promise(r=>server.close(r));await mongoose.disconnect();await database?.stop();});
 const payload=()=>({date:'2026-01-04',name:'Test Sunday',teamA:{label:'Test A',score:99},teamB:{label:'Test B',score:99},participants:[{player:String(p1._id),team:'A',rating:8.9,defensivePerformance:8},{player:String(p2._id),team:'B',rating:7,defensivePerformance:6}],events:[{player:String(p1._id),type:'goal'}]});
@@ -156,6 +157,21 @@ test('concurrent first sign-ins for one Firebase UID safely reuse the created us
   assert.equal(await User.countDocuments({firebaseUid:'test-racer'}),1);
 });
 
+test('concurrent E2E sign-ins reuse one player identity and leave administrator actors unlinked',async()=>{
+  const playerResults=await Promise.all(Array.from({length:12},()=>requestE2E('editor',p2._id)));
+  assert.ok(playerResults.every(result=>result.status===200),JSON.stringify(playerResults));
+  const playerUser=await User.findOne({firebaseUid:`e2e-test:editor:${p2._id}`});
+  assert.ok(playerUser);
+  assert.equal(String(playerUser.playerProfile),String(p2._id));
+  assert.equal(await User.countDocuments({playerProfile:p2._id}),1);
+
+  const adminResults=await Promise.all(Array.from({length:6},()=>requestE2E('admin',p1._id)));
+  assert.ok(adminResults.every(result=>result.status===200),JSON.stringify(adminResults));
+  const adminUser=await User.findOne({firebaseUid:'e2e-test:admin:unlinked'});
+  assert.ok(adminUser);
+  assert.equal(adminUser.playerProfile,null);
+});
+
 
 test("rating explanation is read-only and uses the canonical server GG-v3 calculator", async () => {
   const before = await Match.findById(matchId).lean();
@@ -202,24 +218,24 @@ test("legacy rating explanation clearly reports unavailable formula facts instea
 });
 
 test("players can submit rating disputes without changing the match and admins can review the append-only workflow", async () => {
-  const user = await User.findById(viewer._id).lean();
+  const user = await User.findById(gmailViewer._id).lean();
   assert.equal(String(user.playerProfile), String(p1._id));
 
   const before = await Match.findById(matchId).lean();
   const forbidden = await request(`/rating-disputes/matches/${matchId}/players/${p2._id}`, {
-    token: "viewer", method: "POST",
+    token: "gmail-viewer", method: "POST",
     body: { category: "match-rating", message: "I believe my rating is wrong." },
   });
   assert.equal(forbidden.status, 403);
 
   const tooShort = await request(`/rating-disputes/matches/${matchId}/players/${p1._id}`, {
-    token: "viewer", method: "POST",
+    token: "gmail-viewer", method: "POST",
     body: { category: "match-rating", message: "wrong" },
   });
   assert.equal(tooShort.status, 400);
 
   const submitted = await request(`/rating-disputes/matches/${matchId}/players/${p1._id}`, {
-    token: "viewer", method: "POST",
+    token: "gmail-viewer", method: "POST",
     body: { category: "match-rating", message: "Please explain why my goal and performance codes led to this rating." },
   });
   assert.equal(submitted.status, 201, JSON.stringify(submitted.data));
@@ -232,12 +248,12 @@ test("players can submit rating disputes without changing the match and admins c
   assert.equal(await RatingDispute.countDocuments({ match: matchId, player: p1._id, open: true }), 1);
 
   const duplicate = await request(`/rating-disputes/matches/${matchId}/players/${p1._id}`, {
-    token: "viewer", method: "POST",
+    token: "gmail-viewer", method: "POST",
     body: { category: "other", message: "I have another concern with the same rating." },
   });
   assert.equal(duplicate.status, 409);
 
-  assert.equal((await request("/rating-disputes/admin", { token: "viewer" })).status, 403);
+  assert.equal((await request("/rating-disputes/admin", { token: "gmail-viewer" })).status, 403);
   const inbox = await request("/rating-disputes/admin?status=pending", { token: "admin" });
   assert.equal(inbox.status, 200, JSON.stringify(inbox.data));
   assert.ok(inbox.data.disputes.some(item => item.id === disputeId));
@@ -260,7 +276,7 @@ test("players can submit rating disputes without changing the match and admins c
   assert.equal(close.data.dispute.history.length, 4);
   assert.deepEqual((await Match.findById(matchId).lean()), before);
 
-  const mine = await request(`/rating-disputes/me?matchId=${matchId}`, { token: "viewer" });
+  const mine = await request(`/rating-disputes/me?matchId=${matchId}`, { token: "gmail-viewer" });
   assert.equal(mine.status, 200, JSON.stringify(mine.data));
   assert.equal(mine.data.disputes.find(item => item.id === disputeId).status, "resolved_no_change");
   const repeatedReview = await request(`/rating-disputes/admin/${disputeId}/review`, {
