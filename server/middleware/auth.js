@@ -39,28 +39,30 @@ export async function requireAuth(
         ? new mongoose.Types.ObjectId(requestedPlayerId)
         : null;
       const uid = `e2e-test:${role}:${playerProfile ? String(playerProfile) : "unlinked"}`;
-      let user;
-      try {
-        user = await User.findOneAndUpdate(
-          { firebaseUid: uid },
-          { $set: {
-            name: `Playwright ${role}`,
-            email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
-            profileImage: "",
-            emailVerified: true,
-            role,
-            accessRequest: "none",
-            playerProfile,
-          } },
-          { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, runValidators: true },
-        );
-      } catch (error) {
-        // A page can fire several authenticated API calls at once on first
-        // load. If they race to insert this same E2E identity, reuse the row
-        // created by the winning request rather than failing sign-in.
-        if (error?.code !== 11000) throw error;
-        user = await User.findOne({ firebaseUid: uid });
-        if (!user) throw error;
+      const identity = {
+        name: `Playwright ${role}`,
+        email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
+        profileImage: "",
+        emailVerified: true,
+        role,
+        accessRequest: "none",
+        playerProfile,
+      };
+      let user = await User.findOne({ firebaseUid: uid });
+      if (user) {
+        Object.assign(user, identity);
+        await user.save();
+      } else {
+        try {
+          user = await User.create({ firebaseUid: uid, ...identity });
+        } catch (error) {
+          // Parallel first requests can race to create this same E2E actor.
+          // Recover only the same Firebase test identity; never steal a
+          // player profile that another account has already claimed.
+          if (error?.code !== 11000) throw error;
+          user = await User.findOne({ firebaseUid: uid });
+          if (!user) throw error;
+        }
       }
       req.firebaseUser = { uid, testOnly: true };
       req.user = user;
