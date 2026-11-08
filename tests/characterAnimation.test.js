@@ -5,6 +5,7 @@ import {
   CHARACTER_ANIMATION_PROFILES,
   CHARACTER_DIRECTIONS,
   getCharacterAnimationFrame,
+  getCharacterBootToeOffset,
   getCharacterAnimationProfile,
   getCharacterMotionDuration,
   normalizeCharacterDirection,
@@ -65,4 +66,13 @@ test("world presence accepts and normalizes facing direction", () => {
     locationId: "city-plaza", x: 129, y: 64, direction: "left",
   });
   assert.equal(normalizePresencePayload({ x: 10, y: 20, direction: "diagonal" }).direction, "down");
+});
+
+test("football boot toes face the direction of travel", () => {
+  assert.equal(getCharacterBootToeOffset("left", "left"), -2);
+  assert.equal(getCharacterBootToeOffset("left", "right"), -1);
+  assert.equal(getCharacterBootToeOffset("right", "left"), 1);
+  assert.equal(getCharacterBootToeOffset("right", "right"), 2);
+  assert.equal(getCharacterBootToeOffset("down", "left"), -2);
+  assert.equal(getCharacterBootToeOffset("down", "right"), -1);
 });

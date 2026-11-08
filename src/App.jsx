@@ -286,10 +286,19 @@ function App() {
   },[]);
 
   const handleNavPointerDown=useCallback((event)=>{
-    const coarse=event.pointerType==="touch"||event.pointerType==="pen"||window.matchMedia?.("(pointer:coarse)").matches;
-    if(!coarse||!event.target?.closest?.(".bottom-nav button[data-tab]"))return;
-    tabDragRef.current={pointerId:event.pointerId,startX:event.clientX,startY:event.clientY,moved:false};
-    try{event.currentTarget.setPointerCapture(event.pointerId);}catch{/* Some embedded browsers do not expose pointer capture. */}
+    const pressedButton=event.target?.closest?.(".bottom-nav button[data-tab]");
+    if(!pressedButton||event.button!==0)return;
+    tabDragRef.current={
+      pointerId:event.pointerId,
+      startX:event.clientX,
+      startY:event.clientY,
+      lastX:event.clientX,
+      lastTab:pressedButton.dataset.tab,
+      moved:false
+    };
+    // Capture on the pressed button (not the nav wrapper) so pointer movement
+    // can travel across the rail while a non-drag tap still clicks that button.
+    try{pressedButton.setPointerCapture(event.pointerId);}catch{/* Embedded browsers may omit pointer capture. */}
   },[]);
   const handleNavPointerMove=useCallback((event)=>{
     const drag=tabDragRef.current;
@@ -313,19 +322,26 @@ function App() {
     const nextTab=nearest.dataset.tab;
     const navRect=event.currentTarget.getBoundingClientRect();
     const nearestRect=nearest.getBoundingClientRect();
-    event.currentTarget.style.setProperty("--gg-active-offset",(nearestRect.left-navRect.left)+"px");
+    const minOffset=buttons[0].getBoundingClientRect().left-navRect.left;
+    const maxOffset=buttons[buttons.length-1].getBoundingClientRect().right-navRect.left-nearestRect.width;
+    const capsuleOffset=Math.max(minOffset,Math.min(maxOffset,event.clientX-navRect.left-nearestRect.width/2));
+    // The glass thumb follows the actual finger position continuously; the
+    // selected page is not changed until the gesture is released.
+    event.currentTarget.style.setProperty("--gg-active-offset",capsuleOffset+"px");
     event.currentTarget.style.setProperty("--gg-active-width",nearestRect.width+"px");
-    if(TAB_ORDER.includes(nextTab)&&nextTab!==activeTab)setActiveTab(nextTab);
-  },[activeTab,setActiveTab]);
+    drag.lastX=event.clientX;
+    drag.lastTab=nextTab;
+  },[]);
   const finishNavPointer=useCallback((event)=>{
     const drag=tabDragRef.current;
     if(!drag||drag.pointerId!==event.pointerId)return;
     tabDragRef.current=null;
     if(drag.moved){
+      if(TAB_ORDER.includes(drag.lastTab)&&drag.lastTab!==activeTab)setActiveTab(drag.lastTab);
       setNavDragging(false);
       window.setTimeout(()=>{suppressTabClickRef.current=false;},260);
     }
-  },[]);
+  },[activeTab,setActiveTab]);
   const guardNavClick=useCallback((event)=>{
     if(!suppressTabClickRef.current)return;
     event.preventDefault();
@@ -333,6 +349,7 @@ function App() {
   },[]);
 
   useEffect(()=>{
+    if(navDragging)return;
     const nav=navRef.current;
     const active=nav?.querySelector("button.active");
     if(!nav||!active)return;
@@ -2534,16 +2551,6 @@ function App() {
   return (
     <main className="app" onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
 
-      <div
-        className="mobile-tab-stage"
-        style={{
-          transform:`translate3d(${swipeOffset}px,0,0)`,
-          transition:swipeAnimating
-            ? "transform 240ms cubic-bezier(.22,.8,.2,1)"
-            : "none",
-          willChange:swipeOffset!==0||swipeAnimating ? "transform" : "auto",
-        }}
-      >
       <header className="topbar">
         <div>
           <p className="eyebrow">
@@ -2559,7 +2566,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button>{isSignedIn&&<button className="secondary-button" type="button" onClick={()=>setWorldOpen(true)} disabled={!canEnterOriginalGG} title={!canEnterOriginalGG?"Requires a verified Gmail account linked by the administrator":"Open the Original GG football city map"} aria-label="Open Original GG map">🌍 World</button>}<div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2681,6 +2688,17 @@ function App() {
         )}
 
       </section>
+
+      <div
+        className="mobile-tab-stage"
+        style={{
+          transform:`translate3d(${swipeOffset}px,0,0)`,
+          transition:swipeAnimating
+            ? "transform 240ms cubic-bezier(.22,.8,.2,1)"
+            : "none",
+          willChange:swipeOffset!==0||swipeAnimating ? "transform" : "auto",
+        }}
+      >
 
       {/* MESSAGE */}
 

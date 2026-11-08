@@ -77,6 +77,7 @@ test("unlinked viewer cannot enter Original GG from the companion menu", async (
   await page.goto("/?e2eRole=viewer");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await expect(page.getByRole("button", { name: "Open Original GG map" })).toBeDisabled();
   const companion = page.locator(".gg-companion-button");
   await expect(companion).toBeVisible();
   await companion.click({ button: "right" });
@@ -91,13 +92,9 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
-  const companion = page.locator(".gg-companion-button");
-  await expect(companion).toBeVisible();
-  await companion.click({ button: "right" });
-  const companionMenu = page.getByRole("menu", { name: "Companion actions" });
-  await expect(companionMenu).toBeVisible();
-  await companionMenu.getByRole("menuitem", { name: "Enter Original GG" }).click();
-  await expect(page.locator(".gg-companion-vortex")).toBeVisible();
+  const mapShortcut = page.getByRole("button", { name: "Open Original GG map" });
+  await expect(mapShortcut).toBeEnabled();
+  await mapShortcut.click();
   await expect(page.getByRole("heading", { name: "Football City" })).toBeVisible();
   await expect(page.locator(".gg-training-challenge canvas")).toHaveCount(0);
   await expect(page.locator(".gg-world-avatar-preview .gg-player-sprite")).toHaveCount(0);
@@ -124,8 +121,9 @@ test("signed-in player can enter Original GG and explore a stored HQ interior", 
   await expect.poll(() => roomCharacter.getAttribute("transform")).not.toBe(beforeWalk);
 });
 
-test("Pip-style companion rests on the profile icon and follows selected Matchday navigation", async ({ page }) => {
+test("Pip keeps its profile home, scrubs the glass nav, and walks with tab dialogue", async ({ page }) => {
   await stubWorldApi(page);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
   await expect(page.locator(".gg-welcome-coded-screen")).toBeVisible();
   await page.getByRole("button", { name: "Enter Matchday" }).click();
@@ -133,6 +131,7 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
   const companion = page.locator(".gg-companion-button");
   const companionStage = page.locator(".gg-companion");
   const navigation = page.locator(".bottom-nav");
+  const accountBar = page.locator(".account-bar");
   const profileAnchor = page.locator(".gg-account-avatar-trigger");
   await expect(companion).toBeVisible();
   await expect(navigation).toBeVisible();
@@ -152,44 +151,78 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
     const seatTop = anchor.y + anchor.height * 0.5;
     return Math.abs(seatedFootBottom - seatTop);
   };
-  const navFootGap = async (tab) => {
-    const canvas = await companion.locator("canvas.gg-player-sprite").boundingBox();
-    const anchor = await tab.boundingBox();
-    if (!canvas || !anchor) return Number.POSITIVE_INFINITY;
-    const standingFootBottom = canvas.y + canvas.height * (31 / 32);
-    return Math.abs(standingFootBottom - (anchor.y + 5));
-  };
 
-  // The character sits on the profile icon: centered, front-facing, feet on its top edge.
+  // Pip starts seated on the permanent top-left account/profile anchor.
   await expect.poll(() => isCenteredOn(profileAnchor), { timeout: 5000 }).toBeLessThan(12);
   await expect(companionStage).toHaveClass(/is-profile-perched/);
   await expect(companionStage).toHaveAttribute("data-gg-ground", "profile");
   await expect.poll(profileFootGap, { timeout: 5000 }).toBeLessThan(2);
   await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /seated, facing down/);
-  await expect(companion.locator(".gg-companion-ring")).toHaveCount(0);
 
+  const accountBoxBefore = await accountBar.boundingBox();
+  const profileBoxBefore = await profileAnchor.boundingBox();
+
+  // Switching a tab must not wake Pip from the profile perch or move the
+  // account/profile shelf with the horizontally-swiping tab content.
   const leaderboardTab = navigation.getByRole("button", { name: /Leaderboard/ });
   await leaderboardTab.click();
   await expect(leaderboardTab).toHaveClass(/active/);
-  await expect.poll(() => isCenteredOn(leaderboardTab), { timeout: 5000 }).toBeLessThan(12);
-  await expect(companionStage).toHaveAttribute("data-gg-ground", "nav");
-  await expect(companionStage).toHaveClass(/is-perched/);
-  await expect.poll(() => navFootGap(leaderboardTab), { timeout: 5000 }).toBeLessThan(2);
-  await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /standing, facing down/);
-  await expect(companionStage).toHaveAttribute("data-gg-nav-dragging", "false");
-  const navTransition = await companionStage.evaluate((element) => getComputedStyle(element).transitionProperty);
-  expect(navTransition).toBe("none");
+  await expect(companionStage).toHaveAttribute("data-gg-ground", "profile");
+  await expect(companionStage).toHaveClass(/is-profile-perched/);
+  await expect.poll(() => isCenteredOn(profileAnchor), { timeout: 3000 }).toBeLessThan(12);
+  const accountBoxAfter = await accountBar.boundingBox();
+  const profileBoxAfter = await profileAnchor.boundingBox();
+  expect(Math.abs(accountBoxAfter.y - accountBoxBefore.y)).toBeLessThan(1);
+  expect(Math.abs(profileBoxAfter.x - profileBoxBefore.x)).toBeLessThan(1);
+  expect(Math.abs(profileBoxAfter.y - profileBoxBefore.y)).toBeLessThan(1);
 
-  // A normal tab change must put Pip into the walking phase, not teleport him.
+  // The glass capsule tracks the hand continuously, but tab content does not
+  // change until pointer-up, just like a native scrubber.
+  const playersTab = navigation.getByRole("button", { name: /Players/ });
+  const from = await leaderboardTab.boundingBox();
+  const to = await playersTab.boundingBox();
+  expect(from).not.toBeNull();
+  expect(to).not.toBeNull();
+  const initialOffset = await navigation.evaluate((element) => element.style.getPropertyValue("--gg-active-offset"));
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  const middleX = (from.x + to.x + to.width) / 2;
+  await page.mouse.move(middleX, from.y + from.height / 2, { steps: 5 });
+  await expect(navigation).toHaveAttribute("data-dragging", "true");
+  await expect(leaderboardTab).toHaveClass(/active/);
+  const middleOffset = await navigation.evaluate((element) => element.style.getPropertyValue("--gg-active-offset"));
+  expect(middleOffset).not.toBe(initialOffset);
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
+  await expect(leaderboardTab).toHaveClass(/active/);
+  await page.mouse.up();
+  await expect(playersTab).toHaveClass(/active/);
+  await expect(companionStage).toHaveAttribute("data-gg-ground", "profile");
+  await expect(companionStage).toHaveClass(/is-profile-perched/);
+
+  // Only a direct Pip tap leaves the home perch.
+  await companion.click();
+  await expect(companionStage).toHaveAttribute("data-gg-phase", "jumping", { timeout: 1000 });
+  await expect(companionStage).not.toHaveClass(/is-profile-perched/, { timeout: 1000 });
+  await expect.poll(() => companionStage.getAttribute("data-gg-ground"), { timeout: 3500 }).not.toBe("profile");
+  await expect(companionStage).toHaveAttribute("data-gg-phase", "idle", { timeout: 4000 });
+
+  // A tab change now carries a spoken line while Pip jumps onto the rail.
   const calendarTab = navigation.getByRole("button", { name: /Calendar/ });
   await calendarTab.click();
   await expect(calendarTab).toHaveClass(/active/);
-  await expect(companionStage).toHaveAttribute("data-gg-phase", "walking", { timeout: 1500 });
-  await expect.poll(() => isCenteredOn(calendarTab), { timeout: 5000 }).toBeLessThan(12);
-  await expect.poll(() => navFootGap(calendarTab), { timeout: 5000 }).toBeLessThan(2);
+  await expect(companionStage).toHaveAttribute("data-gg-bubble-open", "true", { timeout: 2500 });
+  await expect(companionStage).toHaveAttribute("data-gg-bubble", "Any big fixtures coming up?");
+  await expect(companionStage).toHaveAttribute("data-gg-ground", "nav", { timeout: 4000 });
 
-  // Holding and dragging the character back onto the profile avatar should
-  // return Pip to the seated perch, not throw him past the home anchor.
+  // Once Pip is on the rail, the next tab change is a walk rather than a snap.
+  await expect(companionStage).toHaveAttribute("data-gg-phase", "idle", { timeout: 4000 });
+  await leaderboardTab.click();
+  await expect(leaderboardTab).toHaveClass(/active/);
+  await expect(companionStage).toHaveAttribute("data-gg-phase", "walking", { timeout: 1500 });
+  await expect(companionStage).toHaveAttribute("data-gg-bubble", "Who's climbing the table today?");
+  await expect(companionStage).toHaveAttribute("data-gg-ground", "nav", { timeout: 4000 });
+
+  // Dragging Pip back over the profile icon restores the seated home perch.
   const before = await companion.boundingBox();
   const profileBounds = await profileAnchor.boundingBox();
   expect(before).not.toBeNull();
@@ -201,13 +234,6 @@ test("Pip-style companion rests on the profile icon and follows selected Matchda
   await expect(companionStage).toHaveAttribute("data-gg-ground", "profile", { timeout: 3500 });
   await expect(companionStage).toHaveClass(/is-profile-perched/);
   await expect(companion.locator("canvas.gg-player-sprite")).toHaveAttribute("aria-label", /seated, facing down/);
-
-  // A tap on the profile perch now sends Pip hopping down into the page. The
-  // landing phrase is a low-probability flourish on this hop only.
-  await companion.click();
-  await expect(companionStage).toHaveAttribute("data-gg-phase", "jumping", { timeout: 1000 });
-  await expect(companionStage).not.toHaveClass(/is-profile-perched/, { timeout: 1000 });
-  await expect.poll(() => companionStage.getAttribute("data-gg-ground"), { timeout: 3000 }).not.toBe("profile");
 });
 test("companion action menu supports right-click and opens Original GG", async ({ page }) => {
   await stubWorldApi(page);
