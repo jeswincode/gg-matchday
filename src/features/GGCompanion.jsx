@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { PlayerSprite } from "./OriginalGGWorld";
 import { COMPANION_HOLD_DROP, stepHeldSwing } from "../../shared/companionPhysics.js";
-import { getCompanionPerchPoint } from "../../shared/companionLayout.js";
+import { getCompanionPerchPoint, isPointOverCompanionProfile, shouldPraiseProfileLanding } from "../../shared/companionLayout.js";
 import "./original-gg.css";
 
 const WALK_SPEED = 110;
@@ -379,7 +379,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     state.bounced = false;
     if (state.landingFeedbackPending) {
       state.landingFeedbackPending = false;
-      showBubble("10 out of 10 landing!", 2200);
+      showBubble("10 on 10 landing!", 2200);
     }
   }, [measureBounds, pose, rectForGround, setPhase, showBubble]);
 
@@ -522,22 +522,20 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
   }, [closeMenu, menuOpen]);
 
   const chooseIdleAction = useCallback((state, now) => {
-    if (suspendedRef.current || state.manuallyPlaced || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    if (suspendedRef.current || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       state.nextAction = now + REST_MS;
       return;
     }
-    // The account avatar and selected navigation item are deliberate resting
-    // anchors. Only wave while perched: cheer/dance frames lift the legs and
-    // make the footballer look as though he is floating off the surface.
-    if (state.ground?.kind === "profile" || state.ground?.kind === "nav") {
-      const profileSeat = state.ground.kind === "profile";
+    // Pip may be manually placed on a card, but that should only stop roaming:
+    // it must not turn off the football skills and little reactions.
+    if (state.ground?.kind === "profile") {
       const roll = Math.random();
-      if (profileSeat && roll < 0.34) {
+      if (roll < 0.3) {
         pose(state, "juggle", "down");
         state.actionUntil = now + 1900;
         state.nextAction = state.actionUntil;
-        if (Math.random() < 0.38) showBubble("Just keeping my touches sharp. ⚽", 1900);
-      } else if (roll < 0.43) {
+        if (Math.random() < 0.34) showBubble("Just keeping my touches sharp. ⚽", 1900);
+      } else if (roll < 0.42) {
         pose(state, "wave", "down");
         state.actionUntil = now + 900;
         state.nextAction = state.actionUntil;
@@ -547,7 +545,46 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         }
       } else {
         state.actionUntil = 0;
-        state.nextAction = now + 3200 + Math.random() * 2600;
+        state.nextAction = now + 3600 + Math.random() * 3000;
+        pose(state, "idle", "down");
+      }
+      return;
+    }
+    if (state.ground?.kind === "nav") {
+      const roll = Math.random();
+      // The five-tab glass rail is a resting perch, not the only place Pip
+      // should animate. Occasionally hop down onto the active page so the
+      // football skill loops are visible while browsing Matchday.
+      if (roll < 0.28) {
+        const bounds = state.bounds || measureBounds();
+        const lowerSurfaces = state.ledges.filter((item) =>
+          item.kind !== "profile" && item.kind !== "nav" && item.rect &&
+          item.rect.top > state.y + 24 && item.rect.top < bounds.floor - 18 &&
+          item.rect.width > BODY_WIDTH + 54
+        );
+        if (lowerSurfaces.length) {
+          lowerSurfaces.sort((a, b) =>
+            Math.abs(a.rect.top - state.y) - Math.abs(b.rect.top - state.y)
+          );
+          const next = lowerSurfaces[0];
+          const rect = rectForGround({ kind: next.kind, el: next.el }, bounds);
+          if (rect) {
+            const targetX = clamp(state.x, rect.left + BODY_WIDTH / 2, rect.right - BODY_WIDTH / 2);
+            moveTo({ kind: next.kind, el: next.el }, targetX);
+            return;
+          }
+        }
+        moveTo({ kind: "floor" }, state.x);
+        return;
+      }
+      if (roll < 0.43) {
+        pose(state, "wave", "down");
+        state.actionUntil = now + 900;
+        state.nextAction = state.actionUntil;
+        if (Math.random() < 0.38) showBubble(tabLines[activeTab]?.[1] || "Hey! Good to see you.", 1900);
+      } else {
+        state.actionUntil = 0;
+        state.nextAction = now + 3600 + Math.random() * 3000;
         pose(state, "idle", "down");
       }
       return;
@@ -570,6 +607,15 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       state.actionUntil = now + 950;
       state.nextAction = state.actionUntil;
       if (gesture === "wave" && Math.random() < 0.45) showBubble("Hey! Over here.", 1900);
+      return;
+    }
+
+    // A deliberately dropped Pip stays on that spot; he still juggles,
+    // practises tricks and reacts above, but doesn't wander away afterwards.
+    if (state.manuallyPlaced) {
+      state.actionUntil = 0;
+      state.nextAction = now + 3600 + Math.random() * 3600;
+      pose(state, "idle", state.direction);
       return;
     }
 
@@ -1185,12 +1231,57 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     }
     const state = physicsRef.current;
     setDragging(false);
-    if (event.type === "pointercancel") state.landingFeedbackPending = false;
     const samples = drag.samples;
     const first = samples[0];
     const last = samples[samples.length - 1];
     const elapsed = Math.max(16, last.t - first.t);
     const cancelled = event.type === "pointercancel";
+    const releaseX = Number.isFinite(event.clientX) ? event.clientX : last.x;
+    const releaseY = Number.isFinite(event.clientY) ? event.clientY : last.y;
+
+    // Like Leaflet's Pip, a slow placement OR a throw released over the profile
+    // avatar returns the companion to its home perch. This takes precedence
+    // over airborne throw physics so a deliberate top-left drop always works.
+    const bounds = measureBounds();
+    state.bounds = bounds;
+    if (!cancelled && bounds.profile && bounds.profileRect &&
+        isPointOverCompanionProfile(bounds.profileRect, releaseX, releaseY, 20)) {
+      const ground = { kind: "profile", el: bounds.profile };
+      const perch = getCompanionPerchPoint(bounds.profileRect, "profile");
+      const rect = rectForGround(ground, bounds);
+      if (perch && rect) {
+        const targetX = clamp(perch.x, rect.left + BODY_WIDTH / 2, rect.right - BODY_WIDTH / 2);
+        const targetY = rect.top;
+        state.tween = {
+          fromX: state.x,
+          fromY: state.y,
+          toX: targetX,
+          toY: targetY,
+          startedAt: performance.now(),
+          duration: clamp(430 + Math.hypot(targetX - state.x, targetY - state.y) * 0.42, 450, 760),
+          arc: clamp(42 + Math.abs(targetY - state.y) * 0.22, 48, 82),
+          ground,
+        };
+        state.targetX = targetX;
+        state.targetGround = ground;
+        state.vx = 0;
+        state.vy = 0;
+        state.angle = 0;
+        state.omega = 0;
+        state.phase = "jumping";
+        state.ground = null;
+        state.bounced = false;
+        state.manuallyPlaced = false;
+        state.landingFeedbackPending = false;
+        setPerched(false);
+        setProfilePerched(false);
+        pose(state, "celebrating", targetX < state.x ? "left" : "right");
+        window.setTimeout(() => { suppressClick.current = false; }, 120);
+        wakeRef.current();
+        return;
+      }
+    }
+
     state.vx = cancelled ? 0 : clamp(((last.x - first.x) / elapsed) * 1000, -MAX_THROW_SPEED, MAX_THROW_SPEED);
     state.vy = cancelled ? 0 : clamp(((last.y - first.y) / elapsed) * 1000, -MAX_THROW_SPEED, MAX_THROW_SPEED);
     state.omega = -state.omega;
@@ -1198,7 +1289,8 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     state.ground = null;
     state.tween = null;
     state.bounced = false;
-    state.landingFeedbackPending = !cancelled;
+    // A normal throw is a throw, not the special profile-perch landing line.
+    state.landingFeedbackPending = false;
     pose(state, "celebrating");
     window.setTimeout(() => { suppressClick.current = false; }, 120);
     wakeRef.current();
@@ -1258,32 +1350,80 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     wakeRef.current();
   };
 
+  const jumpDownFromProfile = (state, bounds) => {
+    const now = performance.now();
+    const candidates = state.ledges.filter((item) =>
+      item.kind !== "profile" && item.kind !== "nav" && item.el?.isConnected && item.rect &&
+      item.rect.top > state.y + 20 && item.rect.top < bounds.floor - 18 &&
+      item.rect.width > BODY_WIDTH + 54
+    );
+    candidates.sort((a, b) => {
+      const score = (item) => {
+        const horizontalGap = state.x < item.rect.left ? item.rect.left - state.x
+          : state.x > item.rect.right ? state.x - item.rect.right : 0;
+        return Math.hypot(horizontalGap, item.rect.top - state.y);
+      };
+      return score(a) - score(b);
+    });
+
+    const next = candidates[0];
+    const ground = next ? { kind: next.kind, el: next.el } : { kind: "floor" };
+    const rect = rectForGround(ground, bounds);
+    if (!rect) return false;
+    const targetX = clamp(state.x, rect.left + BODY_WIDTH / 2, rect.right - BODY_WIDTH / 2);
+    state.tween = {
+      fromX: state.x,
+      fromY: state.y,
+      toX: targetX,
+      toY: rect.top,
+      startedAt: now,
+      duration: clamp(440 + Math.hypot(targetX - state.x, rect.top - state.y) * 0.38, 460, 840),
+      arc: clamp(48 + Math.abs(rect.top - state.y) * 0.18, 50, 90),
+      ground,
+    };
+    state.targetX = targetX;
+    state.targetGround = ground;
+    state.vx = 0;
+    state.vy = 0;
+    state.angle = 0;
+    state.omega = 0;
+    state.phase = "jumping";
+    state.bounced = false;
+    state.manuallyPlaced = false;
+    // The phrase is deliberately reserved for an occasional jump down from
+    // the avatar perch. Throws, ordinary taps and profile placements stay quiet.
+    state.landingFeedbackPending = shouldPraiseProfileLanding(Math.random());
+    setPerched(false);
+    setProfilePerched(false);
+    pose(state, "celebrating", targetX < state.x ? "left" : "right");
+    wakeRef.current();
+    return true;
+  };
+
   const landOnCurrentSurface = () => {
     if (transitioning || suspended || suppressClick.current) {
       suppressClick.current = false;
       return;
     }
     const state = physicsRef.current;
-    if (!state.initialized || !state.ground) {
-      showBubble("10 out of 10 landing!", 2100);
+    if (!state.initialized || !state.ground) return;
+    const bounds = refreshLayout(state, performance.now());
+    if (state.ground.kind === "profile") {
+      jumpDownFromProfile(state, bounds);
       return;
     }
-    const bounds = state.bounds || measureBounds();
     const rect = rectForGround(state.ground, bounds);
-    if (!rect) {
-      showBubble("10 out of 10 landing!", 2100);
-      return;
-    }
-    const now = performance.now();
+    if (!rect) return;
+    // A normal tap is a small acknowledgement, not a scored landing.
     state.landingFeedbackPending = false;
     state.tween = {
       fromX: state.x,
-      fromY: state.y - 24,
+      fromY: state.y - 20,
       toX: state.x,
       toY: rect.top,
-      startedAt: now,
-      duration: 460,
-      arc: 9,
+      startedAt: performance.now(),
+      duration: 360,
+      arc: 13,
       ground: state.ground,
     };
     state.phase = "jumping";
@@ -1296,7 +1436,6 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     setPerched(false);
     setProfilePerched(false);
     pose(state, "celebrating");
-    showBubble("10 out of 10 landing!", 2200);
     wakeRef.current();
   };
 

@@ -164,6 +164,10 @@ function App() {
   function isTouchInteractionExcluded(target) {
     if (!(target instanceof Element)) return false;
 
+    // The five-tab liquid-glass rail owns its own hold-and-drag gesture.
+    // Do not let the page-level swipe recogniser change tabs from a gesture
+    // that starts on this navigation control.
+    if (target.closest(".bottom-nav")) return true;
     if (target.closest('[role="dialog"]')) return true;
 
     let current=target;
