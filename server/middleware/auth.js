@@ -33,23 +33,35 @@ export async function requireAuth(
       const roleHeader = String(req.headers["x-e2e-test-role"] || "viewer");
       const role = ["viewer", "editor", "admin"].includes(roleHeader) ? roleHeader : "viewer";
       const requestedPlayerId = String(req.headers["x-e2e-test-player-id"] || "");
-      const playerProfile = mongoose.isValidObjectId(requestedPlayerId)
+      // An administrator is not a player account; ignore the Vite default
+      // player ID so concurrent admin/editor test sessions cannot claim one profile.
+      const playerProfile = role !== "admin" && mongoose.isValidObjectId(requestedPlayerId)
         ? new mongoose.Types.ObjectId(requestedPlayerId)
         : null;
       const uid = `e2e-test:${role}:${playerProfile ? String(playerProfile) : "unlinked"}`;
-      const user = await User.findOneAndUpdate(
-        { firebaseUid: uid },
-        { $set: {
-          name: `Playwright ${role}`,
-          email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
-          profileImage: "",
-          emailVerified: true,
-          role,
-          accessRequest: "none",
-          playerProfile,
-        } },
-        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, runValidators: true },
-      );
+      let user;
+      try {
+        user = await User.findOneAndUpdate(
+          { firebaseUid: uid },
+          { $set: {
+            name: `Playwright ${role}`,
+            email: `playwright-${role}-${playerProfile ? String(playerProfile) : "unlinked"}@test.invalid`,
+            profileImage: "",
+            emailVerified: true,
+            role,
+            accessRequest: "none",
+            playerProfile,
+          } },
+          { upsert: true, returnDocument: "after", setDefaultsOnInsert: true, runValidators: true },
+        );
+      } catch (error) {
+        // A page can fire several authenticated API calls at once on first
+        // load. If they race to insert this same E2E identity, reuse the row
+        // created by the winning request rather than failing sign-in.
+        if (error?.code !== 11000) throw error;
+        user = await User.findOne({ firebaseUid: uid });
+        if (!user) throw error;
+      }
       req.firebaseUser = { uid, testOnly: true };
       req.user = user;
       return next();
