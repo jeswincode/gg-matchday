@@ -25,14 +25,21 @@ export default function WorldModerationPanel() {
     }
   }, [status]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    let active = true;
+    api(endpoint + "?status=" + encodeURIComponent(status))
+      .then((result) => { if (active) setMessages(result.messages || []); })
+      .catch((cause) => { if (active) setError(cause.message || "Could not load World moderation reports."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [status]);
 
   async function review(message, action) {
     setBusyId(message.id);
     setNotice("");
     setError("");
     try {
-      const result = await api(endpoint + "/" + message.id + "/moderation", {
+      await api(endpoint + "/" + message.id + "/moderation", {
         method: "PATCH",
         body: { action, note: notes[message.id] || "" },
       });
@@ -62,7 +69,7 @@ export default function WorldModerationPanel() {
 
       <label className="gg-world-moderation-filter">
         Report status
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
+        <select value={status} onChange={(event) => { setStatus(event.target.value); setLoading(true); setError(""); }}>
           <option value="open">Open reports</option>
           <option value="resolved">Resolved reports</option>
           <option value="all">All reports</option>

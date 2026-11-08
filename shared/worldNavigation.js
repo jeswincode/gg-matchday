@@ -199,7 +199,7 @@ function simplifyRoute(points, obstacles, spacing) {
  * footprints, then line-of-sight smoothing removes the grid-shaped turns.
  */
 export function findWorldWalkPath(startValue, targetValue, places = [], options = {}) {
-  const bounds = { minX: 30, maxX: 1770, minY: 30, maxY: 1170, ...(options.bounds || {}) };
+  const bounds = { ...WORLD_BOUNDS, ...(options.bounds || {}) };
   const cellSize = Math.max(12, Number(options.cellSize) || DEFAULT_CELL_SIZE);
   const padding = Math.max(0, Number.isFinite(Number(options.padding)) ? Number(options.padding) : DEFAULT_PADDING);
   const start = normalizePoint(startValue, bounds);
