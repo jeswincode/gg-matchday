@@ -71,8 +71,8 @@ test("world presence accepts and normalizes facing direction", () => {
 test("football boot toes face the direction of travel", () => {
   assert.equal(getCharacterBootToeOffset("left", "left"), -2);
   assert.equal(getCharacterBootToeOffset("left", "right"), -1);
-  assert.equal(getCharacterBootToeOffset("right", "left"), 1);
-  assert.equal(getCharacterBootToeOffset("right", "right"), 2);
+  assert.equal(getCharacterBootToeOffset("right", "left"), -1);
+  assert.equal(getCharacterBootToeOffset("right", "right"), 0);
   assert.equal(getCharacterBootToeOffset("down", "left"), -2);
   assert.equal(getCharacterBootToeOffset("down", "right"), -1);
 });

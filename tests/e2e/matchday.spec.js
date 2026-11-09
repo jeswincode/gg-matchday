@@ -189,11 +189,12 @@ test("Pip keeps its profile home, scrubs the glass nav, and walks with tab dialo
   const middleX = (from.x + to.x + to.width) / 2;
   await page.mouse.move(middleX, from.y + from.height / 2, { steps: 5 });
   await expect(navigation).toHaveAttribute("data-dragging", "true");
-  await expect(leaderboardTab).toHaveClass(/active/);
   const middleOffset = await navigation.evaluate((element) => element.style.getPropertyValue("--gg-active-offset"));
   expect(middleOffset).not.toBe(initialOffset);
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
-  await expect(leaderboardTab).toHaveClass(/active/);
+  // Selection follows the finger before release; pointer-up only completes
+  // the scrub and must not cause a second jump to the destination.
+  await expect(playersTab).toHaveClass(/active/);
   await page.mouse.up();
   await expect(playersTab).toHaveClass(/active/);
   await expect(companionStage).toHaveAttribute("data-gg-ground", "profile");
@@ -221,6 +222,24 @@ test("Pip keeps its profile home, scrubs the glass nav, and walks with tab dialo
   await expect(companionStage).toHaveAttribute("data-gg-phase", "walking", { timeout: 1500 });
   await expect(companionStage).toHaveAttribute("data-gg-bubble", "Who's climbing the table today?");
   await expect(companionStage).toHaveAttribute("data-gg-ground", "nav", { timeout: 4000 });
+
+  // Once Pip is on the rail, dragging across several tabs changes the target
+  // continuously. His screen-space position must advance rather than snap.
+  await expect(companionStage).toHaveAttribute("data-gg-phase", "idle", { timeout: 4000 });
+  const leaderboardBox = await leaderboardTab.boundingBox();
+  const playersBox = await playersTab.boundingBox();
+  const beforeScrub = await companion.boundingBox();
+  await page.mouse.move(leaderboardBox.x + leaderboardBox.width / 2, leaderboardBox.y + leaderboardBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move((leaderboardBox.x + playersBox.x + playersBox.width) / 2, leaderboardBox.y + leaderboardBox.height / 2, { steps: 5 });
+  await expect(navigation).toHaveAttribute("data-dragging", "true");
+  const duringScrub = await companion.boundingBox();
+  expect(Math.abs(duringScrub.x - beforeScrub.x)).toBeLessThan(100);
+  await page.mouse.move(playersBox.x + playersBox.width / 2, playersBox.y + playersBox.height / 2, { steps: 8 });
+  await expect(playersTab).toHaveClass(/active/);
+  await page.mouse.up();
+  await expect(playersTab).toHaveClass(/active/);
+  await expect(companionStage).toHaveAttribute("data-gg-ground", "nav");
 
   // Dragging Pip back over the profile icon restores the seated home perch.
   const before = await companion.boundingBox();

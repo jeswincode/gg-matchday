@@ -41,11 +41,11 @@ test("only a release over the profile area counts as a deliberate perch placemen
   assert.equal(isPointOverCompanionProfile(null, 39, 45), false);
 });
 
-test("the special profile-hop landing line is occasional, never guaranteed", () => {
-  assert.equal(PROFILE_LANDING_PRAISE_CHANCE, 0.26);
-  assert.equal(shouldPraiseProfileLanding(0.1), true);
-  assert.equal(shouldPraiseProfileLanding(0.25), true);
-  assert.equal(shouldPraiseProfileLanding(0.26), false);
-  assert.equal(shouldPraiseProfileLanding(0.8), false);
+test("a deliberate profile hop always earns the 10-on-10 landing line", () => {
+  assert.equal(PROFILE_LANDING_PRAISE_CHANCE, 1);
+  assert.equal(shouldPraiseProfileLanding(0), true);
+  assert.equal(shouldPraiseProfileLanding(0.8), true);
+  assert.equal(shouldPraiseProfileLanding(0.999), true);
+  assert.equal(shouldPraiseProfileLanding(1), false);
   assert.equal(shouldPraiseProfileLanding(Number.NaN), false);
 });

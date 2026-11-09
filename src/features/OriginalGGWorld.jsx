@@ -43,6 +43,9 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     const boot = ({black:"#171717",white:"#f5f3eb",gold:"#d7ad52",red:"#c64040",blue:"#3869b5",green:"#43865a",orange:"#d97835",purple:"#71499c",pink:"#e36ca8",cyan:"#46c7d5"})[appearance.bootColor] || "#f5f3eb";
     const motionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     const profile = getCharacterAnimationProfile(safeMotion);
+    // Draw the same canonical left-facing pixel rig for both side views.
+    // The right-facing output is mirrored as a complete sprite below, so
+    // boots, legs, arms, face and hair all remain exact counterparts.
     let motionAllowed = animated && !motionQuery?.matches;
     let frame = animationStateRef.current.motion === safeMotion ? animationStateRef.current.frame : 0;
     let lastFrameAt = null, animationFrame = null;
@@ -58,10 +61,11 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         }
       }
 
+      const renderDirection = safeDirection === "right" ? "left" : safeDirection;
       const seated = pose === "seated";
-      const sideFacing = safeDirection === "left" || safeDirection === "right";
-      const facingBack = safeDirection === "up";
-      const headX = (safeDirection === "left" ? 13 : safeDirection === "right" ? 19 : 16) + (seated ? -1 : 0);
+      const sideFacing = renderDirection === "left" || renderDirection === "right";
+      const facingBack = renderDirection === "up";
+      const headX = (renderDirection === "left" ? 13 : renderDirection === "right" ? 19 : 16) + (seated ? -1 : 0);
       const gait = safeMotion === "walking" ? [0, -1, -2, -1, 0, 1, 2, 1][frame % 8] : 0;
       const walkingBob = safeMotion === "walking" ? [0, -1, -2, -1, 0, -1, -2, -1][frame % 8] : 0;
       const walkingReach = safeMotion === "walking" ? [0, -1, -2, -1, 0, 1, 2, 1][frame % 8] : 0;
@@ -108,11 +112,11 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
       if (facingBack) {
         g.rect(headX-4,8+jump,8,2,hairStyle==="bald"?skin:hair);
       } else {
-        if (safeDirection === "left") g.rect(headX-3,7+jump,1,2,"#241a16");
-        else if (safeDirection === "right") g.rect(headX+2,7+jump,1,2,"#241a16");
+        if (renderDirection === "left") g.rect(headX-3,7+jump,1,2,"#241a16");
+        else if (renderDirection === "right") g.rect(headX+2,7+jump,1,2,"#241a16");
         else { g.rect(headX-2,7+jump,1,2,"#241a16");g.rect(headX+2,7+jump,1,2,"#241a16"); }
         if (!sideFacing) g.rect(headX-1,10+jump,2,1,"#71402f");
-        else g.rect(safeDirection==="left"?headX-5:headX+3,9+jump,2,2,skin);
+        else g.rect(renderDirection==="left"?headX-5:headX+3,9+jump,2,2,skin);
       }
       const accessory = appearance.headAccessory || "none";
       if (accessory !== "none" && !facingBack) {
@@ -156,9 +160,9 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
       } else if (safeMotion === "high-five") {
         g.stamp((l)=>l.rect(leftArmX,16+jump+walkingLeftArm,3,8,skin));
         const highFiveLift = [0,-2,-5,-2][frame%4];
-        const raisedX = safeDirection === "left" ? leftArmX-1 : rightArmX+1;
+        const raisedX = renderDirection === "left" ? leftArmX-1 : rightArmX+1;
         g.rect(raisedX,12+jump+highFiveLift,3,7,skin);
-        g.rect(raisedX+(safeDirection==="left"?-1:1),8+jump+highFiveLift,4,3,skin);
+        g.rect(raisedX+(renderDirection==="left"?-1:1),8+jump+highFiveLift,4,3,skin);
       } else if (safeMotion === "kick") {
         const balance = [0,-1,-2,0,1,0][frame%6];
         g.rect(leftArmX-1,16+jump+balance,3,8,skin);
@@ -196,8 +200,8 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
 
       const leftLegX = bodyLeft+1;
       const rightLegX = bodyLeft+bodyWidth-4;
-      const leftBootToe = getCharacterBootToeOffset(safeDirection, "left");
-      const rightBootToe = getCharacterBootToeOffset(safeDirection, "right");
+      const leftBootToe = getCharacterBootToeOffset(renderDirection, "left");
+      const rightBootToe = getCharacterBootToeOffset(renderDirection, "right");
       if (seated) {
         const seatedKick = safeMotion === "juggle" ? [0,0,-1,-2,-1,0,0,0][frame%8] : 0;
         // Shorts sit over the avatar; knees extend forward and slightly apart.
@@ -219,13 +223,13 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         g.rect(rightLegX+rightBootToe,29+jump+trickLift,6,2,boot);
       } else if (safeMotion === "kick") {
         const swing = [0,-1,-2,-4,-2,0][frame%6];
-        const kickX = safeDirection === "left" ? leftLegX : rightLegX;
-        const plantX = safeDirection === "left" ? rightLegX : leftLegX;
+        const kickX = renderDirection === "left" ? leftLegX : rightLegX;
+        const plantX = renderDirection === "left" ? rightLegX : leftLegX;
         g.rect(plantX,25+jump,3,5,skin);
-        const plantToe = safeDirection === "left" ? rightBootToe : leftBootToe;
+        const plantToe = renderDirection === "left" ? rightBootToe : leftBootToe;
         g.rect(plantX+plantToe,29+jump,5,2,boot);
         g.rect(kickX,25+jump+swing,3,5,skin);
-        const kickToe = safeDirection === "left" ? leftBootToe : rightBootToe;
+        const kickToe = renderDirection === "left" ? leftBootToe : rightBootToe;
         g.rect(kickX+kickToe,29+jump+swing,6,2,boot);
       } else {
         g.rect(leftLegX+leftLegReach,25+jump+leftLegStep,3,5,skin);
@@ -268,7 +272,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     drawFrame();
     return () => { motionQuery?.removeEventListener?.("change",onMotionPreferenceChange); if(animationFrame!==null) window.cancelAnimationFrame(animationFrame); };
   },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,safeMotion,safeDirection,animated,pose]);
-  return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer "+(pose==="seated"?"seated":"standing")+", facing "+safeDirection+", "+safeMotion}/>;
+  return <canvas ref={canvasRef} width="32" height="32" style={safeDirection==="right"?{transform:"scaleX(-1)"}:undefined} className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer "+(pose==="seated"?"seated":"standing")+", facing "+safeDirection+", "+safeMotion}/>;
 }
 function RoomTabs({rooms=[],activeIndex=0,onSelect}) {
   if(rooms.length<2)return null;

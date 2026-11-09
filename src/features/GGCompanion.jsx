@@ -531,12 +531,22 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
     // it must not turn off the football skills and little reactions.
     if (state.ground?.kind === "profile") {
       const roll = Math.random();
-      if (roll < 0.3) {
-        pose(state, "juggle", "down");
-        state.actionUntil = now + 1900;
+      if (roll < 0.62) {
+        // Keep Pip active on his avatar perch: rotate between keepy-uppies,
+        // stepovers and rainbow flicks so the ball is visibly part of idle play.
+        const skills = ["juggle", "juggle", "stepover", "rainbow"];
+        const gesture = skills[Math.floor(Math.random() * skills.length)];
+        pose(state, gesture, "down");
+        const duration = gesture === "stepover" ? 1680 : gesture === "rainbow" ? 1840 : 1920;
+        state.actionUntil = now + duration;
         state.nextAction = state.actionUntil;
-        if (Math.random() < 0.34) showBubble("Just keeping my touches sharp. ⚽", 1900);
-      } else if (roll < 0.42) {
+        if (Math.random() < 0.42) showBubble(
+          gesture === "juggle" ? "A few keepy-uppies! ⚽"
+            : gesture === "stepover" ? "Little stepover practice."
+              : "Rainbow flick! ⚽",
+          1900,
+        );
+      } else if (roll < 0.78) {
         pose(state, "wave", "down");
         state.actionUntil = now + 900;
         state.nextAction = state.actionUntil;
@@ -546,7 +556,7 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
         }
       } else {
         state.actionUntil = 0;
-        state.nextAction = now + 3600 + Math.random() * 3000;
+        state.nextAction = now + 2800 + Math.random() * 2200;
         pose(state, "idle", "down");
       }
       return;
@@ -709,18 +719,9 @@ export default function GGCompanion({ onEnterWorld, worldAccessAllowed = false, 
       if (progress >= 1) {
         state.x = clamp(tween.toX, rect.left + BODY_WIDTH / 2, rect.right - BODY_WIDTH / 2);
         state.y = rect.top;
-        state.ground = tween.ground;
-        state.tween = null;
-        state.phase = "idle";
-        pose(state, "idle", tween.ground.kind === "profile" || tween.ground.kind === "nav" ? "down" : undefined);
-        setPerched(tween.ground.kind === "nav");
-        setProfilePerched(tween.ground.kind === "profile");
-        state.nextAction = now + 3300 + Math.random() * 4300;
-        if (state.arrivalLine) {
-          const line = state.arrivalLine;
-          state.arrivalLine = "";
-          showBubble(line, 2100);
-        }
+        // Route all tween landings through settle so profile-hop feedback
+        // is delivered consistently rather than being skipped by this branch.
+        settle(state, now, tween.ground);
       }
       return;
     }

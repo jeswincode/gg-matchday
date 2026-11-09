@@ -46,6 +46,9 @@ export function getCharacterMotionDuration(motion) {
 export function getCharacterBootToeOffset(direction, leg = "left") {
   const facing = normalizeCharacterDirection(direction);
   const rightLeg = leg === "right";
-  if (facing === "right") return rightLeg ? 2 : 1;
+  // Keep right-facing boots tucked under the shins. The old positive
+  // offsets pushed both shoes several pixels ahead of the legs, making the
+  // rightward walk look detached compared with the left-facing cycle.
+  if (facing === "right") return rightLeg ? 0 : -1;
   return rightLeg ? -1 : -2;
 }

@@ -35,7 +35,9 @@ export function nearestCenterIndex(rects, x) {
 }
 
 // Only a hop down from the profile-avatar perch can earn the occasional line.
-export const PROFILE_LANDING_PRAISE_CHANCE = 0.26;
+// A deliberate hop down from the profile perch always earns the landing
+// reaction; the previous 26% roll made the advertised feedback feel broken.
+export const PROFILE_LANDING_PRAISE_CHANCE = 1;
 
 export function isPointOverCompanionProfile(rect, x, y, padding = 20) {
   if (!rect) return false;
