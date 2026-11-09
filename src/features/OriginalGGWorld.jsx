@@ -257,21 +257,6 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
         const [red,green,blue,alpha]=rgba(color);
         image.data[i*4]=red;image.data[i*4+1]=green;image.data[i*4+2]=blue;image.data[i*4+3]=alpha;
       }
-      if (safeDirection === "right") {
-        // Flip every pixel column. Mirroring the full rig avoids the asymmetric
-        // right-facing shoe placement that independent coordinates introduced.
-        const source = new Uint8ClampedArray(image.data);
-        for (let y = 0; y < N; y += 1) {
-          for (let x = 0; x < N; x += 1) {
-            const from = (y * N + (N - 1 - x)) * 4;
-            const to = (y * N + x) * 4;
-            image.data[to] = source[from];
-            image.data[to + 1] = source[from + 1];
-            image.data[to + 2] = source[from + 2];
-            image.data[to + 3] = source[from + 3];
-          }
-        }
-      }
       context.clearRect(0,0,N,N);
       context.putImageData(image,0,0);
       if(motionAllowed) animationFrame = window.requestAnimationFrame(drawFrame);
@@ -287,7 +272,7 @@ export function PlayerSprite({ appearance = {}, motion = "idle", direction = "do
     drawFrame();
     return () => { motionQuery?.removeEventListener?.("change",onMotionPreferenceChange); if(animationFrame!==null) window.cancelAnimationFrame(animationFrame); };
   },[appearance.skinTone,appearance.hairStyle,appearance.hairColor,appearance.bodyType,appearance.kitPrimary,appearance.kitSecondary,appearance.bootColor,appearance.headAccessory,safeMotion,safeDirection,animated,pose]);
-  return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")} role="img" aria-label={"Pixel footballer "+(pose==="seated"?"seated":"standing")+", facing "+safeDirection+", "+safeMotion}/>;
+  return <canvas ref={canvasRef} width="32" height="32" className={"gg-player-sprite"+(animated?" is-animated":"")+(safeDirection==="right"?" is-facing-right":"")} role="img" aria-label={"Pixel footballer "+(pose==="seated"?"seated":"standing")+", facing "+safeDirection+", "+safeMotion}/>;
 }
 function RoomTabs({rooms=[],activeIndex=0,onSelect}) {
   if(rooms.length<2)return null;
