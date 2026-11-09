@@ -320,6 +320,13 @@ function App() {
       if(nextDistance<distance){nearest=button;distance=nextDistance;}
     }
     const nextTab=nearest.dataset.tab;
+    // Commit the tab as the finger crosses each destination. Pip observes
+    // these intermediate targets and walks along the rail continuously;
+    // waiting until pointer-up made him jump straight to the final tab.
+    if (nextTab !== drag.lastTab) {
+      drag.lastTab=nextTab;
+      setActiveTab(nextTab);
+    }
     const navRect=event.currentTarget.getBoundingClientRect();
     const nearestRect=nearest.getBoundingClientRect();
     const minOffset=buttons[0].getBoundingClientRect().left-navRect.left;
@@ -330,7 +337,6 @@ function App() {
     event.currentTarget.style.setProperty("--gg-active-offset",capsuleOffset+"px");
     event.currentTarget.style.setProperty("--gg-active-width",nearestRect.width+"px");
     drag.lastX=event.clientX;
-    drag.lastTab=nextTab;
   },[]);
   const finishNavPointer=useCallback((event)=>{
     const drag=tabDragRef.current;
