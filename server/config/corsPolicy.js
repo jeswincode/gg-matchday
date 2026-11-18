@@ -6,11 +6,22 @@ const DEVELOPMENT_ORIGINS = new Set([
   "http://127.0.0.1:4173",
 ]);
 
+function configuredOrigins() {
+  return String(process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map(value => value.trim())
+    .filter(value => /^https?:\/\//i.test(value));
+}
+
 export function isAllowedCorsOrigin(origin, nodeEnv = process.env.NODE_ENV) {
   if (!origin) return false;
-  if (nodeEnv === "production") return PRODUCTION_ORIGINS.has(origin);
-  const configured = String(process.env.CORS_ORIGINS || "").split(",").map(value => value.trim()).filter(Boolean);
-  return PRODUCTION_ORIGINS.has(origin) || DEVELOPMENT_ORIGINS.has(origin) || configured.includes(origin);
+  const configured = configuredOrigins();
+  if (nodeEnv === "production") {
+    return PRODUCTION_ORIGINS.has(origin) || configured.includes(origin);
+  }
+  return PRODUCTION_ORIGINS.has(origin) ||
+    DEVELOPMENT_ORIGINS.has(origin) ||
+    configured.includes(origin);
 }
 
 export function createCorsOptions(nodeEnv = process.env.NODE_ENV) {
