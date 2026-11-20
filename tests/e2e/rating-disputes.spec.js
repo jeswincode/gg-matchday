@@ -15,7 +15,10 @@ test("player can inspect canonical rating breakdown and submit a non-mutating di
   await expect(matchCard).toBeVisible();
   await matchCard.click();
 
-  const playerRow = page.locator(".gg-match-performance-table tbody tr").filter({ hasText: "E2E Player One" });
+  // Mobile presents player cards; the desktop performance table is intentionally hidden.
+  const playerRow = test.info().project.name === "chromium-mobile"
+    ? page.locator(".gg-match-player-card").filter({ hasText: "E2E Player One" })
+    : page.locator(".gg-match-performance-table tbody tr").filter({ hasText: "E2E Player One" });
   await expect(playerRow).toBeVisible();
   await playerRow.getByRole("button", { name: "Explain rating" }).click();
 
