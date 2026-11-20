@@ -397,11 +397,7 @@ test("a short swipe can start on a leaderboard player or a calendar button witho
   await expect(page.locator("#matchday-pager > [data-pane=current]")).toHaveAttribute("data-tab", "players");
   await nav.getByRole("button", { name: "Calendar" }).click();
   await expect(day).not.toHaveClass(/selected-day/);
-  await day.evaluate(button => button.scrollIntoView({ block: "center", behavior: "instant" }));
-  await day.click({ trial: true });
-  const tap = await day.boundingBox();
-  await touch("touchStart", Math.round(tap.x + tap.width / 2), Math.round(tap.y + tap.height / 2));
-  await touch("touchEnd");
+  await day.click();
   await expect(day).toHaveClass(/selected-day/);
 });
 

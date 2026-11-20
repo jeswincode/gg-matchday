@@ -107,7 +107,7 @@ export default function SwipePager({ tabs, active, onNavigate, renderPane, id })
         ? distance / Math.max(1, event.timeStamp - current.startedAt)
         : event.timeStamp - current.lastMove <= 85 ? -current.speed * direction : 0;
       const flick = distance >= 22 && speed >= .28;
-      const deliberate = distance >= Math.max(36, Math.min(60, current.width * .14));
+      const deliberate = distance >= Math.max(34, Math.min(58, current.width * .12));
       const next = (deliberate || flick) ? current.order[current.index + direction] : undefined;
       completeSettle = () => {
         clearMotion();
