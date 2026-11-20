@@ -16,7 +16,7 @@ test("Clubs mode keeps formation controls, discovery and admin surfaces while us
   assert.match(component, /clubs-formation-stepper/);
   assert.match(component, /clubs-scout-card/);
   assert.match(component, /clubs-review-received/);
-  assert.match(component, /NEEDS ATTENTION/);
+  assert.match(component, /Operations queue/);
   assert.match(component, /clubs-admin-club-card/);
   for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2", "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]) {
     assert.match(component, new RegExp(formation));
@@ -31,7 +31,7 @@ test("Clubs mode keeps formation controls, discovery and admin surfaces while us
 
 test("Clubs mode is available from the main navigation to every viewer", () => {
   const app = fs.readFileSync("src/App.jsx", "utf8");
-  assert.match(app, /<button className="secondary-button" type="button" onClick=\{\(\)=>switchProductMode\("clubs"\)\}>Clubs<\/button>/);
+  assert.match(app, /setClubsAdminEntry\(false\); switchProductMode\("clubs"\); \}\}>Clubs<\/button>/);
   // Loading the Clubs code only after the click showed a full-screen fallback.
   assert.match(app, /import ClubsMode from '\.\/features\/clubs\/ClubsMode'/);
   assert.doesNotMatch(app, /Opening Clubs…|lazy\(preloadClubsMode\)|preloadClubsMode/);

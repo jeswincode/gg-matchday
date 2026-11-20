@@ -895,16 +895,6 @@
     border-radius: 20px;
   }
 
-  /* Keep floating profile controls clear of the bottom nav. */
-  .pr-launch {
-    right: 12px !important;
-    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
-    max-width: calc(100vw - 24px);
-    min-height: 44px;
-    padding: 10px 14px !important;
-    z-index: 90;
-  }
-
   /* Admin/editor rows become a deliberate mobile stack. */
   .admin-request {
     align-items: stretch;
@@ -1190,16 +1180,15 @@
     max-height: 31dvh;
   }
 
-  .pr-launch {
-    font-size: 12px;
-  }
 }
+
+.pr-footer { width: 100%; text-align: center; padding: 22px 16px 92px; color: #777; font-size: 12px; }
+.pr-footer strong { color: #aaa; font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
   .tab-content,
   .gg-place,
-  .gg-modal,
-  .pr-launch {
+  .gg-modal {
     animation: none !important;
     transition: none !important;
   }

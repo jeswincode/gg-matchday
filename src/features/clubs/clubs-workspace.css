@@ -111,9 +111,7 @@ html[data-product-mode="clubs"] .clubs-app.clubs-workspace .clubs-destination-na
   outline: 2px solid var(--club-workspace-highlight);
   outline-offset: 2px;
 }
-.clubs-workspace .clubs-admin-hero { align-items: flex-start; }
 .clubs-workspace .clubs-admin-hero h2 { font-size: clamp(1.45rem, 3.1vw, 2.4rem); }
-.clubs-metrics-toggle { margin-top: 12px; }
 
 .clubs-workspace-heading {
   display: flex;
@@ -249,7 +247,6 @@ html[data-product-mode="clubs"] .clubs-app.clubs-workspace .clubs-destination-na
 .clubs-career-tenures summary span { margin-left: 8px; color: var(--club-workspace-muted); }
 .clubs-career-tenures .clubs-bet-summary, .clubs-workspace-card > h3 + .clubs-bet-summary { margin-top: 13px; }
 
-html[data-product-mode="clubs"] .pr-launch,
 html[data-product-mode="clubs"] .pr-footer { display: none; }
 
 @media (max-width: 1000px) {

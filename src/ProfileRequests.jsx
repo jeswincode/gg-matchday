@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./firebase";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "./lib/api";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const POSITIONS = ["GK","CB","LB","RB","LWB","RWB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 const FIELDS = [
   ["height", "Height"], ["weight", "Weight"], ["position", "Position"],
@@ -10,25 +8,8 @@ const FIELDS = [
   ["dateOfBirth", "Date of birth"], ["bio", "Bio"], ["profileImage", "Profile image URL"],
 ];
 
-async function api(path, options = {}) {
-  const user = auth?.currentUser;
-  const token = user ? await user.getIdToken() : null;
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    ...(options.body !== undefined ? { body: typeof options.body === "string" ? options.body : JSON.stringify(options.body) } : {}),
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.message || "Request failed.");
-  return data;
-}
-
 function styles() {
   return `
-    .pr-footer{width:100%;text-align:center;padding:22px 16px 92px;color:#777;font-size:12px}
-    .pr-footer strong{color:#aaa;font-weight:600}
-    .pr-launch{position:fixed;right:18px;bottom:82px;z-index:50;border:1px solid #333;background:#171717;color:#fff;border-radius:999px;padding:11px 15px;cursor:pointer;box-shadow:0 8px 30px #0008}
-    .pr-launch:hover{background:#222}
     .pr-backdrop{position:fixed;inset:0;z-index:100;background:#000a;display:flex;align-items:center;justify-content:center;padding:18px}
     .pr-modal{width:min(720px,100%);max-height:90vh;overflow:auto;background:#101010;border:1px solid #292929;border-radius:18px;padding:20px;color:#eee;box-shadow:0 24px 80px #000}
     .pr-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:18px}.pr-head h2{margin:0;font-size:20px}.pr-x{background:none;border:0;color:#aaa;font-size:24px;cursor:pointer}
@@ -46,9 +27,8 @@ function styles() {
   `;
 }
 
-export default function ProfileRequests() {
-  const [firebaseUser, setFirebaseUser] = useState(null);
-  const [account, setAccount] = useState(null);
+export default function ProfileRequests({ mode, playerId, onClose }) {
+  const isAdmin = mode === "admin";
   const [player, setPlayer] = useState(null);
   const [requests, setRequests] = useState([]);
   const [adminRequests, setAdminRequests] = useState([]);
@@ -56,56 +36,41 @@ export default function ProfileRequests() {
   const [players, setPlayers] = useState([]);
   const [linkUser, setLinkUser] = useState("");
   const [linkPlayer, setLinkPlayer] = useState("");
-  const [open, setOpen] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({});
   const [rejectingRequestId, setRejectingRequestId] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
 
-  useEffect(() => auth ? onAuthStateChanged(auth, async (u) => {
-    setFirebaseUser(u);
-    if (!u) { setAccount(null); return; }
+  const refresh = useCallback(async () => {
     try {
-      const data = await api("/auth/me");
-      setAccount(data.user);
-    } catch (e) { console.error(e); }
-  }) : undefined, []);
-
-  async function refresh() {
-    if (!firebaseUser) return;
-    try {
-      const me = await api("/auth/me");
-      setAccount(me.user);
-      if (me.user.playerProfile) {
-        const all = await api("/players");
-        const list = Array.isArray(all) ? all : (all.players || []);
-        const p = list.find((x) => String(x._id || x.id) === String(me.user.playerProfile));
-        setPlayer(p || null);
-        if (p) setForm({...Object.fromEntries(FIELDS.map(([k]) => [k, k === "dateOfBirth" && p[k] ? new Date(p[k]).toISOString().slice(0,10) : p[k] ?? ""])), preferredPositions:p.preferredPositions||[],clasicoSide:p.clasicoSide||""});
-      } else setPlayer(null);
-      const mine = await api("/profile-requests/me");
-      setRequests(mine);
-      if (me.user.role === "admin") {
+      if (isAdmin) {
         const [rq, us, ps] = await Promise.all([api("/profile-requests/admin"), api("/profile-requests/admin/users"), api("/players")]);
         setAdminRequests(rq); setViewers(us); setPlayers(Array.isArray(ps) ? ps : (ps.players || []));
+      } else {
+        const [p, mine] = await Promise.all([api("/players/" + encodeURIComponent(playerId)), api("/profile-requests/me")]);
+        setPlayer(p);
+        setRequests(mine);
+        setForm({...Object.fromEntries(FIELDS.map(([k]) => [k, k === "dateOfBirth" && p[k] ? new Date(p[k]).toISOString().slice(0,10) : p[k] ?? ""])), preferredPositions:p.preferredPositions||[],clasicoSide:p.clasicoSide||""});
       }
-    } catch (e) { setMessage(e.message); }
-  }
+    } catch (e) { setMessage(e.message); } finally { setLoaded(true); }
+  }, [isAdmin, playerId]);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- Refresh the existing linked-account panel after Firebase identity changes.
-  useEffect(() => { if (firebaseUser) refresh(); }, [firebaseUser]);
   useEffect(() => {
-    if (!firebaseUser) return undefined;
-    const show = () => { setOpen(true); void refresh(); };
-    window.addEventListener("gg-open-profile", show);
-    return () => window.removeEventListener("gg-open-profile", show);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- The current Firebase identity owns the open handler.
-  }, [firebaseUser]);
+    const timer = window.setTimeout(refresh, 0);
+    return () => window.clearTimeout(timer);
+  }, [refresh]);
+  const closeButton = useRef(null);
+  useEffect(() => {
+    const opener = document.activeElement;
+    closeButton.current?.focus();
+    return () => { if (opener instanceof HTMLElement && opener.isConnected) opener.focus(); };
+  }, []);
 
   async function submit() {
     setBusy(true); setMessage("");
-    try { await api("/profile-requests", { method: "POST", body: JSON.stringify({ playerId: player?._id || player?.id, changes: form }) }); setMessage("Submitted for admin approval. Your official profile has not changed yet."); await refresh(); }
+    try { await api("/profile-requests", { method: "POST", body: { playerId, changes: form } }); setMessage("Submitted for admin approval."); await refresh(); }
     catch (e) { setMessage(e.message); } finally { setBusy(false); }
   }
 
@@ -121,7 +86,7 @@ export default function ProfileRequests() {
     try {
       const approved = await api("/profile-requests/admin/" + id + "/approve", {
         method: "POST",
-        body: JSON.stringify({}),
+        body: {},
       });
       // Immediately update the approving admin; other viewers receive SSE.
       setAdminRequests(current => current.filter(request => String(request._id) !== String(id)));
@@ -151,7 +116,7 @@ export default function ProfileRequests() {
     try {
       await api(`/profile-requests/admin/${rejectingRequestId}/reject`, {
         method: "POST",
-        body: JSON.stringify({ reason }),
+        body: { reason },
       });
       setMessage("Request rejected.");
       setRejectingRequestId(null);
@@ -170,23 +135,18 @@ export default function ProfileRequests() {
   async function link() {
     if (!linkUser || !linkPlayer) return;
     setBusy(true); setMessage("");
-    try { await api("/profile-requests/admin/link", { method: "POST", body: JSON.stringify({ userId: linkUser, playerId: linkPlayer }) }); setMessage("Account linked to player profile."); setLinkUser(""); setLinkPlayer(""); await refresh(); }
+    try { await api("/profile-requests/admin/link", { method: "POST", body: { userId: linkUser, playerId: linkPlayer } }); setMessage("Account linked to player profile."); setLinkUser(""); setLinkPlayer(""); await refresh(); }
     catch (e) { setMessage(e.message); } finally { setBusy(false); }
   }
 
-  if (!firebaseUser || !account) return <><style>{styles()}</style><footer className="pr-footer">Made by <strong>Jeswin</strong></footer></>;
-
-  const isAdmin = account.role === "admin";
   return <>
     <style>{styles()}</style>
-    <button className="pr-launch" onClick={() => { setOpen(true); refresh(); }}>{isAdmin ? "⚙ Profile Admin" : "👤 My Profile"}</button>
-    <footer className="pr-footer">Made by <strong>Jeswin</strong></footer>
-    {open && <div className="pr-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
-      <section className="pr-modal">
-        <div className="pr-head"><h2>{isAdmin ? "Profile Administration" : "My Profile"}</h2><button className="pr-x" onClick={() => setOpen(false)}>×</button></div>
-        {message && <div className="pr-msg">{message}</div>}
-
-        {!isAdmin && !player && <div className="pr-card"><strong>Profile not linked yet</strong><p className="pr-muted">An admin must link your account to your player profile before you can submit profile changes.</p></div>}
+    <div className="pr-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <section className="pr-modal" role="dialog" aria-modal="true" aria-labelledby="profile-requests-title"
+        onKeyDown={event => { if (event.key === "Escape") onClose(); }}>
+        <div className="pr-head"><h2 id="profile-requests-title">{isAdmin ? "Profile Administration" : "Request profile edit"}</h2><button type="button" ref={closeButton} className="pr-x" aria-label="Close" onClick={onClose}>×</button></div>
+        {message && <div className="pr-msg" role="status">{message}</div>}
+        {!loaded && <p className="pr-muted" role="status">Loading profile records…</p>}
 
         {!isAdmin && player && <>
           <div className="pr-card"><strong>{player.name}</strong><p className="pr-muted">Changes below are sent to the admin for approval. Nothing becomes official until approved.</p></div>
@@ -197,12 +157,12 @@ export default function ProfileRequests() {
           {requests.length > 0 && <div className="pr-card"><strong>Request history</strong>{requests.map(r=><div key={r._id} style={{marginTop:10}}><span className="pr-status">{r.status}</span> <span className="pr-muted">{new Date(r.createdAt).toLocaleString()}</span>{r.rejectionReason && <div className="pr-muted">Reason: {r.rejectionReason}</div>}</div>)}</div>}
         </>}
 
-        {isAdmin && <>
+        {isAdmin && loaded && <>
           <div className="pr-card"><strong>Link account to player</strong><div className="pr-grid" style={{marginTop:10}}><div className="pr-field"><label>Account</label><select value={linkUser} onChange={e=>setLinkUser(e.target.value)}><option value="">Select account</option>{viewers.map(u=><option key={u._id} value={u._id}>{u.name || u.email} — {u.email}</option>)}</select></div><div className="pr-field"><label>Player</label><select value={linkPlayer} onChange={e=>setLinkPlayer(e.target.value)}><option value="">Select player</option>{players.map(p=><option key={p._id} value={p._id}>{p.name}</option>)}</select></div></div><div className="pr-actions"><button className="pr-btn primary" disabled={busy || !linkUser || !linkPlayer} onClick={link}>Link account</button></div></div>
           <div className="pr-card"><strong>Pending profile requests</strong>{adminRequests.length === 0 && <p className="pr-muted">No pending requests.</p>}{adminRequests.map(r=><div className="pr-card" key={r._id}><strong>{r.requestedBy?.name || r.requestedBy?.email}</strong><div className="pr-muted">{r.player?.name} • {new Date(r.createdAt).toLocaleString()}</div><div className="pr-diff" style={{marginTop:10}}>{Object.keys(r.changes || {}).map(k=><div key={k}><strong>{k}</strong><br/>Before: {String(r.before?.[k] ?? "—")}<br/>After: {String(r.changes?.[k] ?? "—")}</div>)}</div><div className="pr-actions"><button className="pr-btn primary" disabled={busy} onClick={()=>review(r._id,"approve")}>Approve</button><button className="pr-btn danger" disabled={busy} onClick={()=>review(r._id,"reject")}>Reject</button></div></div>)}</div>
         </>}
       </section>
-    </div>}
+    </div>
 
     {rejectingRequestId && (
       <div

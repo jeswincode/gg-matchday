@@ -17,6 +17,7 @@ import MatchRecordForm from './features/matches/MatchRecordForm';
 // Heavier destinations stay split, but suspend only inside their own view.
 const Clasico = lazy(() => import('./components/Clasico'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
+const ProfileRequests = lazy(() => import('./ProfileRequests'));
 // Clubs is a primary product surface, so its code must be ready before
 // navigation; background prefetch can race the user's first click.
 import ClubsMode from './features/clubs/ClubsMode';
@@ -94,6 +95,12 @@ function App() {
   // Product mode is intentionally session-only. A full reload always starts
   // in the main Matchday Home experience, including when the previous mode was Clubs.
   const [productMode,setProductMode]=useState("matchday");
+  const [clubsAdminEntry, setClubsAdminEntry] = useState(false);
+  const [profileRequestMode, setProfileRequestMode] = useState(null);
+  const [openingOwnProfile, setOpeningOwnProfile] = useState(false);
+  const [ownProfileError, setOwnProfileError] = useState("");
+  const [profileFocusRequest, setProfileFocusRequest] = useState(null);
+  const ownProfileRequest = useRef(null);
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
@@ -474,6 +481,9 @@ function App() {
   const isAdmin =
     backendUser?.role ===
     "admin";
+
+  const linkedPlayerId = isSignedIn ? backendUser?.playerProfile : null;
+  useEffect(() => () => { ownProfileRequest.current = null; }, [backendUser?.id, linkedPlayerId]);
 
   const isEditor =
     backendUser?.role ===
@@ -1090,9 +1100,34 @@ function App() {
   // PROFILE
   // =========================================================
 
+  async function openOwnProfile() {
+    if (!linkedPlayerId || ownProfileRequest.current) return;
+    const request = {};
+    ownProfileRequest.current = request;
+    setOwnProfileError("");
+    setOpeningOwnProfile(true);
+    try {
+      const player = players.find(entry => sameId(entry._id, linkedPlayerId)) ||
+        await api("/players/" + encodeURIComponent(linkedPlayerId));
+      if (ownProfileRequest.current !== request) return;
+      closeModal();
+      openPlayerProfile(player, true);
+      setActiveTab(TABS.PLAYERS);
+      switchProductMode("matchday");
+    } catch (error) {
+      if (ownProfileRequest.current === request) {
+        setOwnProfileError(error.status === 404 ? "Your linked player profile could not be found." : "Couldn’t open your profile. Try again.");
+      }
+    } finally {
+      if (ownProfileRequest.current === request || !ownProfileRequest.current) setOpeningOwnProfile(false);
+      if (ownProfileRequest.current === request) ownProfileRequest.current = null;
+    }
+  }
+
   function openPlayerProfile(
-    player
+    player, focusProfile = false
   ) {
+    setProfileFocusRequest(focusProfile ? {} : null);
     setSelectedPlayer(
       player
     );
@@ -2203,7 +2238,9 @@ function App() {
 
     return (
       <>
-        <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
+        <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin}
+          adminEntry={clubsAdminEntry} onOpenOwnProfile={linkedPlayerId ? openOwnProfile : null}
+          openingOwnProfile={openingOwnProfile} ownProfileError={linkedPlayerId ? ownProfileError : ""} />
         {modeTransitionLayer}
       </>
     );
@@ -2250,7 +2287,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={() => { setClubsAdminEntry(false); switchProductMode("clubs"); }}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2338,6 +2375,9 @@ function App() {
                 </button>
               )}
 
+              {linkedPlayerId && <button type="button" className="secondary-button" onClick={openOwnProfile} disabled={openingOwnProfile}>
+                {openingOwnProfile ? "Opening profile…" : "Player Profile"}
+              </button>}
               <button
                 type="button"
                 className="secondary-button"
@@ -2373,6 +2413,7 @@ function App() {
 
       {/* MESSAGE */}
 
+      {linkedPlayerId && ownProfileError && <p className="global-message" role="alert">{ownProfileError}</p>}
       {message && (
         <div className="global-message">
 
@@ -2523,6 +2564,8 @@ function App() {
               refreshKey={refreshKey}
               onBack={()=>setSelectedPlayer(null)}
               onClearReview={()=>setPlayerReview(null)}
+              onRequestEdit={!isEditor && sameId(selectedPlayer._id, linkedPlayerId) ? () => setProfileRequestMode("edit") : null}
+              profileFocusRequest={profileFocusRequest}
             />
           )}
         </section>
@@ -2549,7 +2592,8 @@ function App() {
           handleEditorRequest={handleEditorRequest}
           revokeEditor={revokeEditor}
           onBackToMatchday={() => { setActiveTab(TABS.HOME); window.scrollTo(0, 0); }}
-          onOpenClubsAdmin={() => switchProductMode("clubs")}
+          onOpenClubsAdmin={() => { setClubsAdminEntry(true); switchProductMode("clubs"); }}
+          onOpenProfileAdmin={() => setProfileRequestMode("admin")}
         />
         </Suspense>
       )}
@@ -2627,6 +2671,9 @@ function App() {
       {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer} refreshKey={refreshKey}/>}
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
       {modal==='match'&&detailId&&<MatchDetail key={`${detailId}:${isSignedIn}`} matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
+      {((profileRequestMode === "admin" && isAdmin) || (profileRequestMode === "edit" && linkedPlayerId)) &&
+        <ProfileRequests key={`${backendUser?.id}:${linkedPlayerId}:${profileRequestMode}`} mode={profileRequestMode}
+          playerId={linkedPlayerId} onClose={() => setProfileRequestMode(null)} />}
       </Suspense>
       {modeTransitionLayer}
     </main>

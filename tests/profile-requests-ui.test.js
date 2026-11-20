@@ -4,5 +4,7 @@ import fs from 'node:fs';
 
 test('ProfileRequests does not double-serialize API request bodies', () => {
   const source = fs.readFileSync(new URL('../src/ProfileRequests.jsx', import.meta.url), 'utf8');
-  assert.match(source, /typeof options\.body === "string" \? options\.body : JSON\.stringify\(options\.body\)/);
+  assert.match(source, /import \{ api \} from "\.\/lib\/api"/);
+  assert.match(source, /body: \{ playerId, changes: form \}/);
+  assert.doesNotMatch(source, /body: JSON\.stringify/);
 });

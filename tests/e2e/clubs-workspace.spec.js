@@ -25,6 +25,23 @@ function fixtureDay() {
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+test("Clubs opens the signed-in player's full profile and keeps editing optional", async ({ page }) => {
+  await openClubs(page, memberId);
+  const header = page.locator(".clubs-compact-header");
+  await expect(header.getByRole("button", { name: "Profile Admin" })).toHaveCount(0);
+  await header.getByRole("button", { name: "Player Profile", exact: true }).click();
+  const profileHeading = page.locator(".player-profile").getByRole("heading", { name: "E2E Player Two", level: 2, exact: true });
+  await expect(profileHeading).toBeInViewport();
+  await expect(profileHeading).toBeFocused();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Request profile edit", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Request profile edit" });
+  await expect(editor.getByRole("button", { name: "Submit for Approval" })).toBeVisible();
+  await expect(editor.getByText("Link account to player")).toHaveCount(0);
+  await editor.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Request profile edit", exact: true })).toBeFocused();
+});
+
 test("captain fixture requests are private and a squad member can track an own-Club bet and refund", async ({ page, browser, request }, testInfo) => {
   test.setTimeout(60_000);
   const { viewport, deviceScaleFactor, isMobile, hasTouch, baseURL } = testInfo.project.use;

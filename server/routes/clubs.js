@@ -3045,7 +3045,8 @@ router.get("/admin/operations/activity", requireAuth, requireAdmin, async (req, 
   const limit = boundedPositiveInt(req.query.limit, 20, 50);
   const page = boundedPositiveInt(req.query.page, 1, 100_000);
   const types = ["formation", "club", "clubMatch", "auctionOffer", "wallet", "syncJob"];
-  const entityType = normalizeOperationsFilter(req.query.entityType, types);
+  const requestedType = String(req.query.entityType || "").trim().toLowerCase();
+  const entityType = types.find(type => type.toLowerCase() === requestedType);
   const outcome = normalizeOperationsFilter(req.query.outcome, ["success", "failed", "requested"]);
   const before = req.query.before ? new Date(String(req.query.before)) : null;
   if (before && !Number.isFinite(before.getTime())) return res.status(400).json({ success: false, message: "Invalid activity cursor." });

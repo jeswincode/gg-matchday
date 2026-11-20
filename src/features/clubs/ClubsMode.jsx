@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api } from "../../lib/api";
+import { api, invalidateResources } from "../../lib/api";
 import { useLiveRevision } from "../../lib/liveData";
 import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
 import ClubFixtures, { ClubCrest, FixtureTeams } from "./ClubFixtures";
@@ -9,6 +9,25 @@ import ClubsNavigation from "./ClubsNavigation";
 import { clubDateKey, fixtureDateLabel } from "./clubPresentation";
 import "./clubs-mode.css";
 import "./clubs-workspace.css";
+import "./clubs-admin-dashboard.css";
+
+const defaultOperationsFilters = { type: "", severity: "", status: "", age: "", club: "", search: "", sort: "priority", page: 1 };
+const dashboardMetrics = [
+  { label: "Pending approvals", count: "pendingApplications", type: "formation", status: "pendingAdminApproval", alert: "high" },
+  { label: "Sync issues", count: "syncFailures", type: "sync", alert: "high" },
+  { label: "Pending settlements", count: "pendingSettlements", type: "settlement", alert: "high" },
+  { label: "Wallet discrepancies", count: "walletDiscrepancies", type: "wallet-discrepancy", alert: "critical" },
+];
+const additionalMetrics = [
+  { label: "Captain and member decisions", count: "captainAndMemberDecisions" },
+  { label: "Contracts due within 7 days", count: "contractsExpiring7Days" },
+  { label: "Offers expiring or selected", count: "offersExpiring24Hours" },
+  { label: "Stale workflows", count: "staleWorkflows" },
+  { label: "Recent failed admin actions", count: "recentFailedAdminActions" },
+];
+const operationsDate = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+const operationsTime = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
+const operationsLabel = value => String(value || "Unknown").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/-/g, " ");
 
 const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
 const formationLabels5 = ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"];
@@ -150,12 +169,15 @@ function formationNextStep(application, playerId) {
   return null;
 }
 
-export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = false }) {
+export default function ClubsMode({
+  onReturnToMatchday, authUser, isAdmin = false, adminEntry, onOpenOwnProfile, openingOwnProfile, ownProfileError,
+}) {
+  const [adminWorkspace, setAdminWorkspace] = useState(Boolean(adminEntry));
+  const adminOnlyView = Boolean(isAdmin && (adminWorkspace || !authUser?.playerProfile));
   const [clubs, setClubs] = useState([]);
   const [players, setPlayers] = useState([]);
   const [applications, setApplications] = useState([]);
   const [adminApplications, setAdminApplications] = useState([]);
-  const [adminLoading, setAdminLoading] = useState(false);
   const [adminOverview, setAdminOverview] = useState(null);
   const [adminClubs, setAdminClubs] = useState([]);
   const [adminClubSearch, setAdminClubSearch] = useState("");
@@ -184,7 +206,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [offerAmount, setOfferAmount] = useState("");
   const [offerClub, setOfferClub] = useState("");
   const [activeSection, setActiveSection] = useState(() => {
-    if (isAdmin && !authUser?.playerProfile) return "adminDashboard";
+    if (adminOnlyView) return "adminDashboard";
     try {
       const focus = localStorage.getItem("gg-clubs-focus");
       return authUser?.playerProfile && focus === "myClub" ? "myClub" : "overview";
@@ -222,14 +244,17 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const [operationsQueue, setOperationsQueue] = useState({ items: [], pagination: { page: 1, pages: 1, total: 0 }, generatedAt: null });
   const [operationsActivity, setOperationsActivity] = useState({ items: [], pagination: { page: 1, hasMore: false }, nextBefore: null });
   const [operationsView, setOperationsView] = useState("queue");
-  const [operationsFilters, setOperationsFilters] = useState({ type: "", severity: "", status: "", age: "", club: "", search: "", sort: "priority", page: 1 });
+  const [operationsFilters, setOperationsFilters] = useState(defaultOperationsFilters);
   const [operationsSearchDraft, setOperationsSearchDraft] = useState("");
   const [operationsActivityFilter, setOperationsActivityFilter] = useState({ entityType: "", outcome: "", page: 1 });
   const [operationsLoading, setOperationsLoading] = useState(false);
   const [operationsError, setOperationsError] = useState("");
-  const [showAllMetrics, setShowAllMetrics] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [operationsActionId, setOperationsActionId] = useState(null);
   const [expandedOperationsItemId, setExpandedOperationsItemId] = useState(null);
+  const [adminRecordId, setAdminRecordId] = useState(null);
+  const operationsRequest = useRef({ sequence: 0 });
+  const [adminRefresh, setAdminRefresh] = useState(0);
 
   const announce = message => {
     setAnnouncement("");
@@ -248,8 +273,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   useEffect(() => {
     let active = true;
-    const adminOnlyView = Boolean(isAdmin && !authUser?.playerProfile);
-
     const requests = adminOnlyView
       ? [
           api("/clubs/meta"),
@@ -333,19 +356,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, isAdmin, clubsRevision]);
-  const refreshAdminApplications = async () => {
-    if (!isAdmin) return;
-    try {
-      setAdminLoading(true);
-      const data = await api("/clubs/admin/applications");
-      setAdminApplications(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setAdminLoading(false);
-    }
-  };
+  }, [authUser, adminOnlyView, clubsRevision, adminRefresh]);
 
   const respondToAdminApplication = async (applicationId, action) => {
     try {
@@ -392,29 +403,30 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     if (filters.age) queueParams.set("age", filters.age);
     if (filters.club) queueParams.set("club", filters.club);
     if (filters.search) queueParams.set("search", filters.search);
+    const selectedActivity = operationsView === "activity" ? activityFilters : {};
     const activityParams = new URLSearchParams({
-      page: String(activityFilters.page || 1),
+      page: String(selectedActivity.page || 1),
       limit: "20",
     });
-    if (activityFilters.entityType) activityParams.set("entityType", activityFilters.entityType);
-    if (activityFilters.outcome) activityParams.set("outcome", activityFilters.outcome);
+    if (selectedActivity.entityType) activityParams.set("entityType", selectedActivity.entityType);
+    if (selectedActivity.outcome) activityParams.set("outcome", selectedActivity.outcome);
 
+    const sequence = ++operationsRequest.current.sequence;
     setOperationsLoading(true);
     setOperationsError("");
-    try {
-      const [summary, queue, activity] = await Promise.all([
-        api("/clubs/admin/operations/summary"),
-        api("/clubs/admin/operations/queue?" + queueParams.toString()),
-        api("/clubs/admin/operations/activity?" + activityParams.toString()),
-      ]);
-      setOperationsSummary(summary || null);
-      setOperationsQueue(queue || { items: [], pagination: { page: 1, pages: 1, total: 0 } });
-      setOperationsActivity(activity || { items: [], pagination: { page: 1, hasMore: false } });
-    } catch (requestError) {
-      setOperationsError(requestError.message || "Clubs operations data is unavailable.");
-    } finally {
-      setOperationsLoading(false);
-    }
+    const [summary, queue, activity] = await Promise.allSettled([
+      api("/clubs/admin/operations/summary"),
+      api("/clubs/admin/operations/queue?" + queueParams.toString()),
+      api("/clubs/admin/operations/activity?" + activityParams.toString()),
+    ]);
+    if (operationsRequest.current.sequence !== sequence) return;
+    if (summary.status === "fulfilled") setOperationsSummary(summary.value);
+    if (queue.status === "fulfilled") setOperationsQueue(queue.value);
+    if (activity.status === "fulfilled") setOperationsActivity(activity.value);
+    const unavailable = [[summary, "workload counts"], [queue, "action queue"], [activity, "activity"]]
+      .filter(([result]) => result.status === "rejected").map(([, label]) => label);
+    if (unavailable.length) setOperationsError("Couldn’t refresh " + unavailable.join(", ") + ". Showing the last available records.");
+    setOperationsLoading(false);
   };
 
   const runOperationsAction = async item => {
@@ -423,10 +435,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       return;
     }
     if (item.action === "settle-match" && !window.confirm("Settle this completed Club Match using the canonical settlement service? This affects wallet ledgers.")) return;
-    if (item.action === "review-formation") {
-      setActiveSection("adminApplications");
-      return;
-    }
     setOperationsActionId(item.id);
     setOperationsError("");
     try {
@@ -456,13 +464,29 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
   };
 
+  function openAdminRecord(section, id) {
+    setAdminRecordId(id);
+    setActiveSection(section);
+    window.scrollTo(0, 0);
+  }
+
   useEffect(() => {
-    if (!isAdmin || authUser?.playerProfile || activeSection !== "adminDashboard") return undefined;
+    if (!adminRecordId) return;
+    const record = document.getElementById("clubs-admin-record-" + adminRecordId);
+    if (record) {
+      record.focus({ preventScroll: true });
+      record.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeSection, adminRecordId, adminApplications, adminMatches]);
+
+  useEffect(() => {
+    if (!adminOnlyView || activeSection !== "adminDashboard") return undefined;
     // This section refreshes server-sourced operational data on entry and when its filters change.
     refreshOperationsCenter().catch(() => {});
-    return undefined;
+    const requests = operationsRequest.current;
+    return () => { requests.sequence++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Filter state is the deliberate reload trigger.
-  }, [isAdmin, authUser?.playerProfile, activeSection, operationsFilters, operationsActivityFilter, clubsRevision]);
+  }, [adminOnlyView, activeSection, operationsFilters, operationsActivityFilter, operationsView, clubsRevision]);
 
   const refreshCommandCenter = async () => {
     if (!authUser?.playerProfile) {
@@ -771,7 +795,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
 
   const clubMap = useMemo(() => new Map(clubs.map(club => [String(club._id), club])), [clubs]);
   const clubName = clubId => clubMap.get(String(clubId))?.name || "Unknown club";
-  const adminOnlyView = Boolean(isAdmin && !authUser?.playerProfile);
   const currentPlayerId = authUser?.playerProfile ? String(authUser.playerProfile) : "";
   const adminClubStatuses = [...new Set(adminClubs.map(club => String(club.status || "unknown")))].sort();
   const filteredAdminClubs = useMemo(() => {
@@ -841,6 +864,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       { key: "adminApplications", label: "Applications", badge: adminApplications.length },
       { key: "adminClubs", label: "Clubs" },
       { key: "adminMatches", label: "Matches" },
+      ...(currentPlayerId ? [{ key: "overview", label: "Club Hub", secondary: true }] : []),
     ] : [
       { key: "overview", label: "Club Hub" },
       ...(currentPlayerId ? [{ key: "myClub", label: "My Club" }] : []),
@@ -862,7 +886,15 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   const navigatePrimaryTab = key => {
     const item = navigationItems.find(entry => entry.key === key);
     if (!item) return;
+    if (key === "admin" && isAdmin) {
+      setAdminWorkspace(true);
+      setActiveSection("adminDashboard");
+      window.scrollTo(0, 0);
+      return;
+    }
     if (adminOnlyView) {
+      if (key === "overview") setAdminWorkspace(false);
+      setAdminRecordId(null);
       setActiveSection(key);
       window.scrollTo({ top: 0, behavior: "instant" });
       return;
@@ -1104,15 +1136,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
   };
 
   useEffect(() => {
-    if (!isAdmin || activeSection !== "admin") return undefined;
-    // Remote admin data is intentionally refreshed when the Admin section opens.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Section entry intentionally refreshes remote admin data.
-    refreshAdminApplications();
-    return undefined;
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Section entry is the explicit refresh trigger.
-  }, [isAdmin, activeSection, clubsRevision]);
-
-  useEffect(() => {
     if (!authUser?.playerProfile) return undefined;
 
     let active = true;
@@ -1220,8 +1243,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           <div><span>GG MATCHDAY</span><h1>{adminOnlyView ? "Clubs Admin" : "Club Hub"}</h1></div>
         </div>
         <div className="clubs-header-actions">
-          {authUser && <button className="clubs-secondary-button" type="button"
-            onClick={() => window.dispatchEvent(new Event("gg-open-profile"))}>{isAdmin ? "Profile Admin" : "My Profile"}</button>}
+          {onOpenOwnProfile && <button className="clubs-secondary-button" type="button" disabled={openingOwnProfile}
+            onClick={onOpenOwnProfile}>{openingOwnProfile ? "Opening…" : "Player Profile"}</button>}
           <button type="button" className="clubs-return-button" onClick={onReturnToMatchday}>← Matchday</button>
         </div>
       </header>
@@ -1229,6 +1252,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         <ClubsNavigation items={navigationItems} active={activePrimaryTabKey} adminOnly={adminOnlyView} onNavigate={navigatePrimaryTab} />
         <div className="clubs-workspace-content">
 
+      {ownProfileError && <p className="clubs-error" role="alert">{ownProfileError}</p>}
       {error && (
         <div className="clubs-error" role="alert">
           <span>{error}</span>
@@ -1725,73 +1749,57 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
         <section className="clubs-section clubs-admin-dashboard">
           <div className="clubs-admin-hero">
             <div className="clubs-admin-hero-copy">
-              <p className="clubs-eyebrow">CLUBS CONTROL CENTER</p>
-              <h2>Administration dashboard</h2>
-              <p>Approve formations, monitor Club health, resolve synchronization issues and keep the entire Clubs ecosystem moving.</p>
+              <h2>Operations dashboard</h2>
+              <p>Review Club approvals, fixtures, and wallet activity.</p>
             </div>
-            <button type="button" className="clubs-secondary-button clubs-admin-refresh" onClick={async () => {
-              try {
-                const [overviewData, clubData, matchData, applicationData] = await Promise.all([
-                  api("/clubs/admin/overview"), api("/clubs/admin/clubs"), api("/clubs/admin/matches"), api("/clubs/admin/applications"),
-                ]);
-                setAdminOverview(overviewData || null);
-                setAdminClubs(Array.isArray(clubData) ? clubData : []);
-                setAdminMatches(Array.isArray(matchData) ? matchData : []);
-                setAdminApplications(Array.isArray(applicationData) ? applicationData : []);
-                await refreshOperationsCenter();
-              } catch (e) { setError(e.message); }
-            }}>Refresh</button>
+            <div className="clubs-dashboard-refresh">
+              <span role="status">{operationsLoading ? "Refreshing…" : operationsSummary?.generatedAt ? (
+                <>Updated <time dateTime={operationsSummary.generatedAt}>{operationsTime.format(new Date(operationsSummary.generatedAt))}</time></>
+              ) : "Waiting for records"}</span>
+              <button type="button" className="clubs-secondary-button" disabled={operationsLoading} onClick={() => {
+                invalidateResources(["/clubs/admin"]);
+                setAdminRefresh(version => version + 1);
+                void refreshOperationsCenter();
+              }}>Refresh data</button>
+            </div>
           </div>
-          <div className="clubs-operations-overview" aria-label="Clubs operational metrics">
-            <div className="clubs-operations-overview-head">
-              <div><p className="clubs-eyebrow">LIVE WORKLOAD</p><h3>Operational health</h3></div>
-              <span>{operationsLoading && !operationsSummary ? "Loading live records…" : operationsSummary?.generatedAt ? "Updated " + new Date(operationsSummary.generatedAt).toLocaleTimeString() : "No observation yet"}</span>
-            </div>
-            {operationsError && <div className="clubs-error" role="alert">{operationsError}</div>}
-            <div className="clubs-operations-metric-grid">
-              {[
-                ["Pending approvals", operationsSummary?.counts?.pendingApplications, "formation", "high", "adminApplications"],
-                ["Captain/member decisions", operationsSummary?.counts?.captainAndMemberDecisions, "formation", "", "adminDashboard"],
-                ["Contracts due ≤7d", operationsSummary?.counts?.contractsExpiring7Days, "contract", "", "adminDashboard"],
-                ["Offers expiring / selected", operationsSummary?.counts?.offersExpiring24Hours, "auction", "", "adminDashboard"],
-                ["Sync issues", operationsSummary?.counts?.syncFailures, "sync", "high", "adminDashboard"],
-                ["Pending settlements", operationsSummary?.counts?.pendingSettlements, "settlement", "high", "adminMatches"],
-                ["Wallet discrepancies", operationsSummary?.counts?.walletDiscrepancies, "wallet-discrepancy", "critical", "adminClubs"],
-                ["Stale workflows", operationsSummary?.counts?.staleWorkflows, "", "warning", "adminDashboard"],
-                ["Recent failed admin actions", operationsSummary?.counts?.recentFailedAdminActions, "admin-error", "high", "adminDashboard"],
-              ].filter(([, value]) => showAllMetrics || Number(value) > 0).map(([label, value, type, severity, target]) => (
-                <button type="button" className="clubs-operations-metric" data-alert={severity && Number(value) > 0 ? severity : undefined} key={label} onClick={() => {
-                  if (target !== "adminDashboard") setActiveSection(target);
-                  setOperationsFilters(current => ({ ...current, type: type || "", severity: severity || "", page: 1 }));
+          {operationsError && <div className="clubs-error" role="alert">{operationsError}</div>}
+          <section className="clubs-operations-metric-grid" aria-label="Clubs operational metrics">
+            {dashboardMetrics.map(({ label, count, type, status, alert }) => {
+              const value = operationsSummary?.counts?.[count];
+              return (
+                <button type="button" className="clubs-operations-metric" data-alert={Number(value) > 0 ? alert : undefined} key={count}
+                  aria-pressed={operationsView === "queue" && operationsFilters.type === type} onClick={() => {
+                  setOperationsSearchDraft("");
+                  setOperationsFilters({ ...defaultOperationsFilters, type, status: status || "" });
                   setOperationsView("queue");
+                  document.getElementById("clubs-workload-heading")?.focus({ preventScroll: true });
                 }}>
-                  <strong>{value == null ? "—" : Number(value).toLocaleString("en-IN")}</strong>
                   <span>{label}</span>
-                  <small>Open related work →</small>
+                  <strong>{value == null ? "—" : Number(value).toLocaleString("en-IN")}</strong>
+                  <small>View queue →</small>
                 </button>
-              ))}
-            </div>
-            {operationsSummary && (
-              <button type="button" className="clubs-secondary-button clubs-metrics-toggle" aria-expanded={showAllMetrics}
-                onClick={() => setShowAllMetrics(show => !show)}>
-                {showAllMetrics ? "Show checks with activity" : "Show all checks"}
-              </button>
-            )}
-            <p className="clubs-operations-provenance">Counts are derived from persisted Clubs records and the indicated observation time. Provider health and backup telemetry are not yet instrumented in this subsystem; no provider or backup status is inferred here.</p>
-          </div>
-          <section className="clubs-subsection clubs-operations-workspace">
+              );
+            })}
+          </section>
+          <div className="clubs-dashboard-columns">
+          <section className="clubs-subsection clubs-operations-workspace" aria-labelledby="clubs-workload-heading" aria-busy={operationsLoading}>
             <div className="clubs-section-heading">
-              <div><p className="clubs-eyebrow">NEEDS ATTENTION</p><h3>Operations queue</h3><span>Every item is backed by a persisted workflow or ledger comparison.</span></div>
-              <div className="clubs-operations-queue-count">{operationsSummary?.queueIsPartial ? "At least " : ""}{operationsQueue.pagination?.totalObserved ?? operationsSummary?.queueCount ?? "—"} observed items</div>
+              <h3 id="clubs-workload-heading" tabIndex={-1}>{operationsView === "queue" ? "Operations queue" : "Activity and audit"}</h3>
+              {operationsView === "queue" && operationsQueue.generatedAt &&
+                <div className="clubs-operations-queue-count">{operationsQueue.sourceLimitsReached?.length ? "At least " : ""}{operationsQueue.pagination?.totalObserved ?? 0} records</div>}
             </div>
             <div className="clubs-operations-view-switch" role="group" aria-label="Operations view">
               <button type="button" className={operationsView === "queue" ? "active" : ""} aria-pressed={operationsView === "queue"} onClick={() => setOperationsView("queue")}>Action queue</button>
               <button type="button" className={operationsView === "activity" ? "active" : ""} aria-pressed={operationsView === "activity"} onClick={() => setOperationsView("activity")}>Activity & audit</button>
-              <button type="button" className="clubs-secondary-button" onClick={() => refreshOperationsCenter()} disabled={operationsLoading}>{operationsLoading ? "Refreshing…" : "Refresh data"}</button>
             </div>
             {operationsView === "queue" ? (
               <>
-                <div className="clubs-operations-filters">
+                <div className="clubs-operations-filters clubs-queue-toolbar">
+                  <form className="clubs-operations-search" onSubmit={event => { event.preventDefault(); setOperationsFilters(current => ({ ...current, search: operationsSearchDraft.trim(), page: 1 })); }}>
+                    <label htmlFor="clubs-operations-search">Search records</label>
+                    <div><input id="clubs-operations-search" value={operationsSearchDraft} maxLength={120} onChange={event => setOperationsSearchDraft(event.target.value)} placeholder="Club, match, player or record ID"/><button type="submit" className="clubs-secondary-button">Search</button></div>
+                  </form>
                   <label>Issue type
                     <select value={operationsFilters.type} onChange={event => setOperationsFilters(current => ({ ...current, type: event.target.value, page: 1 }))}>
                       <option value="">All types</option>
@@ -1805,6 +1813,17 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                       <option value="admin-error">Admin action errors</option>
                     </select>
                   </label>
+                  <div className="clubs-filter-actions">
+                    <button type="button" className="clubs-secondary-button" aria-expanded={showAdvancedFilters} aria-controls="clubs-extra-filters"
+                      onClick={() => setShowAdvancedFilters(show => !show)}>{showAdvancedFilters ? "Fewer filters" : "More filters"}</button>
+                    {Object.keys(defaultOperationsFilters).some(key => key !== "page" && operationsFilters[key] !== defaultOperationsFilters[key]) &&
+                      <button type="button" className="clubs-secondary-button" onClick={() => {
+                        setOperationsSearchDraft("");
+                        setOperationsFilters(defaultOperationsFilters);
+                      }}>Clear filters</button>}
+                  </div>
+                </div>
+                <div className="clubs-operations-filters" id="clubs-extra-filters" hidden={!showAdvancedFilters}>
                   <label>Severity
                     <select value={operationsFilters.severity} onChange={event => setOperationsFilters(current => ({ ...current, severity: event.target.value, page: 1 }))}>
                       <option value="">All severities</option>
@@ -1847,46 +1866,35 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                   <label>Club name or ID
                     <input value={operationsFilters.club} maxLength={120} onChange={event => setOperationsFilters(current => ({ ...current, club: event.target.value.trimStart(), page: 1 }))} placeholder="Optional Club filter"/>
                   </label>
-                  <form className="clubs-operations-search" onSubmit={event => { event.preventDefault(); setOperationsFilters(current => ({ ...current, search: operationsSearchDraft.trim(), page: 1 })); }}>
-                    <label htmlFor="clubs-operations-search">Search records</label>
-                    <div><input id="clubs-operations-search" value={operationsSearchDraft} maxLength={120} onChange={event => setOperationsSearchDraft(event.target.value)} placeholder="Club, match, player or record ID"/><button type="submit" className="clubs-secondary-button">Search</button></div>
-                  </form>
                 </div>
-                {operationsError && <div className="clubs-error" role="alert">{operationsError}</div>}
                 {operationsQueue.sourceLimitsReached?.length > 0 && (
                   <p className="clubs-operations-provenance" role="status">
-                    The displayed queue is a bounded scan, not an exhaustive work count, for: {operationsQueue.sourceLimitsReached.join(", ")}. Summary counters use separate database count queries where available. Workflow assignment is not currently supported.
+                    Scan limits reached for {operationsQueue.sourceLimitsReached.join(", ")}.
                   </p>
                 )}
                 {operationsLoading && !operationsQueue.items?.length ? <div className="clubs-empty">Loading operational records…</div> : operationsError && !operationsQueue.items?.length ? (
-                  <div className="clubs-empty"><strong>Operations data unavailable</strong><span>The live queue could not be refreshed. Existing application workflows remain available in their tabs.</span><button type="button" className="clubs-secondary-button" onClick={() => refreshOperationsCenter()}>Retry</button></div>
+                  <div className="clubs-empty"><strong>Operations data unavailable</strong></div>
                 ) : !operationsQueue.items?.length ? (
-                  <div className="clubs-empty"><strong>No matching operational issues.</strong><span>No persisted records match these filters. This is not a claim about uninstrumented provider or backup systems.</span></div>
+                  <div className="clubs-empty"><strong>No matching operational records.</strong></div>
                 ) : (
                   <div className="clubs-operations-list">
                     {operationsQueue.items.map(item => (
                       <article className="clubs-operations-item" data-severity={item.severity} key={item.id}>
-                        <div className="clubs-operations-item-top">
-                          <span className="clubs-operations-severity">{String(item.severity || "info").replace("-", " ")}</span>
-                          <span className="clubs-operations-type">{String(item.type || "workflow").replace(/-/g, " ")}</span>
-                          <span className="clubs-operations-status">{item.status || "unknown"}</span>
-                        </div>
-                        <h4>{item.title}</h4>
-                        {item.subtitle && <p className="clubs-operations-subtitle">{item.subtitle}</p>}
-                        <p>{item.detail}</p>
-                        <div className="clubs-operations-meta">
-                          <span>Created: {item.createdAt ? new Date(item.createdAt).toLocaleString() : "Not recorded"}</span>
-                          <span>Age: {item.ageHours == null ? "Unknown" : item.ageHours + "h"}</span>
-                          {item.dueAt && <span>Due/expiry: {new Date(item.dueAt).toLocaleString()}</span>}
+                        <div className="clubs-operations-item-summary">
+                          <div className="clubs-operations-item-top">
+                            <span className="clubs-operations-severity">{operationsLabel(item.severity)}</span>
+                            <span className="clubs-operations-type">{operationsLabel(item.type)}</span>
+                            <span className="clubs-operations-status">{operationsLabel(item.status)}</span>
+                          </div>
+                          <h4>{item.title}</h4>
+                          {item.subtitle && <p className="clubs-operations-subtitle">{item.subtitle}</p>}
+                          {item.dueAt && <p>Due <time dateTime={item.dueAt}>{operationsDate.format(new Date(item.dueAt))}</time></p>}
                         </div>
                         <div className="clubs-operations-actions">
-                          <button type="button" className="clubs-secondary-button" aria-expanded={expandedOperationsItemId === item.id} onClick={() => {
-                            if (item.target && item.target !== "adminDashboard") setActiveSection(item.target);
-                            else if (item.type === "settlement" || item.type === "match" || item.type === "sync") setActiveSection("adminMatches");
-                            else if (item.type === "wallet-discrepancy" || item.type === "contract") setActiveSection("adminClubs");
-                            setExpandedOperationsItemId(current => current === item.id ? null : item.id);
-                          }}>{expandedOperationsItemId === item.id ? "Hide details" : "Inspect workflow"}</button>
-                          {item.action === "review-formation" && <button type="button" className="clubs-primary-button" onClick={() => setActiveSection("adminApplications")}>Review application</button>}
+                          <button type="button" className="clubs-secondary-button" aria-expanded={expandedOperationsItemId === item.id}
+                            onClick={() => setExpandedOperationsItemId(current => current === item.id ? null : item.id)}>{expandedOperationsItemId === item.id ? "Hide details" : "Details"}</button>
+                          {item.action === "review-formation" && <button type="button" className="clubs-primary-button"
+                            onClick={() => openAdminRecord("adminApplications", item.entityId)}>Review application</button>}
                           {item.action === "retry-sync" && <button type="button" className="clubs-primary-button" disabled={operationsActionId === item.id} onClick={() => runOperationsAction(item)}>{operationsActionId === item.id ? "Retrying…" : "Retry canonical sync"}</button>}
                           {item.action === "settle-match" && <button type="button" className="clubs-primary-button" disabled={operationsActionId === item.id} onClick={() => runOperationsAction(item)}>{operationsActionId === item.id ? "Settling…" : "Review & settle"}</button>}
                         </div>
@@ -1897,6 +1905,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                             <dl>
                               <div><dt>Record type</dt><dd>{item.entityType}</dd></div>
                               <div><dt>Record ID</dt><dd>{item.entityId}</dd></div>
+                              <div><dt>Created</dt><dd>{item.createdAt ? operationsDate.format(new Date(item.createdAt)) : "Not recorded"}</dd></div>
                               <div><dt>Last updated</dt><dd>{item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "Not recorded"}</dd></div>
                               {item.dueAt && <div><dt>Due / expiry</dt><dd>{new Date(item.dueAt).toLocaleString()}</dd></div>}
                               {item.metadata && Object.entries(item.metadata).filter(([key, value]) => value != null && !/email|secret|token|payload/i.test(key) && ["mainMatchId", "clubId", "playerId", "contractId", "amount", "attempts", "nextAttemptAt", "balance", "committedBalance", "expectedCommittedBalance", "pendingMembers"].includes(key)).map(([key, value]) => (
@@ -1904,6 +1913,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                               ))}
                             </dl>
                             <p className="clubs-operations-detail-next"><strong>Next step:</strong> {item.nextAction || "Inspect the underlying record."}</p>
+                            {item.target && item.target !== "adminDashboard" && item.action !== "review-formation" &&
+                              <button type="button" className="clubs-secondary-button" onClick={() => navigatePrimaryTab(item.target)}>
+                                {item.target === "adminMatches" ? "Open Matches" : "Open Clubs"}
+                              </button>}
                           </div>
                         )}
                       </article>
@@ -1941,20 +1954,24 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
                     </select>
                   </label>
                 </div>
-                <p className="clubs-operations-provenance">{operationsActivity.coverage?.audit}. Older history is shown only when a persisted ClubHistory record exists; missing events are not reconstructed. Wallet entries come from the persisted Club wallet ledger, not inferred from a current balance.</p>
                 {operationsActivity.pagination?.reachedRetrievalCap && <p className="clubs-operations-provenance" role="status">The activity view reached its 150-record retrieval cap. Older records may exist beyond this bounded view.</p>}
-                {!operationsActivity.items?.length ? <div className="clubs-empty"><strong>No recorded activity matches.</strong><span>Operational observations are not presented as historical events.</span></div> : (
+                {!operationsActivity.items?.length ? <div className="clubs-empty"><strong>{operationsLoading ? "Loading activity…" : "No recorded activity matches."}</strong></div> : (
                   <div className="clubs-operations-activity">
                     {operationsActivity.items.map(event => (
                       <article className="clubs-operations-activity-item" key={event.source + ":" + event.id}>
                         <span className="clubs-operations-activity-marker" data-outcome={event.outcome}/>
                         <div>
-                          <div className="clubs-operations-item-top"><span className="clubs-operations-type">{event.source === "admin-audit" ? "Administrator audit" : "Club history"}</span><span className="clubs-operations-status">{event.outcome}</span></div>
-                          <h4>{String(event.action || "Recorded event").replace(/-/g, " ")}</h4>
-                          <p>{event.reason || "No reason was stored with this event."}</p>
-                          <small>{event.actor || "Unknown actor"} · {event.createdAt ? new Date(event.createdAt).toLocaleString() : "Time not recorded"} · {event.entityType} · {event.entityId}</small>
-                          {event.requestId && <small>Request ID: {event.requestId}</small>}
-                          {event.metadata?.amount != null && <small>Amount: {Number(event.metadata.amount).toLocaleString("en-IN")} credits · Balance after: {event.metadata.balanceAfter == null ? "Not recorded" : Number(event.metadata.balanceAfter).toLocaleString("en-IN") + " credits"}</small>}
+                          <div className="clubs-operations-item-top"><span className="clubs-operations-type">{event.source === "admin-audit" ? "Administrator audit" : event.source === "club-wallet-ledger" ? "Wallet ledger" : "Club history"}</span><span className="clubs-operations-status">{event.outcome}</span></div>
+                          <h4>{operationsLabel(event.action)}</h4>
+                          {event.reason && <p>{event.reason}</p>}
+                          <small>{event.actor || "Unknown actor"} · {event.createdAt ? operationsDate.format(new Date(event.createdAt)) : "Time not recorded"}</small>
+                          {event.metadata?.amount != null && <small>{Number(event.metadata.amount).toLocaleString("en-IN")} credits · Balance after {event.metadata.balanceAfter == null ? "not recorded" : Number(event.metadata.balanceAfter).toLocaleString("en-IN") + " credits"}</small>}
+                          <details className="clubs-audit-details">
+                            <summary>Record details</summary>
+                            <small>{operationsLabel(event.entityType)} · {event.entityId}</small>
+                            {event.previousStatus && event.nextStatus && <small>{operationsLabel(event.previousStatus)} → {operationsLabel(event.nextStatus)}</small>}
+                            {event.requestId && <small>Request ID {event.requestId}</small>}
+                          </details>
                         </div>
                       </article>
                     ))}
@@ -1968,10 +1985,35 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               </>
             )}
           </section>
+          <aside className="clubs-dashboard-sidebar" aria-label="Clubs monitoring">
+            {operationsView === "queue" && <section className="clubs-subsection clubs-dashboard-activity-preview">
+              <h3>Recent activity</h3>
+              {operationsActivity.items.length ? (
+                <ul>{operationsActivity.items.slice(0, 4).map(event => (
+                  <li key={event.source + ":" + event.id}>
+                    <span className="clubs-operations-activity-marker" data-outcome={event.outcome} />
+                    <div><strong>{operationsLabel(event.action)}</strong>
+                      {event.createdAt && <time dateTime={event.createdAt}>{operationsDate.format(new Date(event.createdAt))}</time>}
+                    </div>
+                  </li>
+                ))}</ul>
+              ) : <p>{operationsLoading ? "Loading activity…" : "No recorded activity yet."}</p>}
+              <button type="button" className="clubs-secondary-button" onClick={() => {
+                setOperationsActivityFilter({ entityType: "", outcome: "", page: 1 });
+                setOperationsView("activity");
+                document.getElementById("clubs-workload-heading")?.focus();
+              }}>View audit log</button>
+            </section>}
+            <details className="clubs-subsection clubs-dashboard-checks">
+              <summary>More workload checks</summary>
+              <dl>{additionalMetrics.map(({ label, count }) => (
+                <div key={count}><dt>{label}</dt><dd>{operationsSummary?.counts?.[count] ?? "—"}</dd></div>
+              ))}</dl>
+              <p className="clubs-operations-provenance">These counts cover Clubs records. Provider and backup health are not yet instrumented in this subsystem.</p>
+            </details>
           <section className="clubs-subsection clubs-admin-latest">
             <div className="clubs-section-heading">
-              <div><p className="clubs-eyebrow">LATEST CLUBS</p><h3>Recently changed Clubs</h3></div>
-              <span>{adminOverview?.recentClubs?.length || 0}</span>
+              <h3>Recently changed Clubs</h3>
             </div>
             {(adminOverview?.recentClubs || []).length === 0 ? (
               <div className="clubs-empty"><strong>No Club changes yet.</strong><span>Approved, archived and recently created Clubs will appear here.</span></div>
@@ -1979,7 +2021,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               <div className="clubs-admin-latest-grid">
                 {(adminOverview?.recentClubs || []).map(club => (
                   <article className="clubs-admin-club-card" key={String(club._id)}>
-                    <span className="clubs-admin-club-mark">GG</span>
                     <div className="clubs-admin-club-copy">
                       <strong>{club.name || "Unnamed Club"}</strong>
                       <span>{club.memberIds?.length || 0}/5 players · {club.captainIds?.length || 0} captain{(club.captainIds?.length || 0) === 1 ? "" : "s"} · updated {club.updatedAt ? new Date(club.updatedAt).toLocaleDateString() : "recently"}</span>
@@ -1990,19 +2031,21 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               </div>
             )}
           </section>
+          </aside>
+          </div>
         </section>
       ) : adminOnlyView && activeSection === "adminApplications" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading">
             <div><p className="clubs-eyebrow">PERMISSIONS</p><h2>Club formation approvals</h2></div>
-            <span>{adminLoading ? "Loading…" : adminApplications.length + " pending"}</span>
+            <span>{loading ? "Loading…" : adminApplications.length + " pending"}</span>
           </div>
           {adminApplications.length === 0 ? (
             <div className="clubs-empty">No Club formations are waiting for admin action.</div>
           ) : (
             <div className="clubs-application-list">
               {adminApplications.map(application => (
-                <article className="clubs-application" key={application._id}>
+                <article className="clubs-application" key={application._id} id={"clubs-admin-record-" + application._id} tabIndex={-1}>
                   <div>
                     <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
                     <h3>{application.proposedName || "Unnamed Club"}</h3>
@@ -2154,10 +2197,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
               ))}
             </div>
           )}
-        </section>
-      ) : activeSection === "admin" ? (
-        <section className="clubs-section">
-          <div className="clubs-empty">Use the new Clubs Control Center for administration.</div>
         </section>
       ) : activeSection === "reviews" ? (
         <section className="clubs-section">

@@ -13,14 +13,13 @@ import './own-goals-ui.css'
 import './news-scroll.css'
 import './components/notifications.css'
 import App from './App.jsx'
-import ProfileRequests from './ProfileRequests.jsx'
 import AdminPreferredPositions from './components/AdminPreferredPositions.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <>
       <App />
-      <ProfileRequests />
+      <footer className="pr-footer">Made by <strong>Jeswin</strong></footer>
       <AdminPreferredPositions />
     </>
   </StrictMode>,

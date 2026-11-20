@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useLayoutEffect, useRef, useState} from "react";
 import {formatDate} from "../../lib/date";
 import {invalidateResources} from "../../lib/api";
 import useResource from "../../components/useResource";
@@ -44,7 +44,16 @@ export default function PlayerProfile({
   refreshKey,
   onBack,
   onClearReview,
+  onRequestEdit,
+  profileFocusRequest,
 }){
+  const profileSection = useRef(null);
+  const profileHeading = useRef(null);
+  useLayoutEffect(() => {
+    if (!profileFocusRequest) return;
+    profileHeading.current?.focus({ preventScroll: true });
+    profileSection.current?.scrollIntoView({ block: "start", behavior: "instant" });
+  }, [profileFocusRequest]);
   const [attributesRevision,setAttributesRevision]=useState(0);
   const attributesPath = "/players/" + player._id + "/attributes";
   const {data: attributes, loading: attributesLoading, error: attributesError} =
@@ -60,7 +69,7 @@ export default function PlayerProfile({
   };
 
   return (
-    <section className="player-profile">
+    <section className="player-profile" ref={profileSection}>
     
       <button
         type="button"
@@ -109,7 +118,7 @@ export default function PlayerProfile({
             PLAYER PROFILE
           </p>
     
-          <h2>
+          <h2 ref={profileHeading} tabIndex={-1}>
             {
               player.name
             }
@@ -137,6 +146,7 @@ export default function PlayerProfile({
             }
           </button>
         )}
+        {onRequestEdit && <button type="button" className="secondary-button" onClick={onRequestEdit}>Request profile edit</button>}
     
       </section>
     

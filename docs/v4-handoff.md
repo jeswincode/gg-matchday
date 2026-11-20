@@ -39,7 +39,8 @@ Take the next user-selected feature through local implementation, focused tests,
 
 - Clubs uses a desktop navigation rail and a mobile dock. Match lists show confirmed upcoming fixtures and results. Linked squad members can switch to My Fixtures. Current captains submit fixture requests and handle decisions in the captain inbox. Pending requests and captain votes stay out of the public fixture response.
 - Betting shows confirmed eligible fixtures and a player's open and settled bets. V4 allows squad members to bet on their own Club's fixtures using existing in-game credits. Limits, fixture deadlines, wallet debits, payouts, and refunds remain server-controlled. Bet history is scoped to the signed-in player and fetched in pages.
-- My Player brings together the private wallet, personal and Club rewards, and Club career records. Clubs Administration retains its separate approval and operations workflow.
+- My Player brings together the private wallet, personal and Club rewards, and Club career records. The header opens the linked account's full Matchday player profile. Players request edits from their own profile. Account linking and approval of profile edits are under Matchday Admin → Profile administration.
+- Clubs Admin places approvals, sync, settlements and wallet counts above the action queue. Recent activity and Club changes sit next to the queue on desktop. Review opens the matching formation, and the audit log retains the record details for recorded events.
 - The [Clubs workspace browser test](../tests/e2e/clubs-workspace.spec.js) checks captain and member views in independent sessions, a same-Club bet, private history, and a cancellation refund against isolated fixtures.
 
 ## Open in Codex

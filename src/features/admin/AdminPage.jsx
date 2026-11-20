@@ -1,7 +1,7 @@
 
 const ADMIN_GROUPS = [
   { heading:"WORKSPACE", items:[["overview","Overview","grid"]] },
-  { heading:"PEOPLE & ACCESS", items:[["requests","Editor requests","inbox"],["editors","Active editors","users"]] },
+  { heading:"PEOPLE & ACCESS", items:[["requests","Editor requests","inbox"],["editors","Active editors","users"],["profiles","Profile administration","users"]] },
   { heading:"PLAYER MANAGEMENT", items:[["attributes","OVR attributes","sliders"],["media","Profile videos","image"]] },
   { heading:"FOOTBALL INTEGRITY", items:[["audit","Match audit","clipboard"],["disputes","Rating disputes","flag"],["clubs","Clubs operations","building"]] },
   { heading:"PLATFORM", items:[["health","System health","pulse"],["permissions","Role permissions","shield"]] },
@@ -48,6 +48,7 @@ export default function AdminPage({
   signIn,
   onBackToMatchday,
   onOpenClubsAdmin,
+  onOpenProfileAdmin,
   editorRequests,
   activeEditors,
   adminLoading,
@@ -84,6 +85,11 @@ export default function AdminPage({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
   const choose = id => {
+    if (id === "profiles") {
+      setMenuOpen(false);
+      onOpenProfileAdmin();
+      return;
+    }
     if (id === "clubs") {
       setMenuOpen(false);
       onOpenClubsAdmin?.();
