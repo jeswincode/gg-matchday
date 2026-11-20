@@ -46,15 +46,28 @@ test("Clubs operations queue drives an administrator approval and records the ac
   await expect(page.locator(".clubs-operations-activity-item").filter({ hasText: "formation approve" })).toHaveCount(0);
 });
 
-test("Matchday administrators can still open the profile administration tools", async ({ page }) => {
+test("Profile administration selects its sidebar item and removes an account after linking", async ({ page }) => {
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
   await page.getByRole("button", { name: "Enter Matchday" }).click();
   await page.getByRole("button", { name: "⚙ Admin", exact: true }).click();
   await expect(page.getByRole("region", { name: "GG Matchday admin control center" })).toBeVisible();
   const mobileMenu = page.getByRole("button", { name: "Open admin sections" });
   if (await mobileMenu.isVisible()) await mobileMenu.click();
-  await page.getByRole("button", { name: "Profile administration", exact: true }).click();
+  const sidebarEntry = page.getByRole("button", { name: "Profile administration", exact: true, includeHidden: true });
+  await sidebarEntry.click();
   const profileAdmin = page.getByRole("dialog", { name: "Profile Administration", exact: true });
   await expect(profileAdmin).toBeVisible();
-  await expect(profileAdmin.getByText("Link account to player")).toBeVisible();
+  await expect(sidebarEntry).toHaveAttribute("aria-current", "page");
+  const account = profileAdmin.getByLabel("Unlinked account");
+  const unlinked = account.getByRole("option", { name: /E2E Unlinked Profile Account/ });
+  await expect(unlinked).toHaveCount(1);
+  await expect(account.getByRole("option", { name: /E2E Dispute Reporter/i })).toHaveCount(0);
+  await account.selectOption(await unlinked.getAttribute("value"));
+  await profileAdmin.getByLabel("Player", { exact: true }).selectOption({ label: "E2E Player One" });
+  await profileAdmin.getByRole("button", { name: "Link account", exact: true }).click();
+  await expect(profileAdmin.getByRole("status")).toHaveText("Account linked to player profile.");
+  await expect(unlinked).toHaveCount(0);
+  await profileAdmin.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(sidebarEntry).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "Profile administration", exact: true })).toBeVisible();
 });

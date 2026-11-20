@@ -7,6 +7,7 @@ import {startClubSyncWorker} from './services/clubsSync.js';
 import {startClubsMaintenanceWorker} from './services/clubsMaintenance.js';
 import {startStatisticsMaintenanceWorker} from './services/persistedStatistics.js';
 import {closeLiveData} from './services/liveData.js';
+import {migrateV4ProfileLinks} from './services/profileLinks.js';
 
 async function startServer(){
   try{
@@ -14,6 +15,7 @@ async function startServer(){
       throw new Error("E2E test authentication secrets must never be configured in production.");
     }
     await mongoose.connect(process.env.MONGODB_URI);
+    await migrateV4ProfileLinks(mongoose.connection);
     console.log('MongoDB connected');
 
     try {

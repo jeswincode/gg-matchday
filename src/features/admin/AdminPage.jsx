@@ -10,6 +10,7 @@ const ADMIN_DETAILS = {
  overview:["COMMAND CENTER","Overview","Everything you need to manage Matchday, organized around real tasks."],
  requests:["PEOPLE & ACCESS","Editor requests","Approve or reject requests for football editing privileges."],
  editors:["PEOPLE & ACCESS","Active editors","Review active editorial access and revoke it when needed."],
+ profiles:["PEOPLE & ACCESS","Profile administration","Link accounts to players and review profile changes."],
  attributes:["PLAYER MANAGEMENT","OVR attributes","Adjust evaluated Pace and Physical with the existing validated workflow."],
  media:["PLAYER MANAGEMENT","Profile videos","Maintain each player's cinematic profile background."],
  audit:["FOOTBALL INTEGRITY","Match audit","Review persisted calculations and carefully migrate historical GG ratings."],
@@ -85,11 +86,6 @@ export default function AdminPage({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
   const choose = id => {
-    if (id === "profiles") {
-      setMenuOpen(false);
-      onOpenProfileAdmin();
-      return;
-    }
     if (id === "clubs") {
       setMenuOpen(false);
       onOpenClubsAdmin?.();
@@ -100,7 +96,8 @@ export default function AdminPage({
     // Reset the independently scrolling desktop content pane on every section change.
     if (contentRef.current) contentRef.current.scrollTop = 0;
     window.scrollTo(0, 0);
-    window.requestAnimationFrame(() => contentRef.current?.focus({ preventScroll: true }));
+    if (id === "profiles") onOpenProfileAdmin();
+    else window.requestAnimationFrame(() => contentRef.current?.focus({ preventScroll: true }));
   };
   const details = ADMIN_DETAILS[section] || ADMIN_DETAILS.overview;
 
@@ -152,6 +149,9 @@ export default function AdminPage({
                   )}
                 </div>
               </div>
+            )}
+            {section === "profiles" && (
+              <button type="button" className="secondary-button" onClick={onOpenProfileAdmin}>Open profile administration</button>
             )}
             {section === "requests" && (<>
 <section className="card">

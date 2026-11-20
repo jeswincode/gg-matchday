@@ -188,6 +188,12 @@ const ratingExplanationMatch = await Match.create({
   events: [{ player: new mongoose.Types.ObjectId(basePlayers[0].id), type: "goal" }],
 });
 
+await User.create({
+  firebaseUid: "e2e-unlinked-profile-account",
+  name: "E2E Unlinked Profile Account",
+  email: "e2e-unlinked-profile-account@test.invalid",
+});
+
 const ratingDisputeReporter = await User.create({
   firebaseUid: `e2e-test:viewer:${basePlayers[1].id}`,
   name: "E2E Dispute Reporter",

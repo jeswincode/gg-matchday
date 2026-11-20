@@ -19,6 +19,8 @@ The active application branch is [`v4/fresh-start`](https://github.com/jeswincod
 
 ## Live profile approvals
 
+Profile administration lists only accounts awaiting a link. Each account stores one player ID, and a player can be linked to several accounts. The V4 API removes the legacy unique index for this field on startup in `gg_matchday_v4`.
+
 1. A linked user submits a profile change. Profile Administration approves it through the server's admin-only route in [`server/routes/profileRequests.js`](../server/routes/profileRequests.js).
 2. The API saves the player and approval, then emits `profile-updated` over [`GET /api/live/profile-updates`](https://gg-matchday-v4-fresh-api.onrender.com/api/live/profile-updates). The event carries only the public player ID. The stream checks persisted approvals every three seconds while it has subscribers so another API instance can observe an approval.
 3. After API success, [`ProfileRequests.jsx`](../src/ProfileRequests.jsx) clears the pending row and shows confirmation. The approving tab also receives a local event. [`src/lib/profileLive.js`](../src/lib/profileLive.js) listens for both signals and invalidates player reads. Open profile and roster views fetch the affected player's current record. Reconnect, online, and foreground checks reconcile the player list, with a 20-second fallback while a visible page is disconnected.

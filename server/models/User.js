@@ -62,7 +62,7 @@ const userSchema =
     }
   );
 
-userSchema.index({ playerProfile: 1 }, { name: "user_playerProfile_unique", unique: true, partialFilterExpression: { playerProfile: { $type: "objectId" } } });
+userSchema.index({ playerProfile: 1 });
 
 export default mongoose.model(
   "User",

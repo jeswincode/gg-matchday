@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "./lib/api";
+import { api, invalidateResources } from "./lib/api";
 
 const POSITIONS = ["GK","CB","LB","RB","LWB","RWB","CDM","CM","CAM","LM","RM","LW","RW","ST","CF"];
 const FIELDS = [
@@ -32,7 +32,8 @@ export default function ProfileRequests({ mode, playerId, onClose }) {
   const [player, setPlayer] = useState(null);
   const [requests, setRequests] = useState([]);
   const [adminRequests, setAdminRequests] = useState([]);
-  const [viewers, setViewers] = useState([]);
+  const [unlinkedAccounts, setUnlinkedAccounts] = useState(null);
+  const accountListVersion = useRef(0);
   const [players, setPlayers] = useState([]);
   const [linkUser, setLinkUser] = useState("");
   const [linkPlayer, setLinkPlayer] = useState("");
@@ -46,8 +47,11 @@ export default function ProfileRequests({ mode, playerId, onClose }) {
   const refresh = useCallback(async () => {
     try {
       if (isAdmin) {
+        const version = ++accountListVersion.current;
         const [rq, us, ps] = await Promise.all([api("/profile-requests/admin"), api("/profile-requests/admin/users"), api("/players")]);
-        setAdminRequests(rq); setViewers(us); setPlayers(Array.isArray(ps) ? ps : (ps.players || []));
+        setAdminRequests(rq);
+        if (version === accountListVersion.current) setUnlinkedAccounts(us.filter(account => !account.playerProfile));
+        setPlayers(Array.isArray(ps) ? ps : (ps.players || []));
       } else {
         const [p, mine] = await Promise.all([api("/players/" + encodeURIComponent(playerId)), api("/profile-requests/me")]);
         setPlayer(p);
@@ -135,8 +139,22 @@ export default function ProfileRequests({ mode, playerId, onClose }) {
   async function link() {
     if (!linkUser || !linkPlayer) return;
     setBusy(true); setMessage("");
-    try { await api("/profile-requests/admin/link", { method: "POST", body: { userId: linkUser, playerId: linkPlayer } }); setMessage("Account linked to player profile."); setLinkUser(""); setLinkPlayer(""); await refresh(); }
-    catch (e) { setMessage(e.message); } finally { setBusy(false); }
+    try {
+      await api("/profile-requests/admin/link", { method: "POST", body: { userId: linkUser, playerId: linkPlayer } });
+      accountListVersion.current++;
+      setUnlinkedAccounts(current => current.filter(account => account._id !== linkUser));
+      setMessage("Account linked to player profile.");
+      setLinkUser("");
+      setLinkPlayer("");
+    } catch (e) {
+      setMessage(e.message);
+      if (e.status === 409 || e.status === 404) {
+        setLinkUser("");
+        setLinkPlayer("");
+        invalidateResources(["/profile-requests/admin/users", "/players"]);
+        await refresh();
+      }
+    } finally { setBusy(false); }
   }
 
   return <>
@@ -158,7 +176,42 @@ export default function ProfileRequests({ mode, playerId, onClose }) {
         </>}
 
         {isAdmin && loaded && <>
-          <div className="pr-card"><strong>Link account to player</strong><div className="pr-grid" style={{marginTop:10}}><div className="pr-field"><label>Account</label><select value={linkUser} onChange={e=>setLinkUser(e.target.value)}><option value="">Select account</option>{viewers.map(u=><option key={u._id} value={u._id}>{u.name || u.email} — {u.email}</option>)}</select></div><div className="pr-field"><label>Player</label><select value={linkPlayer} onChange={e=>setLinkPlayer(e.target.value)}><option value="">Select player</option>{players.map(p=><option key={p._id} value={p._id}>{p.name}</option>)}</select></div></div><div className="pr-actions"><button className="pr-btn primary" disabled={busy || !linkUser || !linkPlayer} onClick={link}>Link account</button></div></div>
+          <div className="pr-card">
+            <strong>Link account to player</strong>
+            {unlinkedAccounts === null ? (
+              <div className="pr-actions"><button type="button" className="pr-btn" onClick={refresh}>Retry loading accounts</button></div>
+            ) : unlinkedAccounts.length === 0 ? (
+              <p className="pr-muted">All accounts are linked to players.</p>
+            ) : (
+              <form onSubmit={event => { event.preventDefault(); void link(); }}>
+                <div className="pr-grid" style={{ marginTop: 10 }}>
+                  <div className="pr-field">
+                    <label htmlFor="profile-link-account">Unlinked account</label>
+                    <select id="profile-link-account" value={linkUser} disabled={busy} onChange={event => setLinkUser(event.target.value)}>
+                      <option value="">Select account</option>
+                      {unlinkedAccounts.map(account => (
+                        <option key={account._id} value={account._id}>
+                          {account.name && account.name !== account.email ? account.name + " — " + account.email : account.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="pr-field">
+                    <label htmlFor="profile-link-player">Player</label>
+                    <select id="profile-link-player" value={linkPlayer} disabled={busy} onChange={event => setLinkPlayer(event.target.value)}>
+                      <option value="">Select player</option>
+                      {players.map(profile => <option key={profile._id} value={profile._id}>{profile.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="pr-actions">
+                  <button type="submit" className="pr-btn primary" disabled={busy || !linkUser || !linkPlayer}>
+                    {busy ? "Saving…" : "Link account"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
           <div className="pr-card"><strong>Pending profile requests</strong>{adminRequests.length === 0 && <p className="pr-muted">No pending requests.</p>}{adminRequests.map(r=><div className="pr-card" key={r._id}><strong>{r.requestedBy?.name || r.requestedBy?.email}</strong><div className="pr-muted">{r.player?.name} • {new Date(r.createdAt).toLocaleString()}</div><div className="pr-diff" style={{marginTop:10}}>{Object.keys(r.changes || {}).map(k=><div key={k}><strong>{k}</strong><br/>Before: {String(r.before?.[k] ?? "—")}<br/>After: {String(r.changes?.[k] ?? "—")}</div>)}</div><div className="pr-actions"><button className="pr-btn primary" disabled={busy} onClick={()=>review(r._id,"approve")}>Approve</button><button className="pr-btn danger" disabled={busy} onClick={()=>review(r._id,"reject")}>Reject</button></div></div>)}</div>
         </>}
       </section>
