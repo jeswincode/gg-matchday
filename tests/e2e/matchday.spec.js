@@ -104,7 +104,7 @@ test("editor can authenticate and record a match through the real browser and AP
   await page.getByRole("button", { name: "Save Match" }).click();
 
   await expect(page.getByText("Match recorded.")).toBeVisible();
-  await expect(page.getByText("E2E Browser Regression Match")).toBeVisible();
+  await expect(page.getByText("E2E Browser Regression Match", { exact: true }).first()).toBeVisible();
 });
 
 test("My Club keeps stats and history available when wallet loading fails, then recovers on retry", async ({ page }) => {
