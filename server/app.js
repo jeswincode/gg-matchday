@@ -18,6 +18,7 @@ import newsRoutes from "./routes/news.js";
 import authRoutes from "./routes/auth.js";
 import profileSecurityRoutes from "./routes/profileSecurity.js";
 import profileRequestRoutes from "./routes/profileRequests.js";
+import { profileLiveRouter } from "./services/profileLive.js";
 import immersiveNewsRoutes from "./routes/immersiveNews.js";
 import systemRoutes from "./routes/system.js";
 import ggAdminRoutes from "./routes/ggAdmin.js";
@@ -62,6 +63,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/matches", matchDetailRoutes);
 
 app.use("/api/auth", authRoutes);
+app.use("/api/live", profileLiveRouter);
 app.use("/api/players", playerRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/stats", statsRoutes);

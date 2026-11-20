@@ -1,5 +1,6 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
 import {api, invalidate} from './lib/api';
+import { subscribeToProfileUpdates } from './lib/profileLive';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 // Keep the five primary navigation destinations in the initial JS graph.
 // Otherwise the top-level Suspense boundary replaces the entire app shell
@@ -647,6 +648,39 @@ function App() {
     loadLeaderboard("all");
     loadAwards();
 }, []);
+
+  // Update open player profiles, roster cards and admin controls without
+  // remounting tabs or forcing a full browser reload.
+  useEffect(() => {
+    let active = true;
+    const onProfile = async id => {
+      try {
+        const response = await fetch(API_URL + "/players/" + encodeURIComponent(id), { cache: "no-store" });
+        if (!response.ok || !active) return;
+        const updated = await response.json();
+        if (!active) return;
+        setPlayers(current => current.map(player => String(player._id) === String(id) ? updated : player));
+        setSelectedPlayer(current => current && String(current._id) === String(id) ? updated : current);
+      } catch { /* Reconnect reconciliation handles transient errors. */ }
+    };
+    const onReconnect = async () => {
+      if (!active) return;
+      try {
+        const response = await fetch(API_URL + "/players", { cache: "no-store" });
+        if (!response.ok) return;
+        const latest = await response.json();
+        if (!active || !Array.isArray(latest)) return;
+        setPlayers(latest);
+        setSelectedPlayer(current => current
+          ? latest.find(player => String(player._id) === String(current._id)) || current
+          : null);
+      } catch { /* Stay on the current screen when offline. */ }
+    };
+    const unsubscribe = subscribeToProfileUpdates({ onProfile, onReconnect });
+    return () => { active = false; unsubscribe(); };
+  }, []);
+
+
 
   // =========================================================
   // LOADERS

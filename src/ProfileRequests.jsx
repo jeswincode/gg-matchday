@@ -112,12 +112,16 @@ export default function ProfileRequests() {
 
     setBusy(true); setMessage("");
     try {
-      await api(`/profile-requests/admin/${id}/approve`, {
+      const approved = await api("/profile-requests/admin/" + id + "/approve", {
         method: "POST",
         body: JSON.stringify({}),
       });
-      setMessage("Request approved.");
-      await refresh();
+      // Immediately update the approving admin; other viewers receive SSE.
+      setAdminRequests(current => current.filter(request => String(request._id) !== String(id)));
+      setMessage("Approved and published live.");
+      const playerId = approved.request?.player?._id || approved.request?.player;
+      if (playerId) window.dispatchEvent(new CustomEvent("gg-player-updated", { detail: { playerId: String(playerId) } }));
+      void refresh();
     }
     catch (e) { setMessage(e.message); }
     finally { setBusy(false); }

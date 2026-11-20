@@ -101,6 +101,7 @@ const workflowPlayers = [
 const allPlayers = [
   ...basePlayers.map(({ id, ...player }) => ({ _id: new mongoose.Types.ObjectId(id), ...player })),
   ...workflowPlayers.map(({ id, ...player }) => ({ _id: new mongoose.Types.ObjectId(id), ...player })),
+  { _id: new mongoose.Types.ObjectId("65a000000000000000000041"), name: "E2E Live Profile", position: "CM", bio: "Original public biography" },
 ];
 await Player.insertMany(allPlayers);
 
