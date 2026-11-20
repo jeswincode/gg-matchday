@@ -9,6 +9,9 @@ async function enterMatchday(page) {
 test("admin health view shows live database pings, bounded API observations and honest backup limitations", async ({ page }) => {
   await enterMatchday(page);
   await page.getByRole("button", { name: /Admin/ }).first().click();
+  if (test.info().project.name === "chromium-mobile") {
+    await page.getByRole("button", { name: "Open admin sections" }).click();
+  }
   await page.getByRole("navigation", { name: "Administration sections" }).getByRole("button", { name: "System health" }).click();
 
   const health = page.locator(".database-health-workspace");

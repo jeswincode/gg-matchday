@@ -43,6 +43,9 @@ test("admin can record a reasoned dispute decision without touching the match re
 
   const adminNav = page.getByRole("navigation", { name: "Administration sections" });
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  if (test.info().project.name === "chromium-mobile") {
+    await page.getByRole("button", { name: "Open admin sections" }).click();
+  }
   await adminNav.getByRole("button", { name: "Rating disputes" }).click();
 
   const dispute = page.locator(".gg-dispute-card").filter({ hasText: "E2E Player Two · E2E Rating Explanation Match" });

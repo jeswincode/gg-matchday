@@ -200,6 +200,7 @@ test("admin control center keeps distinct workspaces and returns to Matchday", a
   await expect(admin).toBeVisible();
   await expect(admin.getByRole("heading", { name: "Overview" })).toBeVisible();
   const nav = admin.getByRole("navigation", { name: "Administration sections" });
+  const narrow = test.info().project.name === "chromium-mobile";
   for (const [name, title] of [
     ["Editor requests", "Editor requests"],
     ["Active editors", "Active editors"],
@@ -210,13 +211,50 @@ test("admin control center keeps distinct workspaces and returns to Matchday", a
     ["System health", "System health"],
     ["Role permissions", "Role permissions"],
   ]) {
+    if (narrow) await admin.getByRole("button", { name: "Open admin sections" }).click();
     await nav.getByRole("button", { name, exact: true }).click();
     await expect(admin.getByRole("heading", { name: title, exact: true }).first()).toBeVisible();
     await expect(page.locator("main.app")).toBeVisible();
   }
-  await admin.getByRole("button", { name: "Back to Matchday" }).click();
+  const topBack = page.locator(".account-bar").getByRole("button", { name: /Back to Matchday/ });
+  await expect(topBack).toBeVisible();
+  await topBack.click();
+  await expect(page.locator(".account-bar").getByRole("button", { name: /Admin/ })).toBeVisible();
   await expect(page.locator(".bottom-nav")).toBeVisible();
   await expect(page.locator(".topbar")).toBeVisible();
+});
+
+test("desktop Admin layout aligns with Matchday and the sidebar stays put while content scrolls", async ({ page }) => {
+  test.skip(test.info().project.name === "chromium-mobile", "Desktop two-pane layout is replaced with a mobile drawer.");
+  await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: /Admin/ }).first().click();
+  const sidebar = page.locator(".admin-sidebar");
+  const content = page.locator(".admin-main-content");
+  await expect(sidebar).toBeVisible();
+  await expect(content).toBeVisible();
+  const geometry = await page.evaluate(() => {
+    const header = document.querySelector(".topbar").getBoundingClientRect();
+    const account = document.querySelector(".account-bar").getBoundingClientRect();
+    const workspace = document.querySelector(".admin-workspace").getBoundingClientRect();
+    const sidebar = document.querySelector(".admin-sidebar").getBoundingClientRect();
+    return { headerLeft: header.left, headerRight: header.right,
+      accountLeft: account.left, accountRight: account.right,
+      workspaceLeft: workspace.left, workspaceRight: workspace.right,
+      sidebarTop: sidebar.top };
+  });
+  expect(Math.abs(geometry.headerLeft - geometry.workspaceLeft)).toBeLessThan(3);
+  expect(Math.abs(geometry.headerRight - geometry.workspaceRight)).toBeLessThan(3);
+  expect(Math.abs(geometry.accountLeft - geometry.workspaceLeft)).toBeLessThan(3);
+  expect(Math.abs(geometry.accountRight - geometry.workspaceRight)).toBeLessThan(3);
+  await content.evaluate(node => { node.scrollTop = node.scrollHeight; });
+  await expect.poll(() => content.evaluate(node => node.scrollTop)).toBeGreaterThan(100);
+  const sidebarTopAfter = await sidebar.evaluate(node => node.getBoundingClientRect().top);
+  expect(Math.abs(sidebarTopAfter - geometry.sidebarTop)).toBeLessThan(3);
+  await expect(content.getByText("Made by Jeswin")).toBeVisible();
+  await sidebar.getByRole("button", { name: "System health" }).click();
+  await expect(content.getByRole("heading", { name: "System health", exact: true })).toBeVisible();
+  await expect.poll(() => content.evaluate(node => node.scrollTop)).toBe(0);
 });
 
 test("mobile admin navigation opens as a drawer and can return to Matchday", async ({ page }) => {

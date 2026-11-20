@@ -1,10 +1,14 @@
-.app.app--admin{width:min(1480px,calc(100% - 36px));padding-bottom:50px}
+/* Matchday-consistent width, panel rhythm, and no redundant creator footer. */
+.app.app--admin{width:min(1180px,calc(100% - 32px));padding-bottom:12px;overflow:visible}
 @media(max-width:560px){.app.app--admin{width:calc(100% - 20px);padding-top:10px}}
+#root:has(.app--admin) .pr-footer{display:none}
+.app--admin .mobile-tab-stage{transform:none !important;transition:none !important;will-change:auto !important}
 /* GG V4 administrative workspace: focused surfaces in the application's two themes. */
-.admin-workspace{width:100%;max-width:1420px;margin:0 auto;padding:0;animation:admin-enter .25s ease both}
-@keyframes admin-enter{from{opacity:.7;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.admin-layout{display:grid;grid-template-columns:252px minmax(0,1fr);align-items:start;gap:28px;min-height:660px}
-.admin-sidebar{position:sticky;top:18px;align-self:start;max-height:calc(100dvh - 36px);overflow-y:auto;scrollbar-width:thin;border:1px solid var(--border);border-radius:22px;background:linear-gradient(160deg,var(--panel),var(--bg));padding:19px 12px 15px;box-shadow:0 18px 52px rgba(0,0,0,.18)}
+/* Separate scroll surfaces keep sidebar available while reviewing long admin tasks. */
+.admin-workspace{width:100%;max-width:none;margin:0;padding:0;animation:admin-enter .2s ease}
+@keyframes admin-enter{from{opacity:.7}to{opacity:1}}
+.admin-layout{display:grid;grid-template-columns:252px minmax(0,1fr);align-items:stretch;gap:20px;height:max(420px,calc(100dvh - 245px));max-height:880px;min-height:0;overflow:hidden}
+.admin-sidebar{position:relative;top:auto;height:100%;max-height:none;align-self:stretch;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;border:1px solid var(--border);border-radius:22px;background:linear-gradient(160deg,var(--panel),var(--bg));padding:19px 12px 15px;box-shadow:0 18px 52px rgba(0,0,0,.18)}
 .admin-sidebar-brand{display:flex;align-items:center;gap:11px;padding:4px 8px 18px}
 .admin-brand-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:13px;background:var(--accent);color:var(--accent-dark)}
 .admin-sidebar-brand strong{display:block;letter-spacing:.045em;font-size:13px;white-space:nowrap}
@@ -28,7 +32,7 @@
 .admin-session{display:flex;gap:10px;align-items:center;padding:14px 11px 4px;border-top:1px solid var(--border);font-size:11px}
 .admin-session-light{width:9px;height:9px;flex:none;border-radius:50%;background:var(--success);box-shadow:0 0 0 4px color-mix(in srgb,var(--success) 13%,transparent)}
 .admin-session strong,.admin-session small{display:block}.admin-session small{margin-top:3px;color:var(--muted);font-size:10px}
-.admin-main-content{min-width:0;outline:none}
+.admin-main-content{min-width:0;min-height:0;height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-right:3px;outline:none}
 .admin-hero{position:relative;overflow:hidden;padding:24px 28px 25px;border:1px solid var(--border);border-radius:21px;background:linear-gradient(118deg,var(--panel),var(--panel-soft));box-shadow:0 14px 48px rgba(0,0,0,.13);margin-bottom:20px}
 .admin-hero:before{content:"";pointer-events:none;position:absolute;width:320px;height:320px;top:-215px;right:-60px;border-radius:50%;background:color-mix(in srgb,var(--accent) 9%,transparent);filter:blur(30px)}
 .admin-breadcrumb{position:relative;display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px;margin-bottom:20px}
@@ -73,15 +77,17 @@
 .admin-task strong{display:block;margin:6px 0 4px;font-size:13px}
 .admin-task>span:nth-child(2)>span{display:block;color:var(--muted);font-size:10px;line-height:1.5}
 .admin-task>.admin-icon{width:16px;height:16px;color:var(--muted)}
-.admin-workspace-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:25px 0;color:var(--muted);font-size:11px}
+.admin-workspace-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:25px 0 0;padding:15px 0 4px;border-top:1px solid var(--border);color:var(--muted);font-size:11px}
 .admin-workspace-foot button{display:flex;align-items:center;gap:7px;background:none;border:0;color:var(--muted);font-size:11px}.admin-workspace-foot button:hover{color:var(--text)}.admin-workspace-foot .admin-icon{width:14px;height:14px}
 .admin-mobile-bar,.admin-mobile-close,.admin-menu-scrim{display:none}
 .admin-access-blocked .admin-back-link{max-width:210px;margin-bottom:20px}
 .admin-sidebar button:focus-visible,.admin-main-content button:focus-visible,.admin-mobile-bar button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media(max-width:1100px){.admin-layout{grid-template-columns:219px minmax(0,1fr);gap:18px}.admin-main-content .admin-hero{padding:23px}.admin-sidebar-brand{gap:8px}.admin-sidebar-brand strong{font-size:11px}.admin-sidebar-brand small{font-size:8px}}
 @media(max-width:850px){
- .admin-workspace{padding:0;overflow:visible}.admin-layout{display:block}.admin-main-content{width:100%}
- .admin-mobile-bar{position:sticky;top:0;z-index:45;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:10px;margin-bottom:12px;border:1px solid var(--border);border-radius:15px;background:var(--panel);backdrop-filter:blur(15px)}
+ .admin-workspace{padding:0;overflow:visible}.admin-layout{display:block;height:auto;max-height:none;overflow:visible;min-height:0}.admin-main-content{width:100%;height:auto;overflow:visible;padding-right:0}
+ .app.app--admin{overflow-x:clip;overflow-y:visible}
+ .app--admin .account-bar{position:relative;top:auto}
+ .admin-mobile-bar{position:sticky;top:8px;z-index:45;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:10px;margin-bottom:12px;border:1px solid var(--border);border-radius:15px;background:var(--panel);backdrop-filter:blur(15px)}
  .admin-mobile-bar>strong{font-size:11px;letter-spacing:.13em;white-space:nowrap}
  .admin-mobile-bar button{display:flex;align-items:center;gap:6px;min-height:37px;border:1px solid var(--border);border-radius:10px;background:var(--panel-soft);color:var(--text);padding:7px 9px;font-size:11px;font-weight:750}
  .admin-mobile-bar .admin-icon{width:16px;height:16px}

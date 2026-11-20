@@ -2409,7 +2409,7 @@ function App() {
       <div
         className="mobile-tab-stage"
         style={{
-          transform:`translate3d(${swipeOffset}px,0,0)`,
+          transform:activeTab === TABS.ADMIN ? "none" : `translate3d(${swipeOffset}px,0,0)`,
           transition:swipeAnimating
             ? "transform 240ms cubic-bezier(.22,.8,.2,1)"
             : "none",
@@ -2510,13 +2510,12 @@ function App() {
                 <button
                   type="button"
                   className="secondary-button"
-                  onClick={() =>
-                    setActiveTab(
-                      TABS.ADMIN
-                    )
-                  }
+                  onClick={() => {
+                    setActiveTab(activeTab === TABS.ADMIN ? TABS.HOME : TABS.ADMIN);
+                    window.scrollTo(0, 0);
+                  }}
                 >
-                  ⚙ Admin
+                  {activeTab === TABS.ADMIN ? "← Back to Matchday" : "⚙ Admin"}
                 </button>
               )}
 

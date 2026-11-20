@@ -91,6 +91,8 @@ export default function AdminPage({
     }
     setSection(id);
     setMenuOpen(false);
+    // Reset the independently scrolling desktop content pane on every section change.
+    if (contentRef.current) contentRef.current.scrollTop = 0;
     window.scrollTo(0, 0);
     window.requestAnimationFrame(() => contentRef.current?.focus({ preventScroll: true }));
   };
@@ -450,7 +452,7 @@ export default function AdminPage({
           </section>
 </>)}
           </div>
-          <div className="admin-workspace-foot"><span>GG Matchday • Administration</span><button type="button" onClick={onBackToMatchday}><AdminIcon name="back"/> Return to Matchday</button></div>
+          <div className="admin-workspace-foot"><span>GG Matchday • Administration · Made by Jeswin</span><button type="button" onClick={onBackToMatchday}><AdminIcon name="back"/> Return to Matchday</button></div>
         </div>
       </div>
     </section>
