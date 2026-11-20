@@ -1,5 +1,8 @@
 name: Validate
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [main, v4/fresh-start, refactor/phase2-architecture, GG-Matchday-v3, GG-Matchday-v3-hardening-check, GG-Matchday-v3-club-match-classification]
@@ -16,8 +19,16 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
+      - name: Apply compatible dependency security updates when needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! npm audit --audit-level=high; then
+            npm audit fix --package-lock-only
+          fi
+          npm ci
       - name: Audit dependency advisories
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=low
       - run: npm run lint
       - run: npm test
       - run: npm run build
@@ -29,6 +40,18 @@ jobs:
       - run: node --check scripts/parse-mongodb-uri.mjs
       - run: node --check scripts/backup-crypto.mjs
       - run: bash -n scripts/backup-mongodb.sh scripts/backup-mongodb-atlas.sh scripts/restore-mongodb.sh
+      - name: Commit verified security lockfile updates
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "fix(v4): update vulnerable dependency lockfile"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
 
   backup-restore-smoke:
     name: Smoke-test encrypted MongoDB restore in isolation
@@ -120,7 +143,10 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
+      - name: Install dependencies with security fixes
+        run: |
+          npm audit fix --package-lock-only
+          npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
         env:
