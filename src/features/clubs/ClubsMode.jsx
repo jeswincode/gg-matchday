@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
+import { useLiveRevision } from "../../lib/liveData";
 import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
 import "./clubs-mode.css";
 
@@ -234,6 +235,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     window.setTimeout(() => setAnnouncement(message), 20);
   };
 
+  const clubsRevision = useLiveRevision("clubs", "club-account");
+
   useEffect(() => {
     try {
       localStorage.removeItem("gg-clubs-focus");
@@ -271,16 +274,19 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
           .map((result, index) => result.status === "rejected" ? index : -1)
           .filter(index => index >= 0);
 
-        setMeta(valueAt(0));
+        if (settled[0].status === "fulfilled") setMeta(valueAt(0));
 
         if (adminOnlyView) {
-          const overview = valueAt(1) || {};
-          setAdminOverview(overview);
-          setAdminClubs(Array.isArray(valueAt(2)) ? valueAt(2) : []);
-          setAdminMatches(Array.isArray(valueAt(3)) ? valueAt(3) : []);
-          setAdminApplications(Array.isArray(valueAt(4)) ? valueAt(4) : []);
-          setClubs(Array.isArray(valueAt(2)) ? valueAt(2).filter(club => club.status === "approved") : []);
-          setClubMatches(Array.isArray(valueAt(3)) ? valueAt(3) : []);
+          if (settled[1].status === "fulfilled") setAdminOverview(valueAt(1) || {});
+          if (Array.isArray(valueAt(2))) {
+            setAdminClubs(valueAt(2));
+            setClubs(valueAt(2).filter(club => club.status === "approved"));
+          }
+          if (Array.isArray(valueAt(3))) {
+            setAdminMatches(valueAt(3));
+            setClubMatches(valueAt(3));
+          }
+          if (Array.isArray(valueAt(4))) setAdminApplications(valueAt(4));
           setPlayers([]);
           setApplications([]);
 
@@ -292,10 +298,10 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
             setError("");
           }
         } else {
-          setClubs(Array.isArray(valueAt(1)) ? valueAt(1) : []);
-          setPlayers(Array.isArray(valueAt(2)) ? valueAt(2) : []);
-          setClubMatches(Array.isArray(valueAt(3)) ? valueAt(3) : []);
-          setApplications(authUser && Array.isArray(valueAt(4)) ? valueAt(4) : []);
+          if (Array.isArray(valueAt(1))) setClubs(valueAt(1));
+          if (Array.isArray(valueAt(2))) setPlayers(valueAt(2));
+          if (Array.isArray(valueAt(3))) setClubMatches(valueAt(3));
+          if (!authUser || Array.isArray(valueAt(4))) setApplications(valueAt(4) || []);
 
           const viewerLabels = ["Clubs configuration", "Club directory", "Players", "Club matches", "Formation status"];
           const criticalFailures = failed.filter(index => index === 0 || index === 1);
@@ -329,7 +335,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, isAdmin]);
+  }, [authUser, isAdmin, clubsRevision]);
   const refreshAdminApplications = async () => {
     if (!isAdmin) return;
     try {
@@ -458,7 +464,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     refreshOperationsCenter().catch(() => {});
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Filter state is the deliberate reload trigger.
-  }, [isAdmin, authUser?.playerProfile, activeSection, operationsFilters, operationsActivityFilter]);
+  }, [isAdmin, authUser?.playerProfile, activeSection, operationsFilters, operationsActivityFilter, clubsRevision]);
 
   const refreshCommandCenter = async () => {
     if (!authUser?.playerProfile) {
@@ -553,22 +559,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     }
   };
 
-  const refreshMatchMarkets = async matches => {
-    const accepted = (matches || []).filter(match => ["accepted", "completed"].includes(match.status));
-    const entries = await Promise.all(accepted.map(async match => {
-      try {
-        const [prediction, bet] = await Promise.all([
-          api("/clubs/matches/" + match._id + "/prediction/refresh", { method: "POST" }),
-          authUser ? api("/clubs/matches/" + match._id + "/bets/me") : Promise.resolve(null),
-        ]);
-        return [String(match._id), { prediction, bet }];
-      } catch {
-        return [String(match._id), { prediction: match.prediction || null, bet: null }];
-      }
-    }));
-    setMatchMarkets(Object.fromEntries(entries));
-  };
-
   const placeBet = async match => {
     const draft = betDrafts[match._id] || {};
     if (!draft.clubId || !draft.stake) {
@@ -600,7 +590,6 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     const data = await api("/clubs/matches");
     const next = Array.isArray(data) ? data : [];
     setClubMatches(next);
-    if (activeSection === "overview" && ultimateSubsection === "matches") await refreshMatchMarkets(next);
   };
 
   const refreshRenewalState = async clubId => {
@@ -999,7 +988,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [activeSection, currentClub?._id, currentClubMemberKey, myClubLoadKey]);
+  }, [activeSection, currentClub?._id, currentClubMemberKey, myClubLoadKey, clubsRevision]);
 
 
   const availablePlayers = useMemo(
@@ -1121,7 +1110,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     refreshAdminApplications();
     return undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- Section entry is the explicit refresh trigger.
-  }, [isAdmin, activeSection]);
+  }, [isAdmin, activeSection, clubsRevision]);
 
   useEffect(() => {
     if (activeSection !== "overview" || ultimateSubsection !== "matches") return undefined;
@@ -1130,11 +1119,8 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       const accepted = clubMatches.filter(match => ["accepted", "completed"].includes(match.status));
       const entries = await Promise.all(accepted.map(async match => {
         try {
-          const [prediction, bet] = await Promise.all([
-            api("/clubs/matches/" + match._id + "/prediction/refresh", { method: "POST" }),
-            authUser ? api("/clubs/matches/" + match._id + "/bets/me") : Promise.resolve(null),
-          ]);
-          return [String(match._id), { prediction, bet }];
+          const bet = authUser ? await api("/clubs/matches/" + match._id + "/bets/me") : null;
+          return [String(match._id), { prediction: match.prediction || null, bet }];
         } catch {
           return [String(match._id), { prediction: match.prediction || null, bet: null }];
         }
@@ -1168,22 +1154,25 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
       active = false;
       window.clearTimeout(timer);
     };
-  }, [authUser]);
+  }, [authUser, clubsRevision]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "reviews") return undefined;
     let active = true;
-    api("/clubs/reviews/eligible/me")
-      .then(data => {
-        if (active) setReviewCandidates(Array.isArray(data) ? data : []);
-      })
-      .catch(e => {
-        if (active) setError(e.message || "Couldn’t load your Club reviews.");
-      });
+    api("/clubs/reviews/eligible/me").then(data => {
+      if (active) setReviewCandidates(Array.isArray(data) ? data : []);
+    }).catch(e => {
+      if (active) setError(e.message || "Couldn’t load your Club reviews.");
+    });
+    if (authUser.playerProfile) {
+      api("/clubs/reviews/player/" + authUser.playerProfile).then(data => {
+        if (active) setReceivedReviews(Array.isArray(data) ? data : []);
+      }).catch(() => {});
+    }
     return () => {
       active = false;
     };
-  }, [authUser, activeSection]);
+  }, [authUser, activeSection, clubsRevision]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "players" || playersSubsection !== "directory") return undefined;
@@ -1198,7 +1187,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection, playersSubsection]);
+  }, [authUser, activeSection, playersSubsection, clubsRevision]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "players" || playersSubsection !== "history") return undefined;
@@ -1213,7 +1202,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection, playersSubsection]);
+  }, [authUser, activeSection, playersSubsection, clubsRevision]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "market") return undefined;
@@ -1228,7 +1217,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection]);
+  }, [authUser, activeSection, clubsRevision]);
 
   useEffect(() => {
     if (!authUser || activeSection !== "myClub" || myClubSubsection !== "squad" || !currentClub?._id) return undefined;
@@ -1248,7 +1237,7 @@ export default function ClubsMode({ onReturnToMatchday, authUser, isAdmin = fals
     return () => {
       active = false;
     };
-  }, [authUser, activeSection, myClubSubsection, currentClub?._id, renewalDraftClubId]);
+  }, [authUser, activeSection, myClubSubsection, currentClub?._id, renewalDraftClubId, clubsRevision]);
 
   const clubOvrValues = (currentClub?.memberIds || [])
     .map(id => Number(playerAttributes[String(id)]?.currentOvr ?? playerAttributes[String(id)]?.ovr))

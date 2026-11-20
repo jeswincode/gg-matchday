@@ -6,6 +6,7 @@ import {connectClubsDatabase,disconnectClubsDatabase} from './config/clubsDataba
 import {startClubSyncWorker} from './services/clubsSync.js';
 import {startClubsMaintenanceWorker} from './services/clubsMaintenance.js';
 import {startStatisticsMaintenanceWorker} from './services/persistedStatistics.js';
+import {closeLiveData} from './services/liveData.js';
 
 async function startServer(){
   try{
@@ -33,6 +34,7 @@ async function startServer(){
 
     const shutdown=async(signal)=>{
       console.log(`GG Matchday shutting down (${signal})`);
+      closeLiveData();
       server.close(async()=>{
         await Promise.allSettled([
           mongoose.disconnect(),

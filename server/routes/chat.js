@@ -51,7 +51,7 @@ router.get('/', async (req, res) => {
     const monthKey = chatMonth();
     const usage = usageFor(req.user, monthKey);
     const history = await ChatMessage.find({ expiresAt: { $gt: new Date() } })
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(200)
       .lean();
 
@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
       monthlyLimit,
       monthKey,
       expiresSeconds: lifetime / 1000,
-      messages: history.map(serializeMessage),
+      messages: history.reverse().map(serializeMessage),
     });
   } catch (error) {
     console.error('Chat history error:', error);

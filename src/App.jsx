@@ -1,6 +1,8 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
 import {api, invalidate} from './lib/api';
 import { subscribeToProfileUpdates } from './lib/profileLive';
+import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
+import NotificationIndicator from './components/NotificationIndicator';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 // Keep the five primary navigation destinations in the initial JS graph.
 // Otherwise the top-level Suspense boundary replaces the entire app shell
@@ -24,7 +26,6 @@ const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
 import {
   useEffect,
-  useMemo,
   useState,
 } from "react";
 
@@ -96,7 +97,8 @@ function App() {
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
   const [detailId,setDetailId]=useState(null);
-  const [refreshKey,setRefreshKey]=useState(0);
+  const refreshKey = useLiveRevision("matchday");
+  const newsRevision = useLiveRevision("news");
   const [overview,setOverview]=useState(null);
   const [archivePage,setArchivePage]=useState(1);
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
@@ -104,10 +106,12 @@ function App() {
   const [swipeOffset,setSwipeOffset]=useState(0);
   const [swipeAnimating,setSwipeAnimating]=useState(false);
   const [modeTransition,setModeTransition]=useState(null);
+  const modeTransitionTimer = useRef(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
 
   const switchProductMode=useCallback((nextMode)=>{
-    if(nextMode===productMode || modeTransition) return;
+    if(nextMode===productMode) return;
+    window.clearTimeout(modeTransitionTimer.current);
     const transition = nextMode === "clubs"
       ? `to-clubs-${theme}`
       : `to-matchday-${theme}`;
@@ -122,8 +126,9 @@ function App() {
     } catch {
       // URL history can be unavailable in restricted browser environments.
     }
-    window.setTimeout(()=>setModeTransition(null),720);
-  },[modeTransition,productMode,theme]);
+    modeTransitionTimer.current = window.setTimeout(()=>setModeTransition(null),720);
+  },[productMode,theme]);
+  useEffect(() => () => window.clearTimeout(modeTransitionTimer.current), []);
 
   function isTouchInteractionExcluded(target) {
     if (!(target instanceof Element)) return false;
@@ -231,8 +236,6 @@ function App() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
-  useEffect(()=>{const changed=()=>setRefreshKey(n=>n+1);window.addEventListener('gg-data-changed',changed);return()=>window.removeEventListener('gg-data-changed',changed);},[]);
-  useEffect(()=>{api('/stats/overview').then(setOverview).catch(()=>{});},[refreshKey]);
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
 
@@ -312,11 +315,6 @@ function App() {
     newsLoading,
     setNewsLoading,
   ] = useState(true);
-
-  const [
-    ,
-    setLeaderboardLoading,
-  ] = useState(false);
 
 
   // =========================================================
@@ -436,29 +434,6 @@ function App() {
     savingMatch,
     setSavingMatch,
   ] = useState(false);
-
-  // =========================================================
-  // LEADERBOARD
-  // =========================================================
-
-  const [
-    leaderboardPeriod,
-    ,
-  ] = useState("all");
-
-  // =========================================================
-  // AWARDS
-  // =========================================================
-
-  const [
-    ,
-    setPlayerOfYear,
-  ] = useState(null);
-
-  const [
-    ,
-    setPlayerOfMonth,
-  ] = useState(null);
 
   // =========================================================
   // ADMIN
@@ -637,48 +612,99 @@ function App() {
     setExperience("app");
   }
 
-  // =========================================================
-  // INITIAL LOAD
-  // =========================================================
+  const liveActive = experience === "app" || productMode === "clubs";
+  const accountId = isSignedIn ? backendUser?.id : null;
+  const matchdayActive = liveActive && productMode === "matchday";
+  const showArchive = matchdayActive && (activeTab === TABS.HOME || activeTab === TABS.RECORD);
+  const showHome = matchdayActive && activeTab === TABS.HOME;
+  const showPlayerRanks = showHome || (matchdayActive && activeTab === TABS.PLAYERS);
+  const matchPages = activeTab === TABS.RECORD ? archivePage : 1;
 
   useEffect(() => {
-    loadPlayers();
-    loadMatches();
-    loadNews();
-    loadLeaderboard("all");
-    loadAwards();
-}, []);
+    if (!liveActive) return undefined;
+    const changed = event => {
+      const path = event.detail?.path;
+      if (!path || /^\/(matches|players|admin\/gg|rating-disputes)(\/|$)/.test(path)) {
+        refreshLiveTopics(["matchday"]);
+      } else if (/^\/news\/(generate\/|[^/]+$)/.test(path)) {
+        refreshLiveTopics(["news"]);
+      }
+    };
+    window.addEventListener("gg-data-changed", changed);
+    return () => window.removeEventListener("gg-data-changed", changed);
+  }, [liveActive]);
+
+  useEffect(() => {
+    if (!liveActive || !accountId) return undefined;
+    return subscribeToAccountUpdates();
+  }, [liveActive, accountId]);
+
+  useEffect(() => {
+    if (!matchdayActive) return undefined;
+    let active = true;
+    api("/players").then(latest => {
+      if (!active || !Array.isArray(latest)) return;
+      setPlayers(latest);
+      setSelectedPlayer(current => current
+        ? latest.find(player => sameId(player._id, current._id)) || null
+        : null);
+    }).catch(error => { if (active) console.error(error); })
+      .finally(() => { if (active) setLoadingPlayers(false); });
+    return () => { active = false; };
+  }, [matchdayActive, refreshKey]);
+
+  useEffect(() => {
+    if (!showArchive) return undefined;
+    let active = true;
+    const pages = Array.from({ length: matchPages }, (_, index) =>
+      api(`/matches?page=${index + 1}&limit=50`),
+    );
+    Promise.all(pages).then(results => {
+      if (active) setMatches([...new Map(results.flat().map(match => [match._id, match])).values()]);
+    }).catch(error => {
+      if (active) setMessage(error.message || "Could not load matches.");
+    }).finally(() => {
+      if (active) setLoadingMatches(false);
+    });
+    api("/stats/overview").then(data => { if (active) setOverview(data); }).catch(() => {});
+    return () => { active = false; };
+  }, [showArchive, matchPages, refreshKey]);
+
+  useEffect(() => {
+    if (!showHome) return undefined;
+    let active = true;
+    api("/news?limit=12").then(data => {
+      if (active) setNews(Array.isArray(data) ? data : []);
+    }).catch(error => { if (active) console.error(error); })
+      .finally(() => { if (active) setNewsLoading(false); });
+    return () => { active = false; };
+  }, [showHome, newsRevision]);
+
+  useEffect(() => {
+    if (!showPlayerRanks) return undefined;
+    let active = true;
+    api("/stats/leaderboard").then(data => {
+      if (active) setLeaderboard(Array.isArray(data.leaderboard) ? data.leaderboard : []);
+    }).catch(error => { if (active) console.error(error); });
+    return () => { active = false; };
+  }, [showPlayerRanks, refreshKey]);
 
   // Update open player profiles, roster cards and admin controls without
   // remounting tabs or forcing a full browser reload.
   useEffect(() => {
+    if (!liveActive) return undefined;
     let active = true;
     const onProfile = async id => {
       try {
-        const response = await fetch(API_URL + "/players/" + encodeURIComponent(id), { cache: "no-store" });
-        if (!response.ok || !active) return;
-        const updated = await response.json();
+        const updated = await api("/players/" + encodeURIComponent(id));
         if (!active) return;
         setPlayers(current => current.map(player => String(player._id) === String(id) ? updated : player));
         setSelectedPlayer(current => current && String(current._id) === String(id) ? updated : current);
       } catch { /* Reconnect reconciliation handles transient errors. */ }
     };
-    const onReconnect = async () => {
-      if (!active) return;
-      try {
-        const response = await fetch(API_URL + "/players", { cache: "no-store" });
-        if (!response.ok) return;
-        const latest = await response.json();
-        if (!active || !Array.isArray(latest)) return;
-        setPlayers(latest);
-        setSelectedPlayer(current => current
-          ? latest.find(player => String(player._id) === String(current._id)) || current
-          : null);
-      } catch { /* Stay on the current screen when offline. */ }
-    };
-    const unsubscribe = subscribeToProfileUpdates({ onProfile, onReconnect });
+    const unsubscribe = subscribeToProfileUpdates({ onProfile });
     return () => { active = false; unsubscribe(); };
-  }, []);
+  }, [liveActive]);
 
 
 
@@ -716,190 +742,6 @@ function App() {
       );
     } finally {
       setLoadingPlayers(false);
-    }
-  }
-
-  async function loadMatches(page = 1) {
-    try {
-      setLoadingMatches(true);
-
-      const response =
-        await fetch(
-          `${API_URL}/matches?page=${page}&limit=50`
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to load matches."
-        );
-      }
-
-      const data =
-        await response.json();
-
-      const ordered =
-        Array.isArray(data)
-          ? [...data].sort(
-              (a, b) =>
-                new Date(b.date) -
-                new Date(a.date)
-            )
-          : [];
-
-      setMatches(current => page===1?ordered:[...current,...ordered]);
-      setArchivePage(page);
-    } catch (error) {
-      console.error(error);
-      setMessage(
-        "Could not load matches."
-      );
-    } finally {
-      setLoadingMatches(false);
-    }
-  }
-
-  async function loadNews() {
-    try {
-      setNewsLoading(true);
-
-      const response =
-        await fetch(
-          `${API_URL}/news?limit=12`
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to load news."
-        );
-      }
-
-      const data =
-        await response.json();
-
-      setNews(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-    } catch (error) {
-      console.error(error);
-      setNews([]);
-    } finally {
-      setNewsLoading(false);
-    }
-  }
-
-  async function loadLeaderboard(
-    period = "all"
-  ) {
-    try {
-      setLeaderboardLoading(true);
-
-      let url =
-        `${API_URL}/stats/leaderboard`;
-
-      const now =
-        new Date();
-
-      if (
-        period ===
-        "year"
-      ) {
-        url +=
-          `?year=${now.getFullYear()}`;
-      }
-
-      if (
-        period ===
-        "month"
-      ) {
-        url +=
-          `?year=${now.getFullYear()}` +
-          `&month=${now.getMonth() + 1}`;
-      }
-
-      const response =
-        await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to load leaderboard."
-        );
-      }
-
-      const data =
-        await response.json();
-
-      setLeaderboard(
-        Array.isArray(
-          data.leaderboard
-        )
-          ? data.leaderboard
-          : []
-      );
-    } catch (error) {
-      console.error(error);
-      setLeaderboard([]);
-    } finally {
-      setLeaderboardLoading(false);
-    }
-  }
-
-  async function loadAwards() {
-    try {
-      const now =
-        new Date();
-
-      const year =
-        now.getFullYear();
-
-      const month =
-        now.getMonth() + 1;
-
-      const [
-        yearResponse,
-        monthResponse,
-      ] = await Promise.all([
-        fetch(
-          `${API_URL}/stats/awards?year=${year}`
-        ),
-        fetch(
-          `${API_URL}/stats/awards?year=${year}&month=${month}`
-        ),
-      ]);
-
-      if (
-        !yearResponse.ok ||
-        !monthResponse.ok
-      ) {
-        return;
-      }
-
-      const [
-        yearData,
-        monthData,
-      ] = await Promise.all([
-        yearResponse.json(),
-        monthResponse.json(),
-      ]);
-
-      setPlayerOfYear(
-        yearData.winner ||
-          null
-      );
-
-      setPlayerOfMonth(
-        monthData.winner ||
-          null
-      );
-    } catch (error) {
-      console.error(
-        "Awards error:",
-        error
-      );
-
-      setPlayerOfYear(null);
-      setPlayerOfMonth(null);
     }
   }
 
@@ -1710,56 +1552,16 @@ function App() {
     });
   }
 
-  const teamAPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-            "A"
-        ),
-      [players, teams]
-    );
-
-  const teamBPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-            "B"
-        ),
-      [players, teams]
-    );
-
-  const assignedPlayers =
-    useMemo(
-      () =>
-        players.filter(
-          (player) =>
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-              "A" ||
-            teams[
-              String(
-                player._id
-              )
-            ] ===
-              "B"
-        ),
-      [players, teams]
-    );
+  const teamAPlayers = [];
+  const teamBPlayers = [];
+  const assignedPlayers = [];
+  for (const player of players) {
+    const team = teams[String(player._id)];
+    if (team === "A") teamAPlayers.push(player);
+    else if (team === "B") teamBPlayers.push(player);
+    else continue;
+    assignedPlayers.push(player);
+  }
 
   const teamANormalScore =
     teamAPlayers.reduce(
@@ -1988,16 +1790,8 @@ function App() {
         );
       }
 
-      invalidate();
+      refreshLiveTopics(["matchday", "news"]);
       resetMatchForm();
-      await Promise.all([
-        loadMatches(),
-        loadLeaderboard(
-          leaderboardPeriod
-        ),
-        loadAwards(),
-        loadNews(),
-      ]);
 
       setMessage(
         editingMatchId
@@ -2060,17 +1854,7 @@ function App() {
         resetMatchForm();
       }
 
-      invalidate();
-      await Promise.all([
-        loadMatches(),
-        loadLeaderboard(
-          leaderboardPeriod
-        ),
-        loadAwards(),
-        loadNews(),
-      ]);
-
-      // Calendar refreshes from the shared data-change event.
+      refreshLiveTopics(["matchday", "news"]);
       setMessage(
         "Match deleted."
       );
@@ -2439,6 +2223,7 @@ function App() {
 
   return (
     <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : "")} onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
+      <NotificationIndicator accountId={accountId} />
 
       <div
         className="mobile-tab-stage"
@@ -2673,7 +2458,7 @@ function App() {
             changeCount={changeCount}
           />
         )}
-        <section className="section-block"><div className="section-heading"><h2>Recent Matches</h2><span className="muted">{overview?.matches??matches.length} recorded</span></div>{loadingMatches?<div className="loading-panel">Loading matches…</div>:!matches.length?<div className="empty-state">No matches recorded yet.</div>:<div className="match-list">{matches.map(match=><MatchHistoryCard key={match._id} match={match} canEdit={isEditor} onOpen={()=>showMatch(match._id)} onEdit={()=>startEditingMatch(match)} onDelete={()=>deleteMatch(match._id)}/>)}</div>}{matches.length<(overview?.matches||0)&&<button className="secondary-button" onClick={()=>loadMatches(archivePage+1)}>Load more matches</button>}</section>
+        <section className="section-block"><div className="section-heading"><h2>Recent Matches</h2><span className="muted">{overview?.matches??matches.length} recorded</span></div>{loadingMatches&&!matches.length?<div className="loading-panel">Loading matches…</div>:!matches.length?<div className="empty-state">No matches recorded yet.</div>:<div className="match-list">{matches.map(match=><MatchHistoryCard key={match._id} match={match} canEdit={isEditor} onOpen={()=>showMatch(match._id)} onEdit={()=>startEditingMatch(match)} onDelete={()=>deleteMatch(match._id)}/>)}</div>}{matches.length<(overview?.matches||0)&&<button className="secondary-button" disabled={loadingMatches} onClick={()=>{setLoadingMatches(true);setArchivePage(page=>page+1);}}>{loadingMatches?"Loading matches…":"Load more matches"}</button>}</section>
         </>}
       </section>}
 
@@ -2689,7 +2474,6 @@ function App() {
 
       {activeTab === TABS.CALENDAR && (
         <Calendar
-          apiUrl={API_URL}
           canEdit={isEditor}
           onOpen={showMatch}
           onEdit={startEditingMatch}
@@ -2839,10 +2623,10 @@ function App() {
       </nav>}
 
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
-      {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer}/>}
-      {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer}/>}
+      {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer} refreshKey={refreshKey}/>}
+      {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer} refreshKey={refreshKey}/>}
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
-      {modal==='match'&&detailId&&<MatchDetail matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
+      {modal==='match'&&detailId&&<MatchDetail key={`${detailId}:${isSignedIn}`} matchId={detailId} onClose={closeModal} onPlayer={showPlayer} isSignedIn={isSignedIn} isAdmin={isAdmin} currentPlayerId={backendUser?.playerProfile}/>}
       </Suspense>
       {modeTransitionLayer}
     </main>

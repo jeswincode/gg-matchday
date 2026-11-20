@@ -2,6 +2,7 @@ import { useState } from "react";
 import Modal from "./Modal";
 import useResource from "./useResource";
 import { api } from "../lib/api";
+import { useLiveRevision } from "../lib/liveData";
 import { Status, PlayerButton } from "./common";
 import { rating, date } from "../lib/format";
 import RatingExplanation from "../features/ratings/RatingExplanation";
@@ -16,12 +17,13 @@ export default function MatchDetail({
   onUpdated,
 }) {
   const [revision, setRevision] = useState(0);
+  const matchRevision = useLiveRevision("matchday");
   const [chosen, setChosen] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [moment, setMoment] = useState(null);
   const [expandedRatingPlayerId, setExpandedRatingPlayerId] = useState(null);
-  const { data, error, loading } = useResource(`/matches/${matchId}`, `${revision}:${isSignedIn}`);
+  const { data, error, loading } = useResource(`/matches/${matchId}`, revision + matchRevision);
   const match = data?.match;
   const voting = data?.voting;
 

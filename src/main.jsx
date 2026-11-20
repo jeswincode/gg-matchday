@@ -15,13 +15,11 @@ import './components/notifications.css'
 import App from './App.jsx'
 import ProfileRequests from './ProfileRequests.jsx'
 import AdminPreferredPositions from './components/AdminPreferredPositions.jsx'
-import NotificationIndicator from './components/NotificationIndicator.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <>
       <App />
-      <NotificationIndicator />
       <ProfileRequests />
       <AdminPreferredPositions />
     </>

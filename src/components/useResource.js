@@ -1,2 +1,20 @@
-import {useEffect,useState} from 'react';import {api} from '../lib/api';
-export default function useResource(path,refreshKey=0){const key=`${path}:${refreshKey}`;const [state,setState]=useState({key:null,data:null,error:''});useEffect(()=>{let active=true;api(path).then(data=>{if(active)setState({key,data,error:''});}).catch(e=>{if(active)setState({key,data:null,error:e.message});});return()=>{active=false;};},[path,key]);return state.key===key?{...state,loading:false}:{data:null,error:'',loading:true};}
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
+
+export default function useResource(path, refreshKey = 0) {
+  const [state, setState] = useState(null);
+  useEffect(() => {
+    let active = true;
+    api(path).then(data => {
+      if (active) setState({ path, data, error: "" });
+    }).catch(error => {
+      if (!active) return;
+      setState(current => {
+        if (current?.path === path && current.data && error.retryable) return current;
+        return { path, data: null, error: error.message };
+      });
+    });
+    return () => { active = false; };
+  }, [path, refreshKey]);
+  return state?.path === path ? { ...state, loading: false } : { data: null, error: "", loading: true };
+}

@@ -4,11 +4,12 @@ import fs from "node:fs";
 
 test("Welcome screen uses a full-screen invisible entry target and preserves poster proportions", () => {
   const component = fs.readFileSync("src/components/StartupExperience.jsx", "utf8");
-  const styles = fs.readFileSync("src/welcome-reference.css", "utf8");
+  const styles = fs.readFileSync("src/welcome-reference.css", "utf8").replaceAll("\r\n", "\n");
   const app = fs.readFileSync("src/App.jsx", "utf8");
 
   assert.ok(component.includes('src="/enter-matchday.png"'));
   assert.ok(component.includes('srcSet="/enter-matchday-mobile.png"'));
+  assert.ok(component.includes('srcSet="/enter-matchday-mobile.webp"'));
   assert.ok(component.includes('media="(max-aspect-ratio: 3 / 4)"'));
   assert.ok(component.includes('className="gg-welcome-image-button"'));
   assert.ok(component.includes("onClick={onEnter}"));

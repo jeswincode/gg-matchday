@@ -104,8 +104,14 @@ export function WelcomeScreen({ onEnter }) {
           <picture className="gg-welcome-poster-picture">
             <source
               media="(max-aspect-ratio: 3 / 4)"
+              type="image/webp"
+              srcSet="/enter-matchday-mobile.webp"
+            />
+            <source
+              media="(max-aspect-ratio: 3 / 4)"
               srcSet="/enter-matchday-mobile.png"
             />
+            <source type="image/webp" srcSet="/enter-matchday.webp" />
             <img
               className="gg-welcome-poster"
               src="/enter-matchday.png"

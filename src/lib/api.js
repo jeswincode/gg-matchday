@@ -4,6 +4,7 @@ const VITE_ENV = import.meta.env || {};
 export const API_URL = VITE_ENV.VITE_API_URL || 'http://localhost:5000/api';
 const cache = new Map();
 const pending = new Map();
+let cacheRevision = 0;
 
 function safeRequestPath(path) {
   return String(path || '').split('?')[0].slice(0, 200);
@@ -74,9 +75,21 @@ function logApiFailure(error, event = 'request_failed') {
   console.error('[GG Matchday API]', { event, ...error.toDiagnosticRecord() });
 }
 
-export function invalidate() {
-  cache.clear();
-  window.dispatchEvent(new Event('gg-data-changed'));
+export function invalidateResources(prefixes) {
+  cacheRevision++;
+  for (const entries of [cache, pending]) {
+    for (const [key, entry] of entries) {
+      if (!prefixes || prefixes.some(prefix => (
+        entry.path === prefix || entry.path.startsWith(prefix + '/') || entry.path.startsWith(prefix + '?')
+      ))) entries.delete(key);
+    }
+  }
+}
+
+export function invalidate(path) {
+  const family = path?.match(/^\/(clubs|notifications|chat)(\/|$)/)?.[1];
+  invalidateResources(family ? ["/" + family] : undefined);
+  window.dispatchEvent(new CustomEvent('gg-data-changed', { detail: { path } }));
 }
 
 export async function authenticatedFetch(url, options = {}) {
@@ -93,7 +106,8 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
   const key = `${auth?.currentUser?.uid || 'public'}:${path}`;
   const hit = cache.get(key);
   if (normalizedMethod === 'GET' && !signal && hit && hit.until > Date.now()) return hit.data;
-  if (normalizedMethod === 'GET' && !signal && pending.has(key)) return pending.get(key);
+  if (normalizedMethod === 'GET' && !signal && pending.has(key)) return pending.get(key).task;
+  const revision = cacheRevision;
 
   const task = (async () => {
     const token = await auth?.currentUser?.getIdToken();
@@ -104,7 +118,7 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
         method: normalizedMethod,
         signal,
         headers: {
-          'Content-Type': 'application/json',
+          ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...e2eAuthHeaders(),
         },
@@ -143,11 +157,14 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
       throw error;
     }
 
-    if (normalizedMethod === 'GET') cache.set(key, { data, until: Date.now() + 15_000 });
-    else invalidate();
+    if (normalizedMethod === 'GET') {
+      if (revision === cacheRevision) cache.set(key, { path, data, until: Date.now() + 15_000 });
+    } else invalidate(path);
     return data;
-  })().finally(() => pending.delete(key));
+  })().finally(() => {
+    if (pending.get(key)?.task === task) pending.delete(key);
+  });
 
-  if (normalizedMethod === 'GET' && !signal) pending.set(key, task);
+  if (normalizedMethod === 'GET' && !signal) pending.set(key, { path, task });
   return task;
 }

@@ -127,8 +127,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
       await expect(page.locator(".clubs-application").filter({ hasText: "Unnamed club" })).toBeVisible();
     }
 
-    // The founder reloads to observe the acceptance committed by the other sessions.
-    await loadClubs(founder, actors[0]);
+    // The open founder view sees acceptance from the other sessions.
     await expect(founder.getByPlaceholder("Propose the permanent club name")).toBeVisible();
     await founder.getByPlaceholder("Propose the permanent club name").fill(formationClubName);
     await clickAndExpectApi(
@@ -149,11 +148,8 @@ test("Club formation works across member, captain, and admin browser sessions", 
     const electedCandidate = actors.find(actor => actor.name === electedCandidateName);
     expect(electedCandidate, "the UI-selected captain candidate should belong to this formation").toBeTruthy();
 
-    // Reload each invitee so their browser sees the captain election started by the founder.
-    for (let index = 0; index < invitees.length; index += 1) {
-      const page = invitees[index];
-      const actor = actors[index + 1];
-      await loadClubs(page, actor);
+    // Each open invitee view sees the captain election started by the founder.
+    for (const page of invitees) {
       const candidateButton = page.locator(".clubs-vote-candidate").filter({ hasText: electedCandidateName });
       await expect(candidateButton).toBeVisible();
       await clickAndExpectApi(
@@ -181,13 +177,11 @@ test("Club formation works across member, captain, and admin browser sessions", 
     pages.push(adminBeforeDetails);
     await adminBeforeDetails.getByRole("button", { name: /^Applications/ }).click();
     await expect(adminBeforeDetails.getByText("No Club formations are waiting for admin action.")).toBeVisible();
-    await adminBeforeDetails.close();
 
     // The elected captain approves the details using their own session.
     const captainPage = electedCandidate.id === actors[0].id
       ? founder
       : invitees[actors.findIndex(actor => actor.id === electedCandidate.id) - 1];
-    await loadClubs(captainPage, electedCandidate);
     await captainPage.getByLabel("Club details / identity").fill(FORMATION_DETAILS);
     const detailsResult = await clickAndExpectApi(
       captainPage,
@@ -197,9 +191,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
     expect(detailsResult.status).toBe("pendingAdminApproval");
     await expect(captainPage.getByText("All elected captain(s) approved the details. Waiting for administrator approval.")).toBeVisible();
 
-    const admin = await newClubsActor(browser, { role: "admin" });
-    pages.push(admin);
-    await admin.getByRole("button", { name: /^Applications/ }).click();
+    const admin = adminBeforeDetails;
     const application = admin.locator(".clubs-application").filter({ hasText: formationClubName });
     await expect(application).toBeVisible();
     await clickAndExpectApi(
@@ -212,8 +204,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
     await admin.getByRole("button", { name: "Clubs", exact: true }).click();
     await expect(admin.locator(".clubs-admin-directory-card").filter({ hasText: formationClubName })).toBeVisible();
 
-    // Verify the approved Club from a member's refreshed browser view.
-    await loadClubs(founder, actors[0]);
+    // Verify approval from an already-open member session.
     await goToPrimaryTab(founder, "My Club");
     await expect(founder.getByRole("heading", { name: formationClubName, exact: true })).toBeVisible();
     await expect(founder.locator(".clubs-myclub-overview-stat").first()).toContainText("4/5");
@@ -308,8 +299,6 @@ test("auction signing reserves budget and settles only after player choice and b
     expect(finalizedSigning.offer.status).toBe("approved");
 
     // The second captain completes the signing: wallet commitment settles exactly once.
-    await loadClubs(captainOne, auctionPlayers.captainOne);
-    await goToPrimaryTab(captainOne, "My Club");
     await expect(captainOne.getByRole("heading", { name: auctionClubName, exact: true })).toBeVisible();
     const finalReservedRow = captainOne.locator(".clubs-command-budget-breakdown div").filter({ hasText: "Reserved for offers" });
     const finalTotalRow = captainOne.locator(".clubs-command-budget-breakdown div").filter({ hasText: "Total club funds" });
@@ -318,8 +307,6 @@ test("auction signing reserves budget and settles only after player choice and b
     await expect(captainOne.locator(".clubs-myclub-overview-stat").first()).toContainText("5/5");
     await expect(captainOne.locator(".clubs-roster-premium-row").filter({ hasText: auctionPlayers.target.name })).toBeVisible();
 
-    await loadClubs(target, { role: "editor", playerId: auctionPlayers.target.id });
-    await goToPrimaryTab(target, "My Club");
     await expect(target.getByRole("heading", { name: auctionClubName, exact: true })).toBeVisible();
     await expect(target.locator(".clubs-wallet-main-value")).toHaveText("200");
     await expect(target.locator(".clubs-roster-premium-row").filter({ hasText: auctionPlayers.target.name })).toBeVisible();

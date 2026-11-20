@@ -1,6 +1,7 @@
-import {useEffect,useState} from "react";
+import {useState} from "react";
 import MatchHistoryCard from "../../components/ui/MatchHistoryCard";
 import SectionHeading from "../../components/ui/SectionHeading";
+import useResource from "../../components/useResource";
 
 function getCalendarDays(year,month){
   const firstDay=new Date(year,month-1,1).getDay();
@@ -15,34 +16,17 @@ function monthName(month){
   return new Date(2026,month-1,1).toLocaleString(undefined,{month:"long"});
 }
 
-export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshKey}){
+export default function Calendar({canEdit,onOpen,onEdit,onDelete,refreshKey}){
   const today=new Date();
   const [calendarMonth,setCalendarMonth]=useState(today.getMonth()+1);
   const [calendarYear,setCalendarYear]=useState(today.getFullYear());
-  const [calendarMatches,setCalendarMatches]=useState([]);
-  const [calendarLoading,setCalendarLoading]=useState(false);
   const [hoveredDay,setHoveredDay]=useState(null);
   const [selectedDay,setSelectedDay]=useState(today.getDate());
-
-  useEffect(()=>{
-    let cancelled=false;
-    async function loadCalendar(){
-      try{
-        setCalendarLoading(true);
-        const response=await fetch(`${apiUrl}/stats/calendar?year=${calendarYear}&month=${calendarMonth}`);
-        if(!response.ok) throw new Error("Could not load calendar.");
-        const data=await response.json();
-        if(!cancelled) setCalendarMatches(Array.isArray(data.matches)?data.matches:[]);
-      }catch(error){
-        console.error(error);
-        if(!cancelled) setCalendarMatches([]);
-      }finally{
-        if(!cancelled) setCalendarLoading(false);
-      }
-    }
-    loadCalendar();
-    return()=>{cancelled=true;};
-  },[apiUrl,calendarYear,calendarMonth,refreshKey]);
+  const {data,loading: calendarLoading,error} = useResource(
+    `/stats/calendar?year=${calendarYear}&month=${calendarMonth}`,
+    refreshKey,
+  );
+  const calendarMatches = Array.isArray(data?.matches) ? data.matches : [];
 
   function matchesForDay(day){
     if(!day) return [];
@@ -92,7 +76,7 @@ export default function Calendar({apiUrl,canEdit,onOpen,onEdit,onDelete,refreshK
 
         {calendarLoading ? (
           <div className="loading-panel">Loading calendar...</div>
-        ) : (
+        ) : error ? <p role="alert">{error}</p> : (
           <>
             <div className="calendar-weekdays">
               <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>

@@ -5,7 +5,7 @@ process.env.NODE_ENV = "test";
 process.env.E2E_TEST_AUTH_SECRET ||= "gg-matchday-e2e-only-secret";
 process.env.ADMIN_EMAIL = "admin@example.invalid";
 process.env.GEMINI_API_KEY = "";
-process.env.CHAT_ENABLED = "false";
+process.env.CHAT_ENABLED = "true";
 
 const database = await MongoMemoryReplSet.create({
   binary: { version: "8.2.6" },
@@ -19,6 +19,7 @@ const { connectClubsDatabase, disconnectClubsDatabase } = await import("../../se
 await connectClubsDatabase();
 
 const { default: app } = await import("../../server/app.js");
+const { closeLiveData } = await import("../../server/services/liveData.js");
 const { default: Player } = await import("../../server/models/Player.js");
 const { default: Match } = await import("../../server/models/Match.js");
 const { default: RatingDispute } = await import("../../server/models/RatingDispute.js");
@@ -236,6 +237,7 @@ async function shutdown(signal) {
   if (closing) return;
   closing = true;
   console.log(`Stopping Playwright API server (${signal})`);
+  closeLiveData();
   server.close(async () => {
     await Promise.allSettled([mongoose.disconnect(), disconnectClubsDatabase()]);
     await database.stop();

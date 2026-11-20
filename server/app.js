@@ -19,6 +19,8 @@ import authRoutes from "./routes/auth.js";
 import profileSecurityRoutes from "./routes/profileSecurity.js";
 import profileRequestRoutes from "./routes/profileRequests.js";
 import { profileLiveRouter } from "./services/profileLive.js";
+import { streamPrivateUpdates } from "./services/liveData.js";
+import { requireAuth } from "./middleware/auth.js";
 import immersiveNewsRoutes from "./routes/immersiveNews.js";
 import systemRoutes from "./routes/system.js";
 import ggAdminRoutes from "./routes/ggAdmin.js";
@@ -64,6 +66,7 @@ app.use("/api/matches", matchDetailRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/live", profileLiveRouter);
+app.get("/api/live/account", requireAuth, streamPrivateUpdates);
 app.use("/api/players", playerRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/stats", statsRoutes);

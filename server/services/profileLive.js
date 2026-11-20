@@ -1,5 +1,6 @@
 import express from "express";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
+import { attachLiveData } from "./liveData.js";
 
 // Only a public player identifier is ever streamed. No account, email, request,
 // before/after field or moderation details may be sent to anonymous viewers.
@@ -70,6 +71,7 @@ export function publishApprovedProfile(request) {
 
 export const profileLiveRouter = express.Router();
 profileLiveRouter.get("/profile-updates", (_req, res) => {
+  if (clients.size >= 500) return res.status(429).json({ message: "Too many live connections." });
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-store, no-transform");
@@ -79,6 +81,7 @@ profileLiveRouter.get("/profile-updates", (_req, res) => {
   res.write("retry: 3000\n\n");
   send(res, "ready", { connected: true });
   clients.add(res);
+  attachLiveData(res);
   start();
   void pollApproved();
   res.on("close", () => { clients.delete(res); stopIfIdle(); });

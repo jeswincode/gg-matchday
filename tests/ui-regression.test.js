@@ -48,8 +48,7 @@ test('post-merge cleanup keeps Gemini debug route unique and match save invalida
   const news=read('server/routes/news.js');
   const app=read('src/App.jsx');
   assert.equal((news.match(/router\.get\(\s*["']\/debug\/gemini["']/g)||[]).length,1);
-  assert.match(app,/invalidate\(\);\s*resetMatchForm\(\);\s*await Promise\.all\(\[/);
-  assert.doesNotMatch(app,/invalidate\(\);\s*resetMatchForm\(\);\s*invalidate\(\);/);
+  assert.match(app,/refreshLiveTopics\(\["matchday", "news"\]\);\s*resetMatchForm\(\);\s*setMessage\(/);
 });
 
 

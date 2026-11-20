@@ -1,6 +1,7 @@
-import {useEffect,useState} from "react";
+import {useState} from "react";
 import {formatDate} from "../../lib/date";
-import {api} from "../../lib/api";
+import {invalidateResources} from "../../lib/api";
+import useResource from "../../components/useResource";
 import ProfileInsights from "../../components/ProfileInsights";
 
 function PlayerCard({ player, attributes, onShare }) {
@@ -44,19 +45,14 @@ export default function PlayerProfile({
   onBack,
   onClearReview,
 }){
-  const [attributes,setAttributes]=useState(null);
-  const [attributesLoading,setAttributesLoading]=useState(true);
-  const [attributesError,setAttributesError]=useState("");
-  const loadAttributes=async()=>{
-    try{setAttributesLoading(true);setAttributesError("");setAttributes(await api("/players/"+player._id+"/attributes"));}
-    catch(error){setAttributesError(error.message);}
-    finally{setAttributesLoading(false);}
-  };
-  useEffect(()=>{
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- this effect synchronizes derived remote data for the active player.
-    loadAttributes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- player identity is the fetch key.
-  },[player._id]);
+  const [attributesRevision,setAttributesRevision]=useState(0);
+  const attributesPath = "/players/" + player._id + "/attributes";
+  const {data: attributes, loading: attributesLoading, error: attributesError} =
+    useResource(attributesPath, refreshKey + attributesRevision);
+  function loadAttributes() {
+    invalidateResources([attributesPath]);
+    setAttributesRevision(current => current + 1);
+  }
   const shareCard=async()=>{
     const text=`${player.name} · ${attributes?.ovr ?? "Unrated"} OVR · GG Matchday Player Card`;
     if(navigator.share) await navigator.share({title:"GG Player Card",text});
