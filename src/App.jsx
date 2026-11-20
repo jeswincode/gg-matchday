@@ -1,16 +1,21 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
 import {api, invalidate} from './lib/api';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
-const LeaderboardView = lazy(() => import('./components/Leaderboard'));
+// Keep the five primary navigation destinations in the initial JS graph.
+// Otherwise the top-level Suspense boundary replaces the entire app shell
+// with “Opening Matchday…” the first time a user opens each tab.
+import LeaderboardView from './components/Leaderboard';
+import MatchHistoryCard from './components/ui/MatchHistoryCard';
+import PlayersDirectory from './features/players/PlayersDirectory';
+import PlayerProfile from './features/players/PlayerProfile';
+import HomePage from './features/home/HomePage';
+import Calendar from './features/calendar/Calendar';
+import MatchRecordForm from './features/matches/MatchRecordForm';
+// Heavier destinations stay split, but suspend only inside their own view.
 const Clasico = lazy(() => import('./components/Clasico'));
-const MatchHistoryCard = lazy(() => import('./components/ui/MatchHistoryCard'));
-const PlayersDirectory = lazy(() => import('./features/players/PlayersDirectory'));
-const PlayerProfile = lazy(() => import('./features/players/PlayerProfile'));
-const HomePage = lazy(() => import('./features/home/HomePage'));
-const Calendar = lazy(() => import('./features/calendar/Calendar'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
-const MatchRecordForm = lazy(() => import('./features/matches/MatchRecordForm'));
-const ClubsMode = lazy(() => import('./features/clubs/ClubsMode'));
+const preloadClubsMode = () => import('./features/clubs/ClubsMode');
+const ClubsMode = lazy(preloadClubsMode);
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
@@ -2364,6 +2369,16 @@ function App() {
       ? "welcome"
       : experience;
 
+  useEffect(() => {
+    if (experience !== "app") return undefined;
+    const connection = navigator.connection;
+    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") {
+      return undefined;
+    }
+    const timeout = window.setTimeout(() => { void preloadClubsMode().catch(() => {}); }, 1600);
+    return () => window.clearTimeout(timeout);
+  }, [experience]);
+
   const modeTransitionLayer = modeTransition ? (
     <div className={`product-mode-transition product-mode-transition--${modeTransition}`} aria-hidden="true">
       <span className="product-mode-wave product-mode-wave--one" />
@@ -2400,7 +2415,6 @@ function App() {
   }
 
   return (
-    <Suspense fallback={<div className="loading-panel">Opening Matchday…</div>}>
     <main className="app" onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
 
       <div
@@ -2428,7 +2442,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onPointerEnter={()=>{void preloadClubsMode().catch(()=>{});}} onFocus={()=>{void preloadClubsMode().catch(()=>{});}} onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2602,7 +2616,7 @@ function App() {
 
       {activeTab === TABS.RECORD && <section className="tab-content">
         <div className="gg-secondary-tabs" role="tablist" aria-label="Record sections"><button role="tab" aria-selected={recordSection==='record'} onClick={()=>setRecordSection('record')}>Match Record</button><button role="tab" aria-selected={recordSection==='clasico'} onClick={()=>setRecordSection('clasico')}>El Clásico</button></div>
-        {recordSection==='clasico'?<Clasico onPlayer={showPlayer} onMatch={showMatch} refreshKey={refreshKey} isSignedIn={isSignedIn}/>:<>
+        {recordSection==='clasico'?<Suspense fallback={<div className="loading-panel" role="status">Preparing El Clásico…</div>}><Clasico onPlayer={showPlayer} onMatch={showMatch} refreshKey={refreshKey} isSignedIn={isSignedIn}/></Suspense>:<>
         <div className="page-title"><p className="eyebrow">MATCH DAY</p><h2>{isEditor?(editingMatchId?'Edit Match':'Record a Match'):'Match Record'}</h2><p>{isEditor?'Assign sides, record performances, and let the match tell the story.':'Explore the GG Matchday archive.'}</p></div>
         {isEditor && (
           <MatchRecordForm
@@ -2713,6 +2727,7 @@ function App() {
       ===================================================== */}
 
       {activeTab === TABS.ADMIN && (
+        <Suspense fallback={<section className="tab-content"><div className="loading-panel" role="status">Preparing administration…</div></section>}>
         <AdminPage
           isAdmin={isAdmin}
           players={players}
@@ -2728,6 +2743,7 @@ function App() {
           handleEditorRequest={handleEditorRequest}
           revokeEditor={revokeEditor}
         />
+        </Suspense>
       )}
 
       </div>
@@ -2806,7 +2822,6 @@ function App() {
       </Suspense>
       {modeTransitionLayer}
     </main>
-    </Suspense>
   );
 }
 

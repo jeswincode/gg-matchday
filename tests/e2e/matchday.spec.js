@@ -78,6 +78,23 @@ test("Enter key opens Matchday from the welcome screen without requiring a point
   await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
 });
 
+test("first visits to all five Matchday tabs keep the shell visible and never show a full-screen loader", async ({ page }) => {
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+
+  const navigation = page.locator(".bottom-nav");
+  const shell = page.locator("main.app");
+  const topbar = page.locator(".topbar");
+  for (const label of ["Record", "Leaderboard", "Calendar", "Players", "Home"]) {
+    await navigation.getByRole("button", { name: label, exact: true }).click();
+    await expect(shell).toBeVisible();
+    await expect(topbar).toBeVisible();
+    await expect(navigation).toBeVisible();
+    await expect(page.getByText("Opening Matchday…")).toHaveCount(0);
+    await expect(page.locator(".loading-panel").filter({ hasText: "Opening Matchday" })).toHaveCount(0);
+  }
+});
+
 test("mobile viewport keeps primary navigation usable across key tabs", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);
