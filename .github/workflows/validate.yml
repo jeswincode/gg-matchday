@@ -148,6 +148,14 @@ jobs:
           npm audit fix --package-lock-only
           npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      # Each browser project starts its own isolated in-memory MongoDB fixture.
+      # Running both projects in one Playwright process shares mutable Clubs,
+      # matches and disputes state, so the second project sees stale fixtures.
+      - name: Run desktop browser end-to-end suite
+        run: npm run test:e2e -- --project=chromium-desktop --workers=1
+        env:
+          CI: true
+      - name: Run mobile browser end-to-end suite with fresh fixtures
+        run: npm run test:e2e -- --project=chromium-mobile --workers=1
         env:
           CI: true
