@@ -5,7 +5,7 @@
 
 @media (pointer: coarse), (max-width: 760px) {
   [data-page-swipes], .swipe-pager { touch-action: pan-y pinch-zoom; }
-  .swipe-pager { overflow-x: clip; overflow-anchor: none; }
+  .swipe-pager { overflow: clip; overflow-anchor: none; }
 
   /* Lay out Matchday's neighbors before the finger moves. The clipped box
      keeps inactive content out of the page's scroll range. */
@@ -22,7 +22,7 @@
   #matchday-pager[data-swiping="previous"] > [data-pane="previous"] {
     inset-block-start: var(--pager-top, 0px);
     height: auto;
-    overflow: visible;
+    overflow: clip;
     visibility: visible;
   }
 
