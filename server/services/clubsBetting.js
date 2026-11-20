@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import Club from "../models/clubs/Club.js";
-import ClubContract from "../models/clubs/ClubContract.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubMatchBet from "../models/clubs/ClubMatchBet.js";
 import { CLUB_BETTING_MAX_STAKE, CLUB_BETTING_MIN_STAKE } from "../config/clubsRules.js";
@@ -31,10 +30,6 @@ export async function placeClubMatchBet({ clubMatchId, playerId, clubId, stake, 
   if (!match || match.status !== "accepted") throw new Error("Betting is available only for accepted Club Matches.");
   if (new Date(match.scheduledAt) <= new Date()) throw new Error("Betting is closed because the match has started.");
   if (![String(match.clubAId), String(match.clubBId)].includes(String(clubId))) throw new Error("Choose one of the two clubs in this fixture.");
-  const playerContract = await ClubContract.findOne({ playerId, status: "active" }).session(session).lean();
-  if (playerContract && [String(match.clubAId), String(match.clubBId)].includes(String(playerContract.clubId))) {
-    throw new Error("You cannot bet on your own Club Match fixture.");
-  }
   const club = await Club.findOne({ _id: clubId, status: "approved" }).session(session).lean();
   if (!club) throw new Error("The selected Club is not available for betting.");
   const existing = await ClubMatchBet.findOne({ clubMatchId, playerId }).session(session).lean();

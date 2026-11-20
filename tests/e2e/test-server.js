@@ -119,7 +119,7 @@ await User.insertMany(workflowPlayers.map(({ id }) => ({
   playerProfile: new mongoose.Types.ObjectId(id),
 })));
 
-await Club.create({
+const browserClub = await Club.create({
   name: "E2E My Club Regression FC",
   description: "Isolated browser regression fixture.",
   memberIds: basePlayers.map(player => new mongoose.Types.ObjectId(player.id)),
@@ -127,6 +127,20 @@ await Club.create({
   status: "approved",
   balance: 300,
   committedBalance: 50,
+});
+await ClubContract.create({
+  clubId: browserClub._id,
+  playerId: basePlayers[1].id,
+  startAt: new Date(Date.now() - 86_400_000),
+  endAt: new Date(Date.now() + 30 * 86_400_000),
+  source: "formation",
+});
+const { creditPlayerWallet } = await import("../../server/services/clubsEconomy.js");
+await creditPlayerWallet({
+  playerId: basePlayers[1].id,
+  amount: 80,
+  type: "individual_match_reward",
+  description: "Isolated Playwright player reward",
 });
 
 async function seedAuctionClub(name, squad) {

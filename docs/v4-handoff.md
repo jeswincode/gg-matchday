@@ -31,9 +31,16 @@ Take the next user-selected feature through local implementation, focused tests,
 ## Live data and performance
 
 - Match records, rankings, calendar history, open match details, player statistics and awards, and news refresh from saved data. Clubs views refresh fixtures, formation, market, reviews, administration, and wallet data. Chat and notifications refresh for signed-in users. The existing `CHAT_ENABLED` setting controls chat availability.
-- [The server](../server/services/liveData.js) watches selected MongoDB collections and sends refresh topics without records or identifiers on the public and authenticated streams. [The client](../src/lib/liveData.js) invalidates matching reads so active views use the normal APIs and access checks. It reconciles after reconnect, and uses bounded retries for outages. The Clubs fixtures view reads stored predictions when it opens.
+- [The server](../server/services/liveData.js) watches selected MongoDB collections and sends refresh topics without records or identifiers on the public and authenticated streams. [The client](../src/lib/liveData.js) invalidates matching reads so active views use the normal APIs and access checks. It reconciles after reconnect, and uses bounded retries for outages.
 - A controlled Chromium walkthrough of the built frontend at desktop and mobile widths recorded **7 → 0** REST reads before guest entry, **10 → 7** through Home, and **18 → 14** through the primary tabs and Clubs. Exact repeat reads in that walkthrough went from **4 → 0**. Both WebP welcome posters are about **88% smaller** than their original PNGs, which stay available as fallbacks. These measurements cover the test journey and asset sizes. Hosted latency under real traffic, free Render cold starts, and request fan-out on a large Clubs fixture list remain areas to measure.
 - [Cross-session browser coverage](../tests/e2e/live-data.spec.js) exercises Matchday updates, reconnect recovery, announcements, and chat against isolated fixtures. [Club workflow coverage](../tests/e2e/clubs-workflows.spec.js) includes formation, signing, and budget changes appearing in already-open sessions.
+
+## Clubs workspace
+
+- Clubs uses a desktop navigation rail and a mobile dock. Match lists show confirmed upcoming fixtures and results. Linked squad members can switch to My Fixtures. Current captains submit fixture requests and handle decisions in the captain inbox. Pending requests and captain votes stay out of the public fixture response.
+- Betting shows confirmed eligible fixtures and a player's open and settled bets. V4 allows squad members to bet on their own Club's fixtures using existing in-game credits. Limits, fixture deadlines, wallet debits, payouts, and refunds remain server-controlled. Bet history is scoped to the signed-in player and fetched in pages.
+- My Player brings together the private wallet, personal and Club rewards, and Club career records. Clubs Administration retains its separate approval and operations workflow.
+- The [Clubs workspace browser test](../tests/e2e/clubs-workspace.spec.js) checks captain and member views in independent sessions, a same-Club bet, private history, and a cancellation refund against isolated fixtures.
 
 ## Open in Codex
 

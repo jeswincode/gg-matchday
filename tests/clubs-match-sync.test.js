@@ -70,9 +70,10 @@ test("stats sync writes the schema field named matches", async () => {
 
 test("Clubs mode exposes a functional Matches panel", async () => {
   const source = await readFile("src/features/clubs/ClubsMode.jsx", "utf8");
+  const fixtures = await readFile("src/features/clubs/ClubFixtures.jsx", "utf8");
   assert.match(source, /activeSection === "overview" && ultimateSubsection === "matches"/);
   assert.match(source, /\/clubs\/matches/);
-  assert.match(source, /Request Club Match/);
+  assert.match(fixtures, /"Request fixture"/);
 });
 
 test("Club renewal frontend paths match the mounted Clubs router", async () => {
@@ -287,9 +288,10 @@ test("Club Match model distinguishes booked and unbooked sources", async () => {
 
 test("Club Match booking UI uses date-only input", async () => {
   const source = await readFile("src/features/clubs/ClubsMode.jsx", "utf8");
-  assert.match(source, /type="date"/);
-  assert.match(source, /fixtureDate: matchScheduledAt/);
-  assert.doesNotMatch(source, /type="datetime-local"/);
+  const fixtures = await readFile("src/features/clubs/ClubFixtures.jsx", "utf8");
+  assert.match(fixtures, /type="date"/);
+  assert.match(source, /body: \{ clubAId, clubBId, fixtureDate \}/);
+  assert.doesNotMatch(fixtures, /type="datetime-local"/);
 });
 
 test("Club sync requires the Clubs marker before any Club Match classification", async () => {

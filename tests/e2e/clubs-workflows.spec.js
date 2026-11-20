@@ -267,6 +267,7 @@ test("auction signing reserves budget and settles only after player choice and b
     // A chosen offer is not a completed signing: the target still has no Club and no payment.
     await goToPrimaryTab(target, "My Club");
     await expect(target.locator(".clubs-myclub-empty")).toContainText("You are not currently under a Club contract.");
+    await goToPrimaryTab(target, "My Player");
     await expect(target.locator(".clubs-wallet-main-value")).toHaveText("0");
 
     await goToPrimaryTab(captainOne, "Market");
@@ -307,8 +308,9 @@ test("auction signing reserves budget and settles only after player choice and b
     await expect(captainOne.locator(".clubs-myclub-overview-stat").first()).toContainText("5/5");
     await expect(captainOne.locator(".clubs-roster-premium-row").filter({ hasText: auctionPlayers.target.name })).toBeVisible();
 
-    await expect(target.getByRole("heading", { name: auctionClubName, exact: true })).toBeVisible();
     await expect(target.locator(".clubs-wallet-main-value")).toHaveText("200");
+    await goToPrimaryTab(target, "My Club");
+    await expect(target.getByRole("heading", { name: auctionClubName, exact: true })).toBeVisible();
     await expect(target.locator(".clubs-roster-premium-row").filter({ hasText: auctionPlayers.target.name })).toBeVisible();
   } finally {
     await Promise.allSettled(pages.map(page => page.close()));

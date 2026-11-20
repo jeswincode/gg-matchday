@@ -712,7 +712,7 @@ test("GET Club wallet uses the route called by the My Club dashboard and restric
   assert.equal(nonMemberResponse.status, 403, JSON.stringify(nonMemberResponse.data));
 });
 
-test("GET Club Matches is read-only and does not expire stale requests", async () => {
+test("public Club Matches exclude private requests without mutating them", async () => {
   const oldDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const matchId = new mongoose.Types.ObjectId();
   await ClubMatch.collection.insertOne({
@@ -730,7 +730,7 @@ test("GET Club Matches is read-only and does not expire stale requests", async (
 
   const response = await request("/clubs/matches");
   assert.equal(response.status, 200, JSON.stringify(response.data));
-  assert.ok(response.data.some(match => String(match._id) === String(matchId)));
+  assert.ok(!response.data.some(match => String(match._id) === String(matchId)));
   const stored = await ClubMatch.collection.findOne({ _id: matchId });
   assert.equal(stored.status, "requested");
 });

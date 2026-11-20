@@ -95,6 +95,13 @@ export default function ProfileRequests() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps -- Refresh the existing linked-account panel after Firebase identity changes.
   useEffect(() => { if (firebaseUser) refresh(); }, [firebaseUser]);
+  useEffect(() => {
+    if (!firebaseUser) return undefined;
+    const show = () => { setOpen(true); void refresh(); };
+    window.addEventListener("gg-open-profile", show);
+    return () => window.removeEventListener("gg-open-profile", show);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- The current Firebase identity owns the open handler.
+  }, [firebaseUser]);
 
   async function submit() {
     setBusy(true); setMessage("");

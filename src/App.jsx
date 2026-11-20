@@ -126,7 +126,7 @@ function App() {
     } catch {
       // URL history can be unavailable in restricted browser environments.
     }
-    modeTransitionTimer.current = window.setTimeout(()=>setModeTransition(null),720);
+    modeTransitionTimer.current = window.setTimeout(()=>setModeTransition(null),225);
   },[productMode,theme]);
   useEffect(() => () => window.clearTimeout(modeTransitionTimer.current), []);
 

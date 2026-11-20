@@ -2411,6 +2411,7 @@ textarea:focus {
   pointer-events:none;
   overflow:hidden;
   isolation:isolate;
+  opacity:.24;
 }
 
 .product-mode-transition::before{
@@ -2420,7 +2421,7 @@ textarea:focus {
   background:linear-gradient(135deg,#15171b 0%,#201b20 42%,#9b6476 100%);
   opacity:.96;
   transform:translateY(110%);
-  animation:productModeCover .72s cubic-bezier(.76,0,.24,1) both;
+  animation:productModeCover .19s cubic-bezier(.25,.65,.35,1) both;
 }
 
 .product-mode-wave{
@@ -2433,26 +2434,26 @@ textarea:focus {
   background:#111318;
   box-shadow:0 -18px 60px rgba(201,135,154,.18);
   transform:translateY(120%);
-  animation:productModeWaveIn .72s cubic-bezier(.76,0,.24,1) both;
+  animation:productModeWaveIn .19s cubic-bezier(.25,.65,.35,1) both;
 }
 
 .product-mode-wave--one{
   bottom:-17%;
-  animation-delay:.02s;
+  animation-delay:.006s;
 }
 
 .product-mode-wave--two{
   bottom:-23%;
   background:#8f5c70;
   opacity:.78;
-  animation-delay:.08s;
+  animation-delay:.014s;
 }
 
 .product-mode-wave--three{
   bottom:-29%;
   background:#c4879c;
   opacity:.5;
-  animation-delay:.14s;
+  animation-delay:.024s;
 }
 
  .product-mode-transition--to-matchday-golden::before{
@@ -2472,11 +2473,7 @@ textarea:focus {
 }
 
 @media (prefers-reduced-motion:reduce){
-  .product-mode-transition::before,
-  .product-mode-wave{
-    animation-duration:.01ms;
-    animation-iteration-count:1;
-  }
+  .product-mode-transition{display:none;}
 }
 
 

@@ -50,7 +50,7 @@ This document is the implementation checklist for the Clubs mode. The source of 
 - Betting is placed by individual users on the two clubs facing each other.
 - The stake is debited only from the user's Clubs Player Wallet, provided sufficient balance exists.
 - Betting is 10–100 credits per user per fixture; a user may place one active bet per fixture.
-- A user may not bet on their own Club's fixture.
+- V3 blocks members from betting on their own Club's fixture. The V4 branch allows those fixtures under the same Player Wallet, timing, and settlement rules.
 - Betting locks when the scheduled match begins.
 - The winning outcome receives the full stake pool, split proportionally among winning bets, and winnings are credited to those users' Player Wallets.
 - Incorrect bets lose their stake; draws, cancellations and completed fixtures with no valid winning stake refund the stake to the users' Player Wallets.

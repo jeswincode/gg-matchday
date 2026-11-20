@@ -7,18 +7,16 @@ test("Clubs mode keeps formation controls, discovery and admin surfaces while us
   const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
 
   assert.match(component, /Ultimate Clubs/);
-  assert.match(component, /Player History/);
-  assert.match(component, /data-primary-tab="overview"/);
-  assert.match(component, /data-primary-tab="myClub"/);
+  assert.match(component, /<ClubsPlayerDesk/);
+  assert.match(component, /key: "overview", label: "Club Hub"/);
+  assert.match(component, /key: "myClub", label: "My Club"/);
   assert.doesNotMatch(component, /aria-label="Ultimate Clubs sections"/);
   assert.doesNotMatch(component, /aria-label="My Club sections"/);
-  assert.match(component, /clubs-subnav/);
   assert.match(component, /clubs-hub-discovery-grid/);
   assert.match(component, /clubs-formation-stepper/);
   assert.match(component, /clubs-scout-card/);
   assert.match(component, /clubs-review-received/);
   assert.match(component, /NEEDS ATTENTION/);
-  assert.match(component, /clubs-history-summary-grid/);
   assert.match(component, /clubs-admin-club-card/);
   for (const formation of ["1-2-1", "2-1-1", "1-3", "3-1", "2-2", "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"]) {
     assert.match(component, new RegExp(formation));
@@ -148,23 +146,22 @@ test("Clubs command center explains both captain-details and admin-review waitin
   assert.match(routes, /The other elected captain must approve the same details/);
 });
 
-test("Club Hub is formation-first and keeps Club credits out of the first-screen showcase", () => {
+test("Club Hub keeps formation and fixtures visible and reserves the player wallet for My Player", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
   const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  const desk = fs.readFileSync("src/features/clubs/ClubsPlayerDesk.jsx", "utf8");
 
   assert.match(component, /<h1>\{adminOnlyView \? "Clubs Admin" : "Club Hub"\}<\/h1>/);
-  assert.match(component, /data-primary-tab="overview"/);
-  assert.match(component, /data-primary-tab="myClub"/);
-  assert.match(component, /data-primary-tab="market"/);
-  assert.match(component, /data-primary-tab="matches"/);
-  assert.match(component, /data-primary-tab="players"/);
-  assert.match(component, /data-primary-tab="reviews"/);
+  for (const key of ["overview", "myClub", "market", "matches", "players", "reviews", "betting", "playerDesk"]) {
+    assert.match(component, new RegExp('key: "' + key + '"'));
+  }
   assert.match(component, /Your formation progress/);
   assert.match(component, /clubs-hub-pipeline-actions/);
   assert.match(component, /OFFICIAL CLUB DIRECTORY/);
   assert.match(component, /clubs-formation-form/);
   assert.match(component, /clubs-official-directory/);
-  assert.match(component, /clubs-wallet-dashboard/);
+  assert.match(desk, /\/clubs\/wallet\/me\?rewards=true/);
+  assert.doesNotMatch(component, /clubs-wallet-dashboard/);
   assert.match(component, /MY CLUB \/ DASHBOARD/);
   assert.match(component, /AVAILABLE CLUB BUDGET/);
   assert.match(component, /clubs-myclub-overview-grid/);
@@ -193,7 +190,8 @@ test("Club Hub is formation-first and keeps Club credits out of the first-screen
 
 test("Club primary navigation uses top-level Market and Matches with guarded touch-swipe navigation", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
-  const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
+  const styles = fs.readFileSync("src/features/clubs/clubs-workspace.css", "utf8");
+  const navigation = fs.readFileSync("src/features/clubs/ClubsNavigation.jsx", "utf8");
 
   assert.match(component, /const primaryTabKeys =/);
   assert.match(component, /const navigatePrimaryTab = key =>/);
@@ -203,13 +201,14 @@ test("Club primary navigation uses top-level Market and Matches with guarded tou
   assert.match(component, /input, textarea, select, button, a, \[contenteditable='true'\]/);
   assert.match(component, /activeSection === "market"/);
   assert.match(component, /setActiveSection\("market"\)/);
-  assert.match(component, /Swipe left or right to switch tabs/);
+  assert.match(navigation, /aria-expanded=\{moreOpen\}/);
+  assert.match(navigation, /aria-current=\{active === item.key/);
   assert.doesNotMatch(component, /aria-label="Ultimate Clubs sections"/);
   assert.doesNotMatch(component, /aria-label="My Club sections"/);
 
-  assert.match(styles, /\.clubs-swipe-hint\s*\{/);
-  assert.match(styles, /scroll-snap-type:\s*x mandatory/);
-  assert.match(styles, /@media\s*\(max-width:\s*760px\)/);
+  assert.match(styles, /position: sticky/);
+  assert.match(styles, /position: fixed/);
+  assert.match(styles, /safe-area-inset-bottom/);
 });
 
 
@@ -302,7 +301,7 @@ test("squad OVR cards open the combined analytics view and Club history stays fi
   assert.match(analyticsStyles, /@media\(max-width: 620px\)/);
 });
 
-test("Club next-action guidance is persistent and formation stages explain their next step", () => {
+test("Club Hub shows actionable guidance and formation stages explain their next step", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
   const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
 
@@ -314,15 +313,15 @@ test("Club next-action guidance is persistent and formation stages explain their
     assert.match(component, new RegExp('status === "' + status + '"'));
   }
   const liveStatus = component.indexOf('className="clubs-screen-reader-status"');
-  const nextAction = component.indexOf('data-next-action={commandCenter?.nextAction?.type || "loading"}');
+  const nextAction = component.indexOf('data-next-action={commandCenter.nextAction.type}');
   const overview = component.indexOf('{activeSection === "overview" && ultimateSubsection === "overview" ? (');
-  assert.ok(liveStatus >= 0 && nextAction > liveStatus && overview > nextAction,
-    "The next action should remain available before every primary-tab content branch");
+  const matches = component.indexOf(') : activeSection === "overview" && ultimateSubsection === "matches" ? (');
+  assert.ok(liveStatus >= 0 && overview > liveStatus && nextAction > overview && matches > nextAction);
+  assert.match(component, /!\["all-clear", "match-upcoming", "match-today"\]\.includes/);
   assert.match(component, /WHAT HAPPENS NEXT/);
   assert.match(component, /administrator review/i);
   assert.match(component, /openCommandAction\(commandCenter.nextAction\)/);
   assert.match(styles, /\.clubs-formation-next-step/);
-  assert.match(styles, /\.clubs-hub-next-action\.is-clear/);
 });
 
 test("Clubs admin dashboard uses the persisted operations API and exposes queue/activity workflows", () => {
