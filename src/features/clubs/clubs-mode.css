@@ -69,11 +69,7 @@ html[data-product-mode="clubs"]::-webkit-scrollbar {
   position: relative;
   overflow: hidden;
   background-image:
-    linear-gradient(rgba(8,9,10,.48), rgba(8,9,10,.62)),
-    url("/charcoal.jpg");
-  background-size: cover, cover;
-  background-position: center, center;
-  background-attachment: fixed, fixed;
+    linear-gradient(rgba(8,9,10,.48), rgba(8,9,10,.62));
   background-color: var(--clubs-bg);
   color: var(--clubs-text);
 }
@@ -178,11 +174,7 @@ html[data-theme="golden"][data-product-mode="clubs"] .clubs-app {
   --clubs-accent: #e4bd6b;
   --clubs-accent-2: #b18a42;
   background-image:
-    linear-gradient(rgba(19,14,8,.42), rgba(13,10,7,.58)),
-    url("/gold.jpg");
-  background-size: cover, cover;
-  background-position: center, center;
-  background-attachment: fixed, fixed;
+    linear-gradient(rgba(19,14,8,.42), rgba(13,10,7,.58));
   background-color: var(--clubs-bg);
 }
 
@@ -1434,11 +1426,7 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-app {
   --clubs-accent-2: #829eac;
   --clubs-edge: #343b3f;
   background-image:
-    linear-gradient(rgba(8,9,10,.34), rgba(8,9,10,.58)),
-    url("/charcoal.jpg");
-  background-size: cover, cover;
-  background-position: center, center;
-  background-attachment: fixed, fixed;
+    linear-gradient(rgba(8,9,10,.34), rgba(8,9,10,.58));
   background-color: #090a0b;
 }
 
@@ -1528,22 +1516,14 @@ html[data-product-mode="clubs"] body,
 html[data-product-mode="clubs"] #root {
   min-height: 100%;
   background:
-    linear-gradient(rgba(8,9,10,.34), rgba(8,9,10,.58)),
-    url("/charcoal.jpg");
-  background-size: cover, cover;
-  background-position: center, center;
-  background-attachment: fixed, fixed;
+    linear-gradient(rgba(8,9,10,.34), rgba(8,9,10,.58)), #080d17;
 }
 
 html[data-theme="golden"][data-product-mode="clubs"],
 html[data-theme="golden"][data-product-mode="clubs"] body,
 html[data-theme="golden"][data-product-mode="clubs"] #root {
   background:
-    linear-gradient(rgba(19,14,8,.34), rgba(13,10,7,.58)),
-    url("/gold.jpg");
-  background-size: cover, cover;
-  background-position: center, center;
-  background-attachment: fixed, fixed;
+    linear-gradient(rgba(19,14,8,.34), rgba(13,10,7,.58)), #100e09;
 }
 
 html[data-product-mode="clubs"] .clubs-app {
@@ -2431,11 +2411,7 @@ html[data-theme="dark"][data-product-mode="clubs"] .clubs-app {
   background-image:
     radial-gradient(ellipse at 48% 10%, rgba(39, 101, 193, .31), transparent 43%),
     radial-gradient(ellipse at 88% 38%, rgba(24, 75, 150, .22), transparent 39%),
-    linear-gradient(135deg, rgba(5, 11, 24, .58), rgba(5, 9, 19, .78)),
-    url("/charcoal.jpg");
-  background-size: cover, cover, cover, cover;
-  background-position: center, center, center, center;
-  background-attachment: fixed, fixed, fixed, fixed;
+    linear-gradient(135deg, rgba(5, 11, 24, .58), rgba(5, 9, 19, .78));
 }
 
 html[data-theme="dark"][data-product-mode="clubs"] body,
