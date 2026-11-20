@@ -71,7 +71,7 @@ test("stats sync writes the schema field named matches", async () => {
 test("Clubs mode exposes a functional Matches panel", async () => {
   const source = await readFile("src/features/clubs/ClubsMode.jsx", "utf8");
   const fixtures = await readFile("src/features/clubs/ClubFixtures.jsx", "utf8");
-  assert.match(source, /activeSection === "overview" && ultimateSubsection === "matches"/);
+  assert.match(source, /pane === "matches"/);
   assert.match(source, /\/clubs\/matches/);
   assert.match(fixtures, /"Request fixture"/);
 });
@@ -105,7 +105,7 @@ test("Clubs mode exposes functional My Club stats and history", async () => {
 
 test("Clubs UI exposes player reviews navigation and submission form", () => {
   const source = readFileSync(new URL("../src/features/clubs/ClubsMode.jsx", import.meta.url), "utf8");
-  assert.match(source, /activeSection === "reviews"/);
+  assert.match(source, /pane === "reviews"/);
   assert.match(source, /reviews\/eligible\/me/);
   assert.match(source, /Publish review/);
   assert.match(source, /teammate/);

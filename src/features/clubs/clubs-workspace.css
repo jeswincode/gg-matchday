@@ -57,8 +57,8 @@ html[data-product-mode="clubs"] .clubs-workspace .clubs-topbar.clubs-compact-hea
   align-items: start;
 }
 .clubs-workspace-content { min-width: 0; }
-.clubs-workspace-content > .clubs-section:first-of-type { margin-top: 0; }
-.clubs-workspace-content > .clubs-section + .clubs-section { margin-top: 24px; }
+.clubs-workspace-content .swipe-pane > .clubs-section:first-of-type { margin-top: 0; }
+.clubs-workspace-content .swipe-pane > .clubs-section + .clubs-section { margin-top: 24px; }
 
 html[data-product-mode="clubs"] .clubs-app.clubs-workspace .clubs-destination-nav {
   width: 100%;

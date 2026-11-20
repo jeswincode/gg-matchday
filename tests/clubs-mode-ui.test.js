@@ -61,7 +61,7 @@ test("Clubs UI supports flexible 4-5 member formation and admin control center",
   assert.match(rules, /CLUB_FORMATIONS_5/);
   assert.match(component, /Form a 4–5 player Club/);
   assert.match(component, /No fifth player/);
-  assert.match(component, /activeSection === "adminDashboard"/);
+  assert.match(component, /pane === "adminDashboard"/);
   assert.match(component, /adminOnlyView/);
   assert.match(component, /\/clubs\/admin\/overview/);
   assert.match(component, /\/clubs\/admin\/clubs/);
@@ -173,7 +173,7 @@ test("Club Hub keeps formation and fixtures visible and reserves the player wall
   assert.doesNotMatch(component, /CLUB STARTING BUDGET/);
   assert.doesNotMatch(component, /clubs-hub-starter-budget/);
 
-  const hubStart = component.indexOf('{activeSection === "overview" && ultimateSubsection === "overview" ? (');
+  const hubStart = component.indexOf('{pane === "overview" ? (');
   const formation = component.indexOf('id="clubs-formation-pipeline"', hubStart);
   const stats = component.indexOf('className="clubs-hub-stat-grid"', hubStart);
   assert.ok(hubStart >= 0 && formation > hubStart && stats > formation, "Formation progress should appear before overview cards");
@@ -194,12 +194,8 @@ test("Club primary navigation uses top-level Market and Matches with guarded tou
   const navigation = fs.readFileSync("src/features/clubs/ClubsNavigation.jsx", "utf8");
 
   assert.match(component, /const primaryTabKeys =/);
-  assert.match(component, /const navigatePrimaryTab = key =>/);
-  assert.match(component, /onTouchStart=\{handleClubsTouchStart\}/);
-  assert.match(component, /onTouchEnd=\{handleClubsTouchEnd\}/);
-  assert.match(component, /Math\.abs\(dx\) < 72/);
-  assert.match(component, /input, textarea, select, button, a, \[contenteditable='true'\]/);
-  assert.match(component, /activeSection === "market"/);
+  assert.match(component, /<SwipePager tabs=\{primaryTabKeys\.includes/);
+  assert.match(component, /pane === "market"/);
   assert.match(component, /setActiveSection\("market"\)/);
   assert.match(navigation, /aria-expanded=\{moreOpen\}/);
   assert.match(navigation, /aria-current=\{active === item.key/);
@@ -245,9 +241,9 @@ test("Clubs mobile scrolling remains vertical and Players subsection tabs fit th
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
   const styles = fs.readFileSync("src/features/clubs/clubs-mode.css", "utf8");
 
-  assert.match(component, /onTouchMove=\{handleClubsTouchMove\}/);
-  assert.match(component, /const handleClubsTouchMove = event =>/);
-  assert.match(component, /We never prevent the browser's default vertical scrolling behavior\./);
+  assert.match(component, /<SwipePager/);
+  const pagerStyles = fs.readFileSync("src/components/swipe-pager.css", "utf8");
+  assert.match(pagerStyles, /touch-action:\s*pan-y pinch-zoom/);
   assert.match(component, /clubs-players-section/);
   assert.match(styles, /overflow-x:\s*clip;\s*overflow-y:\s*visible;/);
   assert.match(styles, /html\[data-product-mode="clubs"\] body/);
@@ -314,8 +310,8 @@ test("Club Hub shows actionable guidance and formation stages explain their next
   }
   const liveStatus = component.indexOf('className="clubs-screen-reader-status"');
   const nextAction = component.indexOf('data-next-action={commandCenter.nextAction.type}');
-  const overview = component.indexOf('{activeSection === "overview" && ultimateSubsection === "overview" ? (');
-  const matches = component.indexOf(') : activeSection === "overview" && ultimateSubsection === "matches" ? (');
+  const overview = component.indexOf('{pane === "overview" ? (');
+  const matches = component.indexOf(') : pane === "matches" ? (');
   assert.ok(liveStatus >= 0 && overview > liveStatus && nextAction > overview && matches > nextAction);
   assert.match(component, /!\["all-clear", "match-upcoming", "match-today"\]\.includes/);
   assert.match(component, /WHAT HAPPENS NEXT/);

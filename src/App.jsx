@@ -2,6 +2,8 @@ import {lazy, Suspense, useCallback, useRef} from 'react';
 import {api, invalidate} from './lib/api';
 import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
+import SwipePager from "./components/SwipePager";
+import { scrollToPagerStart } from "./lib/pagerScroll";
 import NotificationIndicator from './components/NotificationIndicator';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 // Keep the five primary navigation destinations in the initial JS graph.
@@ -109,9 +111,6 @@ function App() {
   const [overview,setOverview]=useState(null);
   const [archivePage,setArchivePage]=useState(1);
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
-  const touchStartRef=useRef(null);
-  const [swipeOffset,setSwipeOffset]=useState(0);
-  const [swipeAnimating,setSwipeAnimating]=useState(false);
   const [modeTransition,setModeTransition]=useState(null);
   const modeTransitionTimer = useRef(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
@@ -137,98 +136,6 @@ function App() {
   },[productMode,theme]);
   useEffect(() => () => window.clearTimeout(modeTransitionTimer.current), []);
 
-  function isTouchInteractionExcluded(target) {
-    if (!(target instanceof Element)) return false;
-
-    if (target.closest('[role="dialog"]')) return true;
-
-    let current=target;
-    while (current && current !== document.body) {
-      if (current instanceof HTMLElement) {
-        const styles=window.getComputedStyle(current);
-        const canScrollHorizontally=current.scrollWidth>current.clientWidth+1 &&
-          (styles.overflowX==='auto'||styles.overflowX==='scroll');
-        if (canScrollHorizontally) return true;
-      }
-      current=current.parentElement;
-    }
-
-    return false;
-  }
-
-  function handleAppTouchStart(event) {
-    if (event.touches.length !== 1 || swipeAnimating) {
-      touchStartRef.current=null;
-      return;
-    }
-
-    touchStartRef.current={
-      x:event.touches[0].clientX,
-      y:event.touches[0].clientY,
-      excluded:isTouchInteractionExcluded(event.target),
-    };
-  }
-
-  function handleAppTouchMove(event) {
-    const start=touchStartRef.current;
-    if (!start || start.excluded || event.touches.length !== 1 || swipeAnimating) return;
-
-    const touch=event.touches[0];
-    const deltaX=touch.clientX-start.x;
-    const deltaY=touch.clientY-start.y;
-
-    if (Math.abs(deltaX)<8 || Math.abs(deltaX)<=Math.abs(deltaY)*1.15) return;
-
-    const currentIndex=TAB_ORDER.indexOf(activeTab);
-    if (currentIndex<0) return;
-
-    const nextIndex=deltaX<0 ? currentIndex+1 : currentIndex-1;
-    if (nextIndex<0 || nextIndex>=TAB_ORDER.length) {
-      setSwipeOffset(deltaX*0.2);
-      return;
-    }
-
-    event.preventDefault();
-    setSwipeOffset(deltaX);
-  }
-
-  function handleAppTouchEnd(event) {
-    const start=touchStartRef.current;
-    touchStartRef.current=null;
-
-    if (!start || start.excluded || event.changedTouches.length !== 1 || swipeAnimating) return;
-
-    const touch=event.changedTouches[0];
-    const deltaX=touch.clientX-start.x;
-    const deltaY=touch.clientY-start.y;
-    const threshold=Math.min(92, Math.max(56, window.innerWidth*0.16));
-
-    if (Math.abs(deltaX)<threshold || Math.abs(deltaX)<=Math.abs(deltaY)*1.2) {
-      setSwipeOffset(0);
-      return;
-    }
-
-    const currentIndex=TAB_ORDER.indexOf(activeTab);
-    if (currentIndex<0) {
-      setSwipeOffset(0);
-      return;
-    }
-
-    const nextIndex=deltaX<0 ? currentIndex+1 : currentIndex-1;
-    if (nextIndex<0 || nextIndex>=TAB_ORDER.length) {
-      setSwipeOffset(0);
-      return;
-    }
-
-    setSwipeAnimating(true);
-    setSwipeOffset(deltaX<0 ? -window.innerWidth : window.innerWidth);
-
-    window.setTimeout(()=>{
-      setActiveTab(TAB_ORDER[nextIndex]);
-      setSwipeOffset(0);
-      setSwipeAnimating(false);
-    },240);
-  }
   useEffect(()=>{
     try{
       const url=new URL(window.location.href);
@@ -243,6 +150,11 @@ function App() {
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
+  function navigateMatchdayTab(tab) {
+    if (tab !== activeTab) scrollToPagerStart(document.getElementById("matchday-pager"));
+    setActiveTab(tab);
+  }
+
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
   function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
 
@@ -2259,19 +2171,10 @@ function App() {
   }
 
   return (
-    <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : "")} onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
+    <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : "")}>
       <NotificationIndicator accountId={accountId} />
 
-      <div
-        className="mobile-tab-stage"
-        style={{
-          transform:activeTab === TABS.ADMIN ? "none" : `translate3d(${swipeOffset}px,0,0)`,
-          transition:swipeAnimating
-            ? "transform 240ms cubic-bezier(.22,.8,.2,1)"
-            : "none",
-          willChange:swipeOffset!==0||swipeAnimating ? "transform" : "auto",
-        }}
-      >
+      <div className="mobile-tab-stage">
       <header className="topbar">
         <div>
           <p className="eyebrow">
@@ -2437,7 +2340,9 @@ function App() {
           HOME
       ===================================================== */}
 
-      {activeTab === TABS.HOME && (
+      {activeTab !== TABS.ADMIN && <SwipePager id="matchday-pager" tabs={TAB_ORDER} active={activeTab} onNavigate={setActiveTab}
+        renderPane={pane => <>
+      {pane === TABS.HOME && (
         <HomePage
           latestMatch={latestMatch}
           latestTopScorer={latestTopScorer}
@@ -2462,7 +2367,7 @@ function App() {
           RECORD
       ===================================================== */}
 
-      {activeTab === TABS.RECORD && <section className="tab-content">
+      {pane === TABS.RECORD && <section className="tab-content">
         <div className="gg-secondary-tabs" role="tablist" aria-label="Record sections"><button role="tab" aria-selected={recordSection==='record'} onClick={()=>setRecordSection('record')}>Match Record</button><button role="tab" aria-selected={recordSection==='clasico'} onClick={()=>setRecordSection('clasico')}>El Clásico</button></div>
         {recordSection==='clasico'?<Suspense fallback={<div className="loading-panel" role="status">Preparing El Clásico…</div>}><Clasico onPlayer={showPlayer} onMatch={showMatch} refreshKey={refreshKey} isSignedIn={isSignedIn}/></Suspense>:<>
         <div className="page-title"><p className="eyebrow">MATCH DAY</p><h2>{isEditor?(editingMatchId?'Edit Match':'Record a Match'):'Match Record'}</h2><p>{isEditor?'Assign sides, record performances, and let the match tell the story.':'Explore the GG Matchday archive.'}</p></div>
@@ -2507,13 +2412,13 @@ function App() {
           LEADERBOARD
       ===================================================== */}
 
-      {activeTab === TABS.LEADERBOARD && <LeaderboardView onPlayer={showPlayer} onAwards={()=>setModal('awards')} refreshKey={refreshKey}/>}
+      {pane === TABS.LEADERBOARD && <LeaderboardView onPlayer={showPlayer} onAwards={()=>setModal('awards')} refreshKey={refreshKey}/>}
 
       {/* =====================================================
           CALENDAR
       ===================================================== */}
 
-      {activeTab === TABS.CALENDAR && (
+      {pane === TABS.CALENDAR && (
         <Calendar
           canEdit={isEditor}
           onOpen={showMatch}
@@ -2527,7 +2432,7 @@ function App() {
           PLAYERS
       ===================================================== */}
 
-      {activeTab ===
+      {pane ===
         TABS.PLAYERS && (
         <section className="tab-content">
 
@@ -2565,7 +2470,8 @@ function App() {
               onBack={()=>setSelectedPlayer(null)}
               onClearReview={()=>setPlayerReview(null)}
               onRequestEdit={!isEditor && sameId(selectedPlayer._id, linkedPlayerId) ? () => setProfileRequestMode("edit") : null}
-              profileFocusRequest={profileFocusRequest}
+              profileFocusRequest={activeTab === TABS.PLAYERS ? profileFocusRequest : null}
+              visible={activeTab === TABS.PLAYERS}
             />
           )}
         </section>
@@ -2575,6 +2481,7 @@ function App() {
           ADMIN
       ===================================================== */}
 
+        </>} />}
       {activeTab === TABS.ADMIN && (
         <Suspense fallback={<section className="tab-content"><div className="loading-panel" role="status">Preparing administration…</div></section>}>
         <AdminPage
@@ -2614,13 +2521,13 @@ function App() {
           icon="⌂"
           label="Home"
           onClick={() =>
-            setActiveTab(
+            navigateMatchdayTab(
               TABS.HOME
             )
           }
         />
 
-        <NavButton active={activeTab===TABS.RECORD} icon="＋" label="Record" onClick={()=>setActiveTab(TABS.RECORD)}/>
+        <NavButton active={activeTab===TABS.RECORD} icon="＋" label="Record" onClick={()=>navigateMatchdayTab(TABS.RECORD)}/>
 
         <NavButton
           active={
@@ -2630,7 +2537,7 @@ function App() {
           icon="🏆"
           label="Leaderboard"
           onClick={() =>
-            setActiveTab(
+            navigateMatchdayTab(
               TABS.LEADERBOARD
             )
           }
@@ -2644,7 +2551,7 @@ function App() {
           icon="📅"
           label="Calendar"
           onClick={() =>
-            setActiveTab(
+            navigateMatchdayTab(
               TABS.CALENDAR
             )
           }
@@ -2658,7 +2565,7 @@ function App() {
           icon="👥"
           label="Players"
           onClick={() =>
-            setActiveTab(
+            navigateMatchdayTab(
               TABS.PLAYERS
             )
           }

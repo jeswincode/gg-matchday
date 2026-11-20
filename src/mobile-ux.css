@@ -1215,7 +1215,6 @@
 }
 
 
-/* Instagram-style mobile tab paging: the complete app surface follows the finger. */
 @media (max-width: 760px) {
   .app {
     overflow-x: hidden;
@@ -1223,7 +1222,6 @@
 
   .mobile-tab-stage {
     width: 100%;
-    touch-action: pan-y;
   }
 
   .mobile-tab-stage > * {

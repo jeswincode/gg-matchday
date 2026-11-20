@@ -46,6 +46,7 @@ export default function PlayerProfile({
   onClearReview,
   onRequestEdit,
   profileFocusRequest,
+  visible = true,
 }){
   const profileSection = useRef(null);
   const profileHeading = useRef(null);
@@ -85,7 +86,7 @@ export default function PlayerProfile({
     
       <section className={`profile-hero card profile-hero-media${player.backgroundVideoUrl ? " has-profile-video" : ""}`}>
         <div className="profile-hero-backdrop" aria-hidden="true">
-          {player.backgroundVideoUrl ? (
+          {visible && player.backgroundVideoUrl ? (
             <video
               className="profile-hero-video"
               src={player.backgroundVideoUrl}

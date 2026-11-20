@@ -11,7 +11,7 @@ test("player can inspect canonical rating breakdown and submit a non-mutating di
   await enterMatchday(page, "editor", "65a000000000000000000001");
   await page.getByRole("button", { name: "Calendar" }).first().click();
 
-  const matchCard = page.locator(".gg-match-open").filter({ hasText: "E2E Rating Explanation Match" });
+  const matchCard = page.locator('[data-pane="current"] .gg-match-open').filter({ hasText: "E2E Rating Explanation Match" });
   await expect(matchCard).toBeVisible();
   await matchCard.click();
 

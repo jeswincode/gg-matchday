@@ -111,6 +111,7 @@ test("captain fixture requests are private and a squad member can track an own-C
     matchId = undefined;
     await expect(betting.getByText("Refunded", { exact: true })).toBeVisible();
     await page.locator('[data-primary-tab="playerDesk"]').click();
+    await page.getByRole("button", { name: "Wallet", exact: true }).click();
     await expect(page.locator(".clubs-wallet-main-value")).toHaveText("80");
   } finally {
     if (matchId) await request.post(api + "/clubs/matches/" + matchId + "/cancel", { headers: auth(opponentCaptainId) });

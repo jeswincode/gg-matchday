@@ -308,14 +308,11 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   expect(await nav.evaluate(element => getComputedStyle(element).position)).toBe("fixed");
 
   // A left swipe on non-interactive page content advances one primary tab.
-  await clubsApp.evaluate(element => {
-    const start = new Event("touchstart", { bubbles: true });
-    Object.defineProperty(start, "changedTouches", { value: [{ clientX: 325, clientY: 370 }] });
-    element.dispatchEvent(start);
-    const end = new Event("touchend", { bubbles: true });
-    Object.defineProperty(end, "changedTouches", { value: [{ clientX: 185, clientY: 372 }] });
-    element.dispatchEvent(end);
-  });
+  const pager = clubsApp.locator(".swipe-pager");
+  await sendSwipeTouch(pager, "touchstart", 325, 370);
+  await sendSwipeTouch(pager, "touchmove", 185, 372);
+  await expect(pager.locator('[data-pane="next"]')).toBeVisible();
+  await sendSwipeTouch(pager, "touchend", 185, 372);
   await expect(page.getByRole("heading", { name: "Schedule & fixtures" })).toBeVisible();
   await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
 
@@ -325,6 +322,36 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   await expect(playersSection).toBeVisible();
   await expect(playersSection.getByRole("searchbox", { name: "Find a player" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Player History" })).toHaveCount(0);
+});
+
+function sendSwipeTouch(pager, type, x, y) {
+  return pager.evaluate((element, [type, x, y]) => {
+    const touch = { clientX: x, clientY: y };
+    const event = new Event(type, { bubbles: true });
+    Object.defineProperties(event, { touches: { value: type === "touchend" ? [] : [touch] }, changedTouches: { value: [touch] } });
+    element.dispatchEvent(event);
+  }, [type, x, y]);
+}
+
+test("Matchday keeps the next panel ready during a deep page swipe and resets the scroll on arrival", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === "/api/stats/calendar" && response.ok()),
+    enterGuestMatchday(page),
+  ]);
+  const pager = page.locator("#matchday-pager");
+  await expect(pager.locator('[data-pane="next"]')).toBeHidden();
+  await pager.evaluate(element => window.scrollBy({ top: element.getBoundingClientRect().top + 320, behavior: "instant" }));
+  await expect.poll(() => pager.evaluate(element => element.getBoundingClientRect().top)).toBeLessThan(0);
+  await sendSwipeTouch(pager, "touchstart", 320, 470);
+  await sendSwipeTouch(pager, "touchmove", 135, 482);
+  await expect(pager).toHaveAttribute("data-swiping", "next");
+  await expect(pager.locator('[data-pane="next"]').getByRole("heading", { name: "Recent Matches", includeHidden: true })).toBeVisible();
+  await expect(page.locator(".bottom-nav")).toBeInViewport();
+  await sendSwipeTouch(pager, "touchend", 135, 482);
+  await expect(pager.locator('[data-pane="current"]').getByRole("heading", { name: "Recent Matches" })).toBeVisible();
+  await expect.poll(() => pager.evaluate(element => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(-2);
 });
 
 test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs transitions", async ({ page }) => {

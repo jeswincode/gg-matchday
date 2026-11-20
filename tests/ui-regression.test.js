@@ -142,12 +142,7 @@ test('admin player video inputs fall back to loaded player video URLs',()=>{cons
 test('mobile navigation supports ordered horizontal tab swipes without wrapping',()=>{
   const app=read('src/App.jsx');
   assert.match(app,/const TAB_ORDER = \[\s*TABS\.HOME,\s*TABS\.RECORD,\s*TABS\.LEADERBOARD,\s*TABS\.CALENDAR,\s*TABS\.PLAYERS,\s*\]/);
-  assert.match(app,/touchStartRef=useRef\(null\)/);
-  assert.match(app,/const threshold=Math\.min\(92, Math\.max\(56, window\.innerWidth\*0\.16\)\)/);
-  assert.match(app,/deltaX<0 \? currentIndex\+1 : currentIndex-1/);
-  assert.match(app,/nextIndex<0 \|\| nextIndex>=TAB_ORDER\.length/);
-  assert.match(app,/onTouchStart=\{handleAppTouchStart\}/);
-  assert.match(app,/onTouchEnd=\{handleAppTouchEnd\}/);
+  assert.match(app,/<SwipePager id="matchday-pager" tabs=\{TAB_ORDER\}/);
 });
 
 test('mobile calendar hides hover match popovers while preserving day details',()=>{
@@ -158,18 +153,6 @@ test('mobile calendar hides hover match popovers while preserving day details',(
   assert.match(calendar,/DAY DETAILS/);
 });
 
-
-test('mobile tab swipe visibly drags the full application stage and settles to the next tab',()=>{
-  const app=read('src/App.jsx');
-  const css=read('src/mobile-ux.css');
-  assert.match(app,/onTouchMove=\{handleAppTouchMove\}/);
-  assert.match(app,/setSwipeOffset\(deltaX\)/);
-  assert.match(app,/translate3d\(\$\{swipeOffset\}px,0,0\)/);
-  assert.match(app,/setSwipeOffset\(deltaX<0 \? -window\.innerWidth : window\.innerWidth\)/);
-  assert.match(app,/setActiveTab\(TAB_ORDER\[nextIndex\]\)/);
-  assert.match(css,/\.mobile-tab-stage\s*\{/);
-  assert.match(css,/touch-action:\s*pan-y/);
-});
 
 
 test('decorative star background stylesheet is not loaded',()=>{

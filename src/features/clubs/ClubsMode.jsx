@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import SwipePager from "../../components/SwipePager";
 import { api, invalidateResources } from "../../lib/api";
 import { useLiveRevision } from "../../lib/liveData";
 import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
@@ -190,11 +191,10 @@ export default function ClubsMode({
   const [formationLoading, setFormationLoading] = useState(false);
   const [showFormationForm, setShowFormationForm] = useState(false);
   const [showClubGuide, setShowClubGuide] = useState(false);
-  const swipeStartRef = useRef(null);
   const [respondingId, setRespondingId] = useState(null);
   const [nameSavingId, setNameSavingId] = useState(null);
   const [error, setError] = useState("");
-  const [myClubLoadFailed, setMyClubLoadFailed] = useState(false);
+  const [myClubError, setMyClubError] = useState("");
   const [myClubLoadKey, setMyClubLoadKey] = useState(0);
   const [selectedPlayers, setSelectedPlayers] = useState(["", "", "", ""]);
   const [formation, setFormation] = useState("1-2-1");
@@ -883,7 +883,7 @@ export default function ClubsMode({
     : activeSection === "overview"
       ? ultimateSubsection === "matches" ? "matches" : "overview"
       : activeSection;
-  const navigatePrimaryTab = key => {
+  const navigatePrimaryTab = (key, duringSwipe = false) => {
     const item = navigationItems.find(entry => entry.key === key);
     if (!item) return;
     if (key === "admin" && isAdmin) {
@@ -896,7 +896,7 @@ export default function ClubsMode({
       if (key === "overview") setAdminWorkspace(false);
       setAdminRecordId(null);
       setActiveSection(key);
-      window.scrollTo({ top: 0, behavior: "instant" });
+      if (!duringSwipe) window.scrollTo({ top: 0, behavior: "instant" });
       return;
     }
     if (key === "overview") {
@@ -911,51 +911,14 @@ export default function ClubsMode({
     } else {
       setActiveSection(key);
     }
-    if (activePrimaryTabKey !== key) window.scrollTo({ top: 0, behavior: "instant" });
+    if (activePrimaryTabKey !== key && !duringSwipe) window.scrollTo({ top: 0, behavior: "instant" });
     announce("Opened " + item.label + ".");
-  };
-  const handleClubsTouchStart = event => {
-    const target = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
-    if (target?.closest?.("input, textarea, select, button, a, [contenteditable='true'], [data-no-tab-swipe], .clubs-nav, .clubs-section-tabs, .clubs-subnav")) {
-      swipeStartRef.current = null;
-      return;
-    }
-    const touch = event.changedTouches?.[0];
-    swipeStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
-  };
-  const handleClubsTouchMove = event => {
-    const start = swipeStartRef.current;
-    const touch = event.touches?.[0];
-    if (!start || !touch) return;
-
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-
-    // Once a gesture is clearly vertical, stop tracking it as a tab swipe.
-    // We never prevent the browser's default vertical scrolling behavior.
-    if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.1) {
-      swipeStartRef.current = null;
-    }
-  };
-  const handleClubsTouchEnd = event => {
-    const start = swipeStartRef.current;
-    swipeStartRef.current = null;
-    if (!start) return;
-    const touch = event.changedTouches?.[0];
-    if (!touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 72 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
-    const currentIndex = primaryTabKeys.indexOf(activePrimaryTabKey);
-    if (currentIndex < 0) return;
-    const nextIndex = dx < 0 ? Math.min(primaryTabKeys.length - 1, currentIndex + 1) : Math.max(0, currentIndex - 1);
-    if (nextIndex !== currentIndex) navigatePrimaryTab(primaryTabKeys[nextIndex]);
   };
   const currentClubMemberKey = (currentClub?.memberIds || []).map(String).join(",");
 
   useEffect(() => {
     let active = true;
-    if (activeSection !== "myClub" || !currentClub?._id) {
+    if (adminOnlyView || !currentClub?._id) {
       return undefined;
     }
 
@@ -999,28 +962,25 @@ export default function ClubsMode({
         });
         setPlayerAttributes(nextAttributes);
 
-        setMyClubLoadFailed(failures.length > 0);
         if (failures.length) {
           const labels = failures.map(item => item.label);
           const requestId = failures.map(item => item.error?.requestId).find(Boolean);
           const detail = failures[0].error?.message;
           const reference = requestId && !String(detail || "").includes(requestId) ? ` Reference ID: ${requestId}.` : "";
-          setError(`Couldn’t load ${labels.join(", ").toLowerCase()}. ${detail || "Retry to try again."}${reference}`);
+          setMyClubError(`Couldn’t load ${labels.join(", ").toLowerCase()}. ${detail || "Retry to try again."}${reference}`);
         } else {
-          setMyClubLoadFailed(false);
-          setError("");
+          setMyClubError("");
         }
       })
       .catch(requestError => {
         if (!active) return;
-        setMyClubLoadFailed(true);
-        setError(requestError.message || "Club details could not be loaded.");
+        setMyClubError(requestError.message || "Club details could not be loaded.");
       });
 
     return () => {
       active = false;
     };
-  }, [activeSection, currentClub?._id, currentClubMemberKey, myClubLoadKey, clubsRevision]);
+  }, [adminOnlyView, currentClub?._id, currentClubMemberKey, myClubLoadKey, clubsRevision]);
 
 
   const availablePlayers = useMemo(
@@ -1236,7 +1196,7 @@ export default function ClubsMode({
     : null;
 
   return (
-    <main className="clubs-app clubs-workspace" onTouchStart={handleClubsTouchStart} onTouchMove={handleClubsTouchMove} onTouchEnd={handleClubsTouchEnd} onTouchCancel={() => { swipeStartRef.current = null; }}>
+    <main className="clubs-app clubs-workspace">
       <header className="clubs-topbar clubs-compact-header">
         <div className="clubs-header-identity">
           <ClubCrest club={currentClub} name={currentClub?.name || "GG"} />
@@ -1253,16 +1213,16 @@ export default function ClubsMode({
         <div className="clubs-workspace-content">
 
       {ownProfileError && <p className="clubs-error" role="alert">{ownProfileError}</p>}
-      {error && (
+      {(error || (activeSection === "myClub" && myClubError)) && (
         <div className="clubs-error" role="alert">
-          <span>{error}</span>
-          {activeSection === "myClub" && myClubLoadFailed && (
+          <span>{error || myClubError}</span>
+          {activeSection === "myClub" && myClubError && (
             <button
               type="button"
               className="clubs-error-retry"
               onClick={() => {
                 setError("");
-                setMyClubLoadFailed(false);
+                setMyClubError("");
                 setMyClubLoadKey(key => key + 1);
               }}
             >
@@ -1273,7 +1233,9 @@ export default function ClubsMode({
       )}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
-      {activeSection === "overview" && ultimateSubsection === "overview" ? (
+      <SwipePager tabs={primaryTabKeys.includes(activePrimaryTabKey) ? primaryTabKeys : [activePrimaryTabKey]}
+        active={activePrimaryTabKey} onNavigate={key => navigatePrimaryTab(key, true)} renderPane={pane => <>
+      {pane === "overview" ? (
         <>
       <section className="clubs-hub-spotlight" aria-label="Club and fixtures">
         <div className="clubs-hub-spotlight-copy">
@@ -1631,19 +1593,19 @@ export default function ClubsMode({
         </section>
       )}
         </>
-      ) : activeSection === "overview" && ultimateSubsection === "matches" ? (
+      ) : pane === "matches" ? (
         <ClubFixtures clubs={clubMap} fixtures={clubMatches} currentClub={currentClub}
           captainClubs={myCaptainClubs} playerId={currentPlayerId} requests={captainRequests}
           notice={fixtureNotice} busyId={busyId} loading={loading} submitting={matchSubmitting}
           onRequest={requestClubMatch} onRespond={respondToClubMatch} onCancel={cancelClubMatch}
           onBetting={currentPlayerId ? () => navigatePrimaryTab("betting") : undefined} />
-      ) : activeSection === "betting" && currentPlayerId ? (
+      ) : pane === "betting" && currentPlayerId ? (
         <ClubBetting key={currentPlayerId} clubs={clubMap} fixtures={clubMatches}
           limits={meta?.betting} revision={clubsRevision} onWallet={() => navigatePrimaryTab("playerDesk")} />
-      ) : activeSection === "playerDesk" && currentPlayerId ? (
+      ) : pane === "playerDesk" && currentPlayerId ? (
         <ClubsPlayerDesk key={currentPlayerId} player={players.find(player => String(player._id) === currentPlayerId)}
           playerId={currentPlayerId} club={currentClub} revision={clubsRevision} onBetting={() => navigatePrimaryTab("betting")} />
-      ) : activeSection === "players" ? (
+      ) : pane === "players" ? (
         <>
         <section className="clubs-section clubs-players-section">
           <div className="clubs-section-heading">
@@ -1692,7 +1654,7 @@ export default function ClubsMode({
           {discoveryPlayers.length === 0 && <div className="clubs-empty">No players found.</div>}
         </section>
         </>
-      ) : activeSection === "market" && currentPlayerId ? (
+      ) : pane === "market" && currentPlayerId ? (
         <>
         {myCaptainClubs.length > 0 && (
         <section id="clubs-auction-desk" className="clubs-section clubs-market-offer-panel">
@@ -1745,7 +1707,7 @@ export default function ClubsMode({
           )}
         </section>
         </>
-      ) : adminOnlyView && activeSection === "adminDashboard" ? (
+      ) : adminOnlyView && pane === "adminDashboard" ? (
         <section className="clubs-section clubs-admin-dashboard">
           <div className="clubs-admin-hero">
             <div className="clubs-admin-hero-copy">
@@ -2034,7 +1996,7 @@ export default function ClubsMode({
           </aside>
           </div>
         </section>
-      ) : adminOnlyView && activeSection === "adminApplications" ? (
+      ) : adminOnlyView && pane === "adminApplications" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading">
             <div><p className="clubs-eyebrow">PERMISSIONS</p><h2>Club formation approvals</h2></div>
@@ -2071,7 +2033,7 @@ export default function ClubsMode({
             </div>
           )}
         </section>
-      ) : adminOnlyView && activeSection === "adminClubs" ? (
+      ) : adminOnlyView && pane === "adminClubs" ? (
         <section className="clubs-section clubs-admin-directory">
           <div className="clubs-section-heading">
             <div>
@@ -2180,7 +2142,7 @@ export default function ClubsMode({
             </div>
           )}
         </section>
-      ) : adminOnlyView && activeSection === "adminMatches" ? (
+      ) : adminOnlyView && pane === "adminMatches" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading"><div><p className="clubs-eyebrow">MATCHDAY OVERSIGHT</p><h2>Club Matches</h2><span>Track scheduled fixtures and their Matchday linkage.</span></div><span>{adminMatches.length}</span></div>
           {adminMatches.length === 0 ? <div className="clubs-empty">No Club Matches recorded yet.</div> : (
@@ -2198,7 +2160,7 @@ export default function ClubsMode({
             </div>
           )}
         </section>
-      ) : activeSection === "reviews" ? (
+      ) : pane === "reviews" ? (
         <section className="clubs-section">
           <div className="clubs-section-heading">
             <div><p className="clubs-eyebrow">PLAYER REVIEWS</p><h2>Review players you actually played with or against</h2></div>
@@ -2255,7 +2217,7 @@ export default function ClubsMode({
             </div>
           )}
         </section>
-      ) : activeSection === "myClub" && currentPlayerId && myClubSubsection === "squad" ? (
+      ) : pane === "myClub" && currentPlayerId && myClubSubsection === "squad" ? (
         <>
       <section className="clubs-section clubs-my-club-panel">
           {!currentClub ? (
@@ -2584,6 +2546,7 @@ export default function ClubsMode({
         </section>
         </>
       ) : null}
+        </>} />
       <footer className="clubs-footer">
         <span>Made by</span>
         <strong>Jeswin</strong>

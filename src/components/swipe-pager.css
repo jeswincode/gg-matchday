@@ -1,0 +1,25 @@
+.swipe-pager { position: relative; min-width: 0; }
+.swipe-pane:not([data-pane="current"]) { display: none; }
+.swipe-pager .tab-content,
+.swipe-pager .clubs-section { animation: none; }
+
+@media (pointer: coarse), (max-width: 760px) {
+  .swipe-pager { touch-action: pan-y pinch-zoom; overflow-x: clip; overflow-anchor: none; }
+  .swipe-pager[data-swiping] .swipe-pane[data-pane="current"] {
+    transform: translate3d(var(--pager-x, 0px), 0, 0);
+  }
+  .swipe-pager[data-swiping="next"] .swipe-pane[data-pane="next"],
+  .swipe-pager[data-swiping="previous"] .swipe-pane[data-pane="previous"] {
+    display: flow-root;
+    position: absolute;
+    inset: var(--pager-top, 0px) 0 auto;
+    transform: translate3d(calc(var(--pane-edge) + var(--pager-x, 0px)), 0, 0);
+  }
+  .swipe-pane[data-pane="next"] { --pane-edge: 100%; }
+  .swipe-pane[data-pane="previous"] { --pane-edge: -100%; }
+  .swipe-pager[data-settling] .swipe-pane { transition: transform 150ms cubic-bezier(.2,.75,.2,1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swipe-pager[data-swiping] .swipe-pane { transition: none; }
+}
