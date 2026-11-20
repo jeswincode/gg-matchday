@@ -32,6 +32,8 @@ Take the next user-selected feature through local implementation, focused tests,
 
 ## Live data and performance
 
+- Matchday keeps neighboring mobile tabs laid out and refreshes the primary tab data while the workspace is open. The mobile bottom dock matches the Clubs placement. The Matchday background video holds its frame during horizontal gestures and resumes after navigation settles, subject to the device's reduced-motion preference.
+
 - Match records, rankings, calendar history, open match details, player statistics and awards, and news refresh from saved data. Clubs views refresh fixtures, formation, market, reviews, administration, and wallet data. Chat and notifications refresh for signed-in users. The existing `CHAT_ENABLED` setting controls chat availability.
 - [The server](../server/services/liveData.js) watches selected MongoDB collections and sends refresh topics without records or identifiers on the public and authenticated streams. [The client](../src/lib/liveData.js) invalidates matching reads so active views use the normal APIs and access checks. It reconciles after reconnect, and uses bounded retries for outages.
 - A controlled Chromium walkthrough of the built frontend at desktop and mobile widths recorded **7 → 0** REST reads before guest entry, **10 → 7** through Home, and **18 → 14** through the primary tabs and Clubs. Exact repeat reads in that walkthrough went from **4 → 0**. Both WebP welcome posters are about **88% smaller** than their original PNGs, which stay available as fallbacks. These measurements cover the test journey and asset sizes. Hosted latency under real traffic, free Render cold starts, and request fan-out on a large Clubs fixture list remain areas to measure.

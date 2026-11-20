@@ -342,7 +342,12 @@ test("Matchday keeps the next panel ready during a deep page swipe and resets th
     enterGuestMatchday(page),
   ]);
   const pager = page.locator("#matchday-pager");
-  await expect(pager.locator('[data-pane="next"]')).toBeHidden();
+  const nextPane = pager.locator('[data-pane="next"]');
+  const navigation = page.getByRole("navigation", { name: "Matchday tabs" });
+  const background = page.locator("#gg-background-video");
+  await expect(nextPane).toBeHidden();
+  await expect(nextPane).toHaveCSS("display", "flow-root");
+  await expect(background).toHaveJSProperty("autoplay", true);
   await pager.evaluate(element => window.scrollBy({ top: element.getBoundingClientRect().top + 320, behavior: "instant" }));
   await expect.poll(() => pager.evaluate(element => element.getBoundingClientRect().top)).toBeLessThan(0);
   const touch = await nativeTouch(page);
@@ -350,10 +355,15 @@ test("Matchday keeps the next panel ready during a deep page swipe and resets th
   await touch("touchMove", 250, 476);
   await touch("touchMove", 135, 482);
   await expect(pager).toHaveAttribute("data-swiping", "next");
-  await expect(pager.locator('[data-pane="next"]').getByRole("heading", { name: "Recent Matches", includeHidden: true })).toBeVisible();
-  await expect(page.locator(".bottom-nav")).toBeInViewport();
+  await expect(nextPane.getByRole("heading", { name: "Recent Matches", includeHidden: true })).toBeVisible();
+  await expect(navigation).toBeInViewport();
+  await expect(navigation).toHaveCSS("bottom", "0px");
+  await expect(background).toHaveJSProperty("paused", true);
+  await expect(background).toHaveJSProperty("autoplay", false);
   await touch("touchEnd");
   await expect(pager.locator('[data-pane="current"]').getByRole("heading", { name: "Recent Matches" })).toBeVisible();
+  await expect(navigation.getByRole("button", { name: /Record$/ })).toHaveAttribute("aria-current", "page");
+  await expect(background).toHaveJSProperty("autoplay", true);
   await expect.poll(() => pager.evaluate(element => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(-2);
 });
 

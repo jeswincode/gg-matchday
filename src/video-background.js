@@ -17,14 +17,38 @@ overlay.className = 'gg-video-overlay';
 overlay.setAttribute('aria-hidden', 'true');
 document.body.prepend(overlay);
 
-const play = () => video.play().catch(() => {});
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let resumeTimer = 0;
+let swiping = false;
+
+const play = () => {
+  if (video.autoplay && !reducedMotion.matches) video.play().catch(() => {});
+};
+
+export function pauseBackgroundForSwipe(moving) {
+  window.clearTimeout(resumeTimer);
+  if (moving) {
+    swiping = true;
+    syncPlayback();
+  } else if (swiping) {
+    resumeTimer = window.setTimeout(() => {
+      swiping = false;
+      syncPlayback();
+    }, 180);
+  }
+}
+
+function syncPlayback() {
+  video.classList.toggle('gg-video-reduced-motion', reducedMotion.matches);
+  video.autoplay = !swiping && !reducedMotion.matches;
+  if (video.autoplay) play();
+  else video.pause();
+}
+
 video.addEventListener('loadeddata', play, { once: true });
-play();
+reducedMotion.addEventListener('change', syncPlayback);
+syncPlayback();
 
 video.addEventListener('error', () => {
   video.classList.add('gg-video-fallback');
 }, { once: true });
-
-if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-  video.classList.add('gg-video-reduced-motion');
-}

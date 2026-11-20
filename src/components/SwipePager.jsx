@@ -12,10 +12,11 @@ function allowsSwipe(target, root) {
   return true;
 }
 
-export default function SwipePager({ tabs, active, onNavigate, renderPane, id }) {
+export default function SwipePager({ tabs, active, onNavigate, onMotionChange, renderPane, id }) {
   const surface = useRef(null);
   const readTabs = useEffectEvent(() => tabs);
   const navigate = useEffectEvent(tab => onNavigate(tab));
+  const reportMotion = useEffectEvent(moving => onMotionChange?.(moving));
   const activeIndex = tabs.indexOf(active);
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function SwipePager({ tabs, active, onNavigate, renderPane, id })
       delete pager.dataset.settling;
       pager.style.removeProperty("--pager-x");
       pager.style.removeProperty("--pager-top");
+      reportMotion(false);
     }
 
     function start(event) {
@@ -72,6 +74,7 @@ export default function SwipePager({ tabs, active, onNavigate, renderPane, id })
         if (Math.abs(dy) >= 12 && Math.abs(dy) > Math.abs(dx)) { gesture = undefined; return; }
         if (Math.abs(dx) < 6 || Math.abs(dx) < Math.abs(dy)) return;
         current.locked = true;
+        reportMotion(true);
         current.width = pager.clientWidth;
         area.setPointerCapture(event.pointerId);
         pager.style.setProperty("--pager-top", Math.max(0, -pager.getBoundingClientRect().top) + "px");

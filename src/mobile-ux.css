@@ -1232,6 +1232,99 @@
   .mobile-tab-stage > * {
     max-width: 100%;
   }
+
+  .app--matchday {
+    padding-top: 10px;
+    padding-bottom: calc(86px + env(safe-area-inset-bottom));
+  }
+
+  .app--matchday .topbar,
+  .app--matchday .account-bar {
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border-radius: 16px;
+    backdrop-filter: none;
+  }
+
+  .app--matchday .topbar::before {
+    animation: none;
+  }
+
+  .app--matchday .topbar .eyebrow {
+    margin-bottom: 2px;
+  }
+
+  .app--matchday .topbar h1 {
+    font-size: clamp(1.05rem, 4.6vw, 1.5rem);
+    line-height: 1.1;
+  }
+
+  .app--matchday .gg-header-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+
+  .app--matchday .gg-header-actions > .secondary-button,
+  .app--matchday .gg-theme button {
+    min-height: 40px;
+    padding: 4px 6px;
+    font-size: .75rem;
+  }
+
+  .app--matchday .gg-theme {
+    flex: 0 0 auto;
+    gap: 2px;
+    padding: 2px;
+  }
+
+  .app--matchday .signed-out-account {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .app--matchday .account-entry-hint {
+    display: none;
+  }
+
+  .app--matchday .bottom-nav {
+    inset: auto 0 0;
+    transform: none;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    padding: 4px max(4px, env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+    border-width: 1px 0 0;
+    border-radius: 0;
+    background: var(--panel);
+    box-shadow: 0 -8px 25px #0005;
+    backdrop-filter: none;
+  }
+
+  .app--matchday .bottom-nav button {
+    min-height: 51px;
+    padding: 4px 1px;
+    border-radius: 10px;
+  }
+
+  .app--matchday .bottom-nav button small {
+    min-height: 0;
+    font-size: clamp(.59rem, 2.6vw, .73rem);
+    line-height: 1.1;
+    color: inherit;
+  }
+}
+
+@media (min-width: 375px) and (max-width: 760px) {
+  .app--matchday .topbar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "title live actions";
+  }
+
+  .app--matchday .topbar .status-dot {
+    padding-inline: 6px;
+    font-size: .62rem;
+  }
 }
 
 

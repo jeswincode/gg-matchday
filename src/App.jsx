@@ -4,6 +4,7 @@ import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
 import SwipePager from "./components/SwipePager";
 import { scrollToPagerStart } from "./lib/pagerScroll";
+import { pauseBackgroundForSwipe } from "./video-background";
 import NotificationIndicator from './components/NotificationIndicator';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 // Keep the five primary navigation destinations in the initial JS graph.
@@ -537,10 +538,7 @@ function App() {
   const liveActive = experience === "app" || productMode === "clubs";
   const accountId = isSignedIn ? backendUser?.id : null;
   const matchdayActive = liveActive && productMode === "matchday";
-  const showArchive = matchdayActive && (activeTab === TABS.HOME || activeTab === TABS.RECORD);
-  const showHome = matchdayActive && activeTab === TABS.HOME;
-  const showPlayerRanks = showHome || (matchdayActive && activeTab === TABS.PLAYERS);
-  const matchPages = activeTab === TABS.RECORD ? archivePage : 1;
+  const primaryTabsActive = matchdayActive && activeTab !== TABS.ADMIN;
 
   useEffect(() => {
     if (!liveActive) return undefined;
@@ -576,9 +574,9 @@ function App() {
   }, [matchdayActive, refreshKey]);
 
   useEffect(() => {
-    if (!showArchive) return undefined;
+    if (!primaryTabsActive) return undefined;
     let active = true;
-    const pages = Array.from({ length: matchPages }, (_, index) =>
+    const pages = Array.from({ length: archivePage }, (_, index) =>
       api(`/matches?page=${index + 1}&limit=50`),
     );
     Promise.all(pages).then(results => {
@@ -590,26 +588,26 @@ function App() {
     });
     api("/stats/overview").then(data => { if (active) setOverview(data); }).catch(() => {});
     return () => { active = false; };
-  }, [showArchive, matchPages, refreshKey]);
+  }, [primaryTabsActive, archivePage, refreshKey]);
 
   useEffect(() => {
-    if (!showHome) return undefined;
+    if (!primaryTabsActive) return undefined;
     let active = true;
     api("/news?limit=12").then(data => {
       if (active) setNews(Array.isArray(data) ? data : []);
     }).catch(error => { if (active) console.error(error); })
       .finally(() => { if (active) setNewsLoading(false); });
     return () => { active = false; };
-  }, [showHome, newsRevision]);
+  }, [primaryTabsActive, newsRevision]);
 
   useEffect(() => {
-    if (!showPlayerRanks) return undefined;
+    if (!primaryTabsActive) return undefined;
     let active = true;
     api("/stats/leaderboard").then(data => {
       if (active) setLeaderboard(Array.isArray(data.leaderboard) ? data.leaderboard : []);
     }).catch(error => { if (active) console.error(error); });
     return () => { active = false; };
-  }, [showPlayerRanks, refreshKey]);
+  }, [primaryTabsActive, refreshKey]);
 
   // Update open player profiles, roster cards and admin controls without
   // remounting tabs or forcing a full browser reload.
@@ -2171,7 +2169,7 @@ function App() {
   }
 
   return (
-    <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : "")}
+    <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : " app--matchday")}
       data-page-swipes={activeTab === TABS.ADMIN ? undefined : ""}>
       <NotificationIndicator accountId={accountId} />
 
@@ -2342,6 +2340,7 @@ function App() {
       ===================================================== */}
 
       {activeTab !== TABS.ADMIN && <SwipePager id="matchday-pager" tabs={TAB_ORDER} active={activeTab} onNavigate={setActiveTab}
+        onMotionChange={pauseBackgroundForSwipe}
         renderPane={pane => <>
       {pane === TABS.HOME && (
         <HomePage
@@ -2512,7 +2511,7 @@ function App() {
           NAVIGATION
       ===================================================== */}
 
-      {activeTab !== TABS.ADMIN && <nav className="bottom-nav">
+      {activeTab !== TABS.ADMIN && <nav className="bottom-nav" aria-label="Matchday tabs">
 
         <NavButton
           active={
@@ -2601,6 +2600,7 @@ function NavButton({
   return (
     <button
       type="button"
+      aria-current={active ? "page" : undefined}
       className={
         active
           ? "active"

@@ -6,6 +6,26 @@
 @media (pointer: coarse), (max-width: 760px) {
   [data-page-swipes], .swipe-pager { touch-action: pan-y pinch-zoom; }
   .swipe-pager { overflow-x: clip; overflow-anchor: none; }
+
+  /* Lay out Matchday's neighbors before the finger moves. The clipped box
+     keeps inactive content out of the page's scroll range. */
+  #matchday-pager > :is([data-pane="next"], [data-pane="previous"]) {
+    display: flow-root;
+    position: absolute;
+    inset: 0 0 auto;
+    height: 0;
+    overflow: clip;
+    visibility: hidden;
+  }
+
+  #matchday-pager[data-swiping="next"] > [data-pane="next"],
+  #matchday-pager[data-swiping="previous"] > [data-pane="previous"] {
+    inset-block-start: var(--pager-top, 0px);
+    height: auto;
+    overflow: visible;
+    visibility: visible;
+  }
+
   .swipe-pager[data-swiping] .swipe-pane[data-pane="current"] {
     transform: translate3d(var(--pager-x, 0px), 0, 0);
   }
