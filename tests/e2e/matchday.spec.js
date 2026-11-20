@@ -372,14 +372,16 @@ test("a short swipe can start on a leaderboard player or a calendar button witho
     await touch("touchEnd");
   }
   const rank = page.locator(".gg-leaderboard-table").getByRole("button", { name: "Swipe Test Player" });
-  await rank.scrollIntoViewIfNeeded();
+  await rank.evaluate(button => button.scrollIntoView({ block: "center", behavior: "instant" }));
+  await rank.click({ trial: true });
   const player = await rank.boundingBox();
   await rank.evaluate(button => button.addEventListener("click", () => { document.body.dataset.rankTapped = "true"; }));
   const x = Math.round(player.x + player.width * .6);
   const y = Math.round(player.y + player.height / 2);
   await touch("touchStart", x, y);
-  await touch("touchMove", x - 24, y + 4);
-  await touch("touchMove", x - 48, y + 8);
+  await touch("touchMove", x - 30, y + 4);
+  await touch("touchMove", x - 62, y + 8);
+  await expect(page.locator("#matchday-pager")).toHaveAttribute("data-swiping", "next");
   await touch("touchEnd");
   await expect(page.getByRole("heading", { name: "Calendar", exact: true })).toBeVisible();
   await expect(page.locator("body")).not.toHaveAttribute("data-rank-tapped", "true");
