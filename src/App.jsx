@@ -14,8 +14,9 @@ import MatchRecordForm from './features/matches/MatchRecordForm';
 // Heavier destinations stay split, but suspend only inside their own view.
 const Clasico = lazy(() => import('./components/Clasico'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
-const preloadClubsMode = () => import('./features/clubs/ClubsMode');
-const ClubsMode = lazy(preloadClubsMode);
+// Clubs is a primary product surface, so its code must be ready before
+// navigation; background prefetch can race the user's first click.
+import ClubsMode from './features/clubs/ClubsMode';
 const Awards = lazy(()=>import('./components/Awards'));
 const MatchDetail = lazy(()=>import('./components/MatchDetail'));
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
@@ -2369,16 +2370,6 @@ function App() {
       ? "welcome"
       : experience;
 
-  useEffect(() => {
-    if (experience !== "app") return undefined;
-    const connection = navigator.connection;
-    if (connection?.saveData || connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") {
-      return undefined;
-    }
-    const timeout = window.setTimeout(() => { void preloadClubsMode().catch(() => {}); }, 1600);
-    return () => window.clearTimeout(timeout);
-  }, [experience]);
-
   const modeTransitionLayer = modeTransition ? (
     <div className={`product-mode-transition product-mode-transition--${modeTransition}`} aria-hidden="true">
       <span className="product-mode-wave product-mode-wave--one" />
@@ -2394,9 +2385,7 @@ function App() {
 
     return (
       <>
-        <Suspense fallback={<div className="loading-panel">Opening Clubs…</div>}>
-          <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
-        </Suspense>
+        <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin} />
         {modeTransitionLayer}
       </>
     );
@@ -2442,7 +2431,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onPointerEnter={()=>{void preloadClubsMode().catch(()=>{});}} onFocus={()=>{void preloadClubsMode().catch(()=>{});}} onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={()=>switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}

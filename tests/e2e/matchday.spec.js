@@ -86,7 +86,7 @@ test("first visits to all five Matchday tabs keep the shell visible and never sh
   const shell = page.locator("main.app");
   const topbar = page.locator(".topbar");
   for (const label of ["Record", "Leaderboard", "Calendar", "Players", "Home"]) {
-    await navigation.getByRole("button", { name: label, exact: true }).click();
+    await navigation.getByRole("button", { name: new RegExp(label + "$") }).click();
     await expect(shell).toBeVisible();
     await expect(topbar).toBeVisible();
     await expect(navigation).toBeVisible();
@@ -160,6 +160,34 @@ test("My Club keeps stats and history available when wallet loading fails, then 
   await expect.poll(() => walletFailures).toBeGreaterThanOrEqual(2);
   await expect(alert).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Your individual budget" })).toBeVisible();
+});
+
+test("Clubs opens on first click without replacing the page with a loading screen", async ({ page }) => {
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+
+  // Track even short-lived fallbacks, not just what remains after the click.
+  await page.evaluate(() => {
+    window.__clubsEntryFallbackSeen = false;
+    window.__clubsEntryObserver = new MutationObserver(() => {
+      if (document.body.textContent?.includes("Opening Clubs…")) {
+        window.__clubsEntryFallbackSeen = true;
+      }
+    });
+    window.__clubsEntryObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+  });
+
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.locator(".clubs-app")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Club Hub" })).toBeVisible();
+  expect(await page.evaluate(() => {
+    window.__clubsEntryObserver.disconnect();
+    return window.__clubsEntryFallbackSeen;
+  })).toBe(false);
+
+  await page.getByRole("button", { name: /Matchday/i }).first().click();
+  await expect(page.locator("main.app")).toBeVisible();
+  await expect(page.locator(".bottom-nav")).toBeVisible();
 });
 
 test("Clubs Hub exposes task-based primary tabs and supports mobile swipe navigation", async ({ page }) => {

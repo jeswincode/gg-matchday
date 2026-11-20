@@ -33,8 +33,10 @@ test("Clubs mode keeps formation controls, discovery and admin surfaces while us
 
 test("Clubs mode is available from the main navigation to every viewer", () => {
   const app = fs.readFileSync("src/App.jsx", "utf8");
-  assert.match(app, /<button className="secondary-button" type="button".*onClick=\{\(\)=>switchProductMode\("clubs"\)\}>Clubs<\/button>/);
-  assert.match(app, /onPointerEnter=\{\(\)=>\{void preloadClubsMode\(\)/);
+  assert.match(app, /<button className="secondary-button" type="button" onClick=\{\(\)=>switchProductMode\("clubs"\)\}>Clubs<\/button>/);
+  // Loading the Clubs code only after the click showed a full-screen fallback.
+  assert.match(app, /import ClubsMode from '\.\/features\/clubs\/ClubsMode'/);
+  assert.doesNotMatch(app, /Opening Clubs…|lazy\(preloadClubsMode\)|preloadClubsMode/);
   assert.doesNotMatch(app, /Clubs is temporarily locked/);
   assert.match(app, /const \[productMode,setProductMode\]=useState\("matchday"\)/);
   assert.doesNotMatch(app, /localStorage\.getItem\("gg-product-mode"\)/);
