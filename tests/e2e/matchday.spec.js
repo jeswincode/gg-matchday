@@ -190,6 +190,52 @@ test("Clubs opens on first click without replacing the page with a loading scree
   await expect(page.locator(".bottom-nav")).toBeVisible();
 });
 
+test("admin control center keeps distinct workspaces and returns to Matchday", async ({ page }) => {
+  await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
+  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: /Admin/ }).first().click();
+
+  const admin = page.getByRole("region", { name: "GG Matchday admin control center" });
+  await expect(admin).toBeVisible();
+  await expect(admin.getByRole("heading", { name: "Overview" })).toBeVisible();
+  const nav = admin.getByRole("navigation", { name: "Administration sections" });
+  for (const [name, title] of [
+    ["Editor requests", "Editor requests"],
+    ["Active editors", "Active editors"],
+    ["OVR attributes", "OVR attributes"],
+    ["Profile videos", "Profile videos"],
+    ["Match audit", "Match audit"],
+    ["Rating disputes", "Rating disputes"],
+    ["System health", "System health"],
+    ["Role permissions", "Role permissions"],
+  ]) {
+    await nav.getByRole("button", { name, exact: true }).click();
+    await expect(admin.getByRole("heading", { name: title, exact: true }).first()).toBeVisible();
+    await expect(page.locator("main.app")).toBeVisible();
+  }
+  await admin.getByRole("button", { name: "Back to Matchday" }).click();
+  await expect(page.locator(".bottom-nav")).toBeVisible();
+  await expect(page.locator(".topbar")).toBeVisible();
+});
+
+test("mobile admin navigation opens as a drawer and can return to Matchday", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
+  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await page.getByRole("button", { name: /Admin/ }).first().click();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  const open = page.getByRole("button", { name: "Open admin sections" });
+  await open.click();
+  await expect(open).toHaveAttribute("aria-expanded", "true");
+  const sidebar = page.getByRole("navigation", { name: "Administration sections" });
+  await sidebar.getByRole("button", { name: "Active editors" }).click();
+  await expect(page.getByRole("heading", { name: "Active editors", exact: true }).first()).toBeVisible();
+  await expect(open).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("button", { name: "Matchday", exact: true }).first().click();
+  await expect(page.locator(".bottom-nav")).toBeVisible();
+});
+
 test("Clubs Hub exposes task-based primary tabs and supports mobile swipe navigation", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);

@@ -2404,7 +2404,7 @@ function App() {
   }
 
   return (
-    <main className="app" onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
+    <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : "")} onTouchStart={handleAppTouchStart} onTouchMove={handleAppTouchMove} onTouchEnd={handleAppTouchEnd}>
 
       <div
         className="mobile-tab-stage"
@@ -2731,6 +2731,8 @@ function App() {
           adminActionLoading={adminActionLoading}
           handleEditorRequest={handleEditorRequest}
           revokeEditor={revokeEditor}
+          onBackToMatchday={() => { setActiveTab(TABS.HOME); window.scrollTo(0, 0); }}
+          onOpenClubsAdmin={() => switchProductMode("clubs")}
         />
         </Suspense>
       )}
@@ -2741,7 +2743,7 @@ function App() {
           NAVIGATION
       ===================================================== */}
 
-      <nav className="bottom-nav">
+      {activeTab !== TABS.ADMIN && <nav className="bottom-nav">
 
         <NavButton
           active={
@@ -2801,7 +2803,7 @@ function App() {
           }
         />
 
-      </nav>
+      </nav>}
 
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
       {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer}/>}

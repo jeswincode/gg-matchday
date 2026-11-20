@@ -102,7 +102,7 @@ function MigrationView({ match, onSaved }) {
 }
 
 
-function RatingDisputesPanel() {
+export function RatingDisputesPanel() {
   const [disputes, setDisputes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -250,7 +250,6 @@ export default function GGAdminPanel() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("actionable");
-  const [activePanel, setActivePanel] = useState("audit");
 
   const loadAudit = useCallback(async () => {
     setLoading(true);
@@ -289,12 +288,6 @@ export default function GGAdminPanel() {
         <h2>Historical Migration & Audit</h2>
         <p>Review stored GG-v3 calculations, investigate player disputes, and preserve explicit review decisions.</p>
       </div>
-      <div className="gg-admin-view-switch" role="group" aria-label="GG admin tools">
-        <button type="button" className={activePanel === "audit" ? "active" : ""} aria-pressed={activePanel === "audit"} onClick={() => setActivePanel("audit")}>Historical audit & migration</button>
-        <button type="button" className={activePanel === "disputes" ? "active" : ""} aria-pressed={activePanel === "disputes"} onClick={() => setActivePanel("disputes")}>Player rating disputes</button>
-      </div>
-      {activePanel === "audit" ? (
-        <>
       <div className="gg-audit-grid">
         <div><strong>{summary?.totalMatches ?? "—"}</strong><span>Total Matches</span></div>
         <div><strong>{summary?.complete ?? "—"}</strong><span>GG-v3 Complete</span></div>
@@ -330,8 +323,6 @@ export default function GGAdminPanel() {
       {selected && !selected.error && !selected.loading && <Modal title={selected.match.name || "Historical GG Migration"} onClose={() => setSelected(null)}><MigrationView key={selected.match._id} match={selected} onSaved={handleSaved} /></Modal>}
       {selected?.loading && <div className="loading-panel">Loading match…</div>}
       {selected?.error && <div className="global-message">{selected.error}</div>}
-        </>
-      ) : <RatingDisputesPanel />}
     </section>
   );
 }

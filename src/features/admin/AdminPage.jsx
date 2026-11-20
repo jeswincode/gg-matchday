@@ -1,12 +1,53 @@
-import {useState} from "react";
+
+const ADMIN_GROUPS = [
+  { heading:"WORKSPACE", items:[["overview","Overview","grid"]] },
+  { heading:"PEOPLE & ACCESS", items:[["requests","Editor requests","inbox"],["editors","Active editors","users"]] },
+  { heading:"PLAYER MANAGEMENT", items:[["attributes","OVR attributes","sliders"],["media","Profile videos","image"]] },
+  { heading:"FOOTBALL INTEGRITY", items:[["audit","Match audit","clipboard"],["disputes","Rating disputes","flag"],["clubs","Clubs operations","building"]] },
+  { heading:"PLATFORM", items:[["health","System health","pulse"],["permissions","Role permissions","shield"]] },
+];
+const ADMIN_DETAILS = {
+ overview:["COMMAND CENTER","Overview","Everything you need to manage Matchday, organized around real tasks."],
+ requests:["PEOPLE & ACCESS","Editor requests","Approve or reject requests for football editing privileges."],
+ editors:["PEOPLE & ACCESS","Active editors","Review active editorial access and revoke it when needed."],
+ attributes:["PLAYER MANAGEMENT","OVR attributes","Adjust evaluated Pace and Physical with the existing validated workflow."],
+ media:["PLAYER MANAGEMENT","Profile videos","Maintain each player's cinematic profile background."],
+ audit:["FOOTBALL INTEGRITY","Match audit","Review persisted calculations and carefully migrate historical GG ratings."],
+ disputes:["FOOTBALL INTEGRITY","Rating disputes","Investigate reports, record decisions and preserve the audit trail."],
+ health:["PLATFORM","System health","Monitor databases, dependencies, request health and backup evidence."],
+ permissions:["PLATFORM","Role permissions","Review the access model for viewers, editors and administrators."],
+};
+const ADMIN_PATHS = {
+ grid:"M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
+ inbox:"M4 4h16v14H4z M4 12h5l2 3h2l2-3h5",
+ users:"M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M8.5 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8 M17 4a4 4 0 0 1 0 8 M23 21v-2a4 4 0 0 0-3-3.87",
+ sliders:"M4 7h16 M4 17h16 M8 4v6 M16 14v6",
+ image:"M3 3h18v18H3z M7 8h.01 M3 17l5-5l4 4l3-3l6 6",
+ clipboard:"M8 4h8 M9 2h6v4H9z M5 5H3v16h18V5h-2 M7 11h10 M7 16h8",
+ flag:"M5 3v19 M5 4h13l-3 5l3 5H5",
+ building:"M3 21h18 M5 21V5l7-3l7 3v16 M9 9h2 M14 9h2 M9 13h2 M14 13h2 M10 21v-4h4v4",
+ pulse:"M3 12h4l3-7l4 14l3-7h4",
+ shield:"M12 22s8-4 8-10V5l-8-3l-8 3v7c0 6 8 10 8 10z M9 12l2 2l4-4",
+ back:"M19 12H5 M12 19l-7-7l7-7",
+ next:"M9 18l6-6l-6-6",
+ menu:"M4 6h16 M4 12h16 M4 18h16",
+ close:"M6 6l12 12 M18 6L6 18",
+};
+function AdminIcon({name}) {
+ return <svg viewBox="0 0 24 24" className="admin-icon" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={ADMIN_PATHS[name] || ADMIN_PATHS.grid}/></svg>;
+}
+import {useEffect, useRef, useState} from "react";
 import DatabaseHealth from "../../components/DatabaseHealth";
 import AccessDenied from "../../components/ui/AccessDenied";
-import GGAdminPanel from "./GGAdminPanel";
+import GGAdminPanel, { RatingDisputesPanel } from "./GGAdminPanel";
+import "./admin-workspace.css";
 
 export default function AdminPage({
   isAdmin,
   isSignedIn,
   signIn,
+  onBackToMatchday,
+  onOpenClubsAdmin,
   editorRequests,
   activeEditors,
   adminLoading,
@@ -33,23 +74,79 @@ export default function AdminPage({
   );
   const [savingOvrId, setSavingOvrId] = useState(null);
 
-  return (
-    <section className="tab-content">
-      {!isAdmin ? (
-        <AccessDenied
-          title="Admin access required"
-          description="This area is only available to the GG Matchday administrator."
-          signIn={!isSignedIn ? signIn : null}
-        />
-      ) : (
-        <>
-          <div className="page-title">
-            <p className="eyebrow">ADMIN</p>
-            <h2>Access Control</h2>
-            <p>Manage editor requests and active editors.</p>
-          </div>
+  const [section, setSection] = useState("overview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const contentRef = useRef(null);
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onKeyDown = event => { if (event.key === "Escape") setMenuOpen(false); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
+  const choose = id => {
+    if (id === "clubs") {
+      setMenuOpen(false);
+      onOpenClubsAdmin?.();
+      return;
+    }
+    setSection(id);
+    setMenuOpen(false);
+    window.scrollTo(0, 0);
+    window.requestAnimationFrame(() => contentRef.current?.focus({ preventScroll: true }));
+  };
+  const details = ADMIN_DETAILS[section] || ADMIN_DETAILS.overview;
 
-          <section className="card">
+
+  if (!isAdmin) return (
+    <section className="tab-content admin-access-blocked">
+      <button type="button" className="admin-back-link" onClick={onBackToMatchday}><AdminIcon name="back"/> Back to Matchday</button>
+      <AccessDenied title="Admin access required" description="Only verified GG Matchday administrators can access this workspace." signIn={!isSignedIn ? signIn : null}/>
+    </section>
+  );
+  return (
+    <section className="admin-workspace tab-content" aria-label="GG Matchday admin control center">
+      <div className="admin-mobile-bar">
+        <button type="button" className="admin-mobile-toggle" aria-label="Open admin sections" aria-controls="admin-sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><AdminIcon name="menu"/> Sections</button>
+        <strong>GG / ADMIN</strong>
+        <button type="button" className="admin-mobile-return" onClick={onBackToMatchday}><AdminIcon name="back"/> Matchday</button>
+      </div>
+      {menuOpen && <button type="button" className="admin-menu-scrim" aria-label="Close admin sections" onClick={() => setMenuOpen(false)}/>}
+      <div className="admin-layout">
+        <aside className={"admin-sidebar" + (menuOpen ? " admin-sidebar--open" : "")} id="admin-sidebar" aria-label="Admin sidebar">
+          <div className="admin-sidebar-brand"><span className="admin-brand-icon"><AdminIcon name="shield"/></span><span><strong>GG MATCHDAY</strong><small>ADMIN CONTROL CENTER</small></span><button className="admin-mobile-close" type="button" aria-label="Close admin sections" onClick={() => setMenuOpen(false)}><AdminIcon name="close"/></button></div>
+          <button type="button" className="admin-sidebar-back" onClick={onBackToMatchday}><AdminIcon name="back"/> Back to Matchday</button>
+          <nav aria-label="Administration sections" className="admin-sidebar-nav">
+            {ADMIN_GROUPS.map(group => <div className="admin-nav-group" key={group.heading}>
+              <span className="admin-nav-heading">{group.heading}</span>
+              {group.items.map(([id,label,icon]) => <button key={id} type="button" className={"admin-nav-item" + (section === id ? " admin-nav-item--active" : "")} aria-current={section === id ? "page" : undefined} onClick={() => choose(id)}><AdminIcon name={icon}/><span>{label}</span>{id === "requests" && !adminLoading && editorRequests.length > 0 && <small className="admin-queue-count">{editorRequests.length}</small>}{id === "clubs" && <span className="admin-external-mark">↗</span>}</button>)}
+            </div>)}
+          </nav>
+          <div className="admin-session"><span className="admin-session-light"/><span><strong>Administrator session</strong><small>Permission-protected controls</small></span></div>
+        </aside>
+        <div id="admin-main-content" className="admin-main-content" tabIndex={-1} ref={contentRef}>
+          <header className="admin-hero">
+            <div className="admin-breadcrumb"><span>Administration</span><AdminIcon name="next"/><strong>{details[0]}</strong></div>
+            <div className="admin-hero-row"><div><span className="admin-eyebrow">{details[0]}</span><h2>{details[1]}</h2><p>{details[2]}</p></div><span className="admin-authorized"><AdminIcon name="shield"/> Administrator</span></div>
+          </header>
+          <div className="admin-section-body">
+            {section === "overview" && (
+              <div className="admin-overview">
+                <div className="admin-welcome"><div><span className="admin-eyebrow">COMMAND OVERVIEW</span><h3>All your tools. One clear workspace.</h3><p>Review requests, manage player data, audit ratings or check platform health without scrolling through unrelated controls.</p></div><span className="admin-welcome-symbol"><AdminIcon name="shield"/></span></div>
+                <div className="admin-kpi-grid">
+                  <button type="button" className="admin-kpi" onClick={() => choose("requests")}><span>Pending requests</span><strong>{adminLoading ? "—" : editorRequests.length}</strong><small>Review requests <AdminIcon name="next"/></small></button>
+                  <button type="button" className="admin-kpi" onClick={() => choose("editors")}><span>Active editors</span><strong>{editorsLoading ? "—" : activeEditors.length}</strong><small>Manage access <AdminIcon name="next"/></small></button>
+                  <button type="button" className="admin-kpi" onClick={() => choose("attributes")}><span>Player profiles</span><strong>{players.length}</strong><small>Manage players <AdminIcon name="next"/></small></button>
+                </div>
+                <div className="admin-task-heading"><div><span className="admin-eyebrow">QUICK ACTIONS</span><h3>Choose a workspace</h3></div><p>Each area contains only the actions relevant to that task.</p></div>
+                <div className="admin-task-grid">
+                  {[["requests","inbox","ACCESS","Editor requests","Approve and reject editing access."],["attributes","sliders","PLAYERS","OVR attributes","Review player Pace and Physical."],["audit","clipboard","MATCH RECORDS","Historical match audit","Investigate GG-v3 rating integrity."],["disputes","flag","REVIEW","Rating disputes","Resolve player-reported issues."],["health","pulse","PLATFORM","System health","Check database and API operations."],["clubs","building","CLUBS","Clubs operations","Open the dedicated Clubs admin console."]].map(([id,icon,eyebrow,title,description]) =>
+                    <button className="admin-task" type="button" key={id} onClick={() => choose(id)}><span className="admin-task-icon"><AdminIcon name={icon}/></span><span><small>{eyebrow}</small><strong>{title}</strong><span>{description}</span></span><AdminIcon name="next"/></button>
+                  )}
+                </div>
+              </div>
+            )}
+            {section === "requests" && (<>
+<section className="card">
             <div className="section-heading">
               <div>
                 <p className="eyebrow">REQUESTS</p>
@@ -109,8 +206,9 @@ export default function AdminPage({
               </div>
             )}
           </section>
-
-          <section className="card">
+</>)}
+            {section === "editors" && (<>
+<section className="card">
             <div className="section-heading">
               <div>
                 <p className="eyebrow">TEAM ACCESS</p>
@@ -159,8 +257,9 @@ export default function AdminPage({
               </div>
             )}
           </section>
-
-          <section className="card gg-admin-video-manager">
+</>)}
+            {section === "attributes" && (<>
+<section className="card gg-admin-video-manager">
             <div className="section-heading">
               <div>
                 <p className="eyebrow">PLAYER OVR</p>
@@ -257,8 +356,9 @@ export default function AdminPage({
               </div>
             )}
           </section>
-
-          <section className="card gg-admin-video-manager">
+</>)}
+            {section === "media" && (<>
+<section className="card gg-admin-video-manager">
             <div className="section-heading">
               <div>
                 <p className="eyebrow">PLAYER IDENTITY</p>
@@ -319,11 +419,12 @@ export default function AdminPage({
               </div>
             )}
           </section>
-
-          <DatabaseHealth />
-          <GGAdminPanel />
-
-          <section className="formula-card">
+</>)}
+            {section === "audit" && <GGAdminPanel/>}
+            {section === "disputes" && <RatingDisputesPanel/>}
+            {section === "health" && <DatabaseHealth/>}
+            {section === "permissions" && (<>
+<section className="formula-card">
             <p className="eyebrow">PERMISSIONS</p>
             <h3>GG Matchday access</h3>
 
@@ -347,8 +448,11 @@ export default function AdminPage({
               deleting their account or history.
             </p>
           </section>
-        </>
-      )}
+</>)}
+          </div>
+          <div className="admin-workspace-foot"><span>GG Matchday • Administration</span><button type="button" onClick={onBackToMatchday}><AdminIcon name="back"/> Return to Matchday</button></div>
+        </div>
+      </div>
     </section>
   );
 }

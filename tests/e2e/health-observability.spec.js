@@ -9,6 +9,7 @@ async function enterMatchday(page) {
 test("admin health view shows live database pings, bounded API observations and honest backup limitations", async ({ page }) => {
   await enterMatchday(page);
   await page.getByRole("button", { name: /Admin/ }).first().click();
+  await page.getByRole("navigation", { name: "Administration sections" }).getByRole("button", { name: "System health" }).click();
 
   const health = page.locator(".database-health-workspace");
   await expect(health.getByRole("heading", { name: "Database health" })).toBeVisible();
