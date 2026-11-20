@@ -11,6 +11,8 @@ const icons = {
   reviews: "M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z",
   admin: "M4 5h6v6H4Zm10 0h6v6h-6ZM4 15h6v6H4Zm10 0h6v6h-6Z",
   adminApplications: "M6 4h12v16H6Z M9 9h6m-6 4h6m-6 4h4",
+  adminQueue: "M3 5h18v14H3z M3 12h5l2 3h4l2-3h5",
+  adminActivity: "M12 7v5l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
   more: "M5 12h.1m6.9 0h.1m6.9 0h.1",
 };
 
@@ -24,7 +26,59 @@ function NavigationIcon({ name }) {
   );
 }
 
-export default function ClubsNavigation({ items, active, onNavigate, adminOnly }) {
+export function ClubsAdminNavigation({ items, active, onNavigate }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef(null);
+  const panel = useRef(null);
+  const current = items.find(item => item.key === active);
+  const groups = Array.from(new Set(items.map(item => item.group)));
+
+  function dismiss() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
+
+  useEffect(() => {
+    if (open) panel.current?.focus();
+  }, [open]);
+
+  return (
+    <div className="clubs-admin-navigation">
+      <div className="clubs-admin-mobile-bar">
+        <button ref={trigger} type="button" className="clubs-secondary-button" aria-label="Open Clubs admin sections"
+          aria-expanded={open} aria-controls="clubs-admin-sections" onClick={() => setOpen(true)}>Sections</button>
+        <strong>{current?.label}</strong>
+      </div>
+      {open && <button type="button" className="clubs-admin-dismiss" aria-label="Close Clubs admin sections" onClick={dismiss} />}
+      <aside id="clubs-admin-sections" className="clubs-admin-rail" data-open={open} onKeyDown={event => {
+        if (event.key === "Escape" && open) dismiss();
+      }}>
+        <div className="clubs-admin-rail-heading">
+          <span className="clubs-admin-rail-icon"><NavigationIcon name="myClub" /></span>
+          <div><strong>Clubs Admin</strong><small>GG Matchday</small></div>
+          <button ref={panel} type="button" className="clubs-admin-menu-close" aria-label="Close sections" onClick={dismiss}>×</button>
+        </div>
+        <nav aria-label="Clubs admin navigation">
+          {groups.map(group => (
+            <div className="clubs-admin-nav-group" key={group}>
+              <span>{group}</span>
+              {items.filter(item => item.group === group).map(item => (
+                <button key={item.key} data-primary-tab={item.key} type="button"
+                  aria-current={active === item.key ? "page" : undefined} onClick={() => { setOpen(false); onNavigate(item.key); }}>
+                  <NavigationIcon name={item.key} />
+                  <span>{item.label}</span>
+                  {item.badge > 0 && <small aria-label={item.badge + " pending"}>{item.badge}</small>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+      </aside>
+    </div>
+  );
+}
+
+export default function ClubsNavigation({ items, active, onNavigate }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const navigation = useRef(null);
   const moreButton = useRef(null);
@@ -59,7 +113,7 @@ export default function ClubsNavigation({ items, active, onNavigate, adminOnly }
 
   const secondary = items.filter(item => item.secondary);
   return (
-    <nav ref={navigation} className="clubs-nav clubs-destination-nav" aria-label={adminOnly ? "Clubs admin navigation" : "Clubs navigation"}
+    <nav ref={navigation} className="clubs-nav clubs-destination-nav" aria-label="Clubs navigation"
       onKeyDown={event => {
         if (event.key !== "Escape" || !moreOpen) return;
         setMoreOpen(false);

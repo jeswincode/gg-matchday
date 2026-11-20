@@ -2565,12 +2565,12 @@ function operationsAgeHours(value, now = new Date()) {
 }
 
 function operationsQueueItem({
-  type, severity = "info", entityType, entityId, title, subtitle = "",
+  type, severity = "info", entityType, entityId, recordId = entityId, title, subtitle = "",
   detail = "", status = "", createdAt = null, updatedAt = null, dueAt = null,
   target = "adminDashboard", nextAction = "Inspect record", action = null, metadata = {},
 }, now = new Date()) {
   return {
-    id: `${type}:${String(entityId)}`,
+    id: `${type}:${String(recordId)}`,
     type, severity, entityType, entityId: String(entityId), title, subtitle, detail,
     status, createdAt, updatedAt,
     ageHours: operationsAgeHours(createdAt, now),
@@ -2767,6 +2767,7 @@ async function loadClubOperationsData(now = new Date()) {
       severity: remainingHours <= 24 ? "high" : remainingHours <= 72 ? "warning" : "info",
       entityType: "club",
       entityId: contract.clubId,
+      recordId: contract._id,
       title: club?.name || "Club contract renewal",
       subtitle: `Contract expires ${new Date(contract.endAt).toISOString()}`,
       detail: "An active player contract is approaching its existing renewal boundary; inspect the Club and current renewal decision before taking action.",
@@ -3018,7 +3019,7 @@ router.get("/admin/operations/queue", requireAuth, requireAdmin, async (req, res
       return [item.title, item.subtitle, metadata.clubName, metadata.clubId, metadata.clubAId, metadata.clubBId, item.entityId]
         .some(value => String(value || "").toLowerCase().includes(club));
     });
-    if (search) items = items.filter(item => [item.title, item.subtitle, item.detail, item.entityId].some(value => String(value || "").toLowerCase().includes(search)));
+    if (search) items = items.filter(item => [item.title, item.subtitle, item.detail, item.entityId, item.id].some(value => String(value || "").toLowerCase().includes(search)));
     if (sort === "oldest") items = [...items].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
     if (sort === "newest") items = [...items].sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
     if (sort === "due") items = [...items].sort((a, b) => new Date(a.dueAt || "9999-12-31") - new Date(b.dueAt || "9999-12-31"));

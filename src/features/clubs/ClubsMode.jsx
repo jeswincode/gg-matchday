@@ -6,12 +6,13 @@ import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
 import ClubFixtures, { ClubCrest, FixtureTeams } from "./ClubFixtures";
 import ClubBetting from "./ClubBetting";
 import ClubsPlayerDesk from "./ClubsPlayerDesk";
-import ClubsNavigation from "./ClubsNavigation";
+import ClubsNavigation, { ClubsAdminNavigation } from "./ClubsNavigation";
 import { clubDateKey, fixtureDateLabel } from "./clubPresentation";
 import "./clubs-mode.css";
 import "./clubs-workspace.css";
 import "./clubs-admin-dashboard.css";
 
+const adminTrackingSections = ["adminDashboard", "adminQueue", "adminActivity"];
 const defaultOperationsFilters = { type: "", severity: "", status: "", age: "", club: "", search: "", sort: "priority", page: 1 };
 const dashboardMetrics = [
   { label: "Pending approvals", count: "pendingApplications", type: "formation", status: "pendingAdminApproval", alert: "high" },
@@ -29,6 +30,13 @@ const additionalMetrics = [
 const operationsDate = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 const operationsTime = new Intl.DateTimeFormat(undefined, { timeStyle: "short" });
 const operationsLabel = value => String(value || "Unknown").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/-/g, " ");
+const auditLabels = {
+  "formation-approve": "Formation approval",
+  "formation-reject": "Formation rejection",
+  adminApproved: "Club approved",
+  formed: "Club formed",
+  "wallet-starting-balance": "Starting wallet balance",
+};
 
 const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
 const formationLabels5 = ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"];
@@ -185,6 +193,8 @@ export default function ClubsMode({
   const [adminClubStatus, setAdminClubStatus] = useState("all");
   const [expandedAdminClubId, setExpandedAdminClubId] = useState(null);
   const [adminMatches, setAdminMatches] = useState([]);
+  const [adminMatchSearch, setAdminMatchSearch] = useState("");
+  const [adminMatchStatus, setAdminMatchStatus] = useState("all");
   const [adminRejectReasons, setAdminRejectReasons] = useState({});
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -243,7 +253,8 @@ export default function ClubsMode({
   const [operationsSummary, setOperationsSummary] = useState(null);
   const [operationsQueue, setOperationsQueue] = useState({ items: [], pagination: { page: 1, pages: 1, total: 0 }, generatedAt: null });
   const [operationsActivity, setOperationsActivity] = useState({ items: [], pagination: { page: 1, hasMore: false }, nextBefore: null });
-  const [operationsView, setOperationsView] = useState("queue");
+  const operationsView = activeSection === "adminActivity" ? "activity" : "queue";
+  const adminContent = useRef(null);
   const [operationsFilters, setOperationsFilters] = useState(defaultOperationsFilters);
   const [operationsSearchDraft, setOperationsSearchDraft] = useState("");
   const [operationsActivityFilter, setOperationsActivityFilter] = useState({ entityType: "", outcome: "", page: 1 });
@@ -464,10 +475,23 @@ export default function ClubsMode({
     }
   };
 
+  function openAdminSection(section, focus = true) {
+    setActiveSection(section);
+    adminContent.current?.scrollTo({ top: 0, behavior: "instant" });
+    window.scrollTo({ top: 0, behavior: "instant" });
+    if (focus) window.requestAnimationFrame(() => adminContent.current?.focus({ preventScroll: true }));
+  }
+
   function openAdminRecord(section, id) {
     setAdminRecordId(id);
-    setActiveSection(section);
-    window.scrollTo(0, 0);
+    openAdminSection(section, false);
+  }
+
+  function openAdminClub(clubId) {
+    setAdminClubSearch("");
+    setAdminClubStatus("all");
+    setExpandedAdminClubId(String(clubId));
+    openAdminRecord("adminClubs", clubId);
   }
 
   useEffect(() => {
@@ -477,10 +501,10 @@ export default function ClubsMode({
       record.focus({ preventScroll: true });
       record.scrollIntoView({ block: "nearest" });
     }
-  }, [activeSection, adminRecordId, adminApplications, adminMatches]);
+  }, [activeSection, adminRecordId, adminApplications, adminClubs, adminMatches]);
 
   useEffect(() => {
-    if (!adminOnlyView || activeSection !== "adminDashboard") return undefined;
+    if (!adminOnlyView || !adminTrackingSections.includes(activeSection)) return undefined;
     // This section refreshes server-sourced operational data on entry and when its filters change.
     refreshOperationsCenter().catch(() => {});
     const requests = operationsRequest.current;
@@ -813,6 +837,16 @@ export default function ClubsMode({
   const adminClubMemberCount = adminClubs.reduce((total, club) => total + Number(club.memberCount || club.memberIds?.length || 0), 0);
   const adminClubApprovedCount = adminClubs.filter(club => club.status === "approved").length;
   const adminClubTotalBalance = adminClubs.reduce((total, club) => total + Number(club.balance || 0), 0);
+  const adminRosterNames = new Map(adminClubs.flatMap(club =>
+    (club.members || []).map(member => [String(member._id), member.name]),
+  ));
+  const adminMatchStatuses = [...new Set(adminMatches.map(match => match.status).filter(Boolean))].sort();
+  const matchSearch = adminMatchSearch.trim().toLowerCase();
+  const filteredAdminMatches = adminMatches.filter(match =>
+    (adminMatchStatus === "all" || match.status === adminMatchStatus) &&
+    [match.clubAId?.name, match.clubBId?.name, match.fixtureDate, match._id, match.mainMatchId]
+      .some(value => String(value || "").toLowerCase().includes(matchSearch)),
+  );
   const currentClub =
     clubs.find(club => club.memberIds?.some(id => String(id) === currentPlayerId)) || null;
   const openApplications = applications.filter(application => !["approved", "rejected"].includes(application.status));
@@ -860,11 +894,13 @@ export default function ClubsMode({
 
   const navigationItems = adminOnlyView
     ? [
-      { key: "adminDashboard", label: "Dashboard" },
-      { key: "adminApplications", label: "Applications", badge: adminApplications.length },
-      { key: "adminClubs", label: "Clubs" },
-      { key: "adminMatches", label: "Matches" },
-      ...(currentPlayerId ? [{ key: "overview", label: "Club Hub", secondary: true }] : []),
+      { key: "adminDashboard", label: "Dashboard", group: "Workspace" },
+      { key: "adminApplications", label: "Applications", group: "Club management", badge: adminApplications.length },
+      { key: "adminClubs", label: "Clubs", group: "Club management" },
+      { key: "adminMatches", label: "Matches", group: "Club management" },
+      { key: "adminQueue", label: "Action queue", group: "Tracking" },
+      { key: "adminActivity", label: "Activity & audit", group: "Tracking" },
+      ...(currentPlayerId ? [{ key: "overview", label: "Club Hub", group: "Player workspace" }] : []),
     ] : [
       { key: "overview", label: "Club Hub" },
       ...(currentPlayerId ? [{ key: "myClub", label: "My Club" }] : []),
@@ -895,8 +931,7 @@ export default function ClubsMode({
     if (adminOnlyView) {
       if (key === "overview") setAdminWorkspace(false);
       setAdminRecordId(null);
-      setActiveSection(key);
-      if (!duringSwipe) window.scrollTo({ top: 0, behavior: "instant" });
+      openAdminSection(key);
       return;
     }
     if (key === "overview") {
@@ -1196,7 +1231,8 @@ export default function ClubsMode({
     : null;
 
   return (
-    <main className="clubs-app clubs-workspace" data-page-swipes="">
+    <main className={"clubs-app clubs-workspace" + (adminOnlyView ? " clubs-workspace--admin" : "")}
+      data-page-swipes={adminOnlyView ? undefined : ""}>
       <header className="clubs-topbar clubs-compact-header">
         <div className="clubs-header-identity">
           <ClubCrest club={currentClub} name={currentClub?.name || "GG"} />
@@ -1209,8 +1245,13 @@ export default function ClubsMode({
         </div>
       </header>
       <div className="clubs-workspace-layout">
-        <ClubsNavigation items={navigationItems} active={activePrimaryTabKey} adminOnly={adminOnlyView} onNavigate={navigatePrimaryTab} />
-        <div className="clubs-workspace-content">
+        {adminOnlyView ? <ClubsAdminNavigation items={navigationItems} active={activeSection} onNavigate={navigatePrimaryTab} />
+          : <ClubsNavigation items={navigationItems} active={activePrimaryTabKey} onNavigate={navigatePrimaryTab} />}
+        <div className="clubs-workspace-content" ref={adminContent} tabIndex={adminOnlyView ? 0 : undefined}
+          role={adminOnlyView ? "region" : undefined} aria-label={adminOnlyView ? "Clubs admin workspace" : undefined}>
+          {adminOnlyView && <p className="clubs-admin-location">
+            <span>Clubs Admin</span><span aria-hidden="true">›</span><strong>{navigationItems.find(item => item.key === activeSection)?.label}</strong>
+          </p>}
 
       {ownProfileError && <p className="clubs-error" role="alert">{ownProfileError}</p>}
       {(error || (activeSection === "myClub" && myClubError)) && (
@@ -1233,7 +1274,7 @@ export default function ClubsMode({
       )}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
-      <SwipePager tabs={primaryTabKeys.includes(activePrimaryTabKey) ? primaryTabKeys : [activePrimaryTabKey]}
+      <SwipePager tabs={!adminOnlyView && primaryTabKeys.includes(activePrimaryTabKey) ? primaryTabKeys : [activePrimaryTabKey]}
         active={activePrimaryTabKey} onNavigate={key => navigatePrimaryTab(key, true)} renderPane={pane => <>
       {pane === "overview" ? (
         <>
@@ -1707,12 +1748,14 @@ export default function ClubsMode({
           )}
         </section>
         </>
-      ) : adminOnlyView && pane === "adminDashboard" ? (
+      ) : adminOnlyView && adminTrackingSections.includes(pane) ? (
         <section className="clubs-section clubs-admin-dashboard">
           <div className="clubs-admin-hero">
             <div className="clubs-admin-hero-copy">
-              <h2>Operations dashboard</h2>
-              <p>Review Club approvals, fixtures, and wallet activity.</p>
+              <h2>{pane === "adminDashboard" ? "Operations dashboard" : pane === "adminQueue" ? "Action queue" : "Activity & audit"}</h2>
+              <p>{pane === "adminDashboard" ? "Review Club approvals, fixtures, and wallet activity." :
+                pane === "adminQueue" ? "Find Club records that need attention and open the related workflow." :
+                  "Track recorded decisions, Club changes, and wallet events."}</p>
             </div>
             <div className="clubs-dashboard-refresh">
               <span role="status">{operationsLoading ? "Refreshing…" : operationsSummary?.generatedAt ? (
@@ -1726,16 +1769,15 @@ export default function ClubsMode({
             </div>
           </div>
           {operationsError && <div className="clubs-error" role="alert">{operationsError}</div>}
-          <section className="clubs-operations-metric-grid" aria-label="Clubs operational metrics">
+          {pane === "adminDashboard" && <section className="clubs-operations-metric-grid" aria-label="Clubs operational metrics">
             {dashboardMetrics.map(({ label, count, type, status, alert }) => {
               const value = operationsSummary?.counts?.[count];
               return (
                 <button type="button" className="clubs-operations-metric" data-alert={Number(value) > 0 ? alert : undefined} key={count}
-                  aria-pressed={operationsView === "queue" && operationsFilters.type === type} onClick={() => {
+                  onClick={() => {
                   setOperationsSearchDraft("");
                   setOperationsFilters({ ...defaultOperationsFilters, type, status: status || "" });
-                  setOperationsView("queue");
-                  document.getElementById("clubs-workload-heading")?.focus({ preventScroll: true });
+                  openAdminSection("adminQueue");
                 }}>
                   <span>{label}</span>
                   <strong>{value == null ? "—" : Number(value).toLocaleString("en-IN")}</strong>
@@ -1743,17 +1785,25 @@ export default function ClubsMode({
                 </button>
               );
             })}
-          </section>
-          <div className="clubs-dashboard-columns">
-          <section className="clubs-subsection clubs-operations-workspace" aria-labelledby="clubs-workload-heading" aria-busy={operationsLoading}>
+          </section>}
+          {pane === "adminDashboard" && <section className="clubs-admin-task-grid" aria-label="Club admin shortcuts">
+            {[
+              ["adminApplications", "Review applications", "Approve or decline Club formations."],
+              ["adminClubs", "Browse Clubs", "Look up squads, captains, and wallets."],
+              ["adminMatches", "Track matches", "Find fixtures, results, and Matchday links."],
+              ["adminQueue", "Open action queue", "Review tracked work and issues."],
+            ].map(([key, label, description]) => (
+              <button type="button" key={key} onClick={() => {
+                if (key === "adminQueue") { setOperationsFilters(defaultOperationsFilters); setOperationsSearchDraft(""); }
+                navigatePrimaryTab(key);
+              }}><strong>{label}</strong><span>{description}</span></button>
+            ))}
+          </section>}
+          {pane !== "adminDashboard" && <section className="clubs-subsection clubs-operations-workspace" aria-labelledby="clubs-workload-heading" aria-busy={operationsLoading}>
             <div className="clubs-section-heading">
               <h3 id="clubs-workload-heading" tabIndex={-1}>{operationsView === "queue" ? "Operations queue" : "Activity and audit"}</h3>
               {operationsView === "queue" && operationsQueue.generatedAt &&
                 <div className="clubs-operations-queue-count">{operationsQueue.sourceLimitsReached?.length ? "At least " : ""}{operationsQueue.pagination?.totalObserved ?? 0} records</div>}
-            </div>
-            <div className="clubs-operations-view-switch" role="group" aria-label="Operations view">
-              <button type="button" className={operationsView === "queue" ? "active" : ""} aria-pressed={operationsView === "queue"} onClick={() => setOperationsView("queue")}>Action queue</button>
-              <button type="button" className={operationsView === "activity" ? "active" : ""} aria-pressed={operationsView === "activity"} onClick={() => setOperationsView("activity")}>Activity & audit</button>
             </div>
             {operationsView === "queue" ? (
               <>
@@ -1849,7 +1899,9 @@ export default function ClubsMode({
                             <span className="clubs-operations-status">{operationsLabel(item.status)}</span>
                           </div>
                           <h4>{item.title}</h4>
-                          {item.subtitle && <p className="clubs-operations-subtitle">{item.subtitle}</p>}
+                          {item.type === "contract" && item.dueAt
+                            ? <p className="clubs-operations-subtitle">{adminRosterNames.get(String(item.metadata?.playerId)) || "Player contract"}</p>
+                            : item.subtitle && <p className="clubs-operations-subtitle">{item.subtitle}</p>}
                           {item.dueAt && <p>Due <time dateTime={item.dueAt}>{operationsDate.format(new Date(item.dueAt))}</time></p>}
                         </div>
                         <div className="clubs-operations-actions">
@@ -1924,7 +1976,7 @@ export default function ClubsMode({
                         <span className="clubs-operations-activity-marker" data-outcome={event.outcome}/>
                         <div>
                           <div className="clubs-operations-item-top"><span className="clubs-operations-type">{event.source === "admin-audit" ? "Administrator audit" : event.source === "club-wallet-ledger" ? "Wallet ledger" : "Club history"}</span><span className="clubs-operations-status">{event.outcome}</span></div>
-                          <h4>{operationsLabel(event.action)}</h4>
+                          <h4>{auditLabels[event.action] || operationsLabel(event.action)}</h4>
                           {event.reason && <p>{event.reason}</p>}
                           <small>{event.actor || "Unknown actor"} · {event.createdAt ? operationsDate.format(new Date(event.createdAt)) : "Time not recorded"}</small>
                           {event.metadata?.amount != null && <small>{Number(event.metadata.amount).toLocaleString("en-IN")} credits · Balance after {event.metadata.balanceAfter == null ? "not recorded" : Number(event.metadata.balanceAfter).toLocaleString("en-IN") + " credits"}</small>}
@@ -1946,15 +1998,15 @@ export default function ClubsMode({
                 </div>
               </>
             )}
-          </section>
-          <aside className="clubs-dashboard-sidebar" aria-label="Clubs monitoring">
-            {operationsView === "queue" && <section className="clubs-subsection clubs-dashboard-activity-preview">
+          </section>}
+          {pane === "adminDashboard" && <aside className="clubs-dashboard-sidebar" aria-label="Clubs monitoring">
+            <section className="clubs-subsection clubs-dashboard-activity-preview">
               <h3>Recent activity</h3>
               {operationsActivity.items.length ? (
                 <ul>{operationsActivity.items.slice(0, 4).map(event => (
                   <li key={event.source + ":" + event.id}>
                     <span className="clubs-operations-activity-marker" data-outcome={event.outcome} />
-                    <div><strong>{operationsLabel(event.action)}</strong>
+                    <div><strong>{auditLabels[event.action] || operationsLabel(event.action)}</strong>
                       {event.createdAt && <time dateTime={event.createdAt}>{operationsDate.format(new Date(event.createdAt))}</time>}
                     </div>
                   </li>
@@ -1962,10 +2014,9 @@ export default function ClubsMode({
               ) : <p>{operationsLoading ? "Loading activity…" : "No recorded activity yet."}</p>}
               <button type="button" className="clubs-secondary-button" onClick={() => {
                 setOperationsActivityFilter({ entityType: "", outcome: "", page: 1 });
-                setOperationsView("activity");
-                document.getElementById("clubs-workload-heading")?.focus();
+                openAdminSection("adminActivity");
               }}>View audit log</button>
-            </section>}
+            </section>
             <details className="clubs-subsection clubs-dashboard-checks">
               <summary>More workload checks</summary>
               <dl>{additionalMetrics.map(({ label, count }) => (
@@ -1982,19 +2033,18 @@ export default function ClubsMode({
             ) : (
               <div className="clubs-admin-latest-grid">
                 {(adminOverview?.recentClubs || []).map(club => (
-                  <article className="clubs-admin-club-card" key={String(club._id)}>
-                    <div className="clubs-admin-club-copy">
+                  <button type="button" className="clubs-admin-club-card" key={String(club._id)} onClick={() => openAdminClub(club._id)}>
+                    <span className="clubs-admin-club-copy">
                       <strong>{club.name || "Unnamed Club"}</strong>
                       <span>{club.memberIds?.length || 0}/5 players · {club.captainIds?.length || 0} captain{(club.captainIds?.length || 0) === 1 ? "" : "s"} · updated {club.updatedAt ? new Date(club.updatedAt).toLocaleDateString() : "recently"}</span>
-                    </div>
+                    </span>
                     <span className="clubs-admin-club-status" data-status={club.status}>{String(club.status || "unknown").replace(/([A-Z])/g, " $1")}</span>
-                  </article>
+                  </button>
                 ))}
               </div>
             )}
           </section>
-          </aside>
-          </div>
+          </aside>}
         </section>
       ) : adminOnlyView && pane === "adminApplications" ? (
         <section className="clubs-section">
@@ -2079,7 +2129,8 @@ export default function ClubsMode({
                 const expanded = expandedAdminClubId === clubId;
                 const members = Array.isArray(club.members) ? club.members : [];
                 return (
-                  <article className={"clubs-admin-directory-card" + (expanded ? " is-expanded" : "")} key={clubId}>
+                  <article className={"clubs-admin-directory-card" + (expanded ? " is-expanded" : "")}
+                    key={clubId} id={"clubs-admin-record-" + clubId} tabIndex={-1}>
                     <button
                       type="button"
                       className="clubs-admin-directory-main"
@@ -2144,10 +2195,17 @@ export default function ClubsMode({
         </section>
       ) : adminOnlyView && pane === "adminMatches" ? (
         <section className="clubs-section">
-          <div className="clubs-section-heading"><div><p className="clubs-eyebrow">MATCHDAY OVERSIGHT</p><h2>Club Matches</h2><span>Track scheduled fixtures and their Matchday linkage.</span></div><span>{adminMatches.length}</span></div>
-          {adminMatches.length === 0 ? <div className="clubs-empty">No Club Matches recorded yet.</div> : (
+          <div className="clubs-section-heading"><div><h2>Club Matches</h2><span>Track fixtures, results, and their Matchday records.</span></div><span>{filteredAdminMatches.length} of {adminMatches.length}</span></div>
+          <div className="clubs-operations-filters clubs-admin-match-filters">
+            <label>Search fixtures<input type="search" value={adminMatchSearch} onChange={event => setAdminMatchSearch(event.target.value)} placeholder="Club, date, or record ID" /></label>
+            <label>Fixture status<select value={adminMatchStatus} onChange={event => setAdminMatchStatus(event.target.value)}>
+              <option value="all">All statuses</option>
+              {adminMatchStatuses.map(status => <option key={status} value={status}>{operationsLabel(status)}</option>)}
+            </select></label>
+          </div>
+          {filteredAdminMatches.length === 0 ? <div className="clubs-empty">{loading ? "Loading Club Matches…" : "No Club Matches match these filters."}</div> : (
             <div className="clubs-application-list">
-              {adminMatches.map(match => (
+              {filteredAdminMatches.map(match => (
                 <article className="clubs-application clubs-match-card" key={String(match._id)}>
                   <div>
                     <p className="clubs-eyebrow">{String(match.status || "").toUpperCase()} · {String(match.source || "booked").toUpperCase()}</p>

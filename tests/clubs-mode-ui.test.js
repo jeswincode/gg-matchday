@@ -194,7 +194,7 @@ test("Club primary navigation uses top-level Market and Matches with guarded tou
   const navigation = fs.readFileSync("src/features/clubs/ClubsNavigation.jsx", "utf8");
 
   assert.match(component, /const primaryTabKeys =/);
-  assert.match(component, /<SwipePager tabs=\{primaryTabKeys\.includes/);
+  assert.match(component, /<SwipePager tabs=\{!adminOnlyView && primaryTabKeys\.includes/);
   assert.match(component, /pane === "market"/);
   assert.match(component, /setActiveSection\("market"\)/);
   assert.match(navigation, /aria-expanded=\{moreOpen\}/);

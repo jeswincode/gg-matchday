@@ -8,18 +8,25 @@ test("Clubs operations queue drives an administrator approval and records the ac
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Clubs admin navigation" });
-  await expect(navigation.getByRole("button", { name: "Dashboard" })).toBeVisible();
+  const menu = page.getByRole("button", { name: "Open Clubs admin sections" });
+  async function openAdminTab(name) {
+    if (await menu.isVisible()) await menu.click();
+    await navigation.getByRole("button", { name, exact: true }).click();
+  }
+  await openAdminTab("Dashboard");
   await expect(page.getByRole("button", { name: /Profile Admin|Player Profile/ })).toHaveCount(0);
 
   const metrics = page.getByRole("region", { name: "Clubs operational metrics" });
   await expect(metrics.getByRole("button")).toHaveCount(4);
   await expect(metrics.getByRole("button", { name: /Wallet discrepancies/ }).locator("strong")).toHaveText(/^\d+$/);
   await expect(page.getByRole("heading", { name: "Recent activity" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Club admin shortcuts" }).getByRole("button", { name: /Track matches/ })).toBeVisible();
+  await metrics.getByRole("button", { name: /Pending approvals/ }).click();
+  await expect(page.getByRole("heading", { name: "Action queue", exact: true })).toBeVisible();
   await expect(page.getByLabel("Severity")).toBeHidden();
   await page.getByRole("button", { name: "More filters" }).click();
   await expect(page.getByLabel("Severity")).toBeVisible();
   await page.getByRole("button", { name: "Fewer filters" }).click();
-  await metrics.getByRole("button", { name: /Pending approvals/ }).click();
   await expect(page.getByLabel("Issue type")).toHaveValue("formation");
 
   const queueItem = page.locator(".clubs-operations-item").filter({ hasText: "E2E Operations Review FC" });
@@ -35,15 +42,18 @@ test("Clubs operations queue drives an administrator approval and records the ac
   await application.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(page.getByText("Club formation approved.")).toBeVisible();
 
-  await navigation.getByRole("button", { name: "Dashboard" }).click();
+  await openAdminTab("Dashboard");
   await expect(metrics.getByRole("button", { name: /Pending approvals/ }).locator("strong")).toHaveText("0");
   await expect(page.locator(".clubs-operations-item").filter({ hasText: "E2E Operations Review FC" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "View audit log", exact: true }).click();
-  await expect(page.locator(".clubs-operations-activity-item").filter({ hasText: "formation approve" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Activity & audit", exact: true })).toBeVisible();
+  await expect(page.locator(".clubs-operations-activity-item").filter({ hasText: "Formation approval" })).toBeVisible();
   await expect(page.locator(".clubs-operations-activity-item").filter({ hasText: "Administrator approved a fully captain-approved Club formation." })).toBeVisible();
   await page.getByLabel("Event type").selectOption("clubMatch");
-  await expect(page.locator(".clubs-operations-activity-item").filter({ hasText: "formation approve" })).toHaveCount(0);
+  await expect(page.locator(".clubs-operations-activity-item").filter({ hasText: "Formation approval" })).toHaveCount(0);
+  await openAdminTab("Matches");
+  await expect(page.getByLabel("Search fixtures")).toBeVisible();
 });
 
 test("Profile administration selects its sidebar item and removes an account after linking", async ({ page }) => {
