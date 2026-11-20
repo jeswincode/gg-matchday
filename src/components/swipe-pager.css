@@ -4,7 +4,8 @@
 .swipe-pager .clubs-section { animation: none; }
 
 @media (pointer: coarse), (max-width: 760px) {
-  .swipe-pager { touch-action: pan-y pinch-zoom; overflow-x: clip; overflow-anchor: none; }
+  [data-page-swipes], .swipe-pager { touch-action: pan-y pinch-zoom; }
+  .swipe-pager { overflow-x: clip; overflow-anchor: none; }
   .swipe-pager[data-swiping] .swipe-pane[data-pane="current"] {
     transform: translate3d(var(--pager-x, 0px), 0, 0);
   }
@@ -17,7 +18,7 @@
   }
   .swipe-pane[data-pane="next"] { --pane-edge: 100%; }
   .swipe-pane[data-pane="previous"] { --pane-edge: -100%; }
-  .swipe-pager[data-settling] .swipe-pane { transition: transform 150ms cubic-bezier(.2,.75,.2,1); }
+  .swipe-pager[data-settling] .swipe-pane { transition: transform 120ms cubic-bezier(.2,.75,.2,1); }
 }
 
 @media (prefers-reduced-motion: reduce) {

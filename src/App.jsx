@@ -2171,7 +2171,8 @@ function App() {
   }
 
   return (
-    <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : "")}>
+    <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : "")}
+      data-page-swipes={activeTab === TABS.ADMIN ? undefined : ""}>
       <NotificationIndicator accountId={accountId} />
 
       <div className="mobile-tab-stage">

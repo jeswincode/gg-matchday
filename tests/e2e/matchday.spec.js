@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-async function stubPublicApi(page) {
+async function stubPublicApi(page, leaderboard = []) {
   await page.route("**/api/**", async route => {
     const url = new URL(route.request().url());
     let body = [];
     if (url.pathname.endsWith("/stats/leaderboard")) {
-      body = { leaderboard: [], offensive: [], defensive: [] };
+      body = { leaderboard, offensive: [], defensive: [] };
     } else if (url.pathname.endsWith("/stats/awards")) {
       body = { winner: null, awards: [], provisional: true };
     } else if (url.pathname.endsWith("/stats/award-history")) {
@@ -24,7 +24,7 @@ async function stubPublicApi(page) {
 async function enterGuestMatchday(page) {
   await page.goto("/?e2eRole=guest");
   await page.getByRole("button", { name: "Explore as Guest" }).click();
-  await expect(page.getByRole("button", { name: "Leaderboard" })).toBeVisible();
+  await expect(page.locator(".bottom-nav").getByRole("button", { name: "Leaderboard" })).toBeVisible();
 }
 
 test("guest can open Matchday and reach the live leaderboard", async ({ page }) => {
@@ -307,12 +307,14 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   }
   expect(await nav.evaluate(element => getComputedStyle(element).position)).toBe("fixed");
 
-  // A left swipe on non-interactive page content advances one primary tab.
+  // Check the visible preview during a native drag, before releasing it.
   const pager = clubsApp.locator(".swipe-pager");
-  await sendSwipeTouch(pager, "touchstart", 325, 370);
-  await sendSwipeTouch(pager, "touchmove", 185, 372);
+  const touch = await nativeTouch(page);
+  await touch("touchStart", 325, 370);
+  await touch("touchMove", 265, 371);
+  await touch("touchMove", 185, 372);
   await expect(pager.locator('[data-pane="next"]')).toBeVisible();
-  await sendSwipeTouch(pager, "touchend", 185, 372);
+  await touch("touchEnd");
   await expect(page.getByRole("heading", { name: "Schedule & fixtures" })).toBeVisible();
   await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
 
@@ -324,13 +326,12 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   await expect(page.getByRole("button", { name: "Player History" })).toHaveCount(0);
 });
 
-function sendSwipeTouch(pager, type, x, y) {
-  return pager.evaluate((element, [type, x, y]) => {
-    const touch = { clientX: x, clientY: y };
-    const event = new Event(type, { bubbles: true });
-    Object.defineProperties(event, { touches: { value: type === "touchend" ? [] : [touch] }, changedTouches: { value: [touch] } });
-    element.dispatchEvent(event);
-  }, [type, x, y]);
+async function nativeTouch(page) {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+  return (type, x, y) => session.send("Input.dispatchTouchEvent", {
+    type, touchPoints: type === "touchEnd" ? [] : [{ x, y, id: 1 }],
+  });
 }
 
 test("Matchday keeps the next panel ready during a deep page swipe and resets the scroll on arrival", async ({ page }) => {
@@ -344,14 +345,64 @@ test("Matchday keeps the next panel ready during a deep page swipe and resets th
   await expect(pager.locator('[data-pane="next"]')).toBeHidden();
   await pager.evaluate(element => window.scrollBy({ top: element.getBoundingClientRect().top + 320, behavior: "instant" }));
   await expect.poll(() => pager.evaluate(element => element.getBoundingClientRect().top)).toBeLessThan(0);
-  await sendSwipeTouch(pager, "touchstart", 320, 470);
-  await sendSwipeTouch(pager, "touchmove", 135, 482);
+  const touch = await nativeTouch(page);
+  await touch("touchStart", 320, 470);
+  await touch("touchMove", 250, 476);
+  await touch("touchMove", 135, 482);
   await expect(pager).toHaveAttribute("data-swiping", "next");
   await expect(pager.locator('[data-pane="next"]').getByRole("heading", { name: "Recent Matches", includeHidden: true })).toBeVisible();
   await expect(page.locator(".bottom-nav")).toBeInViewport();
-  await sendSwipeTouch(pager, "touchend", 135, 482);
+  await touch("touchEnd");
   await expect(pager.locator('[data-pane="current"]').getByRole("heading", { name: "Recent Matches" })).toBeVisible();
   await expect.poll(() => pager.evaluate(element => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(-2);
+});
+
+test("a short swipe can start on a leaderboard player or a calendar button without activating it", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page, [{ playerId: "first", name: "Swipe Test Player", position: "ST", ggRating: 7.29 }]);
+  await enterGuestMatchday(page);
+  const nav = page.locator(".bottom-nav");
+  const touch = await nativeTouch(page);
+  const header = await page.locator(".topbar h1").boundingBox();
+  const headerY = Math.round(header.y + header.height / 2);
+  for (let i = 0; i < 2; i++) {
+    await touch("touchStart", 315, headerY);
+    await touch("touchMove", 270, headerY + 4);
+    await touch("touchMove", 218, headerY + 9);
+    await touch("touchEnd");
+  }
+  const rank = page.locator(".gg-leaderboard-table").getByRole("button", { name: "Swipe Test Player" });
+  await rank.scrollIntoViewIfNeeded();
+  const player = await rank.boundingBox();
+  await rank.evaluate(button => button.addEventListener("click", () => { document.body.dataset.rankTapped = "true"; }));
+  const x = Math.round(player.x + player.width * .6);
+  const y = Math.round(player.y + player.height / 2);
+  await touch("touchStart", x, y);
+  await touch("touchMove", x - 24, y + 4);
+  await touch("touchMove", x - 48, y + 8);
+  await touch("touchEnd");
+  await expect(page.getByRole("heading", { name: "Calendar", exact: true })).toBeVisible();
+  await expect(page.locator("body")).not.toHaveAttribute("data-rank-tapped", "true");
+
+  const dayNumber = (await page.locator(".calendar-day:enabled:not(.selected-day)").nth(10).innerText()).trim();
+  const day = page.locator(".calendar-grid").getByRole("button", { name: dayNumber, exact: true });
+  await day.scrollIntoViewIfNeeded();
+  const date = await day.boundingBox();
+  const dayX = Math.round(date.x + date.width / 2);
+  const dayY = Math.round(date.y + date.height / 2);
+  await touch("touchStart", dayX, dayY);
+  await touch("touchMove", dayX - 35, dayY + 7);
+  await touch("touchMove", dayX - 72, dayY + 13);
+  await touch("touchEnd");
+  await expect(page.locator("#matchday-pager > [data-pane=current]")).toHaveAttribute("data-tab", "players");
+  await nav.getByRole("button", { name: "Calendar" }).click();
+  await expect(day).not.toHaveClass(/selected-day/);
+  await day.evaluate(button => button.scrollIntoView({ block: "center", behavior: "instant" }));
+  await day.click({ trial: true });
+  const tap = await day.boundingBox();
+  await touch("touchStart", Math.round(tap.x + tap.width / 2), Math.round(tap.y + tap.height / 2));
+  await touch("touchEnd");
+  await expect(day).toHaveClass(/selected-day/);
 });
 
 test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs transitions", async ({ page }) => {

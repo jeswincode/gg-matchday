@@ -1196,7 +1196,7 @@ export default function ClubsMode({
     : null;
 
   return (
-    <main className="clubs-app clubs-workspace">
+    <main className="clubs-app clubs-workspace" data-page-swipes="">
       <header className="clubs-topbar clubs-compact-header">
         <div className="clubs-header-identity">
           <ClubCrest club={currentClub} name={currentClub?.name || "GG"} />

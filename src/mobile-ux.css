@@ -953,6 +953,11 @@
     table-layout: fixed;
   }
 
+  .gg-leaderboard-table-scroll {
+    overflow-x: clip;
+    touch-action: pan-y pinch-zoom;
+  }
+
   .gg-leaderboard-table th,
   .gg-leaderboard-table td {
     padding: 11px 8px;
