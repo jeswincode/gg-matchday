@@ -33,6 +33,7 @@ Take the next user-selected feature through local implementation, focused tests,
 ## Live data and performance
 
 - Matchday Signature shares Dark and Gold navigation colors and etched GG glass highlights with Clubs. Mobile uses a compact Home layout and painted glass surfaces. Desktop retains the V3-style Matchday layout, stadium media and theme-aware waves. Player profiles open at the identity header and organize their content into Overview, Stats, History and Honors.
+- The player video, portrait and style badges live in one banner across all profile tabs. Authorized editors open the edit dialog from the portrait. Linked viewers use the same portrait to request changes. The signed-in account avatar opens appearance settings and access to the linked player profile from any Matchday tab.
 
 - Matchday and Clubs remember each tab’s scroll position while the app is open. The URL records the selected tab so links reopen that destination and browser Back and Forward follow tab navigation. Clubs destinations still follow the viewer’s existing access rules.
 

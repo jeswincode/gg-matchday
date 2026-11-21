@@ -1,11 +1,10 @@
 import { useState } from "react";
-import PlayerStyles from "../../components/PlayerStyles";
 import PlayerPerformanceDashboard from "../../components/PlayerPerformanceDashboard";
 import { Status, StatGrid } from "../../components/common";
 import { rating, date } from "../../lib/format";
 import { awardName } from "../../lib/awards";
 
-function PlayerStats({ playerId, stats, matches, onMatch, refreshKey }) {
+function PlayerStats({ playerId, stats, matches, onMatch }) {
   const [performanceOpen, setPerformanceOpen] = useState(false);
   const lastFive = matches.slice(0, 5).map(match => {
     const participant = (match.participants || []).find(entry =>
@@ -48,7 +47,6 @@ function PlayerStats({ playerId, stats, matches, onMatch, refreshKey }) {
         <small>Recent results: win = 1, draw = ½, loss = 0.</small>
       </>}
     </section>
-    <PlayerStyles playerId={playerId} refreshKey={refreshKey} />
   </>;
 }
 
@@ -104,7 +102,7 @@ function PlayerHistory({ data, matches, onMatch }) {
   </>;
 }
 
-export default function ProfileInsights({ section, resource, playerId, onMatch, refreshKey }) {
+export default function ProfileInsights({ section, resource, playerId, onMatch }) {
   const { data, loading, error } = resource;
   if (loading || error) return <Status loading={loading} error={error} />;
   if (section === "honors") return <PlayerHonors data={data} />;
@@ -112,5 +110,5 @@ export default function ProfileInsights({ section, resource, playerId, onMatch, 
     new Date(b.date) - new Date(a.date) || new Date(b.createdAt || 0) - new Date(a.createdAt || 0) ||
     String(b._id).localeCompare(String(a._id)));
   if (section === "history") return <PlayerHistory data={data} matches={matches} onMatch={onMatch} />;
-  return <PlayerStats playerId={playerId} stats={data.stats} matches={matches} onMatch={onMatch} refreshKey={refreshKey} />;
+  return <PlayerStats playerId={playerId} stats={data.stats} matches={matches} onMatch={onMatch} />;
 }

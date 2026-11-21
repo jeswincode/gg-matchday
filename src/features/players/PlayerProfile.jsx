@@ -2,6 +2,8 @@ import {useId, useLayoutEffect, useRef, useState} from "react";
 import {formatDate} from "../../lib/date";
 import {invalidateResources} from "../../lib/api";
 import useResource from "../../components/useResource";
+import Modal from "../../components/Modal";
+import PlayerStyles from "../../components/PlayerStyles";
 import ProfileInsights from "./ProfileInsights";
 import "./player-workspace.css";
 
@@ -41,9 +43,11 @@ export default function PlayerProfile({
   editingProfile,
   profileForm,
   onProfileFormChange,
-  onToggleEditing,
+  onOpenEditor,
+  onCloseEditor,
   onSaveProfile,
   profileSaving,
+  profileSaveError,
   playerReview,
   playerReviewLoading,
   onLoadPlayerReview,
@@ -65,7 +69,7 @@ export default function PlayerProfile({
   useLayoutEffect(() => {
     if (!profileFocusRequest) return;
     const frame = requestAnimationFrame(() => {
-      profileHeading.current?.focus({ preventScroll: true });
+      if (!document.activeElement?.closest('[role="dialog"]')) profileHeading.current?.focus({ preventScroll: true });
       profileSection.current?.scrollIntoView({ block: "start", behavior: "instant" });
     });
     return () => cancelAnimationFrame(frame);
@@ -97,6 +101,10 @@ export default function PlayerProfile({
     if(navigator.share) await navigator.share({title:"GG Player Card",text});
     else if(navigator.clipboard) await navigator.clipboard.writeText(text);
   };
+  const editProfile = isEditor ? onOpenEditor : onRequestEdit;
+  const portrait = player.profileImage
+    ? <img src={player.profileImage} alt="" className="profile-large-photo" />
+    : <span className="profile-photo-fallback" aria-hidden="true">{player.name?.charAt(0).toUpperCase()}</span>;
 
   return (
     <section className="player-profile" ref={profileSection}>
@@ -133,13 +141,10 @@ export default function PlayerProfile({
         </div>
 
         <div className="profile-photo-wrap profile-hero-foreground">
-          {player.profileImage ? (
-            <img src={player.profileImage} alt={player.name} className="profile-large-photo" />
-          ) : (
-            <div className="profile-photo-fallback">
-              {player.name?.charAt(0).toUpperCase()}
-            </div>
-          )}
+          {editProfile ? <button type="button" className="gg-avatar-action" aria-haspopup="dialog"
+            aria-label={isEditor ? "Edit player profile" : "Request profile edit"} onClick={editProfile}>
+            {portrait}<span className="gg-avatar-action-mark" aria-hidden="true">✎</span>
+          </button> : portrait}
         </div>
 
         <div className="profile-heading profile-hero-foreground">
@@ -160,31 +165,13 @@ export default function PlayerProfile({
               "Position not set"
             }
           </p>
-    
-        </div>
-    
-        <div className="profile-hero-actions profile-hero-foreground">
-        {isEditor && (
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={onToggleEditing}
-          >
-            {
-              editingProfile
-                ? "Cancel"
-                : "Edit Profile"
-            }
-          </button>
-        )}
-        {onRequestEdit && <button type="button" className="secondary-button" onClick={onRequestEdit}>Request profile edit</button>}
+          <PlayerStyles profile={stats.data?.styles} />
         </div>
     
       </section>
     
-      {editingProfile &&
-      isEditor ? (
-        <section className="card">
+      {visible && editingProfile && isEditor && (
+        <Modal title="Edit player profile" onClose={onCloseEditor} className="gg-player-edit-modal">
     
           <form
             onSubmit={
@@ -412,6 +399,7 @@ export default function PlayerProfile({
               />
             </label>
     
+            {profileSaveError && <p className="global-message" role="alert">{profileSaveError}</p>}
             <button
               type="submit"
               className="save-button"
@@ -428,8 +416,8 @@ export default function PlayerProfile({
     
           </form>
     
-        </section>
-      ) : (
+        </Modal>
+      )}
         <>
           <div ref={profileTabList} className="profile-section-tabs gg-glass-tabs" role="tablist" aria-label="Player profile sections" data-no-tab-swipe>
             {profileTabs.map(([key, label], index) => <button type="button" key={key} role="tab"
@@ -580,7 +568,7 @@ export default function PlayerProfile({
                   <p className="muted">Derived from {attributes.evidence.matchesAnalyzed} Match Record matches.</p>
                 </>}
               </section>}
-              <ProfileInsights section={key} resource={stats} playerId={player._id} onMatch={onMatch} refreshKey={refreshKey} />
+              <ProfileInsights section={key} resource={stats} playerId={player._id} onMatch={onMatch} />
               <button type="button" className="secondary-button profile-tabs-return" onClick={() => {
                 profileTabList.current?.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
                 profileTabList.current?.scrollIntoView({ block: "start", behavior: "instant" });
@@ -588,7 +576,6 @@ export default function PlayerProfile({
             </>}
           </div>)}
         </>
-      )}
     
     </section>
   );

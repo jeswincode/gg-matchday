@@ -9,7 +9,7 @@
 .player-profile .back-button { justify-self: start; margin: 0; }
 
 .player-profile .profile-hero.profile-hero-media {
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   min-height: clamp(185px, 28vw, 282px);
   margin: 0;
   border-radius: 20px;
@@ -30,8 +30,65 @@
 
 .player-profile .profile-hero-media .profile-heading .eyebrow { color: var(--signature-accent); }
 .player-profile .profile-hero-media .profile-heading p:last-child { color: var(--signature-muted); }
-.player-profile .profile-hero-actions { align-self: end; }
-.player-profile .profile-hero-actions:empty { display: none; }
+.gg-avatar-action {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: fit-content;
+  min-width: 44px;
+  min-height: 44px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--signature-ink);
+}
+
+.gg-avatar-action > img { display: block; }
+.gg-avatar-action-mark {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border: 1px solid var(--signature-base);
+  border-radius: 50%;
+  background: var(--signature-accent);
+  color: var(--signature-on-accent);
+  font: 700 12px/1 system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.gg-account-avatar { border-radius: 50%; }
+.gg-account-avatar > img,
+.gg-account-avatar > span:not(.gg-avatar-action-mark) {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  object-fit: cover;
+  border: 1px solid var(--signature-edge);
+  border-radius: 50%;
+  background: var(--signature-surface);
+  color: var(--signature-ink);
+  font-weight: 800;
+}
+.gg-account-avatar .gg-avatar-action-mark { width: 17px; height: 17px; font-size: 10px; }
+.gg-account-details { display: grid; gap: 10px; margin: 0 0 16px; }
+.gg-account-details div { display: grid; gap: 2px; }
+.gg-account-details dt { color: var(--signature-muted); font-size: .8rem; }
+.gg-account-details dd { margin: 0; overflow-wrap: anywhere; }
+.gg-account-role { text-transform: capitalize; }
+.gg-account-setting { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--border); }
+.gg-account-setting h3 { margin: 0 0 8px; }
+.gg-account-setting .gg-theme { width: fit-content; }
+.gg-account-setting-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gg-account-setting-actions button, .gg-player-edit-modal .save-button { min-height: 44px; }
+.gg-player-edit-modal form { display: grid; gap: 12px; }
+.gg-player-edit-modal .global-message { margin: 0; }
 .player-profile .profile-section-tabs { margin: 0; scroll-margin-top: var(--profile-scroll-inset); }
 .player-profile .profile-section-tabs button { flex: 1 1 0; min-width: 0; padding: 5px 3px; font-size: .88rem; }
 .player-profile .profile-workspace-panel { display: grid; gap: 12px; min-width: 0; align-items: start; }
@@ -85,7 +142,7 @@
   .player-profile { --profile-scroll-inset: 10px; }
   .player-profile .profile-hero.profile-hero-media {
     grid-template-columns: auto minmax(0, 1fr);
-    min-height: 150px;
+    min-height: 194px;
     padding: 14px;
     gap: 10px;
     align-content: end;
@@ -96,8 +153,6 @@
     height: 62px;
     border-radius: 14px;
   }
-  .player-profile .profile-hero-actions { grid-column: 1 / -1; }
-  .player-profile .profile-hero-actions .secondary-button { min-height: 44px; }
   .player-profile .profile-attributes-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .player-profile .profile-attributes-summary > div { min-width: 0; overflow-wrap: anywhere; }
 }

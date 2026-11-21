@@ -15,6 +15,7 @@ import LeaderboardView from './components/Leaderboard';
 import MatchHistoryCard from './components/ui/MatchHistoryCard';
 import PlayersDirectory from './features/players/PlayersDirectory';
 import PlayerProfile from './features/players/PlayerProfile';
+import AccountProfileSettings from './features/players/AccountProfileSettings';
 import HomePage from './features/home/HomePage';
 import Calendar from './features/calendar/Calendar';
 import MatchRecordForm from './features/matches/MatchRecordForm';
@@ -250,6 +251,9 @@ function App() {
     editingProfile,
     setEditingProfile,
   ] = useState(false);
+
+  const [profileSaveError, setProfileSaveError] = useState("");
+  const closePlayerEditor = useCallback(() => setEditingProfile(false), []);
 
   const [
     profileSaving,
@@ -772,6 +776,8 @@ function App() {
   async function logout() {
     try {
       await signOut(auth);
+      closeModal();
+      closePlayerEditor();
 
       setBackendUser(null);
 
@@ -1010,7 +1016,7 @@ function App() {
   // PROFILE
   // =========================================================
 
-  async function openOwnProfile() {
+  async function openOwnProfile({ edit = false } = {}) {
     if (!linkedPlayerId || ownProfileRequest.current) return;
     const request = {};
     ownProfileRequest.current = request;
@@ -1022,6 +1028,7 @@ function App() {
       if (ownProfileRequest.current !== request) return;
       closeModal();
       openPlayerProfile(player);
+      if (edit && isEditor) openPlayerEditor();
       if (productMode === "clubs") {
         setActiveTab(TABS.PLAYERS);
         switchProductMode("matchday", TABS.PLAYERS);
@@ -1097,6 +1104,12 @@ function App() {
     });
 
 
+  }
+
+  function openPlayerEditor() {
+    if (!isEditor) return;
+    setProfileSaveError("");
+    setEditingProfile(true);
   }
 
   async function updatePlayerOvrAttributes(playerId, pace, physical) {
@@ -1219,12 +1232,13 @@ function App() {
     event
   ) {
     event.preventDefault();
+    if (profileSaving) return;
 
     if (
       !isEditor ||
       !selectedPlayer
     ) {
-      setMessage(
+      setProfileSaveError(
         "Editor access required."
       );
       return;
@@ -1232,6 +1246,7 @@ function App() {
 
     try {
       setProfileSaving(true);
+      setProfileSaveError("");
 
       const response =
         await authenticatedFetch(
@@ -1280,7 +1295,7 @@ function App() {
     } catch (error) {
       console.error(error);
 
-      setMessage(
+      setProfileSaveError(
         error.message ||
           "Could not update profile."
       );
@@ -2205,7 +2220,8 @@ function App() {
         ) : authUser ? (
           <>
             <div className="account-user">
-
+              <button type="button" className="gg-avatar-action gg-account-avatar" aria-label="Account profile settings"
+                aria-haspopup="dialog" onClick={() => { setOwnProfileError(""); setModal("account"); }}>
               {authUser.photoURL ? (
                 <img
                   src={
@@ -2226,6 +2242,8 @@ function App() {
                     .toUpperCase()}
                 </span>
               )}
+                <span className="gg-avatar-action-mark" aria-hidden="true">⚙</span>
+              </button>
 
               <div>
                 <strong>
@@ -2279,7 +2297,7 @@ function App() {
                 </button>
               )}
 
-              {linkedPlayerId && <button type="button" className="secondary-button" onClick={openOwnProfile} disabled={openingOwnProfile}>
+              {linkedPlayerId && <button type="button" className="secondary-button" onClick={() => openOwnProfile()} disabled={openingOwnProfile}>
                 {openingOwnProfile ? "Opening profile…" : "Player Profile"}
               </button>}
               <button
@@ -2461,9 +2479,11 @@ function App() {
               editingProfile={editingProfile}
               profileForm={profileForm}
               onProfileFormChange={setProfileForm}
-              onToggleEditing={()=>setEditingProfile(value=>!value)}
+              onOpenEditor={openPlayerEditor}
+              onCloseEditor={closePlayerEditor}
               onSaveProfile={savePlayerProfile}
               profileSaving={profileSaving}
+              profileSaveError={profileSaveError}
               playerReview={playerReview}
               playerReviewLoading={playerReviewLoading}
               onLoadPlayerReview={loadPlayerReview}
@@ -2577,6 +2597,14 @@ function App() {
       </nav>}
 
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
+      {modal === "account" && authUser && <AccountProfileSettings
+        account={authUser} role={backendUser?.role} linked={Boolean(linkedPlayerId)} theme={theme} onTheme={setTheme}
+        opening={openingOwnProfile} error={ownProfileError} canEdit={isEditor} onClose={closeModal}
+        onOpenPlayer={() => openOwnProfile()}
+        onEditPlayer={() => {
+          if (isEditor) void openOwnProfile({ edit: true });
+          else { closeModal(); setProfileRequestMode("edit"); }
+        }} />}
       {modal==='awards'&&<Awards onClose={closeModal} onPlayer={showPlayer} refreshKey={refreshKey}/>}
       {modal==='hall'&&<HallOfFame onClose={closeModal} onPlayer={showPlayer} refreshKey={refreshKey}/>}
       {modal==='chat'&&isSignedIn&&<Chat onClose={closeModal}/>}
