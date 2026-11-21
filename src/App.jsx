@@ -3,7 +3,7 @@ import {api, invalidate} from './lib/api';
 import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
 import SwipePager from "./components/SwipePager";
-import { scrollToPagerStart } from "./lib/pagerScroll";
+import { pushTab, readTab, readWorkspace, useTabHistory } from "./lib/tabHistory";
 import { pauseBackgroundForSwipe } from "./video-background";
 import NotificationIndicator from './components/NotificationIndicator';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
@@ -95,9 +95,7 @@ function localDateString(
 
 function App() {
   const [experience,setExperience]=useState('startup');
-  // Product mode is intentionally session-only. A full reload always starts
-  // in the main Matchday Home experience, including when the previous mode was Clubs.
-  const [productMode,setProductMode]=useState("matchday");
+  const [productMode,setProductMode]=useState(readWorkspace);
   const [clubsAdminEntry, setClubsAdminEntry] = useState(false);
   const [profileRequestMode, setProfileRequestMode] = useState(null);
   const [openingOwnProfile, setOpeningOwnProfile] = useState(false);
@@ -116,25 +114,6 @@ function App() {
   const modeTransitionTimer = useRef(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
 
-  const switchProductMode=useCallback((nextMode)=>{
-    if(nextMode===productMode) return;
-    window.clearTimeout(modeTransitionTimer.current);
-    const transition = nextMode === "clubs"
-      ? `to-clubs-${theme}`
-      : `to-matchday-${theme}`;
-    setModeTransition(transition);
-    setProductMode(nextMode);
-    try {
-      // Product mode is application state, not a route. Keep the public URL
-      // canonical so refreshing always returns to Matchday Home.
-      const url = new URL(window.location.href);
-      url.searchParams.delete("mode");
-      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
-    } catch {
-      // URL history can be unavailable in restricted browser environments.
-    }
-    modeTransitionTimer.current = window.setTimeout(()=>setModeTransition(null),225);
-  },[productMode,theme]);
   useEffect(() => () => window.clearTimeout(modeTransitionTimer.current), []);
 
   useEffect(()=>{
@@ -152,12 +131,12 @@ function App() {
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
   function navigateMatchdayTab(tab) {
-    if (tab !== activeTab) scrollToPagerStart(document.getElementById("matchday-pager"));
+    if (activeTab !== tab) pushTab("matchday", tab);
     setActiveTab(tab);
   }
 
-  function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);setActiveTab(TABS.PLAYERS);}}
-  function showMatch(matchId){setActiveTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
+  function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);navigateMatchdayTab(TABS.PLAYERS);}}
+  function showMatch(matchId){navigateMatchdayTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
 
   // =========================================================
   // NAVIGATION
@@ -166,7 +145,26 @@ function App() {
   const [
     activeTab,
     setActiveTab,
-  ] = useState(TABS.HOME);
+  ] = useState(() => readWorkspace() === "matchday" && TAB_ORDER.includes(readTab()) ? readTab() : TABS.HOME);
+  function switchProductMode(nextMode, destination) {
+    if(nextMode===productMode) return;
+    window.clearTimeout(modeTransitionTimer.current);
+    setModeTransition(`to-${nextMode}-${theme}`);
+    setProductMode(nextMode);
+    if (nextMode === "matchday") setExperience("app");
+    const defaultTab = nextMode === "clubs" ? "overview" : TAB_ORDER.includes(activeTab) ? activeTab : TABS.HOME;
+    pushTab(nextMode, destination ?? defaultTab);
+    modeTransitionTimer.current = window.setTimeout(()=>setModeTransition(null),225);
+  }
+  useTabHistory((workspace, tab) => {
+    setProductMode(workspace);
+    setClubsAdminEntry(false);
+    closeModal();
+    if (workspace === "matchday") {
+      setActiveTab(TAB_ORDER.includes(tab) ? tab : TABS.HOME);
+      setExperience("app");
+    }
+  }, true);
 
   // =========================================================
   // AUTH
@@ -1022,8 +1020,12 @@ function App() {
       if (ownProfileRequest.current !== request) return;
       closeModal();
       openPlayerProfile(player, true);
-      setActiveTab(TABS.PLAYERS);
-      switchProductMode("matchday");
+      if (productMode === "clubs") {
+        setActiveTab(TABS.PLAYERS);
+        switchProductMode("matchday", TABS.PLAYERS);
+      } else {
+        navigateMatchdayTab(TABS.PLAYERS);
+      }
     } catch (error) {
       if (ownProfileRequest.current === request) {
         setOwnProfileError(error.status === 404 ? "Your linked player profile could not be found." : "Couldn’t open your profile. Try again.");
@@ -1486,7 +1488,7 @@ function App() {
     const isLegacyMatch = !(match.events || []).length && !(match.participants || []).some((participant) => Number(participant.ownGoals || 0) > 0);
     setLegacyMatchContext(isLegacyMatch ? {teamA:Number(match.teamA?.score||0),teamB:Number(match.teamB?.score||0),teams:nextTeams} : null);
 
-    setActiveTab(
+    navigateMatchdayTab(
       TABS.RECORD
     );
 
@@ -2339,7 +2341,7 @@ function App() {
           HOME
       ===================================================== */}
 
-      {activeTab !== TABS.ADMIN && <SwipePager id="matchday-pager" tabs={TAB_ORDER} active={activeTab} onNavigate={setActiveTab}
+      {activeTab !== TABS.ADMIN && <SwipePager id="matchday-pager" tabs={TAB_ORDER} active={activeTab} onNavigate={navigateMatchdayTab}
         onMotionChange={pauseBackgroundForSwipe}
         renderPane={pane => <>
       {pane === TABS.HOME && (
@@ -2355,10 +2357,10 @@ function App() {
           leaderboard={leaderboard}
           onHallOfFame={() => setModal('hall')}
           onPlayer={showPlayer}
-          onLeaderboard={() => setActiveTab(TABS.LEADERBOARD)}
+          onLeaderboard={() => navigateMatchdayTab(TABS.LEADERBOARD)}
           onOpenPlayer={(player) => {
             openPlayerProfile(player);
-            setActiveTab(TABS.PLAYERS);
+            navigateMatchdayTab(TABS.PLAYERS);
           }}
         />
       )}

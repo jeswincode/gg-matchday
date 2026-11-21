@@ -32,6 +32,8 @@ Take the next user-selected feature through local implementation, focused tests,
 
 ## Live data and performance
 
+- Matchday and Clubs remember each tab’s scroll position while the app is open. The URL records the selected tab so links reopen that destination and browser Back and Forward follow tab navigation. Clubs destinations still follow the viewer’s existing access rules.
+
 - Matchday keeps neighboring mobile tabs laid out and refreshes the primary tab data while the workspace is open. The mobile bottom dock matches the Clubs placement. The Matchday background video holds its frame during horizontal gestures and resumes after navigation settles, subject to the device's reduced-motion preference.
 
 - Match records, rankings, calendar history, open match details, player statistics and awards, and news refresh from saved data. Clubs views refresh fixtures, formation, market, reviews, administration, and wallet data. Chat and notifications refresh for signed-in users. The existing `CHAT_ENABLED` setting controls chat availability.

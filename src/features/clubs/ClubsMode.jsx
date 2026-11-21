@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import SwipePager from "../../components/SwipePager";
+import { pushTab, readTab, useTabHistory } from "../../lib/tabHistory";
 import { api, invalidateResources } from "../../lib/api";
 import { useLiveRevision } from "../../lib/liveData";
 import ClubPlayerAnalytics from "./ClubPlayerAnalytics";
@@ -217,6 +218,10 @@ export default function ClubsMode({
   const [offerClub, setOfferClub] = useState("");
   const [activeSection, setActiveSection] = useState(() => {
     if (adminOnlyView) return "adminDashboard";
+    const tab = readTab();
+    if (tab === "matches") return "overview";
+    if (["overview", "players"].includes(tab)) return tab;
+    if (authUser?.playerProfile && ["myClub", "betting", "playerDesk", "market", "reviews"].includes(tab)) return tab;
     try {
       const focus = localStorage.getItem("gg-clubs-focus");
       return authUser?.playerProfile && focus === "myClub" ? "myClub" : "overview";
@@ -224,7 +229,7 @@ export default function ClubsMode({
       return "overview";
     }
   });
-  const [ultimateSubsection, setUltimateSubsection] = useState("overview");
+  const [ultimateSubsection, setUltimateSubsection] = useState(() => readTab() === "matches" ? "matches" : "overview");
   const [myClubSubsection, setMyClubSubsection] = useState("squad");
   const [clubMatches, setClubMatches] = useState([]);
   const [captainRequests, setCaptainRequests] = useState([]);
@@ -530,16 +535,14 @@ export default function ClubsMode({
   const openCommandAction = action => {
     if (!action) return;
     if (action.section === "myClub" && action.subsection === "auctions") {
-      setActiveSection("market");
+      navigatePrimaryTab("market");
     } else if (action.section === "myClub") {
-      setActiveSection("myClub");
+      navigatePrimaryTab("myClub");
       setMyClubSubsection("squad");
     } else if (action.subsection === "matches") {
-      setActiveSection("overview");
-      setUltimateSubsection("matches");
+      navigatePrimaryTab("matches");
     } else {
-      setActiveSection("overview");
-      setUltimateSubsection("overview");
+      navigatePrimaryTab("overview");
     }
     window.setTimeout(() => {
       const target = document.getElementById(
@@ -919,7 +922,7 @@ export default function ClubsMode({
     : activeSection === "overview"
       ? ultimateSubsection === "matches" ? "matches" : "overview"
       : activeSection;
-  const navigatePrimaryTab = (key, duringSwipe = false) => {
+  const navigatePrimaryTab = (key, fromHistory = false) => {
     const item = navigationItems.find(entry => entry.key === key);
     if (!item) return;
     if (key === "admin" && isAdmin) {
@@ -940,15 +943,17 @@ export default function ClubsMode({
     } else if (key === "matches") {
       setActiveSection("overview");
       setUltimateSubsection("matches");
-    } else if (key === "myClub") {
-      setActiveSection("myClub");
-      setMyClubSubsection("squad");
     } else {
       setActiveSection(key);
     }
-    if (activePrimaryTabKey !== key && !duringSwipe) window.scrollTo({ top: 0, behavior: "instant" });
+    if (activePrimaryTabKey !== key && !fromHistory) pushTab("clubs", key);
     announce("Opened " + item.label + ".");
   };
+  useTabHistory((workspace, tab) => {
+    if (workspace !== "clubs" || adminOnlyView) return;
+    const destination = navigationItems.some(item => item.key === tab && item.key !== "admin") ? tab : "overview";
+    navigatePrimaryTab(destination, true);
+  });
   const currentClubMemberKey = (currentClub?.memberIds || []).map(String).join(",");
 
   useEffect(() => {
@@ -1274,8 +1279,9 @@ export default function ClubsMode({
       )}
       <div className="clubs-screen-reader-status" aria-live="polite" aria-atomic="true">{announcement}</div>
 
-      <SwipePager tabs={!adminOnlyView && primaryTabKeys.includes(activePrimaryTabKey) ? primaryTabKeys : [activePrimaryTabKey]}
-        active={activePrimaryTabKey} onNavigate={key => navigatePrimaryTab(key, true)} renderPane={pane => <>
+      <SwipePager id={adminOnlyView ? undefined : "clubs-pager"}
+        tabs={!adminOnlyView && primaryTabKeys.includes(activePrimaryTabKey) ? primaryTabKeys : [activePrimaryTabKey]}
+        active={activePrimaryTabKey} onNavigate={navigatePrimaryTab} renderPane={pane => <>
       {pane === "overview" ? (
         <>
       <section className="clubs-hub-spotlight" aria-label="Club and fixtures">
@@ -2287,8 +2293,7 @@ export default function ClubsMode({
                   <strong>{activeFormationApplication.proposedName || "Your Club formation"} is not an official Club yet.</strong>
                   <span>Status: {statusLabel(activeFormationApplication.status)}. Your proposed squad and next action remain available in the Club Hub; Club spending and contracts activate only after admin approval.</span>
                   <button type="button" className="clubs-primary-button" onClick={() => {
-                    setActiveSection("overview");
-                    setUltimateSubsection("overview");
+                    navigatePrimaryTab("overview");
                     window.setTimeout(() => document.getElementById("clubs-formation-pipeline")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
                   }}>View formation progress</button>
                 </>
@@ -2297,7 +2302,7 @@ export default function ClubsMode({
                   <p className="clubs-eyebrow">YOUR CLUB DASHBOARD</p>
                   <strong>You are not currently under a Club contract.</strong>
                   <span>Your previous Club history remains preserved. Form a squad or browse approved Clubs to get started.</span>
-                  <button type="button" className="clubs-primary-button" onClick={() => setActiveSection("overview")}>Explore Club Hub</button>
+                  <button type="button" className="clubs-primary-button" onClick={() => navigatePrimaryTab("overview")}>Explore Club Hub</button>
                 </>
               )}
             </div>
@@ -2369,7 +2374,7 @@ export default function ClubsMode({
                 <div className="clubs-myclub-quick-action-buttons">
                   {myCaptainClubs.length > 0 && <button type="button" className="clubs-secondary-button" onClick={() => navigatePrimaryTab("market")}>Manage signings →</button>}
                   <button type="button" className="clubs-secondary-button" onClick={() => navigatePrimaryTab("playerDesk")}>My Player &amp; Wallet</button>
-                  <button type="button" className="clubs-secondary-button" onClick={() => { setActiveSection("overview"); setUltimateSubsection("matches"); window.setTimeout(() => document.getElementById("clubs-match-center")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }}>Club matches →</button>
+                  <button type="button" className="clubs-secondary-button" onClick={() => { navigatePrimaryTab("matches"); window.setTimeout(() => document.getElementById("clubs-match-center")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }}>Club matches →</button>
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef } from "react";
 import { flushSync } from "react-dom";
-import { scrollToPagerStart } from "../lib/pagerScroll";
+import { useTabScroll } from "../lib/tabHistory";
 import "./swipe-pager.css";
 
 function allowsSwipe(target, root) {
@@ -18,6 +18,7 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
   const navigate = useEffectEvent(tab => onNavigate(tab));
   const reportMotion = useEffectEvent(moving => onMotionChange?.(moving));
   const activeIndex = tabs.indexOf(active);
+  useTabScroll(id, active);
 
   useEffect(() => {
     const pager = surface.current;
@@ -116,7 +117,6 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
         clearMotion();
         if (next === undefined || currentTab() !== current.tab) return;
         flushSync(() => navigate(next));
-        scrollToPagerStart(pager);
       };
       if (reducedMotion.matches || !pager.dataset.swiping) {
         completeSettle();

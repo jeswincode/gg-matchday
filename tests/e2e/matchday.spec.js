@@ -306,6 +306,13 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
     await expect(nav.getByRole("button", { name: label, exact: true })).toHaveCount(0);
   }
   expect(await nav.evaluate(element => getComputedStyle(element).position)).toBe("fixed");
+  await page.evaluate(() => window.scrollTo({ top: 140, behavior: "instant" }));
+  const hubScroll = await page.evaluate(() => window.scrollY);
+  expect(hubScroll).toBeGreaterThan(0);
+  await nav.getByRole("button", { name: "Matches" }).click();
+  await nav.getByRole("button", { name: "Club Hub" }).click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(hubScroll);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
 
   // Check the visible preview during a native drag, before releasing it.
   const pager = clubsApp.locator(".swipe-pager");
@@ -317,6 +324,11 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   await touch("touchEnd");
   await expect(page.getByRole("heading", { name: "Schedule & fixtures" })).toBeVisible();
   await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(/view=clubs&tab=matches/);
+  await page.goBack();
+  await expect(nav.locator('[data-primary-tab="overview"]')).toHaveAttribute("aria-current", "page");
+  await page.goForward();
+  await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
 
   await nav.getByRole("button", { name: "Club Hub" }).click();
   await nav.getByRole("button", { name: "Players" }).click();
@@ -324,6 +336,9 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   await expect(playersSection).toBeVisible();
   await expect(playersSection.getByRole("searchbox", { name: "Find a player" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Player History" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("navigation", { name: "Clubs navigation" })
+    .getByRole("button", { name: "Players", exact: true })).toHaveAttribute("aria-current", "page");
 });
 
 async function nativeTouch(page) {
@@ -350,6 +365,7 @@ test("Matchday keeps the next panel ready during a deep page swipe and resets th
   await expect(background).toHaveJSProperty("autoplay", true);
   await pager.evaluate(element => window.scrollBy({ top: element.getBoundingClientRect().top + 320, behavior: "instant" }));
   await expect.poll(() => pager.evaluate(element => element.getBoundingClientRect().top)).toBeLessThan(0);
+  const homeScroll = await page.evaluate(() => window.scrollY);
   const touch = await nativeTouch(page);
   await touch("touchStart", 320, 470);
   await touch("touchMove", 250, 476);
@@ -365,6 +381,15 @@ test("Matchday keeps the next panel ready during a deep page swipe and resets th
   await expect(navigation.getByRole("button", { name: /Record$/ })).toHaveAttribute("aria-current", "page");
   await expect(background).toHaveJSProperty("autoplay", true);
   await expect.poll(() => pager.evaluate(element => element.getBoundingClientRect().top)).toBeGreaterThanOrEqual(-2);
+  await expect(page).toHaveURL(/tab=record/);
+  await page.goBack();
+  await expect(navigation.getByRole("button", { name: /Home$/ })).toHaveAttribute("aria-current", "page");
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(homeScroll);
+  await page.goForward();
+  await expect(navigation.getByRole("button", { name: /Record$/ })).toHaveAttribute("aria-current", "page");
+  await page.reload();
+  await page.getByRole("button", { name: "Explore as Guest" }).click();
+  await expect(navigation.getByRole("button", { name: /Record$/ })).toHaveAttribute("aria-current", "page");
 });
 
 test("a short swipe can start on a leaderboard player or a calendar button without activating it", async ({ page }) => {
