@@ -6,6 +6,7 @@
   --signature-on-accent: #112136;
   --signature-secondary: #b4a1de;
   --signature-edge: #6f6986;
+  --signature-border: color-mix(in srgb, var(--signature-edge) 46%, var(--signature-base));
   --signature-wave: #383447;
   --signature-base: #0b111b;
   --signature-selection: #3c334c;
@@ -39,6 +40,12 @@
 :root[data-theme="dark"] { --muted-2: #a6b6cc; }
 
 :root:is([data-theme="dark"], [data-theme="golden"]) {
+  --bg: var(--signature-base);
+  --panel: color-mix(in srgb, var(--signature-surface) 58%, var(--signature-base));
+  --panel-soft: var(--signature-surface);
+  --border: var(--signature-border);
+  --text: var(--signature-ink);
+  --muted: var(--signature-muted);
   --accent: var(--signature-accent);
   --accent-dark: var(--signature-on-accent);
 }
@@ -64,6 +71,35 @@
   border-color: color-mix(in srgb, var(--signature-edge) 47%, transparent);
   background: var(--signature-waves), var(--signature-glass), var(--signature-surface);
   box-shadow: 0 10px 26px rgb(0 0 0 / .21);
+}
+
+.app--matchday:has(#matchday-pager > [data-pane="current"][data-tab="leaderboard"]) .account-bar {
+  position: relative;
+  top: auto;
+}
+
+.gg-filters.gg-ranking-filters {
+  position: sticky;
+  inset-block-start: max(8px, env(safe-area-inset-top));
+  z-index: 5;
+  gap: 8px 12px;
+  margin: 14px 0;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--signature-glass), var(--panel);
+  box-shadow: 0 5px 18px rgb(0 0 0 / .18);
+}
+
+.gg-ranking-filters label { gap: 4px; min-width: 0; }
+.gg-ranking-filters select { width: 100%; min-height: 44px; }
+.gg-ranking-filters .gg-check { min-height: 44px; }
+.gg-ranking-pending { align-self: center; margin-inline-start: auto; color: var(--signature-muted); font-size: .76rem; }
+.gg-leaderboard-results[aria-busy="true"] { opacity: .68; }
+
+@media (max-width: 760px) {
+  .gg-filters.gg-ranking-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 6px; padding: 7px; }
+  .gg-filters.gg-ranking-filters .gg-check { padding-block: 4px; }
 }
 
 #root .gg-secondary-tabs,
@@ -94,7 +130,7 @@
 #root :is(.bottom-nav, .clubs-destination-nav) button[aria-current="page"],
 #root .clubs-admin-nav-group button[aria-current="page"],
 #root :is(.gg-secondary-tabs, .gg-glass-tabs, .gg-chat-tabs) button[aria-selected="true"],
-#root :is(.clubs-view-filters, .club-analytics-tabs) button[aria-pressed="true"],
+#root :is(.clubs-view-filters, .club-analytics-tabs, .gg-lineup-view) button[aria-pressed="true"],
 #root .gg-theme button[aria-pressed="true"],
 #root ~ .gg-backdrop .gg-theme button[aria-pressed="true"],
 #root ~ .gg-backdrop .gg-chat-tabs button[aria-selected="true"] {

@@ -104,6 +104,7 @@ function App() {
   const [openingOwnProfile, setOpeningOwnProfile] = useState(false);
   const [ownProfileError, setOwnProfileError] = useState("");
   const [profileFocusRequest, setProfileFocusRequest] = useState(null);
+  const playerDirectoryReturn = useRef(null);
   const ownProfileRequest = useRef(null);
   const [recordSection,setRecordSection]=useState('record');
   const [modal,setModal]=useState(null);
@@ -1046,6 +1047,9 @@ function App() {
   }
 
   function openPlayerProfile(player) {
+    if (productMode === "matchday" && activeTab === TABS.PLAYERS && !selectedPlayer) {
+      playerDirectoryReturn.current = { top: window.scrollY, focus: document.activeElement };
+    }
     setProfileFocusRequest({});
     setSelectedPlayer(
       player
@@ -2456,22 +2460,21 @@ function App() {
         TABS.PLAYERS && (
         <section className="tab-content">
 
-          {!selectedPlayer ? (
-            <>
-              <PlayersDirectory
-                players={players}
-                leaderboard={leaderboard}
-                loadingPlayers={loadingPlayers}
-                isEditor={isEditor}
-                newPlayerName={newPlayerName}
-                setNewPlayerName={setNewPlayerName}
-                playerActionLoading={playerActionLoading}
-                addPlayer={addPlayer}
-                onPlayer={showPlayer}
-                onOpenPlayer={openPlayerProfile}
-              />
-            </>
-          ) : (
+          <div hidden={Boolean(selectedPlayer)}>
+            <PlayersDirectory
+              players={players}
+              leaderboard={leaderboard}
+              loadingPlayers={loadingPlayers}
+              isEditor={isEditor}
+              newPlayerName={newPlayerName}
+              setNewPlayerName={setNewPlayerName}
+              playerActionLoading={playerActionLoading}
+              addPlayer={addPlayer}
+              onPlayer={showPlayer}
+              onOpenPlayer={openPlayerProfile}
+            />
+          </div>
+          {selectedPlayer && (
             <PlayerProfile
               key={selectedPlayer._id}
               player={selectedPlayer}
@@ -2490,7 +2493,15 @@ function App() {
               onDeletePlayer={deletePlayer}
               onMatch={showMatch}
               refreshKey={refreshKey}
-              onBack={()=>setSelectedPlayer(null)}
+              onBack={() => {
+                const previous = playerDirectoryReturn.current;
+                playerDirectoryReturn.current = null;
+                setSelectedPlayer(null);
+                if (previous) requestAnimationFrame(() => {
+                  window.scrollTo({ top: previous.top, behavior: "instant" });
+                  if (previous.focus instanceof HTMLElement) previous.focus.focus({ preventScroll: true });
+                });
+              }}
               onClearReview={()=>setPlayerReview(null)}
               onRequestEdit={!isEditor && sameId(selectedPlayer._id, linkedPlayerId) ? () => setProfileRequestMode("edit") : null}
               profileFocusRequest={activeTab === TABS.PLAYERS ? profileFocusRequest : null}

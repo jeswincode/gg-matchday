@@ -3,13 +3,11 @@ import { flushSync } from "react-dom";
 import { useTabScroll } from "../lib/tabHistory";
 import "./swipe-pager.css";
 
-function allowsSwipe(target, root) {
-  if (!(target instanceof Element)) return false;
-  if (target.closest("input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=dialog], [role=slider], [data-no-tab-swipe]")) return false;
+function isHorizontalScroller(target, root) {
   for (let element = target; element && element !== root; element = element.parentElement) {
-    if (element.scrollWidth > element.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(element).overflowX)) return false;
+    if (element.scrollWidth > element.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(element).overflowX)) return true;
   }
-  return true;
+  return false;
 }
 
 export default function SwipePager({ tabs, active, onNavigate, onMotionChange, renderPane, id }) {
@@ -23,23 +21,40 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
   useEffect(() => {
     const pager = surface.current;
     const area = pager.closest("[data-page-swipes]") || pager;
-    const currentTab = () => pager.querySelector('[data-pane="current"]')?.dataset.tab;
+    const activePane = () => pager.querySelector('[data-pane="current"]');
     const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
     let gesture;
     let frame = 0;
     let completeSettle;
     let settleTimer = 0;
     let suppressClickUntil = 0;
+    let movingPane;
+    let movingNeighbor;
 
     function clearMotion() {
       cancelAnimationFrame(frame);
+      frame = 0;
       clearTimeout(settleTimer);
       completeSettle = undefined;
       delete pager.dataset.swiping;
       delete pager.dataset.settling;
-      pager.style.removeProperty("--pager-x");
-      pager.style.removeProperty("--pager-top");
+      movingPane?.style.removeProperty("transform");
+      movingNeighbor?.style.removeProperty("transform");
+      movingPane = movingNeighbor = undefined;
       reportMotion(false);
+    }
+
+    function paint(current, offset, direction) {
+      const neighbor = direction === 1 ? current.pane.nextElementSibling : current.pane.previousElementSibling;
+      if (movingNeighbor !== neighbor) movingNeighbor?.style.removeProperty("transform");
+      movingPane = current.pane;
+      movingNeighbor = neighbor;
+      const activeDirection = direction === 1 ? "next" : "previous";
+      if (pager.dataset.swiping !== activeDirection) pager.dataset.swiping = activeDirection;
+      movingPane.style.transform = `translate3d(${offset}px, 0, 0)`;
+      if (movingNeighbor) {
+        movingNeighbor.style.transform = `translate3d(calc(${direction * 100}% + ${offset}px), ${current.top}px, 0)`;
+      }
     }
 
     function start(event) {
@@ -55,14 +70,16 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
       // A fresh swipe can immediately pick up where the last swipe landed.
       completeSettle?.();
       suppressClickUntil = 0;
+      const target = event.target;
+      if (!(target instanceof Element) || target.closest("input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=dialog], [role=slider], [data-no-tab-swipe]")) return;
       const order = readTabs();
-      const tab = currentTab();
-      const index = order.findIndex(key => String(key) === tab);
-      if (order.length < 2 || index < 0 || !allowsSwipe(event.target, area)) return;
+      const pane = activePane();
+      const index = order.findIndex(key => String(key) === pane?.dataset.tab);
+      if (order.length < 2 || index < 0) return;
       gesture = {
         pointer: event.pointerId, x: event.clientX, y: event.clientY,
         startedAt: event.timeStamp, sampleX: event.clientX, sampleTime: event.timeStamp,
-        speed: 0, lastMove: event.timeStamp, order, index, tab, locked: false,
+        speed: 0, order, index, pane, target, locked: false,
       };
     }
 
@@ -72,28 +89,29 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
       const dx = event.clientX - current.x;
       const dy = event.clientY - current.y;
       if (!current.locked) {
-        if (Math.abs(dy) >= 12 && Math.abs(dy) > Math.abs(dx)) { gesture = undefined; return; }
-        if (Math.abs(dx) < 6 || Math.abs(dx) < Math.abs(dy)) return;
+        if (Math.abs(dy) >= 12 && Math.abs(dy) > Math.abs(dx) * 1.2) { gesture = undefined; return; }
+        if (Math.abs(dx) < 6 || Math.abs(dx) < Math.abs(dy) * 1.08) return;
+        if (isHorizontalScroller(current.target, area)) { gesture = undefined; return; }
         current.locked = true;
-        reportMotion(true);
-        current.width = pager.clientWidth;
+        const bounds = pager.getBoundingClientRect();
+        current.width = bounds.width;
+        current.top = Math.max(0, -bounds.top);
         area.setPointerCapture(event.pointerId);
-        pager.style.setProperty("--pager-top", Math.max(0, -pager.getBoundingClientRect().top) + "px");
+        reportMotion(true);
       }
       const interval = event.timeStamp - current.sampleTime;
-      if (interval >= 12) {
+      if (interval >= 8) {
         current.speed = (event.clientX - current.sampleX) / interval;
         current.sampleTime = event.timeStamp;
         current.sampleX = event.clientX;
       }
-      current.lastMove = event.timeStamp;
-      const direction = dx <= 0 ? 1 : -1;
-      const hasNeighbor = current.order[current.index + direction] !== undefined;
-      const offset = Math.max(-current.width, Math.min(current.width, dx)) * (hasNeighbor ? 1 : .17);
-      cancelAnimationFrame(frame);
+      current.direction = dx <= 0 ? 1 : -1;
+      const hasNeighbor = current.order[current.index + current.direction] !== undefined;
+      current.offset = Math.max(-current.width, Math.min(current.width, dx)) * (hasNeighbor ? 1 : .17);
+      if (frame) return;
       frame = requestAnimationFrame(() => {
-        pager.dataset.swiping = direction > 0 ? "next" : "previous";
-        pager.style.setProperty("--pager-x", offset + "px");
+        frame = 0;
+        paint(current, current.offset, current.direction);
       });
     }
 
@@ -107,25 +125,23 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
       const dx = event.clientX - current.x;
       const distance = Math.abs(dx);
       const direction = dx <= 0 ? 1 : -1;
-      const speed = current.sampleTime === current.startedAt
-        ? distance / Math.max(1, event.timeStamp - current.startedAt)
-        : event.timeStamp - current.lastMove <= 85 ? -current.speed * direction : 0;
-      const flick = distance >= 22 && speed >= .28;
-      const deliberate = distance >= Math.max(34, Math.min(58, current.width * .12));
+      const elapsed = Math.max(1, event.timeStamp - current.startedAt);
+      const recentSpeed = event.timeStamp - current.sampleTime <= 85 ? -current.speed * direction : 0;
+      const flick = distance >= 18 && (recentSpeed >= .26 || (elapsed <= 100 && distance / elapsed >= .26));
+      const deliberate = distance >= Math.max(28, Math.min(46, current.width * .09));
       const next = (deliberate || flick) ? current.order[current.index + direction] : undefined;
       completeSettle = () => {
         clearMotion();
-        if (next === undefined || currentTab() !== current.tab) return;
+        if (next === undefined || activePane() !== current.pane) return;
         flushSync(() => navigate(next));
       };
       if (reducedMotion.matches || !pager.dataset.swiping) {
         completeSettle();
         return;
       }
-      pager.dataset.swiping = direction > 0 ? "next" : "previous";
       pager.dataset.settling = "";
-      pager.style.setProperty("--pager-x", (next === undefined ? 0 : -direction * current.width) + "px");
-      settleTimer = window.setTimeout(completeSettle, 155);
+      paint(current, next === undefined ? 0 : -direction * current.width, direction);
+      settleTimer = window.setTimeout(completeSettle, 125);
     }
 
     function cancel(event) {

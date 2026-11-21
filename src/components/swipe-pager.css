@@ -3,7 +3,7 @@
 .swipe-pager .tab-content,
 .swipe-pager .clubs-section { animation: none; }
 
-@media (pointer: coarse), (max-width: 760px) {
+@media (any-pointer: coarse), (max-width: 760px) {
   [data-page-swipes], .swipe-pager { touch-action: pan-y pinch-zoom; }
   .swipe-pager { overflow: clip; overflow-anchor: none; }
 
@@ -13,32 +13,21 @@
     display: flow-root;
     position: absolute;
     inset: 0 0 auto;
-    height: 0;
-    overflow: clip;
     visibility: hidden;
   }
 
   #matchday-pager[data-swiping="next"] > [data-pane="next"],
   #matchday-pager[data-swiping="previous"] > [data-pane="previous"] {
-    inset-block-start: var(--pager-top, 0px);
-    height: auto;
-    overflow: clip;
     visibility: visible;
   }
 
-  .swipe-pager[data-swiping] .swipe-pane[data-pane="current"] {
-    transform: translate3d(var(--pager-x, 0px), 0, 0);
-  }
-  .swipe-pager[data-swiping="next"] .swipe-pane[data-pane="next"],
-  .swipe-pager[data-swiping="previous"] .swipe-pane[data-pane="previous"] {
+  .swipe-pager[data-swiping="next"] > .swipe-pane[data-pane="next"],
+  .swipe-pager[data-swiping="previous"] > .swipe-pane[data-pane="previous"] {
     display: flow-root;
     position: absolute;
-    inset: var(--pager-top, 0px) 0 auto;
-    transform: translate3d(calc(var(--pane-edge) + var(--pager-x, 0px)), 0, 0);
+    inset: 0 0 auto;
   }
-  .swipe-pane[data-pane="next"] { --pane-edge: 100%; }
-  .swipe-pane[data-pane="previous"] { --pane-edge: -100%; }
-  .swipe-pager[data-settling] .swipe-pane { transition: transform 120ms cubic-bezier(.2,.75,.2,1); }
+  .swipe-pager[data-settling] > .swipe-pane { transition: transform 95ms cubic-bezier(.18,.72,.24,1); }
 }
 
 @media (prefers-reduced-motion: reduce) {

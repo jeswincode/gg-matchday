@@ -10,7 +10,7 @@
   body,
   #root {
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   .app {
@@ -1222,7 +1222,7 @@
 
 @media (max-width: 760px) {
   .app {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   .mobile-tab-stage {

@@ -35,6 +35,65 @@ test("guest can open Matchday and reach the live leaderboard", async ({ page }) 
   await expect(page.getByText("Performance. Contribution. Results.")).toBeVisible();
 });
 
+test("leaderboard filters stay visible and keep the old rankings while applying a new filter", async ({ page }) => {
+  const roster = Array.from({ length: 36 }, (_, index) => ({
+    playerId: String(index), name: `Ranked player ${index + 1}`, rank: index + 1, position: "ST", ggRating: 7.25,
+  }));
+  await stubPublicApi(page, roster);
+  let finishFilter;
+  const waitForFilter = new Promise(resolve => { finishFilter = resolve; });
+  await page.route(url => url.pathname === "/api/stats/leaderboard" && url.searchParams.has("position"), async route => {
+    await waitForFilter;
+    const leaderboard = roster.map(player => ({ ...player, position: "CB", name: `Defender ${player.rank}` }));
+    await route.fulfill({ json: { leaderboard, offensive: [], defensive: [] } });
+  });
+  await enterGuestMatchday(page);
+  await page.locator(".bottom-nav").getByRole("button", { name: "Leaderboard" }).click();
+  const table = page.getByRole("table", { name: "Player rankings" });
+  const filters = page.getByRole("group", { name: "Leaderboard filters" });
+  try {
+    await table.getByRole("button", { name: "Ranked player 25", exact: true }).evaluate(row => row.scrollIntoView({ block: "center" }));
+    await expect.poll(async () => (await filters.boundingBox()).y).toBeLessThan(24);
+    await expect(filters).toBeInViewport();
+    await filters.getByLabel("Position").selectOption("defenders");
+    await expect(filters.getByRole("status")).toHaveText("Updating rankings…");
+    await expect(table.getByRole("button", { name: "Ranked player 25", exact: true })).toBeInViewport();
+  } finally { finishFilter(); }
+  await expect(table.getByRole("button", { name: "Defender 25", exact: true })).toBeInViewport();
+  await expect(filters.getByRole("status")).toHaveCount(0);
+});
+
+test("Starting XI shares players and formations between a compact pitch and the lineup list", async ({ page }) => {
+  const players = ["LW", "ST", "RW", "CM", "CM", "CDM", "LB", "CB", "CB", "RB", "GK"].map((position, index) => ({
+    _id: String(index + 1), name: `Squad player ${index + 1}`, position, preferredPositions: [position],
+  }));
+  await stubPublicApi(page, players.map((player, index) => ({
+    playerId: player._id, name: player.name, position: player.position, ggRating: 6 + index / 10,
+  })));
+  await page.route("**/api/players", route => route.fulfill({ json: players }));
+  await enterGuestMatchday(page);
+  await page.locator(".bottom-nav").getByRole("button", { name: "Players" }).click();
+  const squad = page.getByRole("region", { name: "Starting XI" });
+  const pitch = squad.getByRole("group", { name: "4-3-3 football formation" });
+  await expect(pitch.getByRole("button")).toHaveCount(11);
+  const pitchBox = await pitch.boundingBox();
+  const keeperBox = await pitch.getByRole("button", { name: "Squad player 11, GK, GG rating 7.00" }).boundingBox();
+  expect(pitchBox.height).toBeLessThanOrEqual(480);
+  expect(keeperBox.y + keeperBox.height).toBeLessThan(pitchBox.y + pitchBox.height);
+  await squad.getByRole("button", { name: "List", exact: true }).click();
+  const list = squad.getByRole("list", { name: "4-3-3 player lineup" });
+  await expect(list.getByRole("listitem")).toHaveCount(11);
+  await list.getByRole("button", { name: /^Squad player 11,/ }).click();
+  await page.getByRole("button", { name: /Back to Players/ }).click();
+  await expect(list.getByRole("button", { name: /^Squad player 11,/ })).toBeInViewport();
+  await squad.getByRole("button", { name: "4-4-2", exact: true }).click();
+  await expect(squad.getByLabel("Formation", { exact: true })).toHaveValue("4-4-2");
+  await expect(squad.getByRole("list", { name: "4-4-2 player lineup" })).toContainText("Open");
+  await squad.getByLabel("Formation", { exact: true }).selectOption("3-5-2");
+  await squad.getByRole("button", { name: "Pitch", exact: true }).click();
+  await expect(squad.getByRole("group", { name: "3-5-2 football formation" })).toBeVisible();
+});
+
 test("mobile welcome screen fills the viewport without stretching and any poster tap opens Matchday", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -470,6 +529,34 @@ test("a short swipe can start on a leaderboard player or a calendar button witho
   await expect(day).not.toHaveClass(/selected-day/);
   await day.click();
   await expect(day).toHaveClass(/selected-day/);
+});
+
+test("a short horizontal drag commits while vertical touch still scrolls Matchday", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  const pager = page.locator("#matchday-pager");
+  const touch = await nativeTouch(page);
+  await touch("touchStart", 290, 540);
+  await touch("touchMove", 286, 484);
+  await touch("touchMove", 285, 360);
+  await touch("touchEnd");
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(20);
+  await expect(pager.locator('[data-pane="current"]')).toHaveAttribute("data-tab", "home");
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await touch("touchStart", 290, 380);
+  await touch("touchMove", 266, 382);
+  await touch("touchMove", 251, 383);
+  await expect(pager).toHaveAttribute("data-swiping", "next");
+  // Hold past the velocity window to verify the distance threshold on its own.
+  await page.waitForTimeout(105);
+  await touch("touchEnd");
+  // Start the second swipe without waiting for the first transition to settle.
+  await touch("touchStart", 290, 380);
+  await touch("touchMove", 263, 382);
+  await touch("touchMove", 250, 383);
+  await touch("touchEnd");
+  await expect(pager.locator('[data-pane="current"]')).toHaveAttribute("data-tab", "leaderboard");
 });
 
 test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs transitions", async ({ page }) => {

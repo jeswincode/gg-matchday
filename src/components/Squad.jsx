@@ -1,2 +1,79 @@
-import {useMemo,useState} from 'react';import {formations,selectSquad} from '../lib/formations';import {PlayerButton} from './common';import {rating} from '../lib/format';
-export default function Squad({players,statistics=[],onPlayer}){const [formation,setFormation]=useState('4-3-3');const {starting,bench,slots}=useMemo(()=>selectSquad(players,statistics,formation),[players,statistics,formation]);return <section className="gg-squad"><div className="section-heading"><div><p className="eyebrow">SQUAD</p><h2>Starting XI</h2></div><label>Formation <select aria-label="Formation" value={formation} onChange={e=>setFormation(e.target.value)}>{Object.keys(formations).map(f=><option key={f}>{f}</option>)}</select></label></div>{starting.length<11&&<p className="muted">{starting.length} of 11 places filled. Approved preferred positions are needed for the remaining places.</p>}<div className="gg-pitch" aria-label={`${formation} football formation`}><div className="gg-centre-circle"/>{slots.map((s,i)=>!starting.some(p=>p.slot===i)&&<div key={`empty-${i}`} className="gg-pitch-empty" style={{left:`${s.x}%`,top:`${s.y}%`}}>{s.position}<small>Available</small></div>)}{starting.map(({player,position,x,y})=><button key={player._id} className="gg-pitch-player" style={{left:`${x}%`,top:`${y}%`}} onClick={()=>onPlayer(player._id)}>{player.profileImage?<img src={player.profileImage} alt=""/>:<span className="gg-avatar">{player.name.charAt(0)}</span>}<strong>{player.name}</strong><small>{position} · {rating(statistics.find(s=>s.playerId===String(player._id))?.ggRating)}</small></button>)}</div><h3>Bench</h3><div className="gg-bench">{bench.map(player=><PlayerButton key={player._id} player={player} onPlayer={onPlayer}/>)}</div>{!players.length&&<p className="muted">No players have been added yet.</p>}</section>;}
+import { useId, useMemo, useState } from "react";
+import { formations, selectSquad } from "../lib/formations";
+import { rating } from "../lib/format";
+import { PlayerButton } from "./common";
+import "./starting-xi.css";
+
+const quickFormations = ["4-3-3", "4-4-2", "4-2-3-1"];
+
+function LineupPlayer({ player, position, playerRating, onPlayer }) {
+  if (!player) return <span className="gg-lineup-empty" aria-label={`${position}, open position`}>
+    <span className="gg-lineup-position">{position}</span><span className="gg-lineup-vacancy">Open</span>
+  </span>;
+
+  return <button type="button" className="gg-lineup-player" onClick={() => onPlayer(player._id)}
+    aria-label={`${player.name}, ${position}${playerRating == null ? "" : `, GG rating ${rating(playerRating)}`}`}>
+    {player.profileImage ? <img src={player.profileImage} alt="" loading="lazy" /> :
+      <span className="gg-lineup-avatar" aria-hidden="true">{player.name?.charAt(0)}</span>}
+    <strong>{player.name}</strong>
+    <span className="gg-lineup-position">{position}</span>
+    <span className="gg-lineup-rating">{rating(playerRating)}</span>
+  </button>;
+}
+
+export default function Squad({ players, statistics = [], onPlayer }) {
+  const [formation, setFormation] = useState("4-3-3");
+  const [view, setView] = useState("pitch");
+  const formationId = useId();
+  const { starting, bench, slots } = useMemo(() => selectSquad(players, statistics, formation), [players, statistics, formation]);
+  const bySlot = new Map(starting.map(({ slot, player }) => [slot, player]));
+  const ratings = new Map(statistics.map(({ playerId, ggRating }) => [String(playerId), ggRating]));
+
+  const lineup = slots.map((slot, index) => {
+    const player = bySlot.get(index);
+    const key = player ? `player-${player._id}` : `open-${index}`;
+    const card = <LineupPlayer player={player} position={slot.position} playerRating={ratings.get(String(player?._id))} onPlayer={onPlayer} />;
+    return view === "pitch" ? <div key={key} className="gg-pitch-spot"
+      style={{ "--spot-x": `${slot.x}%`, "--spot-y": `${7 + slot.y * .86}%` }}>{card}</div> : <li key={key}>{card}</li>;
+  });
+
+  return <section className="gg-squad" aria-label="Starting XI">
+    <div className="gg-lineup-heading">
+      <h2>Starting XI</h2>
+      <div className="gg-glass-tabs gg-lineup-view" role="group" aria-label="Lineup view">
+        <button type="button" aria-pressed={view === "pitch"} onClick={() => setView("pitch")}>Pitch</button>
+        <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")}>List</button>
+      </div>
+    </div>
+
+    <div className="gg-lineup-controls">
+      <div className="gg-lineup-presets" role="group" aria-label="Common formations">
+        {quickFormations.map(preset => <button type="button" key={preset} aria-pressed={formation === preset}
+          onClick={() => setFormation(preset)}>{preset}</button>)}
+      </div>
+      <div className="gg-lineup-select">
+        <label htmlFor={formationId}>Formation</label>
+        <select id={formationId} value={formation} onChange={event => setFormation(event.target.value)}>
+          {Object.keys(formations).map(option => <option key={option}>{option}</option>)}
+        </select>
+      </div>
+    </div>
+
+    {starting.length < slots.length && <p className="gg-lineup-availability muted">
+      {starting.length} of {slots.length} positions filled. Open spots need players with approved positions.
+    </p>}
+    <div className="gg-lineup-content">
+      {view === "pitch" ? <div className="gg-pitch" role="group" aria-label={`${formation} football formation`}>
+        <div className="gg-pitch-lines" aria-hidden="true"><span /><span /><span /></div>
+        {lineup}
+      </div> : <ul className="gg-lineup-list" aria-label={`${formation} player lineup`}>{lineup}</ul>}
+      <aside className="gg-lineup-bench" aria-label="Bench">
+        <h3>Bench <small>{bench.length}</small></h3>
+        <div className="gg-bench">
+          {bench.map(player => <PlayerButton key={player._id} player={player} onPlayer={onPlayer} />)}
+          {!bench.length && <p className="muted">No players on the bench.</p>}
+        </div>
+      </aside>
+    </div>
+  </section>;
+}

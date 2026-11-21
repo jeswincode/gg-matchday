@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 
-export default function useResource(path, refreshKey = 0) {
+export default function useResource(path, refreshKey = 0, { keepPreviousData = false } = {}) {
   const [state, setState] = useState(null);
   useEffect(() => {
     let active = true;
@@ -16,5 +16,9 @@ export default function useResource(path, refreshKey = 0) {
     });
     return () => { active = false; };
   }, [path, refreshKey]);
-  return state?.path === path ? { ...state, loading: false } : { data: null, error: "", loading: true };
+  return state?.path === path ? { ...state, loading: false } : {
+    data: keepPreviousData ? state?.data ?? null : null,
+    error: "",
+    loading: true,
+  };
 }
