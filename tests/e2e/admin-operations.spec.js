@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { enterSignedInMatchday } from "./entry-helpers.js";
 
 test("Clubs operations queue drives an administrator approval and records the action", async ({ page }) => {
   test.setTimeout(45_000);
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   const navigation = page.getByRole("navigation", { name: "Clubs admin navigation" });
@@ -58,7 +58,7 @@ test("Clubs operations queue drives an administrator approval and records the ac
 
 test("Profile administration selects its sidebar item and removes an account after linking", async ({ page }) => {
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   const avatar = page.getByRole("button", { name: "Account profile settings" });
   await avatar.click();
   const settings = page.getByRole("dialog", { name: "Account profile settings" });

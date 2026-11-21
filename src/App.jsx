@@ -7,7 +7,7 @@ import useDockDrag from "./components/useDockDrag";
 import { pushTab, readTab, readWorkspace, useTabHistory } from "./lib/tabHistory";
 import { pauseBackgroundForSwipe, setBackgroundWorkspace } from "./video-background";
 import NotificationIndicator from './components/NotificationIndicator';
-import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
+import {StartupScreen, LoginDashboard, WelcomeScreen, MobileFullscreenScreen} from './components/StartupExperience';
 // Keep the five primary navigation destinations in the initial JS graph.
 // Otherwise the top-level Suspense boundary replaces the entire app shell
 // with “Opening Matchday…” the first time a user opens each tab.
@@ -98,6 +98,8 @@ function localDateString(
 function App() {
   const dockDrag = useDockDrag();
   const [experience,setExperience]=useState('startup');
+  const [mobileEntry] = useState(() => window.matchMedia("(max-width: 767px), (hover: none) and (pointer: coarse)").matches);
+  const [mobileEntryComplete, setMobileEntryComplete] = useState(() => Boolean(document.fullscreenElement));
   const [productMode,setProductMode]=useState(readWorkspace);
   const [clubsAdminEntry, setClubsAdminEntry] = useState(false);
   const [profileRequestMode, setProfileRequestMode] = useState(null);
@@ -543,7 +545,12 @@ function App() {
     setExperience("app");
   }
 
-  const liveActive = experience === "app" || productMode === "clubs";
+  const signedInEntry = experience === "entry" && authUser && !authLoading;
+  const activeExperience = signedInEntry || experience === "welcome"
+    ? (mobileEntry ? "app" : "welcome")
+    : experience;
+  const fullscreenPromptOpen = mobileEntry && !mobileEntryComplete;
+  const liveActive = !fullscreenPromptOpen && (activeExperience === "app" || productMode === "clubs");
   const accountId = isSignedIn ? backendUser?.id : null;
   const matchdayActive = liveActive && productMode === "matchday";
   const primaryTabsActive = matchdayActive && activeTab !== TABS.ADMIN;
@@ -2152,11 +2159,6 @@ function App() {
   // RENDER
   // =========================================================
 
-  const activeExperience =
-    experience === "entry" && authUser && !authLoading
-      ? "welcome"
-      : experience;
-
   const modeTransitionLayer = modeTransition ? (
     <div className={`product-mode-transition product-mode-transition--${modeTransition}`} aria-hidden="true">
       <span className="product-mode-wave product-mode-wave--one" />
@@ -2164,6 +2166,14 @@ function App() {
       <span className="product-mode-wave product-mode-wave--three" />
     </div>
   ) : null;
+
+  if (activeExperience === "startup") {
+    return <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
+  }
+
+  if (fullscreenPromptOpen) {
+    return <MobileFullscreenScreen onContinue={() => setMobileEntryComplete(true)} />;
+  }
 
   if (productMode === "clubs") {
     if (authLoading) {
@@ -2178,10 +2188,6 @@ function App() {
         {modeTransitionLayer}
       </>
     );
-  }
-
-  if (activeExperience === "startup") {
-    return <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
   }
 
   if (activeExperience === "entry") {

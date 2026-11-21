@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { enterSignedInMatchday } from "./entry-helpers.js";
 
 const FORMATION_PLAYERS = [
   { id: "65a000000000000000000011", name: "E2E Formation Founder" },
@@ -48,8 +49,7 @@ function actorUrl({ role = "editor", playerId = null, id = null }) {
 
 async function loadClubs(page, actor) {
   await page.goto(actorUrl(actor));
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   const linkedPlayerId = actor.playerId || actor.id;

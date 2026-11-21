@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { completeMobileEntry } from "./entry-helpers.js";
 
 const PLAYER = "65a000000000000000000041";
 const API = "http://127.0.0.1:5000/api";
@@ -10,6 +11,7 @@ const authHeaders = (role, id = "unlinked") => ({
 
 async function openProfile(page) {
   await page.goto("/?e2eRole=guest");
+  await completeMobileEntry(page);
   await page.getByRole("button", { name: "Explore as Guest" }).click();
   await page.getByRole("button", { name: /Players$/ }).click();
   await page.locator(".player-profile-row").filter({ hasText: "E2E Live Profile" }).click();

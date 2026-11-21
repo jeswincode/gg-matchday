@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { enterSignedInMatchday } from "./entry-helpers.js";
 
 const api = "http://127.0.0.1:5000/api";
 const captainId = "65a000000000000000000001";
@@ -13,7 +14,7 @@ const auth = playerId => ({
 
 async function openClubs(page, playerId) {
   await page.goto("/?e2eRole=" + roleFor(playerId) + "&e2ePlayerId=" + playerId);
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.getByRole("navigation", { name: "Clubs navigation" })).toBeVisible();
 }
@@ -71,7 +72,7 @@ test("Clubs opens the signed-in player's full profile and keeps editing optional
 
 test("the account avatar and player photo open the appropriate profile settings", async ({ page }) => {
   await page.goto(`/?e2eRole=editor&e2ePlayerId=${captainId}`);
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   const navigation = page.getByRole("navigation", { name: "Matchday tabs" });
   await navigation.getByRole("button", { name: /Calendar/ }).click();
   const avatar = page.getByRole("button", { name: "Account profile settings" });

@@ -2,43 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-test("Welcome screen uses a full-screen invisible entry target and preserves poster proportions", () => {
-  const component = fs.readFileSync("src/components/StartupExperience.jsx", "utf8");
-  const styles = fs.readFileSync("src/welcome-reference.css", "utf8").replaceAll("\r\n", "\n");
-  const app = fs.readFileSync("src/App.jsx", "utf8");
-
-  assert.ok(component.includes('src="/enter-matchday.png"'));
-  assert.ok(component.includes('srcSet="/enter-matchday-mobile.png"'));
-  assert.ok(component.includes('srcSet="/enter-matchday-mobile.webp"'));
-  assert.ok(component.includes('media="(max-aspect-ratio: 3 / 4)"'));
-  assert.ok(component.includes('className="gg-welcome-image-button"'));
-  assert.ok(component.includes("onClick={onEnter}"));
-  assert.ok(component.includes('aria-label="Enter Matchday"'));
-  assert.ok(component.includes('window.addEventListener("keydown", handleGlobalEnter)'));
-  assert.ok(component.includes('event.key !== "Enter"'));
-  assert.ok(component.includes("Click anywhere on the poster or press Enter"));
-  assert.ok(!component.includes("gg-welcome-button-visual"));
-  assert.ok(!component.includes("title=\"Enter Matchday\""));
-  assert.ok(component.includes('fetchPriority="high"'));
-  assert.ok(component.includes('loading="eager"'));
-  assert.ok(component.includes("onError={() =>"));
-  assert.ok(app.includes('<WelcomeScreen onEnter={() => setExperience("app")} />'));
-
-  assert.ok(styles.includes("position: absolute;\n  inset: 0;"));
-  assert.ok(styles.includes("width: 100%;\n  height: 100%;"));
-  assert.ok(styles.includes("object-fit: cover"));
-  assert.ok(styles.includes(".gg-welcome-image-button:focus-visible"));
-  assert.ok(styles.includes("background: transparent"));
-  assert.ok(!styles.includes("gg-welcome-button-visual"));
-});
-
-test("Welcome screen keeps the dedicated portrait asset and respects reduced motion", () => {
+test("the intro uses only the optional video and removes the retired public posters", () => {
   const component = fs.readFileSync("src/components/StartupExperience.jsx", "utf8");
   const styles = fs.readFileSync("src/welcome-reference.css", "utf8");
-
-  assert.ok(component.includes('<picture className="gg-welcome-poster-picture">'));
-  assert.ok(component.includes('srcSet="/enter-matchday-mobile.png"'));
-  assert.ok(styles.includes("@media (max-aspect-ratio: 3 / 4)"));
-  assert.ok(styles.includes("@media (prefers-reduced-motion: reduce)"));
-  assert.ok(styles.includes(".gg-welcome-poster-picture"));
+  assert.match(component, /if \(!introVideo \|\| videoFailed \|\| reduceMotion\) return null/);
+  assert.match(component, /onError=\{\(\) => setVideoFailed\(true\)\}/);
+  assert.match(styles, /\.gg-matchday-intro--mobile \.gg-intro-video\s*\{\s*opacity: \.25/);
+  assert.deepEqual(fs.readdirSync("public").filter(file => file.startsWith("enter-matchday")), []);
 });

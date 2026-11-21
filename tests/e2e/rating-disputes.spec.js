@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { enterSignedInMatchday } from "./entry-helpers.js";
 
 async function enterMatchday(page, role, playerId) {
   const query = playerId ? `?e2eRole=${role}&e2ePlayerId=${playerId}` : `?e2eRole=${role}&e2ePlayerId=unlinked`;
   await page.goto("/" + query);
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
 }
 
 test("player can inspect canonical rating breakdown and submit a non-mutating dispute", async ({ page }) => {

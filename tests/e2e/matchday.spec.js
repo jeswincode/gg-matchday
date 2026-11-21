@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { enterSignedInMatchday, completeMobileEntry } from "./entry-helpers.js";
 
 async function stubPublicApi(page, leaderboard = []) {
   await page.route("**/api/**", async route => {
@@ -23,6 +24,7 @@ async function stubPublicApi(page, leaderboard = []) {
 
 async function enterGuestMatchday(page) {
   await page.goto("/?e2eRole=guest");
+  await completeMobileEntry(page);
   await page.getByRole("button", { name: "Explore as Guest" }).click();
   await expect(page.locator(".bottom-nav").getByRole("button", { name: "Leaderboard" })).toBeVisible();
 }
@@ -116,47 +118,59 @@ test("Starting XI shares players and formations between a compact pitch and the 
   await expect(squad.getByRole("group", { name: "3-5-2 football formation" })).toBeVisible();
 });
 
-test("mobile welcome screen fills the viewport without stretching and any poster tap opens Matchday", async ({ page }) => {
+test("mobile asks for fullscreen after loading and keeps the Matchday pages in fullscreen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  const poster = page.getByRole("img", { name: /GG Matchday cinematic football poster/i });
-  await expect(poster).toBeVisible();
-  await expect.poll(async () => {
-    const currentSrc = await poster.evaluate(element => element.currentSrc);
-    return new URL(currentSrc).pathname;
-  }).toBe("/enter-matchday-mobile.webp");
+  const fullscreen = page.getByRole("button", { name: "Enter Fullscreen", exact: true });
+  await expect(fullscreen).toBeVisible();
+  await expect(page.locator(".gg-startup")).toHaveCount(0);
+  await expect(page.locator(".gg-matchday-intro picture, .gg-matchday-intro video")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Matchday tabs" })).toHaveCount(0);
+  const { width } = page.viewportSize();
+  const box = await fullscreen.boundingBox();
+  expect(Math.abs(box.x + box.width / 2 - width / 2)).toBeLessThanOrEqual(1);
 
-  const viewport = page.viewportSize();
-  const frame = page.locator(".gg-welcome-poster-frame");
-  const frameBounds = await frame.boundingBox();
-  const enter = page.getByRole("button", { name: "Enter Matchday" });
-  const enterBounds = await enter.boundingBox();
-
-  expect(frameBounds).not.toBeNull();
-  expect(enterBounds).not.toBeNull();
-  expect(Math.abs(frameBounds.width - viewport.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(frameBounds.height - viewport.height)).toBeLessThanOrEqual(1);
-  expect(Math.abs(enterBounds.width - viewport.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(enterBounds.height - viewport.height)).toBeLessThanOrEqual(1);
-  expect(await poster.evaluate(element => getComputedStyle(element).objectFit)).toBe("cover");
-  expect(await poster.evaluate(element => Math.abs(element.naturalWidth / element.naturalHeight - 9 / 16))).toBeLessThan(0.015);
-  await expect(page.locator(".gg-welcome-button-visual")).toHaveCount(0);
-  expect(await enter.evaluate(element => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
-  expect(await enter.evaluate(element => getComputedStyle(element).borderWidth)).toBe("0px");
-
-  // Tap a part of the artwork well away from the former visible CTA.
-  await page.mouse.click(viewport.width * 0.88, viewport.height * 0.36);
-  await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
+  await fullscreen.click();
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
+  const nav = page.getByRole("navigation", { name: "Matchday tabs" });
+  await nav.getByRole("button", { name: "Leaderboard" }).click();
+  await expect(page.getByRole("heading", { name: "Leaderboard", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
 });
 
-test("Enter key opens Matchday from the welcome screen without requiring a pointer", async ({ page }) => {
+test("mobile can continue as a guest when the browser denies fullscreen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    Element.prototype.requestFullscreen = () => Promise.reject(new Error("Fullscreen blocked"));
+  });
+  await page.goto("/?e2eRole=guest");
+  await expect(page.getByRole("button", { name: "Explore as Guest" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Enter Fullscreen", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Fullscreen is unavailable");
+  await page.getByRole("button", { name: "Continue in browser", exact: true }).click();
+  await page.getByRole("button", { name: "Explore as Guest" }).click();
+  await expect(page.getByRole("navigation", { name: "Matchday tabs" })).toBeVisible();
+});
+
+test("desktop welcome is blank apart from its bottom-left prompt and accepts Enter or a click anywhere", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "chromium-mobile", "Desktop entry runs with a desktop pointer.");
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("/");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Enter Matchday" })).toBeVisible();
-
+  const prompt = page.getByRole("button", { name: "PRESS TO CONTINUE", exact: true });
+  await expect(prompt).toBeVisible();
+  await expect(page.locator(".gg-matchday-intro")).toHaveCSS("background-color", "rgb(3, 3, 3)");
+  await expect(page.locator(".gg-matchday-intro picture, .gg-matchday-intro video")).toHaveCount(0);
+  const label = await prompt.locator("span").boundingBox();
+  expect(label.x).toBeLessThan(65);
+  expect(768 - label.y - label.height).toBeLessThan(56);
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("button", { name: /Leaderboard/ }).first()).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Matchday tabs" });
+  await expect(nav).toBeVisible();
+
+  await page.reload();
+  await expect(prompt).toBeVisible();
+  await page.mouse.click(1050, 230);
+  await expect(nav).toBeVisible();
 });
 
 test("first visits to all five Matchday tabs keep the shell visible and never show a full-screen loader", async ({ page }) => {
@@ -202,8 +216,7 @@ test("mobile viewport keeps primary navigation usable across key tabs", async ({
 
 test("editor can authenticate and record a match through the real browser and API", async ({ page }) => {
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
 
   await page.getByRole("button", { name: /Record/ }).first().click();
   await expect(page.getByRole("heading", { name: "Record a Match" })).toBeVisible();
@@ -241,8 +254,7 @@ test("My Club keeps stats and history available when wallet loading fails, then 
   });
 
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Clubs navigation" });
@@ -293,8 +305,7 @@ test("Clubs opens on first click without replacing the page with a loading scree
 
 test("admin control center keeps distinct workspaces and returns to Matchday", async ({ page }) => {
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   await page.getByRole("button", { name: /Admin/ }).first().click();
 
   const admin = page.getByRole("region", { name: "GG Matchday admin control center" });
@@ -328,7 +339,7 @@ test("admin control center keeps distinct workspaces and returns to Matchday", a
 test("desktop Admin layout aligns with Matchday and the sidebar stays put while content scrolls", async ({ page }) => {
   test.skip(test.info().project.name === "chromium-mobile", "Desktop two-pane layout is replaced with a mobile drawer.");
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   await page.getByRole("button", { name: /Admin/ }).first().click();
   const sidebar = page.locator(".admin-sidebar");
   const content = page.locator(".admin-main-content");
@@ -361,7 +372,7 @@ test("desktop Admin layout aligns with Matchday and the sidebar stays put while 
 test("mobile admin navigation opens as a drawer and can return to Matchday", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
   await page.getByRole("button", { name: /Admin/ }).first().click();
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   const open = page.getByRole("button", { name: "Open admin sections" });
@@ -447,6 +458,7 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   await expect(playersSection.getByRole("searchbox", { name: "Find a player" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Player History" })).toHaveCount(0);
   await page.reload();
+  await completeMobileEntry(page);
   await expect(page.getByRole("navigation", { name: "Clubs navigation" })
     .getByRole("button", { name: "Players", exact: true })).toHaveAttribute("aria-current", "page");
 });
@@ -532,6 +544,7 @@ test("Matchday keeps the next panel ready during a deep page swipe and resets th
   await page.goForward();
   await expect(navigation.getByRole("button", { name: /Record$/ })).toHaveAttribute("aria-current", "page");
   await page.reload();
+  await completeMobileEntry(page);
   await page.getByRole("button", { name: "Explore as Guest" }).click();
   await expect(navigation.getByRole("button", { name: /Record$/ })).toHaveAttribute("aria-current", "page");
 });

@@ -75,19 +75,32 @@ export function LoginDashboard({onSignIn,onGuest,busy,message}){
   </main>;
 }
 
-export function WelcomeScreen({ onEnter }) {
-  const [posterLoaded, setPosterLoaded] = useState(false);
-  const [posterFailed, setPosterFailed] = useState(false);
+const introVideo = import.meta.env.VITE_MATCHDAY_INTRO_VIDEO;
 
+function IntroBackground() {
+  const [videoFailed, setVideoFailed] = useState(false);
+  const [reduceMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  if (!introVideo || videoFailed || reduceMotion) return null;
+  return (
+    <video
+      className="gg-intro-video"
+      src={introVideo}
+      autoPlay
+      muted
+      loop
+      playsInline
+      aria-hidden="true"
+      onError={() => setVideoFailed(true)}
+    />
+  );
+}
+
+export function WelcomeScreen({ onEnter }) {
   useEffect(() => {
     function handleGlobalEnter(event) {
       if (event.key !== "Enter" || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-
-      const target = event.target;
-      if (target instanceof HTMLElement && (
-        target.isContentEditable ||
-        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
-      )) return;
+      if (event.target !== document.body && event.target !== document.documentElement) return;
 
       event.preventDefault();
       onEnter();
@@ -98,57 +111,52 @@ export function WelcomeScreen({ onEnter }) {
   }, [onEnter]);
 
   return (
-    <main className={`gg-welcome-screen gg-welcome-image-screen${posterLoaded || posterFailed ? " is-ready" : ""}`}>
-      <div className={`gg-welcome-poster-frame${posterLoaded ? " is-loaded" : ""}${!posterLoaded && !posterFailed ? " is-loading" : ""}${posterFailed ? " has-error" : ""}`}>
-        {!posterFailed && (
-          <picture className="gg-welcome-poster-picture">
-            <source
-              media="(max-aspect-ratio: 3 / 4)"
-              type="image/webp"
-              srcSet="/enter-matchday-mobile.webp"
-            />
-            <source
-              media="(max-aspect-ratio: 3 / 4)"
-              srcSet="/enter-matchday-mobile.png"
-            />
-            <source type="image/webp" srcSet="/enter-matchday.webp" />
-            <img
-              className="gg-welcome-poster"
-              src="/enter-matchday.png"
-              alt="GG Matchday cinematic football poster with players in a floodlit stadium."
-              draggable={false}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              onLoad={() => setPosterLoaded(true)}
-              onError={() => {
-                setPosterLoaded(false);
-                setPosterFailed(true);
-              }}
-            />
-          </picture>
-        )}
+    <main className="gg-matchday-intro">
+      <IntroBackground />
+      <button type="button" className="gg-intro-desktop-button" onClick={onEnter}>
+        <span>PRESS TO CONTINUE</span>
+      </button>
+    </main>
+  );
+}
 
-        {posterFailed && (
-          <div className="gg-welcome-poster-fallback" role="status">
-            <p className="gg-welcome-poster-brand">GG MATCHDAY</p>
-            <p className="gg-welcome-poster-help">
-              Add <code>public/enter-matchday.png</code> and <code>public/enter-matchday-mobile.png</code> to display the desktop and mobile welcome artwork.
-            </p>
-          </div>
-        )}
+export function MobileFullscreenScreen({ onContinue }) {
+  const [status, setStatus] = useState("ready");
 
+  async function enterFullscreen() {
+    setStatus("opening");
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {
+      setStatus("unavailable");
+      return;
+    }
+    onContinue();
+  }
+
+  const unavailable = status === "unavailable";
+  const opening = status === "opening";
+
+  return (
+    <main className="gg-matchday-intro gg-matchday-intro--mobile">
+      <IntroBackground />
+      <section className="gg-fullscreen-prompt" aria-label="Matchday display mode">
+        <p id="gg-fullscreen-description">
+          For the best Matchday experience, go fullscreen to give the pitch and match tools more room.
+        </p>
         <button
           type="button"
-          className="gg-welcome-image-button"
-          onClick={onEnter}
-          aria-label="Enter Matchday"
+          className="gg-fullscreen-button"
+          onClick={unavailable ? onContinue : enterFullscreen}
+          disabled={opening}
+          aria-describedby={unavailable ? "gg-fullscreen-status" : "gg-fullscreen-description"}
         >
-          <span className="gg-welcome-sr-only">
-            Enter Matchday. Click anywhere on the poster or press Enter to continue.
-          </span>
+          {unavailable ? "Continue in browser" : opening ? "Opening fullscreen…" : "Enter Fullscreen"}
         </button>
-      </div>
+        {unavailable && (
+          <p id="gg-fullscreen-status" role="status">Fullscreen is unavailable here. You can still use all Matchday features.</p>
+        )}
+      </section>
     </main>
   );
 }

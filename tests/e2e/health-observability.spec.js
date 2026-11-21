@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { enterSignedInMatchday } from "./entry-helpers.js";
 
 async function enterMatchday(page) {
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
-  await expect(page.getByRole("img", { name: /GG Matchday cinematic football poster/i })).toBeVisible();
-  await page.getByRole("button", { name: "Enter Matchday" }).click();
+  await enterSignedInMatchday(page);
 }
 
 test("admin health view shows live database pings, bounded API observations and honest backup limitations", async ({ page }) => {

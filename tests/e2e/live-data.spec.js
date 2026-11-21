@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { completeMobileEntry, enterSignedInMatchday } from "./entry-helpers.js";
 
 const api = "http://127.0.0.1:5000/api";
 const playerOne = "65a000000000000000000001";
@@ -11,7 +12,12 @@ const auth = (role, player = "unlinked") => ({
 
 async function enter(page, role = "guest", player = "unlinked") {
   await page.goto(`/?e2eRole=${role}&e2ePlayerId=${player}`);
-  await page.getByRole("button", { name: role === "guest" ? "Explore as Guest" : "Enter Matchday" }).click();
+  if (role === "guest") {
+    await completeMobileEntry(page);
+    await page.getByRole("button", { name: "Explore as Guest" }).click();
+  } else {
+    await enterSignedInMatchday(page);
+  }
   await expect(page.locator(".bottom-nav")).toBeVisible();
 }
 

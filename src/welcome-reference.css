@@ -1,156 +1,112 @@
-/* GG Matchday poster-led welcome screen.
-   The artwork is the entire visual experience; an invisible accessible hit target
-   covers the viewport, with focus feedback only for keyboard navigation. */
-
-.gg-welcome-screen.gg-welcome-image-screen {
-  display: block;
-  padding: 0;
+.gg-matchday-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  isolation: isolate;
   overflow: hidden;
   background: #030303;
   color: #fff;
+  font-family: system-ui, sans-serif;
 }
 
-html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen {
-  background: #030303;
-}
-
-.gg-welcome-screen.gg-welcome-image-screen::before,
-.gg-welcome-screen.gg-welcome-image-screen::after,
-html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::before,
-html[data-theme="golden"] .gg-welcome-screen.gg-welcome-image-screen::after {
-  content: none;
+.gg-matchday-intro ~ .pr-footer {
   display: none;
-  background: none;
 }
 
-.gg-welcome-poster-frame {
+.gg-intro-video,
+.gg-intro-desktop-button {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  min-height: 100dvh;
-  overflow: hidden;
-  isolation: isolate;
-  background: #030303;
 }
 
-.gg-welcome-poster-picture {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.gg-welcome-poster {
-  display: block;
-  width: 100%;
-  height: 100%;
-  max-width: none;
+.gg-intro-video {
   object-fit: cover;
-  object-position: center;
-  opacity: 0;
-  user-select: none;
-  -webkit-user-drag: none;
-  transition: opacity 140ms ease-out;
+  pointer-events: none;
 }
 
-.gg-welcome-poster-frame.is-loaded .gg-welcome-poster {
-  opacity: 1;
-}
-
-.gg-welcome-image-button {
-  position: absolute;
-  z-index: 2;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-  margin: 0;
-  padding: 0;
+.gg-intro-desktop-button {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 0 max(32px, env(safe-area-inset-bottom)) max(40px, env(safe-area-inset-left));
   border: 0;
   border-radius: 0;
+  box-shadow: none;
   background: transparent;
-  color: transparent;
+  color: inherit;
+  font: 800 clamp(17px, 1.55vw, 26px)/1.2 system-ui, sans-serif;
+  letter-spacing: .06em;
+  text-align: left;
   cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  outline: none;
-  transition: none;
 }
 
-.gg-welcome-image-button:hover {
-  background: transparent;
+.gg-intro-desktop-button span {
+  text-shadow: 0 1px 8px #000;
 }
 
-.gg-welcome-image-button:focus-visible {
-  outline: 3px solid #ffe28a;
-  outline-offset: -8px;
-  box-shadow: inset 0 0 0 8px rgba(245, 195, 75, .16);
+.gg-intro-desktop-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -6px;
 }
 
-.gg-welcome-poster-frame.is-loading .gg-welcome-image-button {
-  opacity: 0;
-}
-
-.gg-welcome-poster-frame.has-error {
+.gg-matchday-intro--mobile {
   display: grid;
   place-items: center;
-  padding: 24px;
-  box-sizing: border-box;
-  border: 1px solid rgba(241, 199, 91, .22);
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  overflow: auto;
 }
 
-.gg-welcome-poster-fallback {
-  max-width: 620px;
-  text-align: center;
+.gg-matchday-intro--mobile .gg-intro-video {
+  opacity: .25;
+}
+
+.gg-fullscreen-prompt {
   position: relative;
-  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  max-width: 32ch;
+  text-align: center;
 }
 
-.gg-welcome-poster-brand {
+.gg-fullscreen-prompt p {
   margin: 0;
-  color: #f1c75b;
-  font-size: clamp(28px, 5vw, 72px);
-  font-weight: 950;
-  letter-spacing: .1em;
+  color: #d8d8da;
+  font-size: 15px;
+  line-height: 1.55;
 }
 
-.gg-welcome-poster-help {
-  margin: 18px 0 0;
-  color: rgba(255, 255, 255, .72);
-  font-size: clamp(12px, 1.3vw, 16px);
-}
-
-.gg-welcome-poster-help code {
-  color: #ffe28a;
-  overflow-wrap: anywhere;
-}
-
-.gg-welcome-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
+.gg-fullscreen-button {
+  grid-row: 1;
+  min-height: 48px;
+  padding: 12px 22px;
   border: 0;
+  border-radius: 8px;
+  background: #f4f4f6;
+  color: #101012;
+  font: 750 17px/1.2 system-ui, sans-serif;
+  cursor: pointer;
 }
 
-/* Wide posters use the landscape asset; portrait devices load the dedicated
-   9:16 asset. object-fit: cover preserves proportions while allowing natural
-   edge cropping on screens whose aspect ratio differs from the artwork. */
-@media (max-aspect-ratio: 3 / 4) {
-  .gg-welcome-poster-frame.has-error {
-    padding: 24px;
-  }
+.gg-fullscreen-button:active {
+  background: #d8d8dd;
+}
+
+.gg-fullscreen-button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+}
+
+.gg-fullscreen-button:disabled {
+  opacity: .72;
+  cursor: wait;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gg-welcome-poster,
-  .gg-welcome-image-button {
-    transition: none;
+  .gg-intro-video {
+    display: none;
   }
 }
