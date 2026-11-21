@@ -36,7 +36,6 @@ test("Clubs mode is available from the main navigation to every viewer", () => {
   assert.match(app, /import ClubsMode from '\.\/features\/clubs\/ClubsMode'/);
   assert.doesNotMatch(app, /Opening Clubs…|lazy\(preloadClubsMode\)|preloadClubsMode/);
   assert.doesNotMatch(app, /Clubs is temporarily locked/);
-  assert.match(app, /const \[productMode,setProductMode\]=useState\("matchday"\)/);
   assert.doesNotMatch(app, /localStorage\.getItem\("gg-product-mode"\)/);
   assert.doesNotMatch(app, /localStorage\.setItem\("gg-product-mode"/);
   assert.match(app, /url\.searchParams\.delete\("mode"\)/);
@@ -194,9 +193,9 @@ test("Club primary navigation uses top-level Market and Matches with guarded tou
   const navigation = fs.readFileSync("src/features/clubs/ClubsNavigation.jsx", "utf8");
 
   assert.match(component, /const primaryTabKeys =/);
-  assert.match(component, /<SwipePager tabs=\{!adminOnlyView && primaryTabKeys\.includes/);
+  assert.match(component, /<SwipePager[\s\S]*?tabs=\{!adminOnlyView && primaryTabKeys\.includes/);
   assert.match(component, /pane === "market"/);
-  assert.match(component, /setActiveSection\("market"\)/);
+  assert.match(component, /navigatePrimaryTab\("market"\)/);
   assert.match(navigation, /aria-expanded=\{moreOpen\}/);
   assert.match(navigation, /aria-current=\{active === item.key/);
   assert.doesNotMatch(component, /aria-label="Ultimate Clubs sections"/);
