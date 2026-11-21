@@ -177,11 +177,22 @@ test("first visits to all five Matchday tabs keep the shell visible and never sh
 });
 
 test("mobile viewport keeps primary navigation usable across key tabs", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await stubPublicApi(page);
+  await page.setViewportSize({ width: 320, height: 780 });
+  await stubPublicApi(page, ["Striker", "Midfielder", "Goalkeeper"].map((name, index) => ({
+    playerId: String(index + 1), name, position: "ST", ggRating: 7.25 - index / 10,
+  })));
   await enterGuestMatchday(page);
   const navigation = page.locator(".bottom-nav");
   await expect(navigation).toBeVisible();
+  const stats = page.locator(".home-page > .home-stat-grid > .home-stat-card");
+  await expect(stats).toHaveCount(4);
+  const tops = await stats.evaluateAll(cards => cards.map(card => card.getBoundingClientRect().top));
+  expect(new Set(tops).size).toBe(1);
+  await navigation.getByRole("button", { name: "Leaderboard" }).click();
+  await expect(page.locator(".gg-podium .gg-place")).toHaveCount(3);
+  await expect.poll(() => page.locator(".gg-podium").evaluate(podium =>
+    [...podium.children].every(card => card.getBoundingClientRect().right <= podium.getBoundingClientRect().right + 1)
+  )).toBeTruthy();
   await navigation.getByRole("button", { name: /Players/ }).click();
   await expect(navigation.getByRole("button", { name: /Players/ })).toBeVisible();
   await navigation.getByRole("button", { name: /Calendar/ }).click();
@@ -198,7 +209,14 @@ test("editor can authenticate and record a match through the real browser and AP
   await expect(page.getByRole("heading", { name: "Record a Match" })).toBeVisible();
   await page.getByLabel("Match name").fill("E2E Browser Regression Match");
   await page.getByRole("button", { name: "E2E Player One Side 1" }).click();
+  const rosterSearch = page.getByRole("searchbox", { name: "Find a player in the match roster" });
+  await rosterSearch.fill("player two");
+  await rosterSearch.press("Enter");
+  await expect(page.getByRole("button", { name: "E2E Player One Side 1" })).toHaveCount(0);
+  await expect(page.getByText("1 participating", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "E2E Player Two Side 2" }).click();
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(page.getByRole("button", { name: "E2E Player One Side 1" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Save Match" }).click();
 
   await expect(page.getByText("Match recorded.")).toBeVisible();
@@ -369,6 +387,11 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
 
   // Verify natural vertical scrolling while the longer Hub overview is active.
   const nav = page.getByRole("navigation", { name: "Clubs navigation" });
+  await expect(page.locator("#gg-background-video")).toHaveJSProperty("autoplay", false);
+  const footer = clubsApp.locator(".clubs-footer");
+  const distanceToDock = () => footer.evaluate((element) =>
+    document.querySelector(".clubs-destination-nav").getBoundingClientRect().top - element.getBoundingClientRect().bottom,
+  );
   await expect(page.locator(".clubs-hub-discovery-grid")).toBeVisible();
   const pageHeights = await page.evaluate(() => ({
     content: document.documentElement.scrollHeight,
@@ -379,6 +402,9 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   await page.mouse.wheel(0, 650);
   await expect.poll(() => page.evaluate(() => window.scrollY || document.scrollingElement.scrollTop)).toBeGreaterThan(0);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+  await expect(footer).toBeInViewport();
+  await expect.poll(distanceToDock).toBeGreaterThanOrEqual(0);
   await page.evaluate(() => window.scrollTo(0, 0));
   for (const label of ["Club Hub", "Matches", "Players"]) {
     await expect(nav.getByRole("button", { name: label, exact: true })).toBeVisible();
@@ -404,6 +430,9 @@ test("Clubs keeps guest destinations reachable in the mobile dock and supports s
   await expect(pager.locator('[data-pane="next"]')).toBeVisible();
   await touch("touchEnd");
   await expect(page.getByRole("heading", { name: "Schedule & fixtures" })).toBeVisible();
+  await expect(footer).toBeInViewport();
+  await expect.poll(distanceToDock).toBeGreaterThanOrEqual(0);
+  await expect.poll(distanceToDock).toBeLessThan(28);
   await expect(nav.locator('[data-primary-tab="matches"]')).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveURL(/view=clubs&tab=matches/);
   await page.goBack();

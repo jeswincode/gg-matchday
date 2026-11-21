@@ -114,6 +114,10 @@
 
 .app--matchday ~ .pr-footer strong { color: var(--signature-ink); }
 
+.gg-match-player-search { display: flex; gap: 8px; margin: 0 0 10px; }
+.gg-match-player-search input { flex: 1; min-width: 0; min-height: 44px; }
+.gg-match-player-search button { flex: none; min-height: 44px; }
+
 @media (max-width: 760px) {
   .app--matchday ~ .pr-footer { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .gg-filters.gg-ranking-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 6px; padding: 7px; }
@@ -256,17 +260,42 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
 
 @media (max-width: 760px) {
   #root .app--matchday .topbar { border: 1px solid color-mix(in srgb, var(--signature-edge) 55%, transparent); }
+  html[data-product-mode="matchday"] .gg-video-overlay {
+    background: linear-gradient(180deg, rgb(3 7 16 / .29), rgb(3 7 16 / .50));
+  }
+
+  .app--matchday .account-bar:has(.account-user) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .app--matchday .account-user { gap: 7px; }
+  .app--matchday .account-actions {
+    width: auto;
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    gap: 5px;
+  }
+  .app--matchday .account-actions button { min-height: 44px; padding: 5px 8px; font-size: .76rem; }
+  .app--matchday .account-actions:has(.request-pending, > :nth-child(3)) {
+    grid-column: 1 / -1;
+    grid-auto-flow: row;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  }
+  .app--matchday .page-title { margin-bottom: 14px; }
+  .app--matchday .page-title p:last-child { margin: 6px 0 0; line-height: 1.45; }
   #root .app--matchday .bottom-nav,
   #root .clubs-workspace .clubs-destination-nav { backdrop-filter: none; }
   #root .home-page .home-hero {
-    padding: clamp(23px, 7vw, 42px) clamp(14px, 5vw, 32px);
+    padding: 16px clamp(12px, 4.4vw, 24px);
     border-radius: 18px;
     background:
       linear-gradient(105deg, color-mix(in srgb, var(--signature-base) 95%, transparent) 25%, color-mix(in srgb, var(--signature-surface) 60%, transparent)),
       var(--signature-waves);
   }
-  #root .home-page .home-hero h2 { font-size: clamp(2rem, 8vw, 3.2rem); max-width: 16ch; }
-  #root .home-page .home-intro { color: var(--signature-muted); }
+  #root .home-page .home-hero h2 { margin: 0; font-size: clamp(1.6rem, 7.2vw, 2.8rem); max-width: 20ch; line-height: 1.06; }
+  #root .home-page .home-intro { margin: 7px 0 0; color: var(--signature-muted); font-size: .88rem; line-height: 1.4; }
+  .home-hero .gg-hall-entry { margin-top: 10px; min-height: 44px; }
   #root .home-page .home-feature-card {
     margin-top: 10px;
     padding: 14px;
@@ -276,6 +305,49 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
   }
   #root .home-page .home-feature-card h2 { font-size: clamp(1.15rem, 5.2vw, 1.75rem); }
   #root .home-page .feature-score { margin-top: 10px; }
+  .home-page .home-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+  .home-page .home-stat-grid .home-stat-card { min-height: 44px; padding: 8px 6px; border-radius: 12px; }
+  .home-page .home-stat-card strong { margin-top: 2px; font-size: 1.25rem; }
+  .home-page .home-section { margin-top: 18px; }
+  .home-page .news-list { gap: 8px; }
+  .home-page .news-card { padding: 11px; }
+
+  .home-page .compare-selector-card { padding: 12px; }
+  .home-page .compare-selector-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .home-page .compare-select:last-child { grid-column: 1 / -1; }
+  .home-page .compare-select select { width: 100%; min-height: 44px; }
+  .home-page .compare-selector-footer { flex-direction: row; align-items: center; margin-top: 8px; gap: 8px; }
+  .home-page .compare-selector-footer button {
+    min-height: 44px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--signature-selection);
+    color: var(--signature-selection-ink);
+  }
+
+  .gg-leaderboard-view .gg-podium {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    overflow: visible;
+  }
+  .gg-leaderboard-view .gg-podium .gg-place { min-height: 0; padding: 8px 7px; border-radius: 12px; }
+  .gg-leaderboard-view .gg-place .gg-player-link { min-height: 44px; font-size: .8rem; }
+  .gg-leaderboard-view .gg-podium .gg-rating { font-size: clamp(1.1rem, 5.3vw, 1.7rem); white-space: nowrap; }
+
+  .gg-match-form-card { padding: 12px; }
+  .gg-match-form-card .match-score-header { margin-block: 12px; }
+  .gg-match-form-card .gg-performance-row:not(.assigned) { min-height: 0; padding-block: 5px; }
+  .gg-match-form-card .gg-performance-row:not(.assigned) > div:first-child small { display: none; }
+  .gg-match-form-card .gg-performance-row > .team-switch button { min-width: 44px; min-height: 44px; }
+  .gg-squad .gg-bench { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .gg-squad .gg-bench .gg-player-link span { overflow-wrap: anywhere; }
+  .clubs-workspace .clubs-workspace-heading { gap: 8px; margin-bottom: 10px; }
+  #root .clubs-workspace .clubs-view-filters button { flex: 1 1 auto; padding-inline: 7px; font-size: .82rem; }
+}
+
+@media (min-width: 360px) and (max-width: 760px) {
+  .gg-match-form-card .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 }
 
 @media (prefers-reduced-transparency: reduce) {

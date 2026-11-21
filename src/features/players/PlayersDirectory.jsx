@@ -76,6 +76,8 @@ export default function PlayersDirectory({
                     className="player-photo"
                     src={player.profileImage}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div className="player-avatar">

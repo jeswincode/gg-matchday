@@ -1,3 +1,4 @@
+import { useState } from "react";
 import PerformancePicker from "../ratings/PerformancePicker";
 import { calculateMatchRatings } from "../ratings/matchCalculator";
 
@@ -20,11 +21,14 @@ export default function MatchRecordForm({
   performanceCodes, setPerformanceCodes, assignedPlayers, totalGoals, totalAssists,
   savingMatch, editingMatchId, resetMatchForm, changeCount,
 }) {
+  const [playerSearch, setPlayerSearch] = useState("");
+  const playerQuery = playerSearch.trim().toLocaleLowerCase();
+  const visiblePlayers = playerQuery ? players.filter(player => String(player.name ?? "").toLocaleLowerCase().includes(playerQuery)) : players;
   const teamACount = assignedPlayers.filter(player => teams[String(player._id)] === 'A').length;
   const teamBCount = assignedPlayers.filter(player => teams[String(player._id)] === 'B').length;
 
   return (
-    <section className="card">
+    <section className="card gg-match-form-card">
       <form onSubmit={onSubmit}>
         <div className="form-grid">
           <label>Date<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
@@ -45,11 +49,18 @@ export default function MatchRecordForm({
             <span className="muted">{assignedPlayers.length} participating</span>
           </div>
 
+          {players.length > 1 && <div className="gg-match-player-search">
+            <input type="search" aria-label="Find a player in the match roster" placeholder="Find a player"
+              value={playerSearch} onChange={event => setPlayerSearch(event.target.value)}
+              onKeyDown={event => { if (event.key === "Enter") event.preventDefault(); }} />
+            {playerSearch && <button type="button" className="secondary-button" onClick={() => setPlayerSearch("")}>Clear</button>}
+          </div>}
           <div className="gg-performance-head">
             <span>Player</span><span>Side</span><span>Goals</span><span>Assists</span><span>Own Goal</span><span>Performance codes</span><span>Ratings</span>
           </div>
 
-          {players.map(player => {
+          {playerQuery && !visiblePlayers.length && <p className="muted" role="status">No matching players.</p>}
+          {visiblePlayers.map(player => {
             const id = String(player._id);
             const assigned = Boolean(teams[id]);
             const codes = performanceCodes[id];

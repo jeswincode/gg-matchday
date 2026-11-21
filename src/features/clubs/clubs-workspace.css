@@ -57,6 +57,21 @@ html[data-product-mode="clubs"] .clubs-workspace .clubs-topbar.clubs-compact-hea
   align-items: start;
 }
 .clubs-workspace-content { min-width: 0; }
+.clubs-workspace:not(.clubs-workspace--admin) {
+  display: flex;
+  flex-direction: column;
+}
+.clubs-workspace:not(.clubs-workspace--admin) .clubs-workspace-layout { flex: 1; }
+.clubs-workspace:not(.clubs-workspace--admin) .clubs-workspace-content {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 24px;
+}
+.clubs-workspace:not(.clubs-workspace--admin) .clubs-footer {
+  margin-block-start: auto;
+  padding-block: 14px 4px;
+}
 .clubs-workspace-content .swipe-pane > .clubs-section:first-of-type { margin-top: 0; }
 .clubs-workspace-content .swipe-pane > .clubs-section + .clubs-section { margin-top: 24px; }
 
@@ -255,12 +270,15 @@ html[data-product-mode="clubs"] .pr-footer { display: none; }
 
 @media (max-width: 760px) and (min-height: 480px) {
   html[data-product-mode="clubs"] .clubs-app.clubs-workspace { padding: 10px 12px calc(86px + env(safe-area-inset-bottom)); }
+  html[data-product-mode="clubs"] .clubs-app.clubs-workspace:not(.clubs-workspace--admin) { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
   html[data-product-mode="clubs"] .clubs-workspace .clubs-topbar.clubs-compact-header { min-height: 60px; margin-bottom: 16px; padding: 8px; gap: 6px; }
   .clubs-header-identity, .clubs-header-actions { gap: 6px; }
   .clubs-compact-header .clubs-fixture-crest { width: 28px; height: 33px; }
   .clubs-workspace .clubs-compact-header button { padding-inline: 7px; font-size: .72rem; }
   .clubs-header-identity > div > span { font-size: .56rem; }
   .clubs-workspace-layout { display: block; }
+  .clubs-workspace:not(.clubs-workspace--admin) .clubs-workspace-layout { display: flex; flex-direction: column; gap: 0; }
+  .clubs-workspace:not(.clubs-workspace--admin) .clubs-workspace-content { flex: 1; gap: 18px; }
   html[data-product-mode="clubs"] .clubs-app.clubs-workspace .clubs-destination-nav {
     position: fixed;
     inset: auto 0 0;

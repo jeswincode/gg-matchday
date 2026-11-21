@@ -20,6 +20,7 @@ document.body.prepend(overlay);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let resumeTimer = 0;
 let swiping = false;
+let inClubs = false;
 
 const play = () => {
   if (video.autoplay && !reducedMotion.matches) video.play().catch(() => {});
@@ -38,9 +39,16 @@ export function pauseBackgroundForSwipe(moving) {
   }
 }
 
+export function setBackgroundWorkspace(workspace) {
+  const nextInClubs = workspace === "clubs";
+  if (nextInClubs === inClubs) return;
+  inClubs = nextInClubs;
+  syncPlayback();
+}
+
 function syncPlayback() {
   video.classList.toggle('gg-video-reduced-motion', reducedMotion.matches);
-  video.autoplay = !swiping && !reducedMotion.matches;
+  video.autoplay = !inClubs && !swiping && !reducedMotion.matches;
   if (video.autoplay) play();
   else video.pause();
 }

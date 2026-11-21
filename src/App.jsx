@@ -5,7 +5,7 @@ import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from '.
 import SwipePager from "./components/SwipePager";
 import useDockDrag from "./components/useDockDrag";
 import { pushTab, readTab, readWorkspace, useTabHistory } from "./lib/tabHistory";
-import { pauseBackgroundForSwipe } from "./video-background";
+import { pauseBackgroundForSwipe, setBackgroundWorkspace } from "./video-background";
 import NotificationIndicator from './components/NotificationIndicator';
 import {StartupScreen, LoginDashboard, WelcomeScreen} from './components/StartupExperience';
 // Keep the five primary navigation destinations in the initial JS graph.
@@ -133,7 +133,10 @@ function App() {
   },[]);
 
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
-  useEffect(()=>{document.documentElement.dataset.productMode=productMode;},[productMode]);
+  useEffect(() => {
+    document.documentElement.dataset.productMode = productMode;
+    setBackgroundWorkspace(productMode);
+  }, [productMode]);
   function navigateMatchdayTab(tab) {
     if (activeTab !== tab) pushTab("matchday", tab);
     setActiveTab(tab);
