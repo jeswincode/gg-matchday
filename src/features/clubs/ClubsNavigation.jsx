@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import useDockDrag from "../../components/useDockDrag";
 
 const icons = {
   overview: "M3 10 12 3l9 7v10H3Z M9 20v-6h6v6",
@@ -79,6 +80,7 @@ export function ClubsAdminNavigation({ items, active, onNavigate }) {
 }
 
 export default function ClubsNavigation({ items, active, onNavigate }) {
+  const dockDrag = useDockDrag();
   const [moreOpen, setMoreOpen] = useState(false);
   const navigation = useRef(null);
   const moreButton = useRef(null);
@@ -119,7 +121,7 @@ export default function ClubsNavigation({ items, active, onNavigate }) {
         setMoreOpen(false);
         moreButton.current?.focus();
       }}>
-      <div className="clubs-nav-main">{items.filter(item => !item.secondary).map(renderItem)}</div>
+      <div className="clubs-nav-main" {...dockDrag}>{items.filter(item => !item.secondary).map(renderItem)}</div>
       {secondary.length > 0 && <>
         <button ref={moreButton} type="button" className="clubs-nav-more" aria-expanded={moreOpen}
           aria-controls="clubs-secondary-destinations" data-section-active={secondary.some(item => item.key === active)}

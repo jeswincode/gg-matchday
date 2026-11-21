@@ -349,6 +349,40 @@ async function nativeTouch(page) {
   });
 }
 
+test("mobile dock highlights follow the finger and navigate only on release", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  const touch = await nativeTouch(page);
+
+  async function dragBetween(dock, from, to) {
+    const source = dock.getByRole("button", { name: from });
+    const destination = dock.getByRole("button", { name: to });
+    const start = await source.boundingBox();
+    const end = await destination.boundingBox();
+    const x = Math.round(start.x + start.width / 2);
+    const y = Math.round(start.y + start.height / 2);
+    const target = Math.round(end.x + end.width / 2);
+    await touch("touchStart", x, y);
+    await touch("touchMove", Math.round((x + target) / 2), y);
+    const halfway = await dock.evaluate(element => element.style.getPropertyValue("--dock-x"));
+    await touch("touchMove", target, y);
+    await expect(destination).toHaveAttribute("data-drag-target", "");
+    expect(await dock.evaluate(element => element.style.getPropertyValue("--dock-x"))).not.toBe(halfway);
+    await expect(source).toHaveAttribute("aria-current", "page");
+    await expect(source).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await touch("touchEnd");
+    await expect(destination).toHaveAttribute("aria-current", "page");
+    await expect(dock).not.toHaveAttribute("data-dragging", "");
+  }
+
+  await dragBetween(page.locator(".bottom-nav"), /Home$/, /Players$/);
+  await expect(page).toHaveURL(/tab=players/);
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await dragBetween(page.locator(".clubs-nav-main"), "Club Hub", "Players");
+  await expect(page).toHaveURL(url => url.searchParams.get("view") === "clubs" && url.searchParams.get("tab") === "players");
+});
+
 test("Matchday keeps the next panel ready during a deep page swipe and resets the scroll on arrival", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);

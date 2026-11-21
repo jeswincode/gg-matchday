@@ -3,6 +3,7 @@ import {api, invalidate} from './lib/api';
 import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
 import SwipePager from "./components/SwipePager";
+import useDockDrag from "./components/useDockDrag";
 import { pushTab, readTab, readWorkspace, useTabHistory } from "./lib/tabHistory";
 import { pauseBackgroundForSwipe } from "./video-background";
 import NotificationIndicator from './components/NotificationIndicator';
@@ -94,6 +95,7 @@ function localDateString(
 }
 
 function App() {
+  const dockDrag = useDockDrag();
   const [experience,setExperience]=useState('startup');
   const [productMode,setProductMode]=useState(readWorkspace);
   const [clubsAdminEntry, setClubsAdminEntry] = useState(false);
@@ -2513,7 +2515,7 @@ function App() {
           NAVIGATION
       ===================================================== */}
 
-      {activeTab !== TABS.ADMIN && <nav className="bottom-nav" aria-label="Matchday tabs">
+      {activeTab !== TABS.ADMIN && <nav className="bottom-nav" aria-label="Matchday tabs" {...dockDrag}>
 
         <NavButton
           active={

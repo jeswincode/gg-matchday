@@ -1,0 +1,31 @@
+@media (max-width: 760px) {
+  [data-drag-dock] > button {
+    touch-action: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .clubs-nav-main[data-drag-dock] { position: relative; }
+
+  [data-drag-dock][data-dragging]::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: var(--dock-w);
+    height: var(--dock-h);
+    transform: translate3d(var(--dock-x), var(--dock-y), 0);
+    border-radius: 10px;
+    background: var(--club-workspace-highlight, var(--accent));
+    pointer-events: none;
+  }
+
+  #root [data-drag-dock][data-dragging] > button {
+    position: relative;
+    background: transparent;
+    box-shadow: none;
+    border-color: transparent;
+  }
+
+  #root [data-drag-dock][data-dragging] > button[aria-current] { color: var(--muted); }
+  #root [data-drag-dock][data-dragging] > button[data-drag-target] { color: var(--accent-dark, #101828); }
+}
