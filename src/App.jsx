@@ -551,6 +551,7 @@ function App() {
   const liveActive = !fullscreenPromptOpen && (activeExperience === "app" || productMode === "clubs");
   const accountId = isSignedIn ? backendUser?.id : null;
   const matchdayActive = liveActive && productMode === "matchday";
+  const backgroundActive = productMode === "matchday" && (activeExperience === "startup" || matchdayActive);
   const primaryTabsActive = matchdayActive && activeTab !== TABS.ADMIN;
 
   useEffect(() => {
@@ -558,9 +559,9 @@ function App() {
   }, [matchdayActive, activeTab]);
 
   useEffect(() => {
-    setBackgroundActive(matchdayActive);
+    setBackgroundActive(backgroundActive);
     return () => setBackgroundActive(false);
-  }, [matchdayActive]);
+  }, [backgroundActive]);
 
   useEffect(() => {
     archivePages.current.clear();

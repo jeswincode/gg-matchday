@@ -33,7 +33,7 @@ Take the next user-selected feature through local implementation, focused tests,
 ## Live data and performance
 
 - The desktop Matchday welcome shows only the bottom-left **PRESS TO CONTINUE** prompt while the entry video is absent. After startup on mobile, **Enter Fullscreen** requests fullscreen for the entire document. Browsers that decline the request offer **Continue in browser**. Set `VITE_MATCHDAY_INTRO_VIDEO` on the frontend to add a muted background video to both entry screens. The mobile prompt dims the video.
-- The stadium video in the Matchday workspace starts after entry. It pauses in Clubs, in a hidden browser tab, with reduced motion, and during a page swipe. This is separate from the optional entry video.
+- The stadium video starts during Matchday startup and resumes in the workspace. It pauses at the entrance prompts, in Clubs, in a hidden browser tab, with reduced motion, and during a page swipe. This is separate from the optional walkout video.
 - Home renders Players, Matches, Goals, and Seasons as native buttons. Goal Leaders fetches on open. Player Comparisons uses the shared roster, and opening the preferred-position editor uses the current profile and its ID. Saving a player or approved positions still triggers the live refresh.
 - Loading the next archive page keeps already loaded pages and requests only missing pages. A Matchday data refresh reloads the visible archive and totals. Home reads six news items, matching its display limit. Calendar warms the match-detail module when visited.
 - Dialogs retain keyboard focus while forms rerender and return focus when closed.

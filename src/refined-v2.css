@@ -250,6 +250,12 @@ textarea:focus-visible {
   color: #f7f9ff;
 }
 
+.gg-startup {
+  background:
+    radial-gradient(ellipse at center, rgba(2,5,11,.64), rgba(2,5,11,.18) 76%),
+    linear-gradient(180deg, rgba(2,5,11,.18), rgba(2,5,11,.38));
+}
+
 .gg-startup::before,
 .gg-entry-screen::before {
   content: "";

@@ -8,23 +8,25 @@ async function openGuest(page) {
   return page.getByRole("navigation", { name: "Matchday tabs" });
 }
 
-test("home navigation defers stadium video until entry and loads goal leaders on demand", async ({ page }) => {
+test("startup loads the stadium video and home loads goal leaders on demand", async ({ page }) => {
   const paths = [];
   page.on("request", request => paths.push(new URL(request.url()).pathname));
   await page.route("**/api/stats/goals", route => route.fulfill({
     json: { records: [{ playerId: "goal-leader", name: "On-demand scorer", goals: 8 }] },
   }));
-  await page.goto("/?e2eRole=guest");
+  const stadiumRequest = page.waitForRequest(request => new URL(request.url()).pathname === "/ggmatchdaybg.mp4");
+  await page.goto("/?e2eRole=guest", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".gg-startup")).toBeVisible();
+  await stadiumRequest;
+  await expect(page.locator("#gg-background-video")).toHaveJSProperty("autoplay", true);
   await completeMobileEntry(page);
   const guestEntry = page.getByRole("button", { name: "Explore as Guest" });
   await expect(guestEntry).toBeVisible();
-  expect(paths).not.toContain("/ggmatchdaybg.mp4");
   await guestEntry.click();
 
   const overview = page.getByRole("region", { name: "Matchday overview" });
   await expect(overview.getByRole("button", { name: /SEASONS/ })).toBeVisible();
   expect(paths).not.toContain("/api/stats/goals");
-  await expect.poll(() => paths.includes("/ggmatchdaybg.mp4")).toBe(true);
   await overview.getByRole("button", { name: /GOALS/ }).click();
   await expect(page.getByRole("dialog", { name: "Goal Leaders" })).toContainText("On-demand scorer");
   await page.getByRole("button", { name: "Close dialog" }).click();
