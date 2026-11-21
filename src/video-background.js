@@ -1,14 +1,12 @@
 const video = document.createElement('video');
 video.id = 'gg-background-video';
 video.className = 'gg-video-background';
-video.autoplay = true;
 video.muted = true;
 video.loop = true;
 video.playsInline = true;
-video.preload = 'metadata';
+video.preload = 'none';
 video.setAttribute('aria-hidden', 'true');
 video.setAttribute('tabindex', '-1');
-video.src = '/ggmatchdaybg.mp4';
 
 document.body.prepend(video);
 
@@ -20,7 +18,7 @@ document.body.prepend(overlay);
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 let resumeTimer = 0;
 let swiping = false;
-let inClubs = false;
+let matchdayActive = false;
 
 const play = () => {
   if (video.autoplay && !reducedMotion.matches) video.play().catch(() => {});
@@ -39,22 +37,23 @@ export function pauseBackgroundForSwipe(moving) {
   }
 }
 
-export function setBackgroundWorkspace(workspace) {
-  const nextInClubs = workspace === "clubs";
-  if (nextInClubs === inClubs) return;
-  inClubs = nextInClubs;
+export function setBackgroundActive(active) {
+  matchdayActive = active;
   syncPlayback();
 }
 
 function syncPlayback() {
   video.classList.toggle('gg-video-reduced-motion', reducedMotion.matches);
-  video.autoplay = !inClubs && !swiping && !reducedMotion.matches;
-  if (video.autoplay) play();
-  else video.pause();
+  video.autoplay = matchdayActive && !document.hidden && !swiping && !reducedMotion.matches;
+  if (video.autoplay) {
+    if (!video.hasAttribute('src')) video.src = '/ggmatchdaybg.mp4';
+    play();
+  } else video.pause();
 }
 
 video.addEventListener('loadeddata', play, { once: true });
 reducedMotion.addEventListener('change', syncPlayback);
+document.addEventListener('visibilitychange', syncPlayback);
 syncPlayback();
 
 video.addEventListener('error', () => {

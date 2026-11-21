@@ -1,11 +1,11 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
-import {api, invalidate} from './lib/api';
+import {API_URL, api, authenticatedFetch, invalidate} from './lib/api';
 import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
 import SwipePager from "./components/SwipePager";
 import useDockDrag from "./components/useDockDrag";
 import { pushTab, readTab, readWorkspace, useTabHistory } from "./lib/tabHistory";
-import { pauseBackgroundForSwipe, setBackgroundWorkspace } from "./video-background";
+import { pauseBackgroundForSwipe, setBackgroundActive } from "./video-background";
 import NotificationIndicator from './components/NotificationIndicator';
 import {StartupScreen, LoginDashboard, WelcomeScreen, MobileFullscreenScreen} from './components/StartupExperience';
 // Keep the five primary navigation destinations in the initial JS graph.
@@ -27,7 +27,8 @@ const ProfileRequests = lazy(() => import('./ProfileRequests'));
 // navigation; background prefetch can race the user's first click.
 import ClubsMode from './features/clubs/ClubsMode';
 const Awards = lazy(()=>import('./components/Awards'));
-const MatchDetail = lazy(()=>import('./components/MatchDetail'));
+const loadMatchDetail = () => import('./components/MatchDetail');
+const MatchDetail = lazy(loadMatchDetail);
 const HallOfFame = lazy(()=>import('./components/HallOfFame'));
 const Chat = lazy(()=>import('./components/Chat'));
 import {
@@ -47,10 +48,6 @@ import {
   auth,
   googleProvider,
 } from "./firebase";
-
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:5000/api";
 
 const TABS = {
   HOME: "home",
@@ -115,6 +112,8 @@ function App() {
   const newsRevision = useLiveRevision("news");
   const [overview,setOverview]=useState(null);
   const [archivePage,setArchivePage]=useState(1);
+  const archivePages = useRef(new Map());
+  const [playersError, setPlayersError] = useState("");
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
   const [modeTransition,setModeTransition]=useState(null);
   const modeTransitionTimer = useRef(null);
@@ -137,7 +136,6 @@ function App() {
   useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
   useEffect(() => {
     document.documentElement.dataset.productMode = productMode;
-    setBackgroundWorkspace(productMode);
   }, [productMode]);
   function navigateMatchdayTab(tab) {
     if (activeTab !== tab) pushTab("matchday", tab);
@@ -556,6 +554,19 @@ function App() {
   const primaryTabsActive = matchdayActive && activeTab !== TABS.ADMIN;
 
   useEffect(() => {
+    if (matchdayActive && activeTab === TABS.CALENDAR) void loadMatchDetail().catch(() => {});
+  }, [matchdayActive, activeTab]);
+
+  useEffect(() => {
+    setBackgroundActive(matchdayActive);
+    return () => setBackgroundActive(false);
+  }, [matchdayActive]);
+
+  useEffect(() => {
+    archivePages.current.clear();
+  }, [primaryTabsActive, refreshKey]);
+
+  useEffect(() => {
     if (!liveActive) return undefined;
     const changed = event => {
       const path = event.detail?.path;
@@ -579,11 +590,12 @@ function App() {
     let active = true;
     api("/players").then(latest => {
       if (!active || !Array.isArray(latest)) return;
+      setPlayersError("");
       setPlayers(latest);
       setSelectedPlayer(current => current
         ? latest.find(player => sameId(player._id, current._id)) || null
         : null);
-    }).catch(error => { if (active) console.error(error); })
+    }).catch(error => { if (active) setPlayersError(error.message || "Could not load players."); })
       .finally(() => { if (active) setLoadingPlayers(false); });
     return () => { active = false; };
   }, [matchdayActive, refreshKey]);
@@ -591,9 +603,14 @@ function App() {
   useEffect(() => {
     if (!primaryTabsActive) return undefined;
     let active = true;
-    const pages = Array.from({ length: archivePage }, (_, index) =>
-      api(`/matches?page=${index + 1}&limit=50`),
-    );
+    const loaded = archivePages.current;
+    const pages = Array.from({ length: archivePage }, async (_, index) => {
+      const page = index + 1;
+      if (loaded.has(page)) return loaded.get(page);
+      const matches = await api(`/matches?page=${page}&limit=50`);
+      if (active) loaded.set(page, matches);
+      return matches;
+    });
     Promise.all(pages).then(results => {
       if (active) setMatches([...new Map(results.flat().map(match => [match._id, match])).values()]);
     }).catch(error => {
@@ -601,14 +618,20 @@ function App() {
     }).finally(() => {
       if (active) setLoadingMatches(false);
     });
-    api("/stats/overview").then(data => { if (active) setOverview(data); }).catch(() => {});
     return () => { active = false; };
   }, [primaryTabsActive, archivePage, refreshKey]);
 
   useEffect(() => {
     if (!primaryTabsActive) return undefined;
     let active = true;
-    api("/news?limit=12").then(data => {
+    api("/stats/overview").then(data => { if (active) setOverview(data); }).catch(() => {});
+    return () => { active = false; };
+  }, [primaryTabsActive, refreshKey]);
+
+  useEffect(() => {
+    if (!primaryTabsActive) return undefined;
+    let active = true;
+    api("/news?limit=6").then(data => {
       if (active) setNews(Array.isArray(data) ? data : []);
     }).catch(error => { if (active) console.error(error); })
       .finally(() => { if (active) setNewsLoading(false); });
@@ -642,93 +665,6 @@ function App() {
   }, [liveActive]);
 
 
-
-  // =========================================================
-  // LOADERS
-  // =========================================================
-
-  async function loadPlayers() {
-    try {
-      setLoadingPlayers(true);
-
-      const response =
-        await fetch(
-          `${API_URL}/players`
-        );
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to load players."
-        );
-      }
-
-      const data =
-        await response.json();
-
-      setPlayers(
-        Array.isArray(data)
-          ? data
-          : []
-      );
-    } catch (error) {
-      console.error(error);
-      setMessage(
-        "Could not load players."
-      );
-    } finally {
-      setLoadingPlayers(false);
-    }
-  }
-
-  // =========================================================
-  // AUTHENTICATED REQUEST
-  // =========================================================
-
-  async function authenticatedFetch(
-    url,
-    options = {}
-  ) {
-    if (import.meta.env.VITE_E2E_TEST_AUTH_SECRET) {
-      const params = new URLSearchParams(window.location.search);
-      const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
-      const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
-      return fetch(url, {
-        ...options,
-        headers: {
-          ...(options.headers || {}),
-          "X-E2E-Test-Token": import.meta.env.VITE_E2E_TEST_AUTH_SECRET,
-          "X-E2E-Test-Role": role,
-          ...(playerId ? { "X-E2E-Test-Player-Id": playerId } : {}),
-        },
-      });
-    }
-
-    if (
-      !auth?.currentUser
-    ) {
-      throw new Error(
-        "Authentication required."
-      );
-    }
-
-    const token =
-      await auth?.currentUser.getIdToken();
-
-    return fetch(
-      url,
-      {
-        ...options,
-
-        headers: {
-          ...(options.headers ||
-            {}),
-
-          Authorization:
-            `Bearer ${token}`,
-        },
-      }
-    );
-  }
 
   // =========================================================
   // LOGIN / LOGOUT
@@ -901,38 +837,11 @@ function App() {
         true
       );
 
-      const response =
-        await authenticatedFetch(
-          `${API_URL}/players`,
-          {
-            method:
-              "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify({
-                name,
-              }),
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Could not add player."
-        );
-      }
-
+      const created = await api("/players", { method: "POST", body: { name } });
+      setPlayers(current => current.some(player => sameId(player._id, created._id))
+        ? current
+        : [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
       setNewPlayerName("");
-
-      await loadPlayers();
 
       setMessage(
         `${name} added.`
@@ -981,33 +890,9 @@ function App() {
     }
 
     try {
-      const response =
-        await authenticatedFetch(
-          `${API_URL}/players/${playerId}`,
-          {
-            method:
-              "DELETE",
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Could not delete player."
-        );
-      }
-
-      await loadPlayers();
-
-      setSelectedPlayer(
-        null
-      );
-
-
-
+      await api("/players/" + encodeURIComponent(playerId), { method: "DELETE" });
+      setPlayers(current => current.filter(player => !sameId(player._id, playerId)));
+      setSelectedPlayer(null);
       setPlayerReview(null);
 
       setMessage(
@@ -1262,46 +1147,13 @@ function App() {
       setProfileSaving(true);
       setProfileSaveError("");
 
-      const response =
-        await authenticatedFetch(
-          `${API_URL}/players/${selectedPlayer._id}`,
-          {
-            method:
-              "PUT",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body:
-              JSON.stringify(
-                profileForm
-              ),
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Could not update profile."
-        );
-      }
-
-      await loadPlayers();
-
-      setSelectedPlayer(
-        data
-      );
-
-      setEditingProfile(
-        false
-      );
-
-      invalidate();
+      const updated = await api("/players/" + encodeURIComponent(selectedPlayer._id), {
+        method: "PUT",
+        body: profileForm,
+      });
+      setPlayers(current => current.map(player => sameId(player._id, updated._id) ? updated : player));
+      setSelectedPlayer(updated);
+      setEditingProfile(false);
 
       setMessage(
         "Player profile updated."
@@ -2380,6 +2232,8 @@ function App() {
           latestMatch={latestMatch}
           latestTopScorer={latestTopScorer}
           players={players}
+          loadingPlayers={loadingPlayers}
+          playersError={playersError}
           matches={matches}
           overview={overview}
           totalAllTimeGoals={totalAllTimeGoals}
@@ -2389,6 +2243,8 @@ function App() {
           onHallOfFame={() => setModal('hall')}
           onPlayer={showPlayer}
           onLeaderboard={() => navigateMatchdayTab(TABS.LEADERBOARD)}
+          onPlayers={() => navigateMatchdayTab(TABS.PLAYERS)}
+          onRecord={() => navigateMatchdayTab(TABS.RECORD)}
           onOpenPlayer={(player) => {
             openPlayerProfile(player);
             navigateMatchdayTab(TABS.PLAYERS);

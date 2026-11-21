@@ -1,20 +1,14 @@
 import PlayerComparisons from '../../components/PlayerComparisons';
+import HomeAnalyticsHub from '../../components/HomeAnalyticsHub';
 import SectionHeading from '../../components/ui/SectionHeading';
 import {formatDate} from '../../lib/date';
-
-function HomeStat({label,value}) {
-  return (
-    <div className="home-stat-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
 
 export default function HomePage({
   latestMatch,
   latestTopScorer,
   players,
+  loadingPlayers,
+  playersError,
   matches,
   overview,
   totalAllTimeGoals,
@@ -24,6 +18,8 @@ export default function HomePage({
   onHallOfFame,
   onPlayer,
   onLeaderboard,
+  onPlayers,
+  onRecord,
   onOpenPlayer,
 }) {
   return (
@@ -77,11 +73,14 @@ export default function HomePage({
         )}
       </section>
 
-      <section className="home-stat-grid">
-        <HomeStat label="PLAYERS" value={players.length} />
-        <HomeStat label="MATCHES" value={overview?.matches ?? matches.length} />
-        <HomeStat label="GOALS" value={overview?.goals ?? totalAllTimeGoals} />
-      </section>
+      <HomeAnalyticsHub
+        players={players.length}
+        matches={overview?.matches ?? matches.length}
+        goals={overview?.goals ?? totalAllTimeGoals}
+        onPlayers={onPlayers}
+        onRecord={onRecord}
+        onPlayer={onPlayer}
+      />
 
       <section className="home-section">
         <SectionHeading eyebrow="THE GG DESK" title="Latest News" />
@@ -122,8 +121,8 @@ export default function HomePage({
 
       <PlayerComparisons
         players={players}
-        statistics={leaderboard}
-        onPlayer={onPlayer}
+        playersLoading={loadingPlayers}
+        playersError={playersError}
       />
 
       {leaderboard.length > 0 && (

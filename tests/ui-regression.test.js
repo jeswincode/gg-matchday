@@ -9,7 +9,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('Player Comparisons keeps its player dependency stable and supports the comparison contract',()=>{
   const source=read('src/components/PlayerComparisons.jsx');
-  assert.match(source,/const players=useMemo\(\(\)=>Array\.isArray\(playerData\)\?playerData:\[\],\[playerData\]\);/);
+  assert.match(source,/function PlayerComparisons\(\{ players, playersLoading, playersError \}\)/);
   assert.match(source,/selectedIds\.length>=2&&selectedIds\.length<=3/);
   assert.match(source,/Promise\.all\(selectedIds\.map\(playerId=>api\(`\/stats\/player\/\$\{playerId\}\?historyLimit=all`\)\)\)/);
   assert.match(source,/Goals/);
@@ -163,8 +163,8 @@ test('decorative star background stylesheet is not loaded',()=>{
 
 test('shared Modal renders through document.body so nested page animations and fixed navigation cannot contain it',()=>{
   const modal=read('src/components/Modal.jsx');
-  assert.match(modal,/createPortal\(modal,document\.body\)/);
-  assert.match(modal,/document\.body\.style\.overflow='hidden'/);
+  assert.match(modal,/createPortal\(modal,\s*document\.body\)/);
+  assert.match(modal,/document\.body\.style\.overflow\s*=\s*["']hidden["']/);
 });
 
 test('player performance keeps the modal as the single scroll container',()=>{

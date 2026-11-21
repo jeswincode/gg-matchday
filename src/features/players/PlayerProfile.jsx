@@ -5,6 +5,7 @@ import useResource from "../../components/useResource";
 import Modal from "../../components/Modal";
 import PlayerStyles from "../../components/PlayerStyles";
 import ProfileInsights from "./ProfileInsights";
+import AdminPreferredPositions from "../../components/AdminPreferredPositions";
 import "./player-workspace.css";
 
 const profileTabs = [
@@ -414,6 +415,7 @@ export default function PlayerProfile({
               }
             </button>
     
+            <AdminPreferredPositions key={player._id} player={player} />
           </form>
     
         </Modal>

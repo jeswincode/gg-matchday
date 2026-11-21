@@ -360,7 +360,7 @@ test("Season award display omits MOTM and labels the El Clasico season award cle
   const component = fs.readFileSync("src/components/HomeAnalyticsHub.jsx", "utf8");
   const routes = fs.readFileSync("server/routes/stats.js", "utf8");
   const matchDetails = fs.readFileSync("src/components/MatchDetail.jsx", "utf8");
-  assert.match(component, /season\.awards\.filter\(a=>a\.type!=="motm"\)/);
+  assert.match(component, /\.filter\(award => award\.type !== "motm"\)/);
   assert.match(component, /El Clásico Player of the Season/);
   assert.match(routes, /item\.type !== "motm"/);
   assert.match(matchDetails, /Player of the Match/);
