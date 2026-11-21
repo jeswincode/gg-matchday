@@ -97,7 +97,25 @@
 .gg-ranking-pending { align-self: center; margin-inline-start: auto; color: var(--signature-muted); font-size: .76rem; }
 .gg-leaderboard-results[aria-busy="true"] { opacity: .68; }
 
+.calendar-grid .calendar-day[aria-current="date"] {
+  border-color: var(--signature-secondary);
+  box-shadow: inset 0 0 0 1px var(--signature-secondary);
+}
+
+.calendar-grid .calendar-day[aria-current="date"] > strong {
+  text-decoration: underline 2px var(--signature-secondary);
+  text-underline-offset: 4px;
+}
+
+.app--matchday ~ .pr-footer {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  color: var(--signature-muted);
+}
+
+.app--matchday ~ .pr-footer strong { color: var(--signature-ink); }
+
 @media (max-width: 760px) {
+  .app--matchday ~ .pr-footer { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .gg-filters.gg-ranking-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 6px; padding: 7px; }
   .gg-filters.gg-ranking-filters .gg-check { padding-block: 4px; }
 }

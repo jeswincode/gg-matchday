@@ -85,11 +85,14 @@ export default function Calendar({canEdit,onOpen,onEdit,onDelete,refreshKey}){
             <div className="calendar-grid">
               {getCalendarDays(calendarYear,calendarMonth).map((day,index)=>{
                 const dayMatches=matchesForDay(day);
+                const isToday=calendarYear===today.getFullYear()&&calendarMonth===today.getMonth()+1&&day===today.getDate();
                 return (
                   <button
                     key={`${calendarYear}-${calendarMonth}-${index}`}
                     type="button"
                     disabled={!day}
+                    aria-current={isToday?"date":undefined}
+                    aria-pressed={day?selectedDay===day:undefined}
                     className={`calendar-day ${dayMatches.length?"has-match":""} ${selectedDay===day?"selected-day":""}`}
                     onMouseEnter={()=>setHoveredDay(day)}
                     onMouseLeave={()=>setHoveredDay(null)}

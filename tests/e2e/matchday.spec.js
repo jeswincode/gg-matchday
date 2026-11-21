@@ -27,6 +27,28 @@ async function enterGuestMatchday(page) {
   await expect(page.locator(".bottom-nav").getByRole("button", { name: "Leaderboard" })).toBeVisible();
 }
 
+test("Calendar marks today separately from the selected date and the footer clears the dock", async ({ page }) => {
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  const dock = page.getByRole("navigation", { name: "Matchday tabs" });
+  await dock.getByRole("button", { name: "Calendar" }).click();
+  const dates = page.locator(".calendar-grid");
+  const today = dates.locator('[aria-current="date"]');
+  await expect(today).toHaveAttribute("aria-pressed", "true");
+  await dates.locator("button:enabled:not([aria-current])").first().click();
+  await expect(today).toHaveAttribute("aria-pressed", "false");
+  await expect(today).toHaveCSS("box-shadow", /inset/);
+  await page.getByRole("button", { name: "›", exact: true }).click();
+  await expect(today).toHaveCount(0);
+  await page.getByRole("button", { name: "‹", exact: true }).click();
+  await expect(today).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const credit = page.locator(".pr-footer strong");
+  await expect(credit).toBeInViewport();
+  const creditBox = await credit.boundingBox();
+  expect(creditBox.y + creditBox.height).toBeLessThan((await dock.boundingBox()).y);
+});
+
 test("guest can open Matchday and reach the live leaderboard", async ({ page }) => {
   await stubPublicApi(page);
   await enterGuestMatchday(page);
