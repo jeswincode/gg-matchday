@@ -493,9 +493,9 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
 
   const darkClubHub = page.getByRole("navigation", { name: "Clubs navigation" })
     .getByRole("button", { name: "Club Hub", exact: true });
-  await expect.poll(() =>
-    darkClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
-  ).toContain("205, 221, 240");
+  await expect(darkClubHub).toHaveCSS("background-image", "none");
+  await expect(darkClubHub).toHaveCSS("background-color", "rgb(60, 51, 76)");
+  await expect(darkClubHub).toHaveCSS("color", "rgb(240, 234, 252)");
   const darkPageFitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );
@@ -519,9 +519,9 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
 
   const goldClubHub = page.getByRole("navigation", { name: "Clubs navigation" })
     .getByRole("button", { name: "Club Hub", exact: true });
-  await expect.poll(() =>
-    goldClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
-  ).toContain("235, 197, 120");
+  await expect(goldClubHub).toHaveCSS("background-image", "none");
+  await expect(goldClubHub).toHaveCSS("background-color", "rgb(181, 138, 77)");
+  await expect(goldClubHub).toHaveCSS("color", "rgb(36, 23, 9)");
   const goldPageFitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );

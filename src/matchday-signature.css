@@ -1,18 +1,21 @@
 :root {
-  --signature-surface: #172333;
+  --signature-surface: #191f31;
   --signature-ink: #f0f5ff;
   --signature-muted: #bdc9da;
   --signature-accent: #cdddf0;
   --signature-on-accent: #112136;
-  --signature-edge: #71859e;
-  --signature-wave: #394e67;
+  --signature-secondary: #b4a1de;
+  --signature-edge: #6f6986;
+  --signature-wave: #383447;
   --signature-base: #0b111b;
-  --signature-selection:
-    linear-gradient(145deg, color-mix(in srgb, var(--signature-accent) 74%, white), var(--signature-accent) 72%);
+  --signature-selection: #3c334c;
+  --signature-selection-ink: #f0eafc;
+  --signature-selection-edge: #66547e;
+  --signature-selection-mark: var(--signature-secondary);
   --signature-glass:
     linear-gradient(150deg, color-mix(in srgb, var(--signature-wave) 32%, transparent), transparent 64%);
   --signature-waves:
-    radial-gradient(ellipse 68% 100% at 17% 154%, transparent 94%, color-mix(in srgb, var(--signature-edge) 46%, transparent) 95%, transparent 97%),
+    radial-gradient(ellipse 68% 100% at 17% 154%, transparent 94%, color-mix(in srgb, var(--signature-secondary) 22%, transparent) 95%, transparent 97%),
     radial-gradient(ellipse 76% 100% at 78% 145%, color-mix(in srgb, var(--signature-wave) 26%, transparent) 93%, color-mix(in srgb, var(--signature-edge) 34%, transparent) 94%, transparent 96%);
 }
 
@@ -22,9 +25,14 @@
   --signature-muted: #dbc8ac;
   --signature-accent: #ebc578;
   --signature-on-accent: #2d1d0b;
+  --signature-secondary: #a8b59b;
   --signature-edge: #967344;
   --signature-wave: #654928;
   --signature-base: #0e0b09;
+  --signature-selection: #b58a4d;
+  --signature-selection-ink: #241709;
+  --signature-selection-edge: #a57c43;
+  --signature-selection-mark: #58401f;
   --muted-2: #b8a68b;
 }
 
@@ -43,6 +51,7 @@
 }
 
 #root .app .gg-theme,
+#root ~ .gg-backdrop :is(.gg-theme, .gg-chat-tabs),
 #root .gg-secondary-tabs,
 #root .gg-glass-tabs,
 #root .gg-chat-tabs,
@@ -52,9 +61,9 @@
 #root .clubs-workspace .clubs-destination-nav,
 #root .clubs-workspace .clubs-admin-rail {
   color: var(--signature-ink);
-  border-color: color-mix(in srgb, var(--signature-edge) 67%, transparent);
+  border-color: color-mix(in srgb, var(--signature-edge) 47%, transparent);
   background: var(--signature-waves), var(--signature-glass), var(--signature-surface);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .13), 0 10px 26px rgb(0 0 0 / .21);
+  box-shadow: 0 10px 26px rgb(0 0 0 / .21);
 }
 
 #root .gg-secondary-tabs,
@@ -86,11 +95,18 @@
 #root .clubs-admin-nav-group button[aria-current="page"],
 #root :is(.gg-secondary-tabs, .gg-glass-tabs, .gg-chat-tabs) button[aria-selected="true"],
 #root :is(.clubs-view-filters, .club-analytics-tabs) button[aria-pressed="true"],
-#root .gg-theme button[aria-pressed="true"] {
-  color: var(--signature-on-accent);
-  border-color: color-mix(in srgb, var(--signature-accent) 75%, white);
+#root .gg-theme button[aria-pressed="true"],
+#root ~ .gg-backdrop .gg-theme button[aria-pressed="true"],
+#root ~ .gg-backdrop .gg-chat-tabs button[aria-selected="true"] {
+  color: var(--signature-selection-ink);
+  border-color: var(--signature-selection-edge);
   background: var(--signature-selection);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .57), 0 2px 10px color-mix(in srgb, var(--signature-accent) 19%, transparent);
+  box-shadow: inset 0 -2px var(--signature-selection-mark);
+}
+
+#root :is(.gg-theme, .gg-secondary-tabs, .gg-glass-tabs, .bottom-nav, .clubs-destination-nav) button:focus-visible,
+#root ~ .gg-backdrop :is(.gg-theme, .gg-chat-tabs) button:focus-visible {
+  outline-color: var(--signature-secondary);
 }
 
 #root .bottom-nav button small { color: inherit; }
@@ -106,7 +122,7 @@
   box-sizing: border-box;
   content: "GG" / "";
   color: transparent;
-  -webkit-text-stroke: 1px color-mix(in srgb, var(--signature-on-accent) 28%, transparent);
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--signature-selection-ink) 26%, transparent);
   font: 900 clamp(28px, 6vw, 48px)/.95 system-ui, sans-serif;
   letter-spacing: -.12em;
   text-align: right;
@@ -124,7 +140,7 @@
   align-items: end;
   padding-right: 3px;
   background: var(--signature-selection);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / .57);
+  box-shadow: inset 0 -2px var(--signature-selection-mark);
 }
 
 #root [data-drag-dock][data-dragging] > button[aria-current="page"] {
@@ -135,7 +151,7 @@
 }
 
 #root [data-drag-dock][data-dragging] > button[aria-current="page"]::before { display: none; }
-#root [data-drag-dock][data-dragging] > button[data-drag-target] { color: var(--signature-on-accent); }
+#root [data-drag-dock][data-dragging] > button[data-drag-target] { color: var(--signature-selection-ink); }
 
 html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
   --club-workspace-surface: var(--signature-surface);
@@ -150,7 +166,7 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
   --clubs-muted: var(--signature-muted);
   --clubs-edge: var(--club-workspace-edge);
   --clubs-accent: var(--signature-accent);
-  --clubs-accent-2: var(--signature-muted);
+  --clubs-accent-2: var(--signature-secondary);
   background:
     radial-gradient(ellipse at 78% 0%, color-mix(in srgb, var(--signature-wave) 44%, transparent), transparent 43%),
     var(--signature-base);
@@ -159,10 +175,13 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
 #root .clubs-workspace .clubs-admin-nav-group button[aria-current="page"] .clubs-nav-icon { color: inherit; }
 
 #root .home-page .home-hero::after {
-  color: transparent;
-  -webkit-text-stroke: 1px color-mix(in srgb, var(--signature-accent) 37%, transparent);
+  color: color-mix(in srgb, var(--signature-secondary) 12%, transparent);
+  -webkit-text-stroke: 0;
   bottom: -.2em;
 }
+
+#root .home-page :is(.home-hero .eyebrow, .feature-label),
+#root .player-profile .profile-hero-media .profile-heading .eyebrow { color: var(--signature-secondary); }
 
 .product-mode-transition[class*="--to-"]::before {
   background: linear-gradient(140deg, var(--signature-base), var(--signature-wave));
