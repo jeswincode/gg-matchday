@@ -489,13 +489,13 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   await expect(html).toHaveAttribute("data-product-mode", "clubs");
   await expect.poll(() =>
     clubsApp.evaluate(element => getComputedStyle(element).getPropertyValue("--clubs-bg").trim())
-  ).toBe("#080d17");
+  ).toBe("#0b111b");
 
   const darkClubHub = page.getByRole("navigation", { name: "Clubs navigation" })
     .getByRole("button", { name: "Club Hub", exact: true });
   await expect.poll(() =>
     darkClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
-  ).toContain("225, 237, 255");
+  ).toContain("205, 221, 240");
   const darkPageFitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );
@@ -515,13 +515,13 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   await expect(html).toHaveAttribute("data-product-mode", "clubs");
   await expect.poll(() =>
     clubsApp.evaluate(element => getComputedStyle(element).getPropertyValue("--clubs-bg").trim())
-  ).toBe("#100e09");
+  ).toBe("#0e0b09");
 
   const goldClubHub = page.getByRole("navigation", { name: "Clubs navigation" })
     .getByRole("button", { name: "Club Hub", exact: true });
   await expect.poll(() =>
     goldClubHub.evaluate(element => getComputedStyle(element).backgroundImage)
-  ).toContain("239, 208, 125");
+  ).toContain("235, 197, 120");
   const goldPageFitsViewport = await page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );

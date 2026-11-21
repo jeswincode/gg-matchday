@@ -1021,7 +1021,7 @@ function App() {
         await api("/players/" + encodeURIComponent(linkedPlayerId));
       if (ownProfileRequest.current !== request) return;
       closeModal();
-      openPlayerProfile(player, true);
+      openPlayerProfile(player);
       if (productMode === "clubs") {
         setActiveTab(TABS.PLAYERS);
         switchProductMode("matchday", TABS.PLAYERS);
@@ -1038,10 +1038,8 @@ function App() {
     }
   }
 
-  function openPlayerProfile(
-    player, focusProfile = false
-  ) {
-    setProfileFocusRequest(focusProfile ? {} : null);
+  function openPlayerProfile(player) {
+    setProfileFocusRequest({});
     setSelectedPlayer(
       player
     );
@@ -2457,6 +2455,7 @@ function App() {
             </>
           ) : (
             <PlayerProfile
+              key={selectedPlayer._id}
               player={selectedPlayer}
               isEditor={isEditor}
               editingProfile={editingProfile}

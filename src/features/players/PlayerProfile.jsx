@@ -1,8 +1,16 @@
-import {useLayoutEffect, useRef, useState} from "react";
+import {useId, useLayoutEffect, useRef, useState} from "react";
 import {formatDate} from "../../lib/date";
 import {invalidateResources} from "../../lib/api";
 import useResource from "../../components/useResource";
-import ProfileInsights from "../../components/ProfileInsights";
+import ProfileInsights from "./ProfileInsights";
+import "./player-workspace.css";
+
+const profileTabs = [
+  ["overview", "Overview"],
+  ["stats", "Stats"],
+  ["history", "History"],
+  ["honors", "Honors"],
+];
 
 function PlayerCard({ player, attributes, onShare }) {
   const labels = [["pace","PACE"],["shooting","SHOOTING"],["passing","PASSING"],["dribbling","DRIBBLING"],["defending","DEFENDING"],["physical","PHYSICAL"]];
@@ -50,10 +58,17 @@ export default function PlayerProfile({
 }){
   const profileSection = useRef(null);
   const profileHeading = useRef(null);
+  const profileTabList = useRef(null);
+  const profileId = useId();
+  const [section, setSection] = useState("overview");
+  const stats = useResource("/stats/player/" + player._id, refreshKey);
   useLayoutEffect(() => {
     if (!profileFocusRequest) return;
-    profileHeading.current?.focus({ preventScroll: true });
-    profileSection.current?.scrollIntoView({ block: "start", behavior: "instant" });
+    const frame = requestAnimationFrame(() => {
+      profileHeading.current?.focus({ preventScroll: true });
+      profileSection.current?.scrollIntoView({ block: "start", behavior: "instant" });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [profileFocusRequest]);
   const [attributesRevision,setAttributesRevision]=useState(0);
   const attributesPath = "/players/" + player._id + "/attributes";
@@ -62,6 +77,20 @@ export default function PlayerProfile({
   function loadAttributes() {
     invalidateResources([attributesPath]);
     setAttributesRevision(current => current + 1);
+  }
+  function handleProfileTabKey(event, index) {
+    const destinations = {
+      ArrowLeft: (index + profileTabs.length - 1) % profileTabs.length,
+      ArrowRight: (index + 1) % profileTabs.length,
+      Home: 0,
+      End: profileTabs.length - 1,
+    };
+    const nextIndex = destinations[event.key];
+    if (nextIndex === undefined) return;
+    event.preventDefault();
+    const [next] = profileTabs[nextIndex];
+    setSection(next);
+    event.currentTarget.parentElement.children[nextIndex]?.focus();
   }
   const shareCard=async()=>{
     const text=`${player.name} · ${attributes?.ovr ?? "Unrated"} OVR · GG Matchday Player Card`;
@@ -134,6 +163,7 @@ export default function PlayerProfile({
     
         </div>
     
+        <div className="profile-hero-actions profile-hero-foreground">
         {isEditor && (
           <button
             type="button"
@@ -148,6 +178,7 @@ export default function PlayerProfile({
           </button>
         )}
         {onRequestEdit && <button type="button" className="secondary-button" onClick={onRequestEdit}>Request profile edit</button>}
+        </div>
     
       </section>
     
@@ -400,7 +431,17 @@ export default function PlayerProfile({
         </section>
       ) : (
         <>
-    
+          <div ref={profileTabList} className="profile-section-tabs gg-glass-tabs" role="tablist" aria-label="Player profile sections" data-no-tab-swipe>
+            {profileTabs.map(([key, label], index) => <button type="button" key={key} role="tab"
+              id={`${profileId}-${key}-tab`} aria-controls={`${profileId}-${key}-panel`}
+              aria-selected={section === key} tabIndex={section === key ? 0 : -1}
+              onClick={() => setSection(key)} onKeyDown={event => handleProfileTabKey(event, index)}>{label}</button>)}
+          </div>
+          <div className="profile-workspace-panel profile-overview" role="tabpanel" tabIndex={0}
+            id={`${profileId}-overview-panel`} aria-labelledby={`${profileId}-overview-tab`} hidden={section !== "overview"}>
+          <PlayerCard player={player} attributes={attributes} onShare={shareCard} />
+          <section className="card profile-details">
+          <h3>Player details</h3>
           <div className="profile-info-grid">
     
             <ProfileInfoItem
@@ -455,19 +496,14 @@ export default function PlayerProfile({
             />
     
           </div>
-    
-          <ProfileInsights playerId={player._id} onMatch={onMatch} refreshKey={refreshKey}/>
-          <section className="card">
-            <div className="section-heading"><div><p className="eyebrow">ATTRIBUTES & OVR</p><h3>Match-derived player profile</h3></div><button type="button" className="secondary-button" onClick={loadAttributes} disabled={attributesLoading}>{attributesLoading ? "Calculating..." : "Refresh"}</button></div>
-            {attributesError ? <p className="muted">{attributesError}</p> : attributesLoading ? <p className="muted">Calculating from Match Record history...</p> : <>
-              <div className="profile-attributes-summary"><div><span>OVR</span><strong>{attributes.ovr ?? "—"}</strong></div><div><span>MATCHES</span><strong>{attributes.matchesPlayed}</strong></div><div><span>STATUS</span><strong>{attributes.sampleStage}</strong></div></div>
-              <div className="profile-attributes-grid">{Object.entries(attributes.attributes || {}).map(([key,value]) => <div key={key}><span>{key.toUpperCase()}</span><strong>{value ?? "—"}</strong></div>)}</div>
-              <p className="muted">Evidence: {attributes.evidence.matchesAnalyzed} Match Record matches analyzed. OVR is derived and is not stored as a manual player field.</p>
-            </>}
           </section>
-          {!attributesLoading && !attributesError && <PlayerCard player={player} attributes={attributes} onShare={shareCard} />}
     
-          <section className="card">
+          <section className="card profile-bio">
+            <h3>About</h3>
+            <p>{player.bio || "No player bio added yet."}</p>
+          </section>
+
+          <section className="card profile-review">
     
             <div className="section-heading">
     
@@ -519,21 +555,6 @@ export default function PlayerProfile({
     
           </section>
     
-          <section className="card profile-bio">
-    
-            <p className="eyebrow">
-              ABOUT
-            </p>
-    
-            <p>
-              {
-                player.bio ||
-                "No player bio added yet."
-              }
-            </p>
-    
-          </section>
-    
           {isEditor && (
             <button
               type="button"
@@ -547,7 +568,25 @@ export default function PlayerProfile({
               Delete Player
             </button>
           )}
-    
+          </div>
+          {profileTabs.slice(1).map(([key]) => <div key={key} className="profile-workspace-panel" role="tabpanel" tabIndex={0}
+            id={`${profileId}-${key}-panel`} aria-labelledby={`${profileId}-${key}-tab`} hidden={section !== key}>
+            {section === key && <>
+              {key === "stats" && <section className="card">
+                <div className="section-heading"><h3>Match-derived attributes</h3><button type="button" className="secondary-button" onClick={loadAttributes} disabled={attributesLoading}>{attributesLoading ? "Calculating..." : "Refresh"}</button></div>
+                {attributesError ? <p className="muted">{attributesError}</p> : attributesLoading ? <p className="muted">Calculating from Match Record history...</p> : <>
+                  <div className="profile-attributes-summary"><div><span>OVR</span><strong>{attributes.ovr ?? "—"}</strong></div><div><span>MATCHES</span><strong>{attributes.matchesPlayed}</strong></div><div><span>STATUS</span><strong>{attributes.sampleStage}</strong></div></div>
+                  <div className="profile-attributes-grid">{Object.entries(attributes.attributes || {}).map(([label, value]) => <div key={label}><span>{label.toUpperCase()}</span><strong>{value ?? "—"}</strong></div>)}</div>
+                  <p className="muted">Derived from {attributes.evidence.matchesAnalyzed} Match Record matches.</p>
+                </>}
+              </section>}
+              <ProfileInsights section={key} resource={stats} playerId={player._id} onMatch={onMatch} refreshKey={refreshKey} />
+              <button type="button" className="secondary-button profile-tabs-return" onClick={() => {
+                profileTabList.current?.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
+                profileTabList.current?.scrollIntoView({ block: "start", behavior: "instant" });
+              }}>Back to profile tabs ↑</button>
+            </>}
+          </div>)}
         </>
       )}
     

@@ -13,6 +13,8 @@ async function openProfile(page) {
   await page.getByRole("button", { name: "Explore as Guest" }).click();
   await page.getByRole("button", { name: /Players$/ }).click();
   await page.locator(".player-profile-row").filter({ hasText: "E2E Live Profile" }).click();
+  await expect(page.getByRole("heading", { name: "E2E Live Profile", level: 2, exact: true })).toBeFocused();
+  await expect(page.getByRole("tablist", { name: "Player profile sections" })).toBeInViewport();
   await expect(page.locator(".profile-bio")).toContainText("Original public biography");
 }
 

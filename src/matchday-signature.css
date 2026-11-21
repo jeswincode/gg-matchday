@@ -1,0 +1,210 @@
+:root {
+  --signature-surface: #172333;
+  --signature-ink: #f0f5ff;
+  --signature-muted: #bdc9da;
+  --signature-accent: #cdddf0;
+  --signature-on-accent: #112136;
+  --signature-edge: #71859e;
+  --signature-wave: #394e67;
+  --signature-base: #0b111b;
+  --signature-selection:
+    linear-gradient(145deg, color-mix(in srgb, var(--signature-accent) 74%, white), var(--signature-accent) 72%);
+  --signature-glass:
+    linear-gradient(150deg, color-mix(in srgb, var(--signature-wave) 32%, transparent), transparent 64%);
+  --signature-waves:
+    radial-gradient(ellipse 68% 100% at 17% 154%, transparent 94%, color-mix(in srgb, var(--signature-edge) 46%, transparent) 95%, transparent 97%),
+    radial-gradient(ellipse 76% 100% at 78% 145%, color-mix(in srgb, var(--signature-wave) 26%, transparent) 93%, color-mix(in srgb, var(--signature-edge) 34%, transparent) 94%, transparent 96%);
+}
+
+:root[data-theme="golden"] {
+  --signature-surface: #211912;
+  --signature-ink: #fff4df;
+  --signature-muted: #dbc8ac;
+  --signature-accent: #ebc578;
+  --signature-on-accent: #2d1d0b;
+  --signature-edge: #967344;
+  --signature-wave: #654928;
+  --signature-base: #0e0b09;
+  --muted-2: #b8a68b;
+}
+
+:root[data-theme="dark"] { --muted-2: #a6b6cc; }
+
+:root:is([data-theme="dark"], [data-theme="golden"]) {
+  --accent: var(--signature-accent);
+  --accent-dark: var(--signature-on-accent);
+}
+
+#root .app .topbar,
+#root .app .account-bar,
+#root .clubs-workspace .clubs-topbar.clubs-compact-header {
+  border-color: color-mix(in srgb, var(--signature-edge) 57%, transparent);
+  background: var(--signature-glass), color-mix(in srgb, var(--signature-base) 72%, var(--signature-surface));
+}
+
+#root .app .gg-theme,
+#root .gg-secondary-tabs,
+#root .gg-glass-tabs,
+#root .gg-chat-tabs,
+#root .clubs-view-filters,
+#root .club-analytics-tabs,
+#root .app .bottom-nav,
+#root .clubs-workspace .clubs-destination-nav,
+#root .clubs-workspace .clubs-admin-rail {
+  color: var(--signature-ink);
+  border-color: color-mix(in srgb, var(--signature-edge) 67%, transparent);
+  background: var(--signature-waves), var(--signature-glass), var(--signature-surface);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .13), 0 10px 26px rgb(0 0 0 / .21);
+}
+
+#root .gg-secondary-tabs,
+#root .gg-glass-tabs,
+#root .gg-chat-tabs,
+#root .clubs-view-filters,
+#root .club-analytics-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--signature-edge) 64%, transparent);
+  border-radius: 13px;
+}
+
+#root .gg-secondary-tabs button,
+#root .gg-glass-tabs button,
+#root .gg-chat-tabs button,
+#root .clubs-view-filters button,
+#root .club-analytics-tabs button {
+  min-height: 44px;
+  color: var(--signature-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-weight: 720;
+}
+
+#root :is(.bottom-nav, .clubs-destination-nav) button[aria-current="page"],
+#root .clubs-admin-nav-group button[aria-current="page"],
+#root :is(.gg-secondary-tabs, .gg-glass-tabs, .gg-chat-tabs) button[aria-selected="true"],
+#root :is(.clubs-view-filters, .club-analytics-tabs) button[aria-pressed="true"],
+#root .gg-theme button[aria-pressed="true"] {
+  color: var(--signature-on-accent);
+  border-color: color-mix(in srgb, var(--signature-accent) 75%, white);
+  background: var(--signature-selection);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .57), 0 2px 10px color-mix(in srgb, var(--signature-accent) 19%, transparent);
+}
+
+#root .bottom-nav button small { color: inherit; }
+
+#root :is(.bottom-nav, .clubs-destination-nav) button[aria-current="page"] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+#root :is(.bottom-nav, .clubs-destination-nav) button[aria-current="page"]::before,
+#root [data-drag-dock][data-dragging]::before {
+  box-sizing: border-box;
+  content: "GG" / "";
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--signature-on-accent) 28%, transparent);
+  font: 900 clamp(28px, 6vw, 48px)/.95 system-ui, sans-serif;
+  letter-spacing: -.12em;
+  text-align: right;
+  pointer-events: none;
+}
+
+#root :is(.bottom-nav, .clubs-destination-nav) button[aria-current="page"]::before {
+  position: absolute;
+  inset: auto 3px -.17em auto;
+  z-index: -1;
+}
+
+#root [data-drag-dock][data-dragging]::before {
+  display: grid;
+  align-items: end;
+  padding-right: 3px;
+  background: var(--signature-selection);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .57);
+}
+
+#root [data-drag-dock][data-dragging] > button[aria-current="page"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--signature-muted);
+}
+
+#root [data-drag-dock][data-dragging] > button[aria-current="page"]::before { display: none; }
+#root [data-drag-dock][data-dragging] > button[data-drag-target] { color: var(--signature-on-accent); }
+
+html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
+  --club-workspace-surface: var(--signature-surface);
+  --club-workspace-tint: var(--signature-wave);
+  --club-workspace-edge: color-mix(in srgb, var(--signature-edge) 68%, var(--signature-base));
+  --club-workspace-muted: var(--signature-muted);
+  --club-workspace-highlight: var(--signature-accent);
+  --clubs-bg: var(--signature-base);
+  --clubs-panel: var(--signature-surface);
+  --clubs-panel-2: color-mix(in srgb, var(--signature-surface) 84%, var(--signature-wave));
+  --clubs-text: var(--signature-ink);
+  --clubs-muted: var(--signature-muted);
+  --clubs-edge: var(--club-workspace-edge);
+  --clubs-accent: var(--signature-accent);
+  --clubs-accent-2: var(--signature-muted);
+  background:
+    radial-gradient(ellipse at 78% 0%, color-mix(in srgb, var(--signature-wave) 44%, transparent), transparent 43%),
+    var(--signature-base);
+}
+
+#root .clubs-workspace .clubs-admin-nav-group button[aria-current="page"] .clubs-nav-icon { color: inherit; }
+
+#root .home-page .home-hero::after {
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--signature-accent) 37%, transparent);
+  bottom: -.2em;
+}
+
+.product-mode-transition[class*="--to-"]::before {
+  background: linear-gradient(140deg, var(--signature-base), var(--signature-wave));
+}
+.product-mode-transition .product-mode-wave--one { background: var(--signature-base); }
+.product-mode-transition .product-mode-wave--two { background: var(--signature-wave); }
+.product-mode-transition .product-mode-wave--three { background: var(--signature-accent); }
+
+@media (min-width: 761px) {
+  #root .bottom-nav button small { font-size: .75rem; }
+  @supports (backdrop-filter: blur(8px)) {
+    #root .app .bottom-nav {
+      background: var(--signature-waves), var(--signature-glass), color-mix(in srgb, var(--signature-surface) 88%, transparent);
+      backdrop-filter: blur(8px);
+    }
+  }
+}
+
+@media (max-width: 760px) {
+  #root .app--matchday .topbar { border: 1px solid color-mix(in srgb, var(--signature-edge) 55%, transparent); }
+  #root .app--matchday .bottom-nav,
+  #root .clubs-workspace .clubs-destination-nav { backdrop-filter: none; }
+  #root .home-page .home-hero {
+    padding: clamp(23px, 7vw, 42px) clamp(14px, 5vw, 32px);
+    border-radius: 18px;
+    background:
+      linear-gradient(105deg, color-mix(in srgb, var(--signature-base) 95%, transparent) 25%, color-mix(in srgb, var(--signature-surface) 60%, transparent)),
+      var(--signature-waves);
+  }
+  #root .home-page .home-hero h2 { font-size: clamp(2rem, 8vw, 3.2rem); max-width: 16ch; }
+  #root .home-page .home-intro { color: var(--signature-muted); }
+  #root .home-page .home-feature-card {
+    margin-top: 10px;
+    padding: 14px;
+    border-radius: 14px;
+    border-color: color-mix(in srgb, var(--signature-edge) 58%, transparent);
+    background: var(--signature-glass), var(--signature-surface);
+  }
+  #root .home-page .home-feature-card h2 { font-size: clamp(1.15rem, 5.2vw, 1.75rem); }
+  #root .home-page .feature-score { margin-top: 10px; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  #root .app .bottom-nav { background-color: var(--signature-surface); backdrop-filter: none; }
+}
