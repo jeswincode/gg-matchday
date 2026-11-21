@@ -1,35 +1,5 @@
-.player-profile {
-  --profile-scroll-inset: 96px;
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-  scroll-margin-top: var(--profile-scroll-inset);
-}
+.player-profile { scroll-margin-top: 96px; }
 
-.player-profile .back-button { justify-self: start; margin: 0; }
-
-.player-profile .profile-hero.profile-hero-media {
-  grid-template-columns: auto minmax(0, 1fr);
-  min-height: clamp(185px, 28vw, 282px);
-  margin: 0;
-  border-radius: 20px;
-  border-color: color-mix(in srgb, var(--signature-edge) 54%, transparent);
-}
-
-.player-profile .profile-hero-backdrop { background: var(--signature-base); }
-
-.player-profile .profile-hero-media:not(.has-profile-video) .profile-hero-shade {
-  background: linear-gradient(100deg, var(--signature-base) 12%, color-mix(in srgb, var(--signature-base) 88%, transparent) 65%, transparent);
-}
-
-.player-profile .profile-hero-media .profile-heading h2 {
-  font-size: clamp(1.75rem, 5vw, 3.45rem);
-  color: var(--signature-ink);
-  overflow-wrap: anywhere;
-}
-
-.player-profile .profile-hero-media .profile-heading .eyebrow { color: var(--signature-accent); }
-.player-profile .profile-hero-media .profile-heading p:last-child { color: var(--signature-muted); }
 .gg-avatar-action {
   position: relative;
   display: grid;
@@ -89,72 +59,8 @@
 .gg-account-setting-actions button, .gg-player-edit-modal .save-button { min-height: 44px; }
 .gg-player-edit-modal form { display: grid; gap: 12px; }
 .gg-player-edit-modal .global-message { margin: 0; }
-.player-profile .profile-section-tabs { margin: 0; scroll-margin-top: var(--profile-scroll-inset); }
-.player-profile .profile-section-tabs button { flex: 1 1 0; min-width: 0; padding: 5px 3px; font-size: .88rem; }
-.player-profile .profile-workspace-panel { display: grid; gap: 12px; min-width: 0; align-items: start; }
-.player-profile .profile-workspace-panel[hidden] { display: none; }
-.player-profile .profile-workspace-panel > .card { min-width: 0; margin: 0; }
-.player-profile .profile-workspace-panel > .danger-button { justify-self: start; }
-.player-profile .profile-tabs-return { justify-self: start; min-height: 44px; }
-.player-profile .profile-workspace-panel h3 { color: var(--signature-ink); }
-.player-profile .profile-details .profile-info-grid { margin: 10px 0 0; }
-.player-profile .profile-details .profile-info-item { min-width: 0; }
-.player-profile .profile-details .profile-info-item strong { overflow-wrap: anywhere; }
-
-.player-profile .gg-player-card {
-  position: relative;
-  background:
-    repeating-linear-gradient(127deg, transparent 0 26px, rgb(255 255 255 / .025) 27px 28px, transparent 28px 52px),
-    radial-gradient(ellipse at 90% 0%, var(--signature-wave), transparent 66%),
-    var(--signature-surface);
-  border: 1px solid var(--signature-edge);
-  box-shadow: inset 0 1px rgb(255 255 255 / .13);
-}
-
-.player-profile .gg-player-card h3 { overflow-wrap: anywhere; line-height: 1.13; }
-.player-profile .gg-player-card .eyebrow,
-.player-profile .gg-player-card-ovr strong { color: var(--signature-accent); }
-.player-profile .gg-player-card-ovr strong { font-size: clamp(2.25rem, 6vw, 3.4rem); }
-
-.player-profile .gg-player-card-top span,
-.player-profile .gg-player-card-attrs span,
-.player-profile .gg-player-card-footer { color: var(--signature-muted); }
-
-.player-profile .gg-player-card-attrs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.player-profile .gg-player-card-attrs div {
-  border-color: color-mix(in srgb, var(--signature-edge) 55%, transparent);
-  color: var(--signature-ink);
-  background: color-mix(in srgb, var(--signature-base) 64%, transparent);
-}
-
-.player-profile .gg-player-card-attrs span { font-size: .66rem; overflow-wrap: anywhere; }
-.player-profile .gg-player-card-footer { font-size: .77rem; }
-.player-profile .gg-form button { min-width: 44px; min-height: 44px; }
-.player-profile .gg-ranking, .player-profile .gg-history-link { overflow-wrap: anywhere; }
-
-@media (min-width: 970px) {
-  .player-profile .profile-overview { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
-  .player-profile .profile-overview .profile-bio,
-  .player-profile .profile-overview .profile-review { grid-column: 1 / -1; }
-}
-
 @media (max-width: 760px) {
-  .player-profile { --profile-scroll-inset: 10px; }
-  .player-profile .profile-hero.profile-hero-media {
-    grid-template-columns: auto minmax(0, 1fr);
-    min-height: 194px;
-    padding: 14px;
-    gap: 10px;
-    align-content: end;
-  }
-  .player-profile .profile-hero-media .profile-large-photo,
-  .player-profile .profile-hero-media .profile-photo-fallback {
-    width: 62px;
-    height: 62px;
-    border-radius: 14px;
-  }
-  .player-profile .profile-attributes-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .player-profile .profile-attributes-summary > div { min-width: 0; overflow-wrap: anywhere; }
+  .player-profile { scroll-margin-top: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

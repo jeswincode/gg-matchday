@@ -239,7 +239,6 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
 }
 
 #root .home-page :is(.home-hero .eyebrow, .feature-label),
-#root .player-profile .profile-hero-media .profile-heading .eyebrow { color: var(--signature-secondary); }
 
 .product-mode-transition[class*="--to-"]::before {
   background: linear-gradient(140deg, var(--signature-base), var(--signature-wave));

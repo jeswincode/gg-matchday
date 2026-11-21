@@ -77,7 +77,7 @@ test("the profile editor saves approved positions without a roster refetch on op
   await page.goto("/?e2eRole=editor&e2ePlayerId=65a000000000000000000001");
   await enterSignedInMatchday(page);
   await page.getByRole("button", { name: "Player Profile", exact: true }).click();
-  await page.getByRole("button", { name: "Edit player profile", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Profile", exact: true }).click();
   const positions = page.getByRole("group", { name: "Approved positions" });
   await expect(positions).toBeVisible();
   expect(rosterReads).toBe(1);

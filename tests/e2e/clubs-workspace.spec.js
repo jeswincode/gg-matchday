@@ -41,27 +41,24 @@ test("Clubs opens the signed-in player's full profile and keeps editing optional
   await expect(profileHeading).toBeInViewport();
   await expect(profileHeading).toBeFocused();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  const sections = page.getByRole("tablist", { name: "Player profile sections" });
-  const banner = page.locator(".profile-hero");
-  const styles = banner.locator(".player-styles");
-  await expect(styles).toBeVisible();
-  const bannerHeight = await banner.evaluate(element => element.offsetHeight);
-  const video = await banner.locator("video").elementHandle();
-  const overview = sections.getByRole("tab", { name: "Overview" });
-  await expect(overview).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("heading", { name: "Player details" })).toBeVisible();
-  await overview.press("ArrowRight");
-  const stats = sections.getByRole("tab", { name: "Stats" });
-  await expect(stats).toBeFocused();
-  await expect(page.getByRole("heading", { name: "Career statistics" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Player details" })).toHaveCount(0);
-  await sections.getByRole("tab", { name: "History" }).click();
-  await expect(page.getByRole("heading", { name: "Recent matches" })).toBeVisible();
-  await sections.getByRole("tab", { name: "Honors" }).click();
-  await expect(page.getByRole("heading", { name: "Awards", exact: true })).toBeVisible();
-  await expect(styles).toBeVisible();
-  await expect.poll(() => banner.evaluate(element => element.offsetHeight)).toBe(bannerHeight);
-  expect(await banner.locator("video").evaluate((element, original) => element === original, video)).toBe(true);
+  const profile = page.locator(".player-profile");
+  const banner = profile.locator(".profile-hero");
+  await expect(banner.locator(".player-styles")).toBeVisible();
+  await expect(banner.locator("video")).toBeVisible();
+  await expect(profile.getByRole("tablist")).toHaveCount(0);
+  await expect(profile.locator(".profile-info-item > span")).toHaveText([
+    "Height", "Weight", "Position", "Preferred Foot", "Jersey", "Date of Birth",
+  ]);
+  await expect(profile.locator(".profile-action-row button")).toHaveText("📊 Performance");
+  await expect(profile.locator(".gg-profile-rating .eyebrow")).toHaveText("GG RATING · CAREER");
+  await expect(profile.locator("section.card > h3").filter({ hasNotText: "Current form" })).toHaveText([
+    "Career statistics", "Career milestones", "Achievements", "Awards",
+    "Season history", "Recent matches",
+  ]);
+  await profile.getByRole("button", { name: "📊 Performance" }).click();
+  const performance = page.getByRole("dialog", { name: /performance/i });
+  await expect(performance).toBeVisible();
+  await performance.getByRole("button", { name: "Close dialog" }).click();
   await page.getByRole("button", { name: "Request profile edit", exact: true }).click();
   const editor = page.getByRole("dialog", { name: "Request profile edit" });
   await expect(editor.getByRole("button", { name: "Submit for Approval" })).toBeVisible();
@@ -70,7 +67,7 @@ test("Clubs opens the signed-in player's full profile and keeps editing optional
   await expect(page.getByRole("button", { name: "Request profile edit", exact: true })).toBeFocused();
 });
 
-test("the account avatar and player photo open the appropriate profile settings", async ({ page }) => {
+test("the account avatar and profile edit button open the appropriate profile settings", async ({ page }) => {
   await page.goto(`/?e2eRole=editor&e2ePlayerId=${captainId}`);
   await enterSignedInMatchday(page);
   const navigation = page.getByRole("navigation", { name: "Matchday tabs" });
@@ -91,16 +88,15 @@ test("the account avatar and player photo open the appropriate profile settings"
   await expect(editor.getByRole("button", { name: "Save Profile" })).toBeVisible();
   await editor.getByRole("button", { name: "Close dialog" }).click();
   const banner = page.locator(".profile-hero");
-  await expect(banner.getByText("Edit Profile", { exact: true })).toHaveCount(0);
-  const photo = banner.getByRole("button", { name: "Edit player profile" });
-  await photo.click();
+  const editButton = banner.getByRole("button", { name: "Edit Profile", exact: true });
+  await editButton.click();
   const bio = editor.getByRole("textbox", { name: "Bio" });
   await bio.pressSequentially("Profile edited in the test dialog.");
   await expect(bio).toBeFocused();
   await editor.getByRole("button", { name: "Save Profile" }).click();
   await expect(editor).toHaveCount(0);
   await expect(page.locator(".profile-bio")).toContainText("Profile edited in the test dialog.");
-  await expect(photo).toBeFocused();
+  await expect(editButton).toBeFocused();
 });
 
 test("captain fixture requests are private and a squad member can track an own-Club bet and refund", async ({ page, browser, request }, testInfo) => {
