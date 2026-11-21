@@ -78,12 +78,15 @@ test("the account avatar and player photo open the appropriate profile settings"
   await avatar.click();
   const account = page.getByRole("dialog", { name: "Account profile settings" });
   await expect(account.getByRole("heading", { name: "Linked player profile" })).toBeVisible();
+  await expect(account).toHaveCSS("animation-name", "signature-pop-in");
   await account.getByRole("button", { name: "Gold", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "golden");
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await account.getByRole("button", { name: "Edit player profile" }).click();
 
   const editor = page.getByRole("dialog", { name: "Edit player profile" });
   await expect(editor.getByRole("button", { name: "Close dialog" })).toBeFocused();
+  await expect(editor).toHaveCSS("animation-name", "none");
   await expect(editor.getByRole("button", { name: "Save Profile" })).toBeVisible();
   await editor.getByRole("button", { name: "Close dialog" }).click();
   const banner = page.locator(".profile-hero");

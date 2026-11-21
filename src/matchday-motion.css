@@ -1,0 +1,87 @@
+:root {
+  --signature-popup-surface: color-mix(in srgb, var(--signature-surface) 72%, var(--signature-base));
+  --signature-popup-edge: color-mix(in srgb, var(--signature-edge) 56%, var(--signature-base));
+  --signature-ease-out: cubic-bezier(.2, .72, .25, 1);
+}
+
+:root :is(.gg-modal, .pr-modal, .home-goals-panel, .gg-code-menu-portal) {
+  color: var(--signature-ink);
+  border-color: var(--signature-popup-edge);
+  background: var(--signature-glass), var(--signature-popup-surface);
+}
+
+:root .pr-modal .pr-card {
+  background: var(--signature-base);
+  border-color: var(--signature-popup-edge);
+}
+
+@media (max-width: 760px) {
+  :root :is(.gg-modal, .pr-modal) :is(.gg-modal-head, .pr-head) {
+    background-color: var(--signature-popup-surface);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root :is(.gg-backdrop, .pr-backdrop) {
+    background: transparent;
+  }
+
+  :root :is(.gg-backdrop, .pr-backdrop)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: rgb(4 5 9 / .72);
+    animation: signature-scrim-in 130ms ease-out backwards;
+  }
+
+  :is(.home-goals-backdrop, .clubs-admin-dismiss) {
+    animation: signature-scrim-in 130ms ease-out backwards;
+  }
+
+  :is(.gg-modal, .pr-modal, .home-goals-panel, .gg-code-menu-portal) {
+    animation: signature-pop-in 180ms var(--signature-ease-out) backwards;
+  }
+
+  #root .clubs-workspace :is(.clubs-topbar.clubs-compact-header, .clubs-command-header) {
+    animation: signature-panel-in 160ms var(--signature-ease-out) backwards;
+  }
+
+  .clubs-workspace :is(.clubs-primary-button, .clubs-secondary-button) {
+    transition: translate 130ms var(--signature-ease-out), transform 130ms var(--signature-ease-out),
+      background-color 130ms ease-out, border-color 130ms ease-out, color 130ms ease-out;
+  }
+
+  .clubs-workspace :is(.clubs-primary-button, .clubs-secondary-button):active:not(:disabled) {
+    translate: 0 1px;
+  }
+
+  @media (max-width: 850px) {
+    .clubs-workspace .clubs-admin-rail[data-open="true"] {
+      animation: signature-rail-in 180ms var(--signature-ease-out) backwards;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .clubs-workspace .clubs-nav-secondary[data-open="true"] {
+      animation: signature-pop-in 160ms var(--signature-ease-out) backwards;
+    }
+  }
+}
+
+@keyframes signature-scrim-in {
+  from { opacity: 0; }
+}
+
+@keyframes signature-pop-in {
+  from { opacity: .72; translate: 0 7px; }
+}
+
+@keyframes signature-panel-in {
+  from { opacity: .9; translate: 0 3px; }
+}
+
+@keyframes signature-rail-in {
+  from { opacity: .8; translate: -10px 0; }
+}

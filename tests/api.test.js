@@ -10,15 +10,30 @@ after(async()=>{await syncHistory().catch(()=>{});server?.closeAllConnections();
 const payload=()=>({date:'2026-01-04',name:'Test Sunday',teamA:{label:'Test A',score:99},teamB:{label:'Test B',score:99},participants:[{player:String(p1._id),team:'A',rating:8.9,defensivePerformance:8},{player:String(p2._id),team:'B',rating:7,defensivePerformance:6}],events:[{player:String(p1._id),type:'goal'}]});
 test('API responses include a safe request id and invalid ids remain client errors',async()=>{const health=await request('/health');assert.equal(health.status,503);assert.equal(health.data.status,'degraded');assert.equal(health.data.database,'connected');assert.equal(health.data.clubsDatabase,'disconnected');assert.match(health.requestId,/^[0-9a-f-]{36}$/i);const invalid=await request('/players/not-an-object-id');assert.equal(invalid.status,400);assert.equal(invalid.data.message,'Invalid resource id.');assert.match(invalid.requestId,/^[0-9a-f-]{36}$/i);assert.doesNotMatch(JSON.stringify(invalid.data),/mongodb|secret|password/i);});
 test('API rejects unauthenticated and viewer match writes',async()=>{assert.equal((await request('/matches',{method:'POST',body:payload()})).status,401);assert.equal((await request('/matches',{token:'viewer',method:'POST',body:payload()})).status,403);assert.equal((await request('/auth/me',{token:'invalid'})).status,401);});
-test('profile linking lists only unlinked accounts and allows many accounts per player', async () => {
-  const createAccount = suffix => User.create({ firebaseUid: 'link-' + suffix, name: suffix, email: suffix + '@example.invalid' });
-  const [first, second] = await Promise.all([createAccount('first'), createAccount('second')]);
+test('profile linking excludes admin identities and allows many unlinked accounts per player', async () => {
+  const createAccount = (suffix, fields = {}) => User.create({
+    firebaseUid: 'link-' + suffix, name: suffix, email: suffix + '@example.invalid', ...fields,
+  });
+  const [first, second, configuredAdmin, roleAdmin] = await Promise.all([
+    createAccount('first'),
+    createAccount('second'),
+    createAccount('configured-admin', { email: process.env.ADMIN_EMAIL, role: 'viewer' }),
+    createAccount('role-admin', { role: 'admin' }),
+  ]);
   const list = () => request('/profile-requests/admin/users', { token: 'admin' });
   const link = (userId, playerId) => request('/profile-requests/admin/link', {
     token: 'admin', method: 'POST', body: { userId, playerId },
   });
   assert.equal((await request('/profile-requests/admin/users', { token: 'viewer' })).status, 403);
-  assert.ok((await list()).data.some(account => account._id === String(first._id)));
+  const eligibleIds = (await list()).data.map(account => account._id);
+  assert.ok(eligibleIds.includes(String(first._id)));
+  for (const adminAccount of [configuredAdmin, roleAdmin]) {
+    assert.ok(!eligibleIds.includes(String(adminAccount._id)));
+    const blocked = await link(adminAccount._id, p1._id);
+    assert.equal(blocked.status, 403);
+    assert.match(blocked.data.message, /Admin accounts/);
+    assert.equal((await User.findById(adminAccount._id)).playerProfile, null);
+  }
   assert.equal((await link(first._id, p1._id)).status, 200);
   assert.equal((await link(second._id, p1._id)).status, 200);
   const remaining = (await list()).data.map(account => account._id);

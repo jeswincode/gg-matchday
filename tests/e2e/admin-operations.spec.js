@@ -59,6 +59,12 @@ test("Clubs operations queue drives an administrator approval and records the ac
 test("Profile administration selects its sidebar item and removes an account after linking", async ({ page }) => {
   await page.goto("/?e2eRole=admin&e2ePlayerId=unlinked");
   await page.getByRole("button", { name: "Enter Matchday" }).click();
+  const avatar = page.getByRole("button", { name: "Account profile settings" });
+  await avatar.click();
+  const settings = page.getByRole("dialog", { name: "Account profile settings" });
+  await expect(settings.getByRole("heading", { name: "Appearance" })).toBeVisible();
+  await expect(settings.getByRole("heading", { name: "Linked player profile" })).toHaveCount(0);
+  await settings.getByRole("button", { name: "Close dialog" }).click();
   await page.getByRole("button", { name: "⚙ Admin", exact: true }).click();
   await expect(page.getByRole("region", { name: "GG Matchday admin control center" })).toBeVisible();
   const mobileMenu = page.getByRole("button", { name: "Open admin sections" });
@@ -72,6 +78,7 @@ test("Profile administration selects its sidebar item and removes an account aft
   const unlinked = account.getByRole("option", { name: /E2E Unlinked Profile Account/ });
   await expect(unlinked).toHaveCount(1);
   await expect(account.getByRole("option", { name: /E2E Dispute Reporter/i })).toHaveCount(0);
+  await expect(account.getByRole("option", { name: /Playwright admin/i })).toHaveCount(0);
   await account.selectOption(await unlinked.getAttribute("value"));
   await profileAdmin.getByLabel("Player", { exact: true }).selectOption({ label: "E2E Player One" });
   await profileAdmin.getByRole("button", { name: "Link account", exact: true }).click();

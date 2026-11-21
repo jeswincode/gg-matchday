@@ -17,7 +17,7 @@ export default function AccountProfileSettings({
         <button type="button" aria-pressed={theme === "golden"} onClick={() => onTheme("golden")}>Gold</button>
       </div>
     </section>
-    <section className="gg-account-setting">
+    {role !== "admin" && <section className="gg-account-setting">
       <h3>Linked player profile</h3>
       {linked ? <div className="gg-account-setting-actions">
         <button type="button" className="secondary-button" onClick={onOpenPlayer} disabled={opening}>
@@ -28,6 +28,6 @@ export default function AccountProfileSettings({
         </button>
       </div> : <p className="muted">This account isn’t linked to a player.</p>}
       {error && <p className="global-message" role="alert">{error}</p>}
-    </section>
+    </section>}
   </Modal>;
 }

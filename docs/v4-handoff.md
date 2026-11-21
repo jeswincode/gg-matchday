@@ -19,7 +19,7 @@ The active application branch is [`v4/fresh-start`](https://github.com/jeswincod
 
 ## Live profile approvals
 
-Profile administration lists only accounts awaiting a link. Each account stores one player ID, and a player can be linked to several accounts. The V4 API removes the legacy unique index for this field on startup in `gg_matchday_v4`.
+Profile administration lists unlinked player accounts. The API excludes administrator roles and the configured administrator email and blocks direct linking attempts for either. Each eligible account stores one player ID, and a player can be linked to several accounts. The V4 API removes the legacy unique index for this field on startup in `gg_matchday_v4`.
 
 1. A linked user submits a profile change. Profile Administration approves it through the server's admin-only route in [`server/routes/profileRequests.js`](../server/routes/profileRequests.js).
 2. The API saves the player and approval, then emits `profile-updated` over [`GET /api/live/profile-updates`](https://gg-matchday-v4-fresh-api.onrender.com/api/live/profile-updates). The event carries only the public player ID. The stream checks persisted approvals every three seconds while it has subscribers so another API instance can observe an approval.
@@ -33,7 +33,8 @@ Take the next user-selected feature through local implementation, focused tests,
 ## Live data and performance
 
 - Matchday Signature shares matte tab selections, subtle waves and etched GG marks with Clubs. Dark uses dusty lavender accents on navy and plum. Gold pairs burnished gold controls with muted sage details. Mobile uses a compact Home layout and desktop retains the V3-style layout and stadium media. Player profiles open at the identity header and organize their content into Overview, Stats, History and Honors.
-- The player video, portrait and style badges live in one banner across all profile tabs. Authorized editors open the edit dialog from the portrait. Linked viewers use the same portrait to request changes. The signed-in account avatar opens appearance settings and access to the linked player profile from any Matchday tab.
+- The player video, portrait and style badges live in one banner across all profile tabs. Authorized editors open the edit dialog from the portrait. Linked viewers use the same portrait to request changes. The signed-in account avatar opens appearance settings and access to the linked player profile from any Matchday tab. Admin account settings show account details and appearance controls.
+- Matchday and Clubs dialogs use the selected theme's matte surfaces and a short entrance. Clubs adds motion to its header, controls and mobile menus while keeping the swipe pager ready. Reduced-motion settings disable these effects.
 
 - Matchday and Clubs remember each tab’s scroll position while the app is open. The URL records the selected tab so links reopen that destination and browser Back and Forward follow tab navigation. Clubs destinations still follow the viewer’s existing access rules.
 
