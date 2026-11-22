@@ -555,8 +555,15 @@ function App() {
   }, []);
 
   const finishStartup = useCallback(() => {
-    setExperience(authUser && !authLoading ? "welcome" : "entry");
-  }, [authUser, authLoading]);
+    setExperience(mobileEntry && mobileEntryComplete && authLoading
+      ? "app"
+      : authUser && !authLoading ? "welcome" : "entry");
+  }, [authUser, authLoading, mobileEntry, mobileEntryComplete]);
+
+  function completeMobileEntry() {
+    setMobileEntryComplete(true);
+    if (authLoading) setExperience("app");
+  }
 
   function enterGuestMode() {
     setExperience("app");
@@ -2040,7 +2047,7 @@ function App() {
   if (activeExperience === "startup") {
     workspaceContent = <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
   } else if (fullscreenPromptOpen) {
-    workspaceContent = <MobileFullscreenScreen onContinue={() => setMobileEntryComplete(true)} />;
+    workspaceContent = <MobileFullscreenScreen onContinue={completeMobileEntry} />;
   } else if (productMode === "clubs" && (!authLoading || activeExperience === "app")) {
     workspaceContent = <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin}
       adminEntry={clubsAdminEntry} onOpenOwnProfile={linkedPlayerId ? openOwnProfile : null}
@@ -2078,7 +2085,7 @@ function App() {
       <section className="account-bar">
 
         {authLoading ? (
-          <span className="account-status">
+          <span className="account-status" role="status">
             Checking account...
           </span>
         ) : authUser ? (

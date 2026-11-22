@@ -4,6 +4,7 @@ import "./dock-drag.css";
 export default function useDockDrag() {
   const drag = useRef(null);
   const suppressClick = useRef(false);
+  const releaseFrame = useRef(0);
 
   function finish(event, commit) {
     const state = drag.current;
@@ -11,6 +12,8 @@ export default function useDockDrag() {
     drag.current = null;
     if (!state.moving) return;
     const dock = event.currentTarget;
+    // Keep button transitions disabled across the render that selects the destination.
+    dock.dataset.dragReleased = "";
     delete dock.dataset.dragging;
     delete state.target.dataset.dragTarget;
     if (commit && event.clientY >= state.bounds.top - 24 &&
@@ -18,6 +21,12 @@ export default function useDockDrag() {
         event.clientX >= state.bounds.left && event.clientX <= state.bounds.right) {
       state.target.click();
     }
+    releaseFrame.current = requestAnimationFrame(() => {
+      releaseFrame.current = requestAnimationFrame(() => {
+        delete dock.dataset.dragReleased;
+        releaseFrame.current = 0;
+      });
+    });
   }
 
   return {
@@ -25,16 +34,14 @@ export default function useDockDrag() {
     "data-no-tab-swipe": "",
     onPointerDown(event) {
       if (drag.current) return;
+      cancelAnimationFrame(releaseFrame.current);
+      delete event.currentTarget.dataset.dragReleased;
       suppressClick.current = false;
       if (event.pointerType !== "touch" || !event.isPrimary ||
           !matchMedia("(max-width: 760px)").matches) return;
       const button = event.target.closest("button");
       if (!button || button.parentElement !== event.currentTarget || button.disabled) return;
-      const bounds = event.currentTarget.getBoundingClientRect();
-      const tabs = Array.from(event.currentTarget.children)
-        .filter(child => child.matches("button:not(:disabled)"))
-        .map(element => ({ element, box: element.getBoundingClientRect() }));
-      drag.current = { pointer: event.pointerId, start: event.clientX, bounds, tabs };
+      drag.current = { pointer: event.pointerId, start: event.clientX };
     },
     onPointerMove(event) {
       const state = drag.current;
@@ -46,6 +53,10 @@ export default function useDockDrag() {
         state.moving = true;
         suppressClick.current = true;
         dock.dataset.dragging = "";
+        state.bounds = dock.getBoundingClientRect();
+        state.tabs = Array.from(dock.children)
+          .filter(child => child.matches("button:not(:disabled)"))
+          .map(element => ({ element, box: element.getBoundingClientRect() }));
       }
       const { tabs, bounds } = state;
       const tab = tabs.find(({ box }, index) =>

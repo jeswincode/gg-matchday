@@ -206,7 +206,7 @@ test("mobile asks for fullscreen after loading and keeps the Matchday pages in f
   expect(await page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
 });
 
-test("mobile leaves the startup screen while the account request is still pending", async ({ page }) => {
+test("mobile opens Matchday after fullscreen while the account request is still pending", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   let finishAccount;
   const account = new Promise(resolve => { finishAccount = resolve; });
@@ -220,11 +220,35 @@ test("mobile leaves the startup screen while the account request is still pendin
     const fullscreen = page.getByRole("button", { name: "Enter Fullscreen" });
     await expect(fullscreen).toBeVisible({ timeout: 4000 });
     await fullscreen.click();
-    await expect(page.getByRole("button", { name: "Checking your session…" })).toBeDisabled();
-    await page.getByRole("button", { name: "Open Matchday" }).click();
-    await expect(page.getByRole("navigation", { name: "Matchday tabs" })).toBeVisible();
+    const nav = page.getByRole("navigation", { name: "Matchday tabs" });
+    await expect(nav).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Checking account..." })).toBeVisible();
+    await expect(page.locator(".gg-entry-screen")).toHaveCount(0);
+    await nav.getByRole("button", { name: "Leaderboard" }).click();
+    await expect(page.getByRole("heading", { name: "Leaderboard", exact: true })).toBeVisible();
   } finally { finishAccount(); }
   await expect(page.getByText("Returning player", { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/tab=leaderboard/);
+});
+
+test("mobile keeps Matchday open when the pending account check fails", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  let finishAccount;
+  const account = new Promise(resolve => { finishAccount = resolve; });
+  await stubPublicApi(page);
+  await page.route("**/api/auth/me", async route => {
+    await account;
+    await route.fulfill({ status: 503, json: { message: "Account check unavailable." } });
+  });
+  try {
+    await page.goto("/");
+    await completeMobileEntry(page);
+    await expect(page.getByRole("navigation", { name: "Matchday tabs" })).toBeVisible();
+  } finally { finishAccount(); }
+  await expect(page.getByText("Viewer mode", { exact: true })).toBeVisible();
+  await expect(page.locator(".gg-entry-screen")).toHaveCount(0);
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
 });
 
 test("Dark and Gold use their own favicons and keep the choice on reload", async ({ page }) => {
@@ -686,9 +710,23 @@ test("mobile dock highlights follow the finger and navigate only on release", as
     expect(await dock.evaluate(element => element.style.getPropertyValue("--dock-x"))).not.toBe(halfway);
     await expect(source).toHaveAttribute("aria-current", "page");
     await expect(source).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const highlight = await dock.evaluate(element => {
+      const styles = getComputedStyle(element, "::before");
+      const transitions = [];
+      element.addEventListener("transitionrun", event => {
+        if (event.target.parentElement === element) transitions.push(event.propertyName);
+      });
+      element.dragReleaseTransitions = transitions;
+      return { background: styles.backgroundColor, radius: styles.borderRadius };
+    });
     await touch("touchEnd");
     await expect(destination).toHaveAttribute("aria-current", "page");
     await expect(dock).not.toHaveAttribute("data-dragging", "");
+    await expect(dock).not.toHaveAttribute("data-drag-released", "");
+    await expect(destination).toHaveCSS("background-color", highlight.background);
+    await expect(destination).toHaveCSS("border-radius", highlight.radius);
+    await expect(destination).toHaveCSS("transform", "none");
+    expect(await dock.evaluate(element => element.dragReleaseTransitions)).toEqual([]);
   }
 
   await dragBetween(page.locator(".bottom-nav"), /Home$/, /Players$/);

@@ -253,6 +253,8 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
 }
 
 @media (max-width: 760px) {
+  #root [data-drag-dock] > button[aria-current="page"]::before { bottom: 0; }
+
   #root .app--matchday .topbar { border: 1px solid color-mix(in srgb, var(--signature-edge) 55%, transparent); }
   html[data-product-mode="matchday"] .gg-video-overlay {
     background: linear-gradient(180deg, rgb(3 7 16 / .29), rgb(3 7 16 / .50));

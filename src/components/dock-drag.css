@@ -5,7 +5,11 @@
     -webkit-touch-callout: none;
   }
 
-  .clubs-nav-main[data-drag-dock] { position: relative; }
+  .clubs-nav-main[data-drag-dock] {
+    position: relative;
+    --dock-radius: 9px;
+    --dock-border-width: 1px;
+  }
 
   [data-drag-dock][data-dragging]::before {
     content: "";
@@ -14,7 +18,8 @@
     width: var(--dock-w);
     height: var(--dock-h);
     transform: translate3d(var(--dock-x), var(--dock-y), 0);
-    border-radius: 10px;
+    border-radius: var(--dock-radius, 10px);
+    border: var(--dock-border-width, 0px) solid var(--signature-selection-edge);
     background: var(--club-workspace-highlight, var(--accent));
     pointer-events: none;
   }
@@ -26,6 +31,15 @@
     border-color: transparent;
   }
 
+  #root [data-drag-dock]:is([data-dragging], [data-drag-released]) > button {
+    transition: none;
+    transform: none;
+  }
+
   #root [data-drag-dock][data-dragging] > button[aria-current] { color: var(--muted); }
   #root [data-drag-dock][data-dragging] > button[data-drag-target] { color: var(--accent-dark, #101828); }
+}
+
+@media (max-width: 760px) and (hover: none) {
+  #root [data-drag-dock] > button:hover:not(:active) { transform: none; }
 }
