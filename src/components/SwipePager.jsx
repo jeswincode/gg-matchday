@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef } from "react";
 import { flushSync } from "react-dom";
-import { useTabScroll } from "../lib/tabHistory";
+import { readTabScroll, saveTabScroll, useTabScroll } from "../lib/tabHistory";
 import "./swipe-pager.css";
 
 function isHorizontalScroller(target, root) {
@@ -53,7 +53,17 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
       if (pager.dataset.swiping !== activeDirection) pager.dataset.swiping = activeDirection;
       movingPane.style.transform = `translate3d(${offset}px, 0, 0)`;
       if (movingNeighbor) {
-        movingNeighbor.style.transform = `translate3d(calc(${direction * 100}% + ${offset}px), ${current.top}px, 0)`;
+        if (!current.destinationScroll.has(neighbor)) {
+          const viewport = document.scrollingElement;
+          const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight
+            + neighbor.offsetHeight - current.pane.offsetHeight);
+          const savedScroll = readTabScroll(pager.id, neighbor.dataset.tab);
+          current.destinationScroll.set(neighbor, Math.min(savedScroll, maxScroll));
+        }
+        // Preview the destination in the same viewport coordinates it will
+        // have after the tab's layout effect restores its scroll position.
+        const top = current.scroll - current.destinationScroll.get(neighbor);
+        movingNeighbor.style.transform = `translate3d(calc(${direction * 100}% + ${offset}px), ${top}px, 0)`;
       }
     }
 
@@ -95,7 +105,8 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
         current.locked = true;
         const bounds = pager.getBoundingClientRect();
         current.width = bounds.width;
-        current.top = Math.max(0, -bounds.top);
+        current.scroll = window.scrollY;
+        current.destinationScroll = new Map();
         area.setPointerCapture(event.pointerId);
         reportMotion(true);
       }
@@ -133,6 +144,7 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
       completeSettle = () => {
         clearMotion();
         if (next === undefined || activePane() !== current.pane) return;
+        saveTabScroll(pager.id, current.pane.dataset.tab);
         flushSync(() => navigate(next));
       };
       if (reducedMotion.matches || !pager.dataset.swiping) {
@@ -184,6 +196,7 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
       {tabs.map((tab, index) => (
         <div className="swipe-pane" key={tab} data-tab={tab} data-pane={index === activeIndex ? "current" :
           index === activeIndex + 1 ? "next" : index === activeIndex - 1 ? "previous" : "parked"}
+          data-companion-surface={tab}
           inert={index !== activeIndex}>
           {renderPane(tab)}
         </div>

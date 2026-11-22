@@ -32,12 +32,19 @@ export function useTabHistory(onBackForward, manageScroll = false) {
 
 const positions = new Map();
 
+export function readTabScroll(id, tab) {
+  return positions.get(id + ":" + tab) ?? 0;
+}
+
+export function saveTabScroll(id, tab) {
+  if (id) positions.set(id + ":" + tab, window.scrollY);
+}
+
 export function useTabScroll(id, tab) {
   useLayoutEffect(() => {
     if (!id) return undefined;
-    const key = id + ":" + tab;
-    window.scrollTo({ top: positions.get(key) ?? 0, behavior: "instant" });
-    const save = () => positions.set(key, window.scrollY);
+    window.scrollTo({ top: readTabScroll(id, tab), behavior: "instant" });
+    const save = () => saveTabScroll(id, tab);
     window.addEventListener("scroll", save, { passive: true });
     return () => window.removeEventListener("scroll", save);
   }, [id, tab]);

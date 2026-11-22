@@ -9,21 +9,20 @@ function GGMark(){
 
 export function StartupScreen({authLoading,onComplete}){
   const [minimumReady,setMinimumReady]=useState(false);
-  const [phase,setPhase]=useState(0);
+  const [sessionWaitElapsed,setSessionWaitElapsed]=useState(false);
 
   useEffect(()=>{
-    const phaseTimer=setTimeout(()=>setPhase(1),420);
-    const doneTimer=setTimeout(()=>setMinimumReady(true),1100);
-    return ()=>{clearTimeout(phaseTimer);clearTimeout(doneTimer);};
+    const introTimer=setTimeout(()=>setMinimumReady(true),550);
+    const sessionTimer=setTimeout(()=>setSessionWaitElapsed(true),1800);
+    return ()=>{clearTimeout(introTimer);clearTimeout(sessionTimer);};
   },[]);
 
+  const ready=minimumReady && (!authLoading || sessionWaitElapsed);
   useEffect(()=>{
-    if(minimumReady && !authLoading) onComplete();
-  },[minimumReady,authLoading,onComplete]);
+    if(ready) onComplete();
+  },[ready,onComplete]);
 
-  const label=authLoading
-    ? (phase===0 ? "Checking your session" : "Preparing your Matchday")
-    : "Matchday ready";
+  const label=ready ? "Matchday ready" : "Preparing your Matchday";
 
   return <main className="gg-startup" aria-live="polite">
     <div className="gg-startup-field" aria-hidden="true">
@@ -37,12 +36,12 @@ export function StartupScreen({authLoading,onComplete}){
       <p className="gg-refined-eyebrow">GG MATCHDAY</p>
       <h1>Football. Numbers. Rivalry.</h1>
       <p className="gg-startup-status">{label}<span className="gg-loading-dots" aria-hidden="true"><i/> <i/> <i/></span></p>
-      <div className="gg-startup-meter" aria-hidden="true"><span className={minimumReady&&!authLoading?"ready":""}/></div>
+      <div className="gg-startup-meter" aria-hidden="true"><span className={ready?"ready":""}/></div>
     </div>
   </main>;
 }
 
-export function LoginDashboard({onSignIn,onGuest,busy,message}){
+export function LoginDashboard({onSignIn,onGuest,busy,signingIn,message}){
   return <main className="gg-entry-screen">
     <section className="gg-entry-shell">
       <div className="gg-entry-visual" aria-hidden="true">
@@ -63,14 +62,16 @@ export function LoginDashboard({onSignIn,onGuest,busy,message}){
       <div className="gg-entry-actions">
         <button type="button" className="gg-entry-google" onClick={onSignIn} disabled={busy}>
           <span className="gg-google-g" aria-hidden="true">G</span>
-          {busy ? "Opening Google…" : "Continue with Google"}
+          {signingIn ? "Opening Google…" : busy ? "Checking your session…" : "Continue with Google"}
         </button>
-        <button type="button" className="gg-entry-guest" onClick={onGuest} disabled={busy}>
-          Explore as Guest
+        <button type="button" className="gg-entry-guest" onClick={onGuest} disabled={signingIn}>
+          {busy && !signingIn ? "Open Matchday" : "Explore as Guest"}
         </button>
       </div>
 
-      <p className="gg-entry-note">Guest mode is read-only. Sign in to access your Matchday account.</p>
+      <p className="gg-entry-note">{busy && !signingIn
+        ? "You can browse while we finish checking your account."
+        : "Guest mode is read-only. Sign in to access your Matchday account."}</p>
     </section>
   </main>;
 }

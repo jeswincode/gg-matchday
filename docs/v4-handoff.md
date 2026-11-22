@@ -46,6 +46,7 @@ Take the next user-selected feature through local implementation, focused tests,
 - Matchday and Clubs dialogs use the selected theme's matte surfaces and a short entrance. Clubs adds motion to its header, controls and mobile menus while keeping the swipe pager ready. Reduced-motion settings disable these effects.
 
 - Matchday and Clubs remember each tab’s scroll position while the app is open. The URL records the selected tab so links reopen that destination and browser Back and Forward follow tab navigation. Clubs destinations still follow the viewer’s existing access rules.
+- Mobile swipe previews use the destination tab's saved scroll position before the tab becomes active. The startup splash gives way to fullscreen entry or the account screen after at most 1.8 seconds of waiting for the session. The account can finish loading after Matchday opens. Dark uses the original V3 icon and Gold uses the V4 gradient icon, including on reload.
 
 - Matchday keeps neighboring mobile tabs laid out and refreshes the primary tab data while the workspace is open. The mobile bottom dock matches the Clubs placement. The Matchday background video holds its frame during horizontal gestures and resumes after navigation settles, subject to the device's reduced-motion preference.
 - V3 moves a single stage on touch. The V4 pager keeps the incoming page visible during the drag and moves only the two pane transforms per frame. It accepts shorter deliberate horizontal drags, keeps native vertical scrolling, and settles the drag in 95 ms. Native-touch browser tests cover a short drag and a second drag begun before the first has settled.
@@ -62,6 +63,13 @@ Take the next user-selected feature through local implementation, focused tests,
 - My Player brings together the private wallet, personal and Club rewards, and Club career records. The header opens the linked account's full Matchday player profile. Players request edits from their own profile. Account linking and approval of profile edits are under Matchday Admin → Profile administration.
 - Clubs Admin uses the Matchday Admin layout with Clubs styling. The grouped sidebar opens Dashboard, Applications, Clubs, Matches, Action queue, and Activity & audit. Desktop keeps navigation visible beside a separately scrolling work area. On mobile, Sections opens the sidebar drawer. The dashboard has shortcuts to active workflows and recent Club records, and Matches can be searched by Club, date, or record ID.
 - The [Clubs workspace browser test](../tests/e2e/clubs-workspace.spec.js) checks captain and member views in independent sessions, a same-Club bet, private history, and a cancellation refund against isolated fixtures.
+
+## GG Companion foundation
+
+- Leaflet's [PipWorld](https://github.com/itsadithyakv/Leaflet-BookReader/blob/main/apps/src/components/PipWorld.tsx) and [PipSay](https://github.com/itsadithyakv/Leaflet-BookReader/blob/main/apps/src/components/PipSay.tsx) were the interaction references. GG Matchday has its own surfaces, styling and movement code.
+- Add `companion=preview` to a V4 Matchday or Clubs URL to load the test companion. Drag and release it to try landings, mobile edge rebounds and desktop rail slides. Activate it to alternate between standing and sitting and show a speech bubble. The preview loads on demand.
+- The world reads the active workspace and the topmost open dialog. It uses the visible top edges of headers, navigation, cards and sections as surfaces. Inactive tabs and clipped or hidden elements are excluded. Add `data-companion-surface="unique-name"` to an element to give it a stable target, or use `data-companion-surface="off"` to exclude a subtree.
+- The Phase 2 controller can dispatch `gg:companion` custom events on `window` with `detail: { type: "move", target, pose }`, `{ type: "pose", pose }` or `{ type: "say", text, duration }`. A target can be a visible element or its surface name. Supported poses are `stand`, `sit` and `celebrate`. A line of dialogue uses plain text and a duration in milliseconds.
 
 ## Open in Codex
 

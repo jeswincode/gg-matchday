@@ -2,7 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=gold" />
+    <link id="gg-favicon" rel="icon" type="image/svg+xml" href="/favicon-dark.svg" data-gold="/favicon.svg?v=gold" data-dark="/favicon-dark.svg" />
+    <script>
+      try {
+        const gold = localStorage.getItem('gg-theme') === 'golden';
+        document.documentElement.dataset.theme = gold ? 'golden' : 'dark';
+        if (gold) {
+          const icon = document.getElementById('gg-favicon');
+          icon.href = icon.dataset.gold;
+        }
+      } catch {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GG Matchday · Football Journal</title>
     <meta name="description" content="The GG Matchday football archive: matches, performances, squad and shared moments." />

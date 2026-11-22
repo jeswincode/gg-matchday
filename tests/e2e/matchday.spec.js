@@ -138,6 +138,42 @@ test("mobile asks for fullscreen after loading and keeps the Matchday pages in f
   expect(await page.evaluate(() => document.fullscreenElement === document.documentElement)).toBe(true);
 });
 
+test("mobile leaves the startup screen while the account request is still pending", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  let finishAccount;
+  const account = new Promise(resolve => { finishAccount = resolve; });
+  await stubPublicApi(page);
+  await page.route("**/api/auth/me", async route => {
+    await account;
+    await route.fulfill({ json: { user: { id: "slow-account", name: "Returning player", role: "viewer" } } });
+  });
+  try {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const fullscreen = page.getByRole("button", { name: "Enter Fullscreen" });
+    await expect(fullscreen).toBeVisible({ timeout: 4000 });
+    await fullscreen.click();
+    await expect(page.getByRole("button", { name: "Checking your session…" })).toBeDisabled();
+    await page.getByRole("button", { name: "Open Matchday" }).click();
+    await expect(page.getByRole("navigation", { name: "Matchday tabs" })).toBeVisible();
+  } finally { finishAccount(); }
+  await expect(page.getByText("Returning player", { exact: true })).toBeVisible();
+});
+
+test("Dark and Gold use their own favicons and keep the choice on reload", async ({ page }) => {
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  const icon = page.locator("link#gg-favicon");
+  await expect(icon).toHaveAttribute("href", "/favicon-dark.svg");
+  await page.getByRole("button", { name: "Gold", exact: true }).click();
+  await expect(icon).toHaveAttribute("href", "/favicon.svg?v=gold");
+  await page.reload();
+  await expect(icon).toHaveAttribute("href", "/favicon.svg?v=gold");
+  await completeMobileEntry(page);
+  await page.getByRole("button", { name: "Explore as Guest" }).click();
+  await page.getByRole("button", { name: "Dark", exact: true }).click();
+  await expect(icon).toHaveAttribute("href", "/favicon-dark.svg");
+});
+
 test("mobile can continue as a guest when the browser denies fullscreen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(() => {
@@ -471,6 +507,76 @@ async function nativeTouch(page) {
   });
 }
 
+async function companionAction(page, action) {
+  await page.evaluate(detail => window.dispatchEvent(new CustomEvent("gg:companion", { detail })), action);
+}
+
+test("desktop companion uses Matchday and Clubs surfaces and slides down a themed rail", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium-desktop");
+  await stubPublicApi(page);
+  await page.goto("/?e2eRole=guest&companion=preview");
+  await page.getByRole("button", { name: "Explore as Guest" }).click();
+  const companion = page.getByRole("button", { name: "GG Companion preview" });
+  const rail = page.locator(".gg-companion-rail--left");
+  await expect(rail).toBeVisible();
+  await expect(rail).toHaveCSS("left", "5px");
+  const darkColor = await rail.evaluate(element => getComputedStyle(element).backgroundImage);
+  await page.getByRole("button", { name: "Gold", exact: true }).click();
+  await expect(rail).not.toHaveCSS("background-image", darkColor);
+  const nav = page.getByRole("navigation", { name: "Matchday tabs" });
+  for (const tab of ["Home", "Record", "Leaderboard", "Calendar", "Players"]) {
+    await nav.getByRole("button", { name: tab }).click();
+    const activePane = page.locator('#matchday-pager > [data-pane="current"]');
+    await expect(activePane).toHaveAttribute("data-tab", tab.toLowerCase());
+    await companionAction(page, { type: "move", target: tab.toLowerCase(), pose: "sit" });
+    await expect(companion).toHaveAttribute("data-pose", "sit");
+    const token = await companion.boundingBox();
+    expect(Math.abs(token.y + token.height - (await activePane.boundingBox()).y)).toBeLessThanOrEqual(1);
+  }
+  await companionAction(page, { type: "say", text: "Welcome to the lineup." });
+  await expect(page.locator(".gg-companion-speech")).toHaveText("Welcome to the lineup.");
+  await companion.click();
+  await expect(companion).toHaveAttribute("data-pose", "stand");
+  await companion.click();
+  await expect(companion).toHaveAttribute("data-pose", "sit");
+  const box = await companion.boundingBox();
+  await page.mouse.move(box.x + 16, box.y + 16);
+  await page.mouse.down();
+  await page.mouse.move(84, 105);
+  await page.mouse.move(9, 105);
+  await page.mouse.up();
+  await expect(companion).toHaveAttribute("data-pose", "slide");
+  const slideStart = (await companion.boundingBox()).y;
+  await expect.poll(async () => (await companion.boundingBox()).y).toBeGreaterThan(slideStart + 15);
+  await expect(companion).toHaveAttribute("data-edge", "left-rail");
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.locator(".clubs-app")).toBeVisible();
+  await companionAction(page, { type: "move", target: "overview", pose: "sit" });
+  await expect(companion).toHaveAttribute("data-pose", "sit");
+});
+
+test("mobile companion rebounds at the screen edge without visible rails", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  await page.goto("/?e2eRole=guest&companion=preview");
+  await completeMobileEntry(page);
+  await page.getByRole("button", { name: "Explore as Guest" }).click();
+  const companion = page.getByRole("button", { name: "GG Companion preview" });
+  await expect(page.locator(".gg-companion-rail--left")).toBeHidden();
+  await expect(page.locator(".gg-companion-rail--right")).toBeHidden();
+  await companionAction(page, { type: "move", target: "home", pose: "sit" });
+  await expect(companion).toHaveAttribute("data-pose", "sit");
+  const touch = await nativeTouch(page);
+  const box = await companion.boundingBox();
+  await touch("touchStart", Math.round(box.x + 16), Math.round(box.y + 16));
+  await touch("touchMove", 80, 102);
+  await touch("touchMove", 8, 102);
+  await touch("touchEnd");
+  await expect(companion).toHaveAttribute("data-edge", "left-bounce");
+  await expect.poll(async () => (await companion.boundingBox()).x).toBeGreaterThan(10);
+  await expect(page.locator("#matchday-pager > [data-pane=current]")).toHaveAttribute("data-tab", "home");
+});
+
 test("mobile dock highlights follow the finger and navigate only on release", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubPublicApi(page);
@@ -543,6 +649,17 @@ test("Matchday keeps the next panel ready during a deep page swipe and resets th
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(homeScroll);
   await page.goForward();
   await expect(navigation.getByRole("button", { name: /Record$/ })).toHaveAttribute("aria-current", "page");
+  await touch("touchStart", 60, 465);
+  await touch("touchMove", 130, 465);
+  await touch("touchMove", 250, 466);
+  await expect(pager).toHaveAttribute("data-swiping", "previous");
+  const homePane = pager.locator('[data-tab="home"]');
+  const previewTop = (await homePane.boundingBox()).y;
+  await touch("touchEnd");
+  await expect(homePane).toHaveAttribute("data-pane", "current");
+  expect(Math.abs((await homePane.boundingBox()).y - previewTop)).toBeLessThanOrEqual(1);
+  expect(await page.evaluate(() => window.scrollY)).toBe(homeScroll);
+  await navigation.getByRole("button", { name: /Record$/ }).click();
   await page.reload();
   await completeMobileEntry(page);
   await page.getByRole("button", { name: "Explore as Guest" }).click();

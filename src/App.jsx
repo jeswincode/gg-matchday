@@ -133,7 +133,12 @@ function App() {
     }
   },[]);
 
-  useEffect(()=>{document.documentElement.dataset.theme=theme;try{localStorage.setItem('gg-theme',theme);}catch{/* Private browsing can disable storage. */}},[theme]);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    const icon = document.getElementById("gg-favicon");
+    if (icon) icon.href = theme === "golden" ? icon.dataset.gold : icon.dataset.dark;
+    try { localStorage.setItem("gg-theme", theme); } catch { /* Storage can be disabled. */ }
+  }, [theme]);
   useEffect(() => {
     document.documentElement.dataset.productMode = productMode;
   }, [productMode]);
@@ -196,6 +201,7 @@ function App() {
       new URLSearchParams(window.location.search).get("e2eRole") !== "guest",
     ),
   );
+  const [signingIn, setSigningIn] = useState(false);
 
   const [
     message,
@@ -536,8 +542,8 @@ function App() {
   }, []);
 
   const finishStartup = useCallback(() => {
-    setExperience(authUser ? "welcome" : "entry");
-  }, [authUser]);
+    setExperience(authUser && !authLoading ? "welcome" : "entry");
+  }, [authUser, authLoading]);
 
   function enterGuestMode() {
     setExperience("app");
@@ -679,6 +685,7 @@ function App() {
 
     try {
       setMessage("");
+      setSigningIn(true);
       setAuthLoading(true);
 
       // Popup auth works across desktop and mobile Chrome. Firebase
@@ -718,6 +725,8 @@ function App() {
           ? "Sign-in cancelled."
           : `${finalError?.code || "auth-error"}: ${finalError?.message || "Google sign-in failed."}`,
       );
+    } finally {
+      setSigningIn(false);
     }
   }
 
@@ -2028,10 +2037,7 @@ function App() {
     return <MobileFullscreenScreen onContinue={() => setMobileEntryComplete(true)} />;
   }
 
-  if (productMode === "clubs") {
-    if (authLoading) {
-      return <StartupScreen authLoading={true} onComplete={finishStartup} />;
-    }
+  if (productMode === "clubs" && (!authLoading || activeExperience === "app")) {
 
     return (
       <>
@@ -2044,7 +2050,7 @@ function App() {
   }
 
   if (activeExperience === "entry") {
-    return <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} message={message} />;
+    return <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} signingIn={signingIn} message={message} />;
   }
 
   if (activeExperience === "welcome") {
@@ -2053,11 +2059,11 @@ function App() {
 
   return (
     <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : " app--matchday")}
-      data-page-swipes={activeTab === TABS.ADMIN ? undefined : ""}>
+      data-page-swipes={activeTab === TABS.ADMIN ? undefined : ""} data-companion-world>
       <NotificationIndicator accountId={accountId} />
 
       <div className="mobile-tab-stage">
-      <header className="topbar">
+      <header className="topbar" data-companion-surface="matchday-header">
         <div>
           <p className="eyebrow">
             GG MATCHDAY

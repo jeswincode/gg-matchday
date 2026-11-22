@@ -1,0 +1,94 @@
+.gg-companion-rail {
+  display: none;
+  pointer-events: none;
+}
+
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  #root:has([data-companion-world]) > .gg-companion-rail {
+    display: block;
+    position: fixed;
+    inset-block: 7px;
+    width: 2px;
+    z-index: 201;
+    border-radius: 2px;
+    background: linear-gradient(transparent, var(--signature-edge) 13% 87%, transparent);
+  }
+
+  .gg-companion-rail--left { left: max(5px, env(safe-area-inset-left)); }
+  .gg-companion-rail--right { right: max(5px, env(safe-area-inset-right)); }
+}
+
+.gg-companion-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 202;
+  pointer-events: none;
+}
+
+.gg-companion-stage [hidden] { display: none; }
+
+.gg-companion-token {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate3d(calc(var(--companion-x) - 16px), calc(var(--companion-y) - 32px), 0);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  align-items: end;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--signature-on-accent);
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.gg-companion-token span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--signature-edge);
+  border-radius: 50%;
+  background: var(--signature-accent);
+  font-size: 11px;
+  font-weight: 900;
+  transform-origin: center bottom;
+}
+
+.gg-companion-token[data-pose="held"] { cursor: grabbing; }
+.gg-companion-token[data-pose="sit"] span { transform: scaleY(.73); }
+.gg-companion-token[data-pose="slide"] span { transform: scaleX(.77) scaleY(1.07); }
+.gg-companion-token[data-edge="left-rail"] span { transform-origin: left bottom; }
+.gg-companion-token[data-edge="right-rail"] span { transform-origin: right bottom; }
+.gg-companion-token[data-pose="celebrate"] span { animation: gg-companion-celebrate 420ms ease-out 2 alternate; }
+
+.gg-companion-speech {
+  position: absolute;
+  left: clamp(96px, var(--companion-x), calc(100% - 96px));
+  top: max(75px, calc(var(--companion-y) - 39px));
+  translate: -50% -100%;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: 178px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--signature-edge);
+  border-radius: 10px;
+  color: var(--signature-ink);
+  background: var(--signature-surface);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+@keyframes gg-companion-celebrate {
+  from { scale: 1; }
+  to { scale: .9 1.22; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gg-companion-token[data-pose="celebrate"] span { animation: none; }
+}

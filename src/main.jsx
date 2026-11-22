@@ -12,12 +12,14 @@ import './own-goals-ui.css'
 import './news-scroll.css'
 import './components/notifications.css'
 import App from './App.jsx'
+import CompanionWorld from './features/companion/CompanionWorld.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <>
       <App />
       <footer className="pr-footer">Made by <strong>Jeswin</strong></footer>
+      <CompanionWorld />
     </>
   </StrictMode>,
 )

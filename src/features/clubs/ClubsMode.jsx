@@ -1237,7 +1237,7 @@ export default function ClubsMode({
 
   return (
     <main className={"clubs-app clubs-workspace" + (adminOnlyView ? " clubs-workspace--admin" : "")}
-      data-page-swipes={adminOnlyView ? undefined : ""}>
+      data-page-swipes={adminOnlyView ? undefined : ""} data-companion-world>
       <header className="clubs-topbar clubs-compact-header">
         <div className="clubs-header-identity">
           <ClubCrest club={currentClub} name={currentClub?.name || "GG"} />
