@@ -1,5 +1,6 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
 import {API_URL, api, authenticatedFetch, invalidate} from './lib/api';
+import { createAccountSync } from "./lib/accountSync";
 import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
 import SwipePager from "./components/SwipePager";
@@ -113,6 +114,8 @@ function App() {
   const newsRevision = useLiveRevision("news");
   const [overview,setOverview]=useState(null);
   const [archivePage,setArchivePage]=useState(1);
+  const [archiveRetry, setArchiveRetry] = useState(0);
+  const [archiveError, setArchiveError] = useState("");
   const archivePages = useRef(new Map());
   const [playersError, setPlayersError] = useState("");
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
@@ -430,17 +433,12 @@ function App() {
   const isSignedIn =
     Boolean(authUser);
 
-  const isAdmin =
-    backendUser?.role ===
-    "admin";
+  const isAdmin = isSignedIn && backendUser?.role === "admin";
 
   const linkedPlayerId = isSignedIn ? backendUser?.playerProfile : null;
   useEffect(() => () => { ownProfileRequest.current = null; }, [backendUser?.id, linkedPlayerId]);
 
-  const isEditor =
-    backendUser?.role ===
-      "editor" ||
-    isAdmin;
+  const isEditor = isSignedIn && (backendUser?.role === "editor" || isAdmin);
 
   const hasPendingRequest =
     backendUser?.accessRequest ===
@@ -496,61 +494,50 @@ function App() {
 
     let active = true;
 
-    async function syncBackendUser(firebaseUser) {
-      if (!active) return;
-
-      setAuthUser(firebaseUser);
-
-      if (!firebaseUser) {
+    const accountSync = createAccountSync({
+      onIdentity(user) {
+        setAuthUser(user);
         setBackendUser(null);
-        setAuthLoading(false);
-        return;
-      }
-
-      try {
+        setAuthLoading(Boolean(user));
+      },
+      async load(firebaseUser, signal) {
         const token = await firebaseUser.getIdToken();
+        signal.throwIfAborted();
         const response = await fetch(`${API_URL}/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          signal,
+          headers: { Authorization: `Bearer ${token}` },
         });
-
         const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              `Authentication sync failed (${response.status})`,
-          );
-        }
-
-        if (!active) return;
-        setBackendUser(data.user || null);
+        if (!response.ok) throw new Error(data.message || `Authentication sync failed (${response.status}).`);
+        return data.user || null;
+      },
+      onResult(user) {
+        setBackendUser(user);
         setMessage("");
-      } catch (error) {
-        console.error("Auth sync error:", error);
-
-        if (!active) return;
-        setBackendUser(null);
+      },
+      onError(error) {
         setMessage(`Could not sync your account: ${error.message}`);
-      } finally {
-        if (active) setAuthLoading(false);
-      }
-    }
+      },
+      onSettled() { setAuthLoading(false); },
+    });
 
-    const unsubscribe = onAuthStateChanged(auth, syncBackendUser);
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (active) void accountSync.sync(user);
+    });
 
     // Consume a pending redirect result on startup as an explicit
     // fallback for browsers where the auth observer is delayed.
     getRedirectResult(auth)
       .then((result) => {
-        if (result?.user) return syncBackendUser(result.user);
+        if (active && result?.user && result.user.uid === auth.currentUser?.uid) {
+          return accountSync.sync(result.user);
+        }
         return undefined;
       })
       .catch((error) => {
         console.error("Redirect auth result error:", error);
 
-        if (active) {
+        if (active && !auth.currentUser) {
           setAuthLoading(false);
           setMessage(
             error?.code === "auth/web-storage-unsupported"
@@ -562,6 +549,7 @@ function App() {
 
     return () => {
       active = false;
+      accountSync.cancel();
       unsubscribe();
     };
   }, []);
@@ -644,14 +632,16 @@ function App() {
       return matches;
     });
     Promise.all(pages).then(results => {
-      if (active) setMatches([...new Map(results.flat().map(match => [match._id, match])).values()]);
+      if (!active) return;
+      setArchiveError("");
+      setMatches([...new Map(results.flat().map(match => [match._id, match])).values()]);
     }).catch(error => {
-      if (active) setMessage(error.message || "Could not load matches.");
+      if (active) setArchiveError(error.message || "Could not load matches.");
     }).finally(() => {
       if (active) setLoadingMatches(false);
     });
     return () => { active = false; };
-  }, [primaryTabsActive, archivePage, refreshKey]);
+  }, [primaryTabsActive, archivePage, archiveRetry, refreshKey]);
 
   useEffect(() => {
     if (!primaryTabsActive) return undefined;
@@ -823,10 +813,10 @@ function App() {
         );
       }
 
-      setBackendUser(
-        data.user ||
-          backendUser
-      );
+      const updated = data.user;
+      if (updated) setBackendUser(current => current && sameId(current.id, updated.id ?? updated._id)
+        ? { ...current, role: updated.role, accessRequest: updated.accessRequest }
+        : current);
 
       setMessage(
         "Editor access request submitted."
@@ -2302,7 +2292,26 @@ function App() {
             changeCount={changeCount}
           />
         )}
-        <section className="section-block"><div className="section-heading"><h2>Recent Matches</h2><span className="muted">{overview?.matches??matches.length} recorded</span></div>{loadingMatches&&!matches.length?<div className="loading-panel">Loading matches…</div>:!matches.length?<div className="empty-state">No matches recorded yet.</div>:<div className="match-list">{matches.map(match=><MatchHistoryCard key={match._id} match={match} canEdit={isEditor} onOpen={()=>showMatch(match._id)} onEdit={()=>startEditingMatch(match)} onDelete={()=>deleteMatch(match._id)}/>)}</div>}{matches.length<(overview?.matches||0)&&<button className="secondary-button" disabled={loadingMatches} onClick={()=>{setLoadingMatches(true);setArchivePage(page=>page+1);}}>{loadingMatches?"Loading matches…":"Load more matches"}</button>}</section>
+        <section className="section-block">
+          <div className="section-heading">
+            <h2>Recent Matches</h2>
+            <span className="muted">{overview?.matches ?? matches.length} recorded</span>
+          </div>
+          {archiveError && <p className="global-message" role="alert">{archiveError}</p>}
+          {matches.length > 0 ? <div className="match-list">
+            {matches.map(match => <MatchHistoryCard key={match._id} match={match} canEdit={isEditor}
+              onOpen={() => showMatch(match._id)} onEdit={() => startEditingMatch(match)} onDelete={() => deleteMatch(match._id)} />)}
+          </div> : loadingMatches ? <div className="loading-panel">Loading matches…</div> :
+            !archiveError && <div className="empty-state">No matches recorded yet.</div>}
+          {(archiveError || matches.length < (overview?.matches || 0)) && <button type="button" className="secondary-button"
+            disabled={loadingMatches} onClick={() => {
+              setLoadingMatches(true);
+              if (archiveError) setArchiveRetry(attempt => attempt + 1);
+              else setArchivePage(page => page + 1);
+            }}>
+            {loadingMatches ? "Loading matches…" : archiveError ? "Retry loading matches" : "Load more matches"}
+          </button>}
+        </section>
         </>}
       </section>}
 

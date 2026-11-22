@@ -85,6 +85,21 @@ test('votes are final, only participants can receive votes, concurrent duplicate
 test('admin finalization stores permanent MOTM and leaves GG Rating unchanged',async()=>{const before=(await request(`/stats/player/${p1._id}`)).data.stats;assert.equal((await request(`/matches/${matchId}/finalize-vote`,{token:'viewer',method:'POST'})).status,403);const final=await request(`/matches/${matchId}/finalize-vote`,{token:'admin',method:'POST'});assert.equal(final.status,200,JSON.stringify(final.data));assert.equal((await request(`/matches/${matchId}/votes`,{token:'other',method:'POST',body:{playerId:String(p2._id)}})).status,409);assert.equal(await Award.countDocuments({key:`motm:${matchId}`,player:p1._id}),1);const after=(await request(`/stats/player/${p1._id}`)).data.stats;assert.equal(after.ggRating,before.ggRating);assert.equal(after.averageRating,before.averageRating);});
 test('linked-profile preference request cannot target another player and needs approval',async()=>{assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{preferredPositions:['ST']}}})).status,403);assert.equal((await request('/profile-requests/admin/link',{token:'admin',method:'POST',body:{userId:String(viewer._id),playerId:String(p1._id)}})).status,200);assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p2._id),changes:{preferredPositions:['ST']}}})).status,403);const rq=await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{preferredPositions:['ST','LW'],clasicoSide:'Messi'}}});assert.equal(rq.status,201,JSON.stringify(rq.data));assert.deepEqual((await Player.findById(p1._id)).preferredPositions,[]);assert.equal((await request(`/profile-requests/admin/${rq.data._id}/approve`,{token:'admin',method:'POST'})).status,200);assert.deepEqual((await Player.findById(p1._id)).preferredPositions,['ST','LW']);assert.equal((await request('/profile-requests',{token:'viewer',method:'POST',body:{playerId:String(p1._id),changes:{clasicoSide:'Ronaldo'}}})).status,400);});
 test('chat allows three monthly messages atomically and persists only five-day chat records',async()=>{const results=await Promise.all([1,2,3,4].map(()=>request('/chat',{token:'viewer',method:'POST',body:{message:'Temporary test message'}})));assert.deepEqual(results.map(r=>r.status).sort(),[201,201,201,409]);assert.ok(results.filter(r=>r.status===201).every(r=>r.data.message?.text==='Temporary test message'));const user=await User.findById(viewer._id).lean();assert.ok(user.chatMonth);assert.equal(user.chatMessagesUsed,3);assert.ok(await ChatMessage.exists({text:'Temporary test message'}));assert.equal((await request('/chat',{token:'other'})).data.messages.length,3);assert.equal((await request('/chat',{token:'other',method:'POST',body:{message:'x'.repeat(501)}})).status,400);});
+test("concurrent profile approval and rejection settle once and match the saved player", async () => {
+  const player = await Player.create({ name: "Profile review fixture", bio: "Original" });
+  const pending = await ProfileChangeRequest.create({
+    requestedBy: viewer._id, player: player._id, changes: { bio: "Approved change" }, before: { bio: "Original" },
+  });
+  const review = action => request(`/profile-requests/admin/${pending._id}/${action}`, { token: "admin", method: "POST" });
+  const results = await Promise.all([review("approve"), review("reject")]);
+  assert.deepEqual(results.map(result => result.status).sort(), [200, 404], JSON.stringify(results));
+  const final = await ProfileChangeRequest.findById(pending._id).lean();
+  const fresh = await Player.findById(player._id).lean();
+  const approved = results[0].status === 200;
+  assert.equal(final.status, approved ? "approved" : "rejected");
+  assert.equal(fresh.bio, approved ? "Approved change" : "Original");
+});
+
 test('GG audit and migration are admin-only',async()=>{
   assert.equal((await request('/admin/gg/audit')).status,401);
   assert.equal((await request('/admin/gg/audit',{token:'viewer'})).status,403);

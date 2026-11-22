@@ -120,7 +120,7 @@ export default function ClubBetting({ clubs, fixtures, limits, revision, onWalle
     setPage(1);
   }
 
-  const loadError = history.error || wallet.error;
+  const loadError = history.error || (view === "available" ? wallet.error : "");
   return (
     <section className="clubs-section clubs-betting-view">
       <div className="clubs-workspace-heading">

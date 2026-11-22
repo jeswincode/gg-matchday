@@ -224,7 +224,13 @@ test("auction signing reserves budget and settles only after player choice and b
   pages.push(captainOne);
 
   try {
-    await goToPrimaryTab(captainOne, "Market");
+    await goToPrimaryTab(captainOne, "Players");
+    const targetCard = captainOne.locator(".clubs-scout-card").filter({ hasText: auctionPlayers.target.name });
+    await targetCard.getByRole("button", { name: "Make Offer" }).click();
+    await expect(captainOne).toHaveURL(url => url.searchParams.get("tab") === "market");
+    await captainOne.goBack();
+    await expect(targetCard).toBeVisible();
+    await captainOne.goForward();
     await expect(captainOne.getByRole("heading", { name: "Send a signing offer" })).toBeVisible();
     const offerSelects = captainOne.locator("#clubs-auction-desk .clubs-invite-grid select");
     await expect.poll(
@@ -232,7 +238,7 @@ test("auction signing reserves budget and settles only after player choice and b
       { timeout: 10_000 },
     ).toContain(auctionClubName);
     await offerSelects.nth(0).selectOption({ label: auctionClubName });
-    await offerSelects.nth(1).selectOption(auctionPlayers.target.id);
+    await expect(offerSelects.nth(1)).toHaveValue(auctionPlayers.target.id);
     await captainOne.locator("#clubs-auction-desk input[type='number']").fill(AUCTION_AMOUNT);
     const createdOffer = await clickAndExpectApi(
       captainOne,

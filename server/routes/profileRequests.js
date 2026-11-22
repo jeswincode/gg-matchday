@@ -30,6 +30,59 @@ function makeBeforeSnapshot(player, changes) { const before = {}; for (const fie
 router.post("/", requireAuth, async (req, res) => { try { if (!req.user.playerProfile || String(req.user.playerProfile) !== String(req.body.playerId)) return res.status(403).json({ message: "You may only request changes to your own linked player." }); const { playerId } = req.body; if (!playerId || !mongoose.isValidObjectId(playerId)) return res.status(400).json({ message: "Choose a valid player profile." }); const player = await Player.findById(playerId); if (!player) return res.status(404).json({ message: "Player profile not found." }); const pending = await ProfileChangeRequest.findOne({ requestedBy: req.user._id, status: "pending" }); if (pending) return res.status(409).json({ message: "You already have a profile update request pending." }); const changes = sanitizeChanges(req.body.changes, player); if (Object.keys(changes).length === 0) return res.status(400).json({ message: "No profile changes were submitted." }); const request = await ProfileChangeRequest.create({ requestedBy: req.user._id, player: player._id, changes, before: makeBeforeSnapshot(player, changes), status: "pending" }); const populated = await ProfileChangeRequest.findById(request._id).populate("requestedBy", "name email profileImage role").populate("player", "name profileImage height weight position preferredFoot jerseyNumber dateOfBirth bio"); res.status(201).json(populated); } catch (error) { console.error("Create profile change request error:", error); res.status(400).json({ message: error.message || "Failed to submit profile update request." }); } });
 router.get("/me", requireAuth, async (req, res) => { try { const requests = await ProfileChangeRequest.find({ requestedBy: req.user._id }).populate("player", "name profileImage height weight position preferredFoot jerseyNumber dateOfBirth bio").sort({ createdAt: -1 }).limit(20); res.json(requests); } catch (error) { console.error("Load my profile requests error:", error); res.status(500).json({ message: "Failed to load your profile requests." }); } });
 router.get("/admin", requireAuth, requireAdmin, async (req, res) => { try { const requests = await ProfileChangeRequest.find({ status: "pending" }).populate("requestedBy", "name email profileImage role").populate("player", "name profileImage height weight position preferredFoot jerseyNumber dateOfBirth bio").sort({ createdAt: -1 }); res.json(requests); } catch (error) { console.error("Load admin profile requests error:", error); res.status(500).json({ message: "Failed to load profile update requests." }); } });
-router.post("/admin/:id/approve", requireAuth, requireAdmin, async (req, res) => { try { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid profile request id." }); const request = await ProfileChangeRequest.findOne({ _id: req.params.id, status: "pending" }); if (!request) return res.status(404).json({ message: "Pending profile request not found." }); const player = await Player.findById(request.player); if (!player) return res.status(404).json({ message: "Player profile no longer exists." }); const changes = sanitizeChanges(request.changes || {}, player); for (const [field, value] of Object.entries(changes)) player[field] = value; await player.save(); request.status = "approved"; request.reviewedBy = req.user._id; request.reviewedAt = new Date(); request.rejectionReason = ""; await request.save(); publishApprovedProfile(request); const populated = await ProfileChangeRequest.findById(request._id).populate("requestedBy", "name email profileImage role").populate("player", "name profileImage height weight position preferredFoot jerseyNumber dateOfBirth bio"); res.json({ message: `${player.name}'s profile changes were approved.`, request: populated }); } catch (error) { console.error("Approve profile request error:", error); res.status(500).json({ message: error.message || "Failed to approve profile update request." }); } });
-router.post("/admin/:id/reject", requireAuth, requireAdmin, async (req, res) => { try { if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid profile request id." }); const request = await ProfileChangeRequest.findOne({ _id: req.params.id, status: "pending" }); if (!request) return res.status(404).json({ message: "Pending profile request not found." }); const reason = String(req.body?.reason || "").trim(); request.status = "rejected"; request.reviewedBy = req.user._id; request.reviewedAt = new Date(); request.rejectionReason = reason.slice(0, 300); await request.save(); const populated = await ProfileChangeRequest.findById(request._id).populate("requestedBy", "name email profileImage role").populate("player", "name profileImage height weight position preferredFoot jerseyNumber dateOfBirth bio"); res.json({ message: "Profile update request rejected.", request: populated }); } catch (error) { console.error("Reject profile request error:", error); res.status(500).json({ message: "Failed to reject profile update request." }); } });
+const playerProfileFields = "name profileImage height weight position preferredFoot jerseyNumber dateOfBirth bio";
+const requesterFields = "name email profileImage role";
+
+function reviewedRequest(id) {
+  return ProfileChangeRequest.findById(id)
+    .populate("requestedBy", requesterFields)
+    .populate("player", playerProfileFields);
+}
+
+router.post("/admin/:id/approve", requireAuth, requireAdmin, async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ message: "Invalid profile request id." });
+  }
+  try {
+    const outcome = await mongoose.connection.transaction(async session => {
+      const request = await ProfileChangeRequest.findOne({ _id: req.params.id, status: "pending" }).session(session);
+      if (!request) return { message: "Pending profile request not found." };
+      const player = await Player.findById(request.player).session(session);
+      if (!player) return { message: "Player profile no longer exists." };
+      player.set(sanitizeChanges(request.changes || {}, player));
+      request.set({ status: "approved", reviewedBy: req.user._id, reviewedAt: new Date(), rejectionReason: "" });
+      await player.save({ session });
+      await request.save({ session });
+      return { request, playerName: player.name };
+    });
+    if (!outcome.request) return res.status(404).json(outcome);
+    publishApprovedProfile(outcome.request);
+    const request = await reviewedRequest(outcome.request._id);
+    return res.json({ message: `${outcome.playerName}'s profile changes were approved.`, request });
+  } catch (error) {
+    console.error("Approve profile request error:", error);
+    return res.status(500).json({ message: error.message || "Failed to approve profile update request." });
+  }
+});
+
+router.post("/admin/:id/reject", requireAuth, requireAdmin, async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    return res.status(400).json({ message: "Invalid profile request id." });
+  }
+  try {
+    const rejectionReason = String(req.body?.reason || "").trim().slice(0, 300);
+    const rejected = await ProfileChangeRequest.findOneAndUpdate(
+      { _id: req.params.id, status: "pending" },
+      { $set: { status: "rejected", reviewedBy: req.user._id, reviewedAt: new Date(), rejectionReason } },
+      { returnDocument: "after" },
+    );
+    if (!rejected) return res.status(404).json({ message: "Pending profile request not found." });
+    const request = await reviewedRequest(rejected._id);
+    return res.json({ message: "Profile update request rejected.", request });
+  } catch (error) {
+    console.error("Reject profile request error:", error);
+    return res.status(500).json({ message: error.message || "Failed to reject profile update request." });
+  }
+});
+
 export default router;

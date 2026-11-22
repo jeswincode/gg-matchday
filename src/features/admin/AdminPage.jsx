@@ -439,7 +439,7 @@ export default function AdminPage({
             <div className="permission-model">
               <div>
                 <strong>Viewer</strong>
-                <span>View the public archive and upload Gallery photos.</span>
+                <span>View the public archive and linked player features.</span>
               </div>
               <div>
                 <strong>Editor</strong>

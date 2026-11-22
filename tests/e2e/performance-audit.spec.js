@@ -69,6 +69,31 @@ test("loading more archived matches keeps earlier pages and skips duplicate read
   expect(overviewReads).toBe(1);
 });
 
+test("retrying a failed archive read keeps the current list and retries the same page", async ({ page }) => {
+  const reads = [];
+  await page.route(url => url.pathname === "/api/matches" && url.searchParams.has("page"), route => {
+    const number = Number(new URL(route.request().url()).searchParams.get("page"));
+    reads.push(number);
+    if (number === 2 && reads.length === 2) {
+      return route.fulfill({ status: 503, json: { message: "Archive temporarily unavailable." } });
+    }
+    return route.fulfill({ json: [{
+      _id: "archive-" + number, name: "Archive match " + number, date: "2026-11-18",
+      teamA: { score: 0 }, teamB: { score: 0 },
+    }] });
+  });
+  await page.route("**/api/stats/overview", route => route.fulfill({ json: { matches: 2 } }));
+  const nav = await openGuest(page);
+  await nav.getByRole("button", { name: /Record$/ }).click();
+  await page.getByRole("button", { name: "Load more matches" }).click();
+  await expect(page.getByRole("alert")).toContainText("Archive temporarily unavailable.");
+  await expect(page.getByRole("heading", { name: "Archive match 1" })).toBeVisible();
+  await page.getByRole("button", { name: "Retry loading matches" }).click();
+  await expect(page.getByRole("heading", { name: "Archive match 2" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(reads).toEqual([1, 2, 2]);
+});
+
 test("the profile editor saves approved positions without a roster refetch on open", async ({ page }) => {
   let rosterReads = 0;
   page.on("request", request => {

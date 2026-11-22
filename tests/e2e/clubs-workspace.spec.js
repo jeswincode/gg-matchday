@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { enterSignedInMatchday } from "./entry-helpers.js";
+import { completeMobileEntry, enterSignedInMatchday } from "./entry-helpers.js";
 
 const api = "http://127.0.0.1:5000/api";
 const captainId = "65a000000000000000000001";
@@ -170,6 +170,17 @@ test("captain fixture requests are private and a squad member can track an own-C
     await page.locator('[data-primary-tab="playerDesk"]').click();
     await page.getByRole("button", { name: "Wallet", exact: true }).click();
     await expect(page.locator(".clubs-wallet-main-value")).toHaveText("80");
+
+    await page.locator('[data-primary-tab="betting"]').click();
+    await page.route("**/api/clubs/wallet/me", route =>
+      route.fulfill({ status: 503, json: { message: "Player wallet temporarily unavailable." } }));
+    await page.reload();
+    await completeMobileEntry(page);
+    const retry = betting.getByRole("button", { name: "Retry betting data" });
+    await expect(retry).toBeVisible();
+    await betting.getByRole("button", { name: "Settled", exact: true }).click();
+    await expect(retry).toHaveCount(0);
+    await expect(betting.getByText("Refunded", { exact: true })).toBeVisible();
   } finally {
     if (matchId) await request.post(api + "/clubs/matches/" + matchId + "/cancel", { headers: auth(opponentCaptainId) });
     await captain.close();

@@ -1690,7 +1690,8 @@ export default function ClubsMode({
                       {typeof player.available === "boolean" && <span data-availability={player.available ? "available" : "contracted"}>{player.available ? "Available for approach" : "Under Club contract"}</span>}
                       {canOffer && <button type="button" className="clubs-secondary-button" onClick={() => {
                         setOfferPlayer(String(player._id));
-                        setActiveSection("market"); window.setTimeout(() => document.getElementById("clubs-auction-desk")?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
+                        navigatePrimaryTab("market");
+                        window.setTimeout(() => document.getElementById("clubs-auction-desk")?.scrollIntoView({ behavior: "smooth", block: "center" }), 120);
                       }}>Make Offer</button>}
                       {current && <span>That’s you</span>}
                     </div>
