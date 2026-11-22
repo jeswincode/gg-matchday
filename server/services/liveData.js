@@ -23,6 +23,7 @@ const clubsModels = {
   ClubFormationApplication: "club-account",
   ClubHistory: "club-account",
   ClubRenewalDecision: "club-account",
+  ClubCreditBet: "club-account",
   ClubMatchBet: "club-account",
   ClubWalletTransaction: "club-account",
   PlayerWallet: "club-account",

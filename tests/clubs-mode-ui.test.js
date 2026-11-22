@@ -48,7 +48,7 @@ test("Clubs API uses per-endpoint permissions instead of a global admin lock", (
   assert.match(routes, /requireAdmin/);
 });
 
-test("Clubs UI supports flexible 4-5 member formation and admin control center", () => {
+test("Clubs UI supports flexible 4–6 member formation and admin control center", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
   const rules = fs.readFileSync("server/config/clubsRules.js", "utf8");
   const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
@@ -56,10 +56,10 @@ test("Clubs UI supports flexible 4-5 member formation and admin control center",
   const syncSource = fs.readFileSync("server/services/clubsMatchSync.js", "utf8");
 
   assert.match(rules, /CLUB_MIN_MEMBERS = 4/);
-  assert.match(rules, /CLUB_MAX_MEMBERS = 5/);
-  assert.match(rules, /CLUB_FORMATIONS_5/);
-  assert.match(component, /Form a 4–5 player Club/);
-  assert.match(component, /No fifth player/);
+  assert.match(rules, /CLUB_MAX_MEMBERS = 6/);
+  assert.match(rules, /CLUB_FORMATIONS_6/);
+  assert.match(component, /Form a 4–6 player Club/);
+  assert.match(component, /Skip this slot/);
   assert.match(component, /pane === "adminDashboard"/);
   assert.match(component, /adminOnlyView/);
   assert.match(component, /\/clubs\/admin\/overview/);
@@ -69,21 +69,21 @@ test("Clubs UI supports flexible 4-5 member formation and admin control center",
   assert.match(applicationModel, /CLUB_MIN_MEMBERS/);
   assert.match(applicationModel, /CLUB_MAX_MEMBERS/);
   assert.match(routes, /const allMembersVoted/);
-  assert.match(syncSource, /sideCounts\.A > 5/);
-  assert.match(syncSource, /sideCounts\.B > 5/);
+  assert.match(syncSource, /sideCounts\.A > CLUB_MAX_MEMBERS/);
+  assert.match(syncSource, /sideCounts\.B > CLUB_MAX_MEMBERS/);
 });
 
 
 
-test("Clubs renewal policy allows 4-5 retained players and archives smaller outcomes", () => {
+test("Clubs renewal policy allows 4–6 retained players and archives smaller outcomes", () => {
   const component = fs.readFileSync("src/features/clubs/ClubsMode.jsx", "utf8");
   const routes = fs.readFileSync("server/routes/clubs.js", "utf8");
   const economy = fs.readFileSync("server/services/clubsEconomy.js", "utf8");
 
-  assert.match(component, /Retain 4–5 players to renew/);
+  assert.match(component, /Retain 4–6 players to renew/);
   assert.doesNotMatch(component, /current\.length < 2/);
   assert.doesNotMatch(component, /fewer than 2 dissolves/);
-  assert.match(routes, /retained\.length < 4/);
+  assert.match(routes, /retained\.length < CLUB_MIN_MEMBERS/);
   assert.match(economy, /At least one existing captain must be retained/);
 });
 

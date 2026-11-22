@@ -8,11 +8,12 @@ import {
   resolveCaptainVote,
 } from "../server/config/clubsRules.js";
 
-test("club formation accepts four or five unique players", () => {
+test("club formation accepts four to six unique players", () => {
   assert.deepEqual(validateClubMemberCount(["a", "b", "c", "d"]), ["a", "b", "c", "d"]);
   assert.deepEqual(validateClubMemberCount(["a", "b", "c", "d", "e"]), ["a", "b", "c", "d", "e"]);
-  assert.throws(() => validateClubMemberCount(["a", "b", "c"]), /between 4 and 5/i);
-  assert.throws(() => validateClubMemberCount(["a", "b", "c", "d", "e", "f"]), /between 4 and 5/i);
+  assert.throws(() => validateClubMemberCount(["a", "b", "c"]), /between 4 and 6/i);
+  assert.deepEqual(validateClubMemberCount(["a", "b", "c", "d", "e", "f"]), ["a", "b", "c", "d", "e", "f"]);
+  assert.throws(() => validateClubMemberCount(["a", "b", "c", "d", "e", "f", "g"]), /between 4 and 6/i);
   assert.throws(() => validateClubMemberCount(["a", "b", "c", "d", "d"]), /unique/i);
 });
 

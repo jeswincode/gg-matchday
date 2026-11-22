@@ -33,7 +33,7 @@ function istMonthBoundaryUtc(year, zeroBasedMonth) {
 }
 
 export const CLUB_MIN_MEMBERS = 4;
-export const CLUB_MAX_MEMBERS = 5;
+export const CLUB_MAX_MEMBERS = 6;
 export const CLUB_STARTING_BALANCE = 3000;
 
 export const CLUB_FORMATIONS_4 = Object.freeze([
@@ -52,9 +52,12 @@ export const CLUB_FORMATIONS_5 = Object.freeze([
   "3-1-1",
 ]);
 
+export const CLUB_FORMATIONS_6 = Object.freeze(["2-2-2", "2-1-3", "3-1-2"]);
+
 export const CLUB_FORMATIONS = Object.freeze([
   ...CLUB_FORMATIONS_4,
   ...CLUB_FORMATIONS_5,
+  ...CLUB_FORMATIONS_6,
 ]);
 
 export const CLUB_STATUSES = Object.freeze([
@@ -85,9 +88,12 @@ export const CLUB_MATCH_REQUEST_TTL_HOURS = 24;
 export const CLUB_REWARDS = Object.freeze({
   matchWin: 100,
   matchDraw: 50,
-  playerAppearance: 10,
-  motm: 25,
-  cleanSheet: 10,
+  playerAppearance: 2,
+  goal: 2,
+  assist: 1,
+  motm: 3,
+  cleanSheet: 2,
+  playerMatchCap: 12,
   firstMatch: 25,
   fiveAppearances: 50,
   tenAppearances: 100,

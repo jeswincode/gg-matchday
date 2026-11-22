@@ -132,15 +132,15 @@ test("side inference requires a supported 2v2, 3v3 or 4v4 Club Match size", () =
 
 
 
-test("side inference rejects a 6v6 Club Match", () => {
-  const mainMatch = { participants: Array.from({ length: 12 }, (_, index) => ({
-    player: oid(String(index + 1).repeat(24)),
-    team: index < 6 ? "A" : "B",
+test("side inference rejects a 7v7 Club Match", () => {
+  const mainMatch = { participants: Array.from({ length: 14 }, (_, index) => ({
+    player: oid((index + 1).toString(16).padStart(24, "0")),
+    team: index < 7 ? "A" : "B",
   })) };
   const contracts = new Map(
     mainMatch.participants.map((participant, index) => [
       String(participant.player._id),
-      contract(index < 6 ? ids.clubA : ids.clubB),
+      contract(index < 7 ? ids.clubA : ids.clubB),
     ]),
   );
   assert.equal(
@@ -180,6 +180,16 @@ test("side inference accepts a valid 5v5 Club Match", () => {
     inferClubSides(mainMatch, contracts, { clubAId: ids.clubA, clubBId: ids.clubB }),
     { clubAIsSideA: true },
   );
+});
+
+test("side inference accepts a valid 6v6 Club Match", () => {
+  const participants = Array.from({ length: 12 }, (_, index) => ({
+    player: oid((index + 1).toString(16).padStart(24, "0")),
+    team: index < 6 ? "A" : "B",
+  }));
+  const contracts = new Map(participants.map(({ player, team }) =>
+    [String(player._id), contract(team === "A" ? ids.clubA : ids.clubB)]));
+  assert.deepEqual(inferClubSides({ participants }, contracts, { clubAId: ids.clubA, clubBId: ids.clubB }), { clubAIsSideA: true });
 });
 
 test("side inference accepts a valid 2v2 Club Match", () => {

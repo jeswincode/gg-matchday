@@ -1,0 +1,50 @@
+.clubs-fixed-odds, .clubs-fixed-market {
+  display: grid;
+  gap: 14px;
+}
+
+.clubs-fixed-intro, .clubs-odds-slip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+}
+
+.clubs-fixed-intro h3, .clubs-fixed-intro p, .clubs-fixed-market h3, .clubs-odds-slip p {
+  margin: 0;
+}
+
+.clubs-fixed-intro p, .clubs-fixed-odds small { color: var(--club-workspace-muted); }
+.clubs-fixed-intro strong, .clubs-odds-slip strong { display: block; color: var(--club-workspace-highlight); }
+.clubs-fixed-odds input, .clubs-fixed-odds select { min-height: 44px; }
+.clubs-fixture-select, .clubs-odds-slip label { display: grid; gap: 6px; }
+.clubs-odds-slip input { width: 10ch; }
+.clubs-odds-player { display: grid; gap: 6px; }
+.clubs-fixture-lineup, .clubs-fixture-lineup fieldset { display: grid; gap: 8px; min-width: 0; }
+.clubs-fixture-lineup fieldset { border: 1px solid var(--club-workspace-edge); border-radius: 12px; padding: 10px; }
+.clubs-fixture-lineup label { display: flex; align-items: center; gap: 8px; min-height: 35px; }
+
+.clubs-odds-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 8px;
+}
+
+.clubs-odds-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+  text-align: left;
+}
+
+.clubs-odds-pick span:last-child { display: flex; gap: 8px; align-items: center; }
+.clubs-odds-pick[aria-pressed="true"] small { color: inherit; }
+
+@media (max-width: 520px) {
+  .clubs-odds-slip > div:first-child { flex-basis: 100%; }
+  .clubs-odds-slip > button { flex: 1 1 100%; }
+}

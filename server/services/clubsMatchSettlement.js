@@ -4,6 +4,15 @@ import ClubContract from "../models/clubs/ClubContract.js";
 import Match from "../models/Match.js";
 import { CLUB_REWARDS } from "../config/clubsRules.js";
 import { creditClubMatchReward, creditClubWallet, creditPlayerMatchReward } from "./clubsEconomy.js";
+import { playerEvents } from "./clubCreditMarkets.js";
+import { effectiveMatchRating } from "./ratings/index.js";
+
+export function playerClubMatchReward({ goals, assists, cleanSheet, motm, rating }) {
+  const ratingBonus = rating == null ? 0 : Math.min(3, Math.max(0, Math.floor(rating - 6)));
+  return Math.min(CLUB_REWARDS.playerMatchCap,
+    CLUB_REWARDS.playerAppearance + goals * CLUB_REWARDS.goal + assists * CLUB_REWARDS.assist +
+    Number(cleanSheet) * CLUB_REWARDS.cleanSheet + Number(motm) * CLUB_REWARDS.motm + ratingBonus);
+}
 
 export async function settleClubMatchRewards({ clubMatchId, session }) {
   if (!mongoose.isValidObjectId(clubMatchId)) throw new Error("Invalid club match id.");
@@ -67,49 +76,24 @@ export async function settleClubMatchRewards({ clubMatchId, session }) {
     );
     if (!participant) continue;
 
+    const isA = String(contract.clubId) === String(clubMatch.clubAId);
+    const events = playerEvents(mainMatch, String(contract.playerId));
+    const amount = playerClubMatchReward({
+      ...events,
+      cleanSheet: (isA ? scoreB : scoreA) === 0,
+      motm: String(mainMatch.motmWinner) === String(contract.playerId),
+      rating: effectiveMatchRating(participant),
+    });
     await creditPlayerMatchReward({
       playerId: contract.playerId,
-      amount: CLUB_REWARDS.playerAppearance,
-      description: "Club Match appearance reward.",
+      amount,
+      description: "Club Match performance reward.",
       session,
       clubId: contract.clubId,
       mainMatchId: mainMatch._id,
       clubMatchId: clubMatch._id,
-      idempotencyKey: `club-match-appearance:${clubMatch._id}:${contract.playerId}`,
+      idempotencyKey: `club-match-performance:${clubMatch._id}:${contract.playerId}`,
     });
-
-    const isA = String(contract.clubId) === String(clubMatch.clubAId);
-    const opponentScore = isA ? scoreB : scoreA;
-    if (opponentScore === 0) {
-      await creditPlayerMatchReward({
-        playerId: contract.playerId,
-        amount: CLUB_REWARDS.cleanSheet,
-        description: "Club Match clean-sheet reward.",
-        session,
-        clubId: contract.clubId,
-        mainMatchId: mainMatch._id,
-        clubMatchId: clubMatch._id,
-        idempotencyKey: `club-match-clean-sheet:${clubMatch._id}:${contract.playerId}`,
-      });
-    }
-  }
-
-  if (mainMatch.motmWinner) {
-    const motmContract = contracts.find(
-      contract => String(contract.playerId) === String(mainMatch.motmWinner),
-    );
-    if (motmContract) {
-      await creditPlayerMatchReward({
-        playerId: mainMatch.motmWinner,
-        amount: CLUB_REWARDS.motm,
-        description: "Club Match MOTM reward.",
-        session,
-        clubId: motmContract.clubId,
-        mainMatchId: mainMatch._id,
-        clubMatchId: clubMatch._id,
-        idempotencyKey: `club-match-motm:${clubMatch._id}`,
-      });
-    }
   }
 
   const clubIds = [clubMatch.clubAId, clubMatch.clubBId];

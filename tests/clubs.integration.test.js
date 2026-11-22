@@ -21,6 +21,7 @@ const { default: ClubWalletTransaction } = await import("../server/models/clubs/
 const { default: PlayerWallet } = await import("../server/models/clubs/PlayerWallet.js");
 const { default: PlayerWalletTransaction } = await import("../server/models/clubs/PlayerWalletTransaction.js");
 const { default: ClubMatch } = await import("../server/models/clubs/ClubMatch.js");
+const { ClubCreditBank } = await import("../server/models/clubs/ClubCreditBet.js");
 const { default: ClubFormationApplication } = await import("../server/models/clubs/ClubFormationApplication.js");
 const { default: ClubHistory } = await import("../server/models/clubs/ClubHistory.js");
 const { default: ClubAdminAuditEvent } = await import("../server/models/clubs/ClubAdminAuditEvent.js");
@@ -492,6 +493,12 @@ test("Club fixture sync and settlement work through the HTTP routes", async () =
   });
   assert.equal(booking.status, 201, JSON.stringify(booking.data));
   assert.equal(booking.data.status, "requested");
+  const laterBooking = await request("/clubs/matches", {
+    method: "POST", playerId: players[0]._id,
+    body: { clubAId: String(auctionClub._id), clubBId: String(formedClub._id),
+      fixtureDate: clubDateKey(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)) },
+  });
+  assert.equal(laterBooking.status, 201, JSON.stringify(laterBooking.data));
 
   const respondingCaptain = String(formedClub.captainIds[0]);
   const response = await request(`/clubs/matches/${booking.data._id}/respond`, {
@@ -501,9 +508,56 @@ test("Club fixture sync and settlement work through the HTTP routes", async () =
   });
   assert.equal(response.status, 200, JSON.stringify(response.data));
   assert.equal(response.data.status, "accepted");
+  const lineupPath = `/clubs/matches/${booking.data._id}/lineup`;
+  const lineup = { clubId: String(auctionClub._id), playerIds: players.slice(0, 3).map(p => String(p._id)) };
+  const approval = await request(lineupPath, { method: "PUT", playerId: players[0]._id, body: lineup });
+  assert.equal(approval.status, 200, JSON.stringify(approval.data));
+  assert.equal(approval.data.confirmed, false);
+  const confirmed = await request(lineupPath, { method: "PUT", playerId: players[1]._id, body: lineup });
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.data));
+  assert.equal(confirmed.data.confirmed, true);
 
+  const bettor = players[4]._id;
+  await PlayerWallet.updateOne({ playerId: bettor }, { $set: { balance: 100 } }, { upsert: true });
+  const price = await request(`/clubs/fixed-odds/${booking.data._id}`, { playerId: bettor });
+  assert.equal(price.status, 200, JSON.stringify(price.data));
+  assert.equal(price.data.confirmedLineups, 1);
+  assert.ok(!price.data.playerGroups.some(row => row.playerId === String(players[3]._id)));
+  const winningPick = price.data.selections.find(item => item.key === "result:" + auctionClub._id);
+  const losingPick = price.data.selections.find(item => item.key === "result:draw");
+  const unusedPlayer = price.data.playerGroups.find(item => String(item.playerId) === String(players[2]._id)).selections[0];
+  const ticketPath = `/clubs/fixed-odds/${booking.data._id}`;
+  const stale = await request(ticketPath, { method: "POST", playerId: bettor,
+    body: { selectionKey: winningPick.key, odds: winningPick.odds + 1, stake: 10 } });
+  assert.equal(stale.status, 409);
+  for (const pick of [winningPick, losingPick, unusedPlayer]) {
+    const ticket = await request(ticketPath, { method: "POST", playerId: bettor,
+      body: { selectionKey: pick.key, odds: pick.odds, stake: 10 } });
+    assert.equal(ticket.status, 201, JSON.stringify(ticket.data));
+  }
+  const duplicate = await request(ticketPath, { method: "POST", playerId: bettor,
+    body: { selectionKey: winningPick.key, odds: winningPick.odds, stake: 10 } });
+  assert.equal(duplicate.status, 409);
+  assert.equal((await PlayerWallet.findOne({ playerId: bettor })).balance, 70);
+  const bankWithOpenTickets = await ClubCreditBank.findById("fixed-odds").lean();
+  assert.equal(bankWithOpenTickets.balanceCents, 1_003_000);
+  const cleanSheetPick = price.data.selections.find(item => item.market === "cleanSheet");
+  await ClubCreditBank.updateOne({ _id: "fixed-odds" }, { $set: { balanceCents: bankWithOpenTickets.reservedCents } });
+  const insufficient = await request(ticketPath, { method: "POST", playerId: bettor,
+    body: { selectionKey: cleanSheetPick.key, odds: cleanSheetPick.odds, stake: 10 } });
+  assert.equal(insufficient.status, 409);
+  assert.match(insufficient.data.message, /bank cannot cover/i);
+  assert.equal((await PlayerWallet.findOne({ playerId: bettor })).balance, 70);
+  await ClubCreditBank.updateOne({ _id: "fixed-odds" }, { $set: { balanceCents: bankWithOpenTickets.balanceCents } });
+
+  const playedDate = clubDateKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  const scheduledAt = new Date(playedDate + "T00:00:00+05:30");
+  await ClubMatch.updateOne({ _id: booking.data._id }, { $set: { fixtureDate: playedDate, scheduledAt } });
+  await ClubContract.updateMany({ clubId: { $in: [auctionClub._id, formedClub._id] }, status: "active" },
+    { $set: { startAt: new Date(scheduledAt.getTime() - 24 * 60 * 60 * 1000) } });
   const matchPayload = {
-    date: futureDate,
+    date: playedDate,
+    clubFixtureId: booking.data._id,
     name: "Clubs Integration Fixture",
     teamA: { label: auctionClub.name, score: 1 },
     teamB: { label: formedClub.name, score: 0 },
@@ -522,6 +576,13 @@ test("Club fixture sync and settlement work through the HTTP routes", async () =
   assert.equal(refreshed.status, "completed");
   assert.equal(refreshed.clubAScore, 1);
   assert.equal(refreshed.clubBScore, 0);
+  const tickets = await request("/clubs/fixed-odds/tickets?view=settled", { playerId: bettor });
+  assert.deepEqual(tickets.data.tickets.map(ticket => ticket.status).sort(), ["lost", "refunded", "won"]);
+  const gross = Math.round(1000 * winningPick.odds);
+  const bankAfter = await ClubCreditBank.findById("fixed-odds");
+  assert.equal(bankAfter.reservedCents, 0);
+  assert.equal(bankAfter.balanceCents, 1_002_000 - gross);
+  assert.equal(Math.round((await PlayerWallet.findOne({ playerId: bettor })).balance * 100), 8000 + gross);
 
   const settle = await request(`/clubs/matches/${booking.data._id}/settle`, { method: "POST", role: "admin", body: {} });
   assert.equal(settle.status, 200, JSON.stringify(settle.data));
@@ -632,7 +693,7 @@ test("historical match rewards include an expired contract that covered the matc
   }
 
   const afterWallet = await PlayerWallet.findOne({ playerId: historicalPlayer._id }).lean();
-  const expectedReward = CLUB_REWARDS.playerAppearance + CLUB_REWARDS.cleanSheet;
+  const expectedReward = CLUB_REWARDS.playerAppearance + CLUB_REWARDS.cleanSheet + CLUB_REWARDS.goal + 2;
   assert.equal(Number(afterWallet?.balance || 0) - beforeBalance, expectedReward);
 
   const ledgerEntries = await PlayerWalletTransaction.find({
@@ -641,7 +702,7 @@ test("historical match rewards include an expired contract that covered the matc
   }).lean();
   assert.deepEqual(
     ledgerEntries.map(entry => entry.amount).sort((a, b) => a - b),
-    [CLUB_REWARDS.playerAppearance, CLUB_REWARDS.cleanSheet].sort((a, b) => a - b),
+    [expectedReward],
   );
 });
 

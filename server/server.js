@@ -8,6 +8,8 @@ import {startClubsMaintenanceWorker} from './services/clubsMaintenance.js';
 import {startStatisticsMaintenanceWorker} from './services/persistedStatistics.js';
 import {closeLiveData} from './services/liveData.js';
 import {migrateV4ProfileLinks} from './services/profileLinks.js';
+import ClubMatch from './models/clubs/ClubMatch.js';
+import {ensureCreditBank} from './services/clubCreditBetting.js';
 
 async function startServer(){
   try{
@@ -20,6 +22,11 @@ async function startServer(){
 
     try {
       await connectClubsDatabase();
+      if (process.env.CLUBS_MONGODB_URI) {
+        // A sparse unique index includes explicit nulls. Unlinked fixtures must omit the field.
+        await ClubMatch.updateMany({ mainMatchId: { $type: "null" } }, { $unset: { mainMatchId: "" } }, { timestamps: false });
+        await ensureCreditBank();
+      }
     } catch (clubsError) {
       console.warn('Clubs MongoDB unavailable; core Matchday will continue without Clubs:', clubsError.message);
     }

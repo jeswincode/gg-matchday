@@ -15,6 +15,9 @@ import { rebuildPlayerStatistics } from "../services/persistedStatistics.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
 import { clubsIntegrationConfigured, enqueueClubSyncJob, syncMainMatchToClubs } from "../services/clubsSync.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
+import mongoose from "mongoose";
+import { isClubsMatchName, validateBookedFixtureResult } from "../services/clubsMatchSync.js";
+import { clubDateKey } from "../config/clubsRules.js";
 
 import {
   requireAuth,
@@ -432,14 +435,26 @@ router.post(
       } = req.body;
 
       const participants = calculateGGParticipantRatings(req.body.participants, events, req.body.teamA.score, req.body.teamB.score);
+      const matchDate = date ? new Date(`${date}T12:00:00.000Z`) : new Date();
+      const clubFixtureId = req.body.clubFixtureId;
+      if (clubFixtureId) {
+        if (!mongoose.isValidObjectId(clubFixtureId) || !isClubsMatchName(name)) {
+          return res.status(400).json({ message: "Use a valid booking and include Clubs in the match name." });
+        }
+        if (!clubsIntegrationConfigured() || getClubsConnection().readyState !== 1) {
+          return res.status(503).json({ message: "Clubs is temporarily unavailable. Try recording this fixture again later." });
+        }
+        const problem = await validateBookedFixtureResult({ date: matchDate, teamA, teamB, participants }, clubFixtureId);
+        if (problem) return res.status(409).json({ message: problem });
+      }
+      if (isClubsMatchName(name) && clubDateKey(matchDate) > clubDateKey()) {
+        return res.status(400).json({ message: "Use a current or past date to record a Club result." });
+      }
 
       const match =
         await Match.create({
-          date: date
-            ? new Date(
-                `${date}T12:00:00.000Z`
-              )
-            : new Date(),
+          date: matchDate,
+          clubFixtureId: clubFixtureId || undefined,
 
           name:
             name?.trim() ||
@@ -500,8 +515,12 @@ router.post(
         match: populatedMatch,
         newsCreated: Boolean(news),
         clubsSyncPending: Boolean(clubsSync.pending),
+        clubResult: clubsSync.result?.source || "unlinked",
       });
     } catch (error) {
+      if (error?.code === 11000 && error?.keyPattern?.clubFixtureId) {
+        return res.status(409).json({ message: "This Club fixture already has a Match Record." });
+      }
       console.error(
         "Error creating match:",
         error
@@ -583,12 +602,11 @@ router.put(
 
       const participants = calculateGGParticipantRatings(req.body.participants, events, req.body.teamA.score, req.body.teamB.score);
 
-      match.date =
-        date
-          ? new Date(
-              `${date}T12:00:00.000Z`
-            )
-          : match.date;
+      const matchDate = date ? new Date(`${date}T12:00:00.000Z`) : match.date;
+      if (isClubsMatchName(name) && clubDateKey(matchDate) > clubDateKey()) {
+        return res.status(400).json({ message: "Use a current or past date to record a Club result." });
+      }
+      match.date = matchDate;
 
       match.name =
         name?.trim() ||
@@ -653,6 +671,7 @@ router.put(
         match: populatedMatch,
         newsCreated: Boolean(news),
         clubsSyncPending: Boolean(clubsSync.pending),
+        clubResult: clubsSync.result?.source || "unlinked",
       });
     } catch (error) {
       console.error(

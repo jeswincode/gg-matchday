@@ -42,6 +42,8 @@ const auditLabels = {
 const formationLabels4 = ["1-2-1", "2-1-1", "1-3", "3-1", "2-2"];
 const formationLabels5 = ["1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1"];
 
+const formationLabels6 = ["2-2-2", "2-1-3", "3-1-2"];
+
 const formationSteps = [
   ["pendingMutualAgreement", "Players selected"],
   ["pendingMutualAgreement", "All members accepted"],
@@ -93,6 +95,9 @@ const formationSlots = {
   "1-3-1": [
     { x: 50, y: 82 }, { x: 24, y: 50 }, { x: 50, y: 48 }, { x: 76, y: 50 }, { x: 50, y: 20 },
   ],
+  "2-2-2": [{ x: 33, y: 78 }, { x: 67, y: 78 }, { x: 33, y: 50 }, { x: 67, y: 50 }, { x: 33, y: 22 }, { x: 67, y: 22 }],
+  "2-1-3": [{ x: 33, y: 79 }, { x: 67, y: 79 }, { x: 50, y: 51 }, { x: 20, y: 22 }, { x: 50, y: 22 }, { x: 80, y: 22 }],
+  "3-1-2": [{ x: 20, y: 79 }, { x: 50, y: 79 }, { x: 80, y: 79 }, { x: 50, y: 51 }, { x: 33, y: 22 }, { x: 67, y: 22 }],
   "3-1-1": [
     { x: 22, y: 72 }, { x: 50, y: 78 }, { x: 78, y: 72 }, { x: 50, y: 48 }, { x: 50, y: 20 },
   ],
@@ -207,7 +212,7 @@ export default function ClubsMode({
   const [error, setError] = useState("");
   const [myClubError, setMyClubError] = useState("");
   const [myClubLoadKey, setMyClubLoadKey] = useState(0);
-  const [selectedPlayers, setSelectedPlayers] = useState(["", "", "", ""]);
+  const [selectedPlayers, setSelectedPlayers] = useState(["", "", "", "", ""]);
   const [formation, setFormation] = useState("1-2-1");
   const [clubNameDrafts, setClubNameDrafts] = useState({});
   const [detailDrafts, setDetailDrafts] = useState({});
@@ -890,9 +895,8 @@ export default function ClubsMode({
     }).catch(() => {});
     return () => { active = false; };
   }, [captainClubKey, currentPlayerId, clubsRevision]);
-  const formations = currentClub?.memberIds?.length === 5
-    ? (meta?.formations5?.length ? meta.formations5 : formationLabels5)
-    : (meta?.formations4?.length ? meta.formations4 : formationLabels4);
+  const squadSize = currentClub?.memberIds?.length || 4;
+  const formations = meta?.["formations" + squadSize] || ({ 4: formationLabels4, 5: formationLabels5, 6: formationLabels6 })[squadSize] || formationLabels4;
   const safeFormation = formations.includes(formation) ? formation : formations[0];
 
   const navigationItems = adminOnlyView
@@ -1045,8 +1049,8 @@ export default function ClubsMode({
     setError("");
 
     const ids = selectedPlayers.filter(Boolean);
-    if (ids.length < 3 || ids.length > 4 || new Set(ids).size !== ids.length) {
-      setError("Choose three or four different players to invite. That creates a 4- or 5-player Club.");
+    if (ids.length < 3 || ids.length > 5 || new Set(ids).size !== ids.length) {
+      setError("Invite three to five different players to form a 4–6 player Club.");
       return;
     }
 
@@ -1056,7 +1060,7 @@ export default function ClubsMode({
         method: "POST",
         body: { playerIds: ids },
       });
-      setSelectedPlayers(["", "", "", ""]);
+      setSelectedPlayers(["", "", "", "", ""]);
       await refreshApplications();
       announce("Club formation invitation sent to the selected players.");
     } catch (requestError) {
@@ -1229,7 +1233,7 @@ export default function ClubsMode({
   const squadHasCompleteOvr =
     Boolean(currentClub?.memberIds?.length) &&
     currentClub.memberIds.length >= 4 &&
-    currentClub.memberIds.length <= 5 &&
+    currentClub.memberIds.length <= 6 &&
     clubOvrValues.length === currentClub.memberIds.length;
   const clubOvr = squadHasCompleteOvr
     ? Math.round(clubOvrValues.reduce((sum, value) => sum + value, 0) / clubOvrValues.length)
@@ -1381,7 +1385,7 @@ export default function ClubsMode({
                     <div className="clubs-formation-application-body">
                       <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
                       <h3>{application.proposedName || "Unnamed club"}</h3>
-                      <span>{application.memberIds?.length || 0}/5 members · {application.memberIds?.length === 5 ? "five-player squad" : "four-player squad"}</span>
+                      <span>{application.memberIds?.length || 0}/6 members</span>
                       <div className="clubs-formation-stepper" aria-label={"Formation progress: step " + formationProgress(application.status) + " of " + formationSteps.length}>
                         {formationSteps.map(([stepStatus, label], index) => {
                           const step = index + 1;
@@ -1532,7 +1536,7 @@ export default function ClubsMode({
       </section>
       {!currentClub && showClubGuide && (
         <section className="clubs-hub-guide" aria-label="How Ultimate Clubs works">
-          <div><span>01</span><strong>Build your squad</strong><small>Choose 4–5 linked player profiles.</small></div>
+          <div><span>01</span><strong>Build your squad</strong><small>Choose 4–6 linked player profiles.</small></div>
           <div><span>02</span><strong>Agree as a team</strong><small>Every member accepts, then the squad elects captain(s).</small></div>
           <div><span>03</span><strong>Confirm and approve</strong><small>Captain(s) approve Club details before an administrator creates the official Club.</small></div>
           <p>A newly approved Club starts with <strong>3,000 shared Club credits</strong>. Those funds belong to the Club and are separate from your personal Player Wallet.</p>
@@ -1541,19 +1545,19 @@ export default function ClubsMode({
 
       {currentPlayerId && !currentClub && !activeFormationApplication && showFormationForm && <section id="clubs-formation-form" className="clubs-section clubs-hub-form-section">
         <div className="clubs-section-heading clubs-hub-form-heading">
-          <div><p className="clubs-eyebrow">CREATE A SQUAD</p><h2>Form a 4–5 player Club</h2><p>Choose the players you want to invite. Their acceptance and later approval steps are tracked above.</p></div>
+          <div><p className="clubs-eyebrow">CREATE A SQUAD</p><h2>Form a 4–6 player Club</h2><p>Choose the players you want to invite. Their acceptance and later approval steps are tracked above.</p></div>
           <button type="button" className="clubs-secondary-button" onClick={() => setShowFormationForm(false)}>Close form</button>
         </div>
           <form className="clubs-create-form" onSubmit={startFormation}>
             <div className="clubs-invite-grid">
-              {[0, 1, 2, 3].map(index => (
+              {selectedPlayers.map((_, index) => (
                 <label key={index}>
-                  <span>PLAYER {index + 2}{index === 3 ? " · OPTIONAL" : ""}</span>
+                  <span>PLAYER {index + 2}{index >= 3 ? " · OPTIONAL" : ""}</span>
                   <select
                     value={selectedPlayers[index]}
                     onChange={event => updatePlayerSelection(index, event.target.value)}
                   >
-                    <option value="">{index === 3 ? "No fifth player" : "Choose a player"}</option>
+                    <option value="">{index >= 3 ? "Skip this slot" : "Choose a player"}</option>
                     {availablePlayers.map(player => (
                       <option
                         key={player._id}
@@ -1573,8 +1577,8 @@ export default function ClubsMode({
 
             <div className="clubs-create-actions clubs-create-actions--single">
               <div className="clubs-create-note">
-                <strong>Four is the minimum. Five is the maximum.</strong>
-                <span>Pick three required players for a 4-player Club, or add a fourth invitee to form a 5-player Club. Everyone in the final squad must accept.</span>
+                <strong>Four is the minimum. Six is the maximum.</strong>
+                <span>Invite three required players and up to two more. Everyone in the final squad must accept.</span>
               </div>
               <button type="submit" className="clubs-primary-button" disabled={formationLoading}>
                 {formationLoading ? "Sending invites…" : "Start Club Formation"}
@@ -1586,15 +1590,15 @@ export default function ClubsMode({
       <section id="clubs-official-directory" className="clubs-section clubs-hub-directory">
         <div className="clubs-section-heading"><div><p className="clubs-eyebrow">OFFICIAL CLUB DIRECTORY</p><h2>Find your next squad</h2><p>Browse approved Clubs and request to join an open squad.</p></div><span>{loading ? "Loading…" : clubs.length + " Clubs"}</span></div>
         {loading ? <div className="clubs-empty">Loading the official Club directory…</div> : clubs.length === 0 ? (
-          <div className="clubs-empty clubs-hub-empty-directory"><strong>No official Clubs yet.</strong><span>Approved 4–5 player squads will appear here. You can form one while the directory grows.</span>{authUser && <button type="button" className="clubs-secondary-button" onClick={() => { setShowFormationForm(true); window.setTimeout(() => document.getElementById("clubs-formation-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }}>Form the first Club →</button>}</div>
+          <div className="clubs-empty clubs-hub-empty-directory"><strong>No official Clubs yet.</strong><span>Approved 4–6 player squads will appear here. You can form one while the directory grows.</span>{authUser && <button type="button" className="clubs-secondary-button" onClick={() => { setShowFormationForm(true); window.setTimeout(() => document.getElementById("clubs-formation-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); }}>Form the first Club →</button>}</div>
         ) : (
           <div className="clubs-grid clubs-hub-club-grid">{clubs.map(club => {
             const isMember = club.memberIds?.some(id => String(id) === currentPlayerId);
-            const full = (club.memberIds?.length || 0) >= 5;
+            const full = (club.memberIds?.length || 0) >= 6;
             const requested = joinRequests.some(request => String(request.clubId) === String(club._id) && String(request.playerId) === currentPlayerId && request.status === "pending");
             return <article className="club-card clubs-hub-club-card" key={club._id}>
               <ClubCrest club={club} name={club.name} />
-              <div className="clubs-hub-club-card-main"><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><p>{club.description || "A GG Matchday Club with a permanent squad, match history and shared budget."}</p><span>{club.memberIds?.length || 0}/5 players · {full ? "Squad full" : "Open roster"}</span></div>
+              <div className="clubs-hub-club-card-main"><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><p>{club.description || "A GG Matchday Club with a permanent squad, match history and shared budget."}</p><span>{club.memberIds?.length || 0}/6 players · {full ? "Squad full" : "Open roster"}</span></div>
               <div className="clubs-hub-club-card-action">{isMember ? <span className="clubs-hub-membership-state">Your Club</span> :
                 !full && currentPlayerId && !currentClub && (requested ? <span className="clubs-hub-membership-state">Request pending</span> :
                   <button type="button" className="clubs-primary-button" disabled={busyId === club._id} onClick={() => sendJoinRequest(club._id)}>{busyId === club._id ? "Sending…" : "Request to Join"}</button>)}</div>
@@ -1642,7 +1646,7 @@ export default function ClubsMode({
         </>
       ) : pane === "matches" ? (
         <ClubFixtures clubs={clubMap} fixtures={clubMatches} currentClub={currentClub}
-          captainClubs={myCaptainClubs} playerId={currentPlayerId} requests={captainRequests}
+          captainClubs={myCaptainClubs} playerId={currentPlayerId} players={players} requests={captainRequests}
           notice={fixtureNotice} busyId={busyId} loading={loading} submitting={matchSubmitting}
           onRequest={requestClubMatch} onRespond={respondToClubMatch} onCancel={cancelClubMatch}
           onBetting={currentPlayerId ? () => navigatePrimaryTab("betting") : undefined} />
@@ -2043,7 +2047,7 @@ export default function ClubsMode({
                   <button type="button" className="clubs-admin-club-card" key={String(club._id)} onClick={() => openAdminClub(club._id)}>
                     <span className="clubs-admin-club-copy">
                       <strong>{club.name || "Unnamed Club"}</strong>
-                      <span>{club.memberIds?.length || 0}/5 players · {club.captainIds?.length || 0} captain{(club.captainIds?.length || 0) === 1 ? "" : "s"} · updated {club.updatedAt ? new Date(club.updatedAt).toLocaleDateString() : "recently"}</span>
+                      <span>{club.memberIds?.length || 0}/6 players · {club.captainIds?.length || 0} captain{(club.captainIds?.length || 0) === 1 ? "" : "s"} · updated {club.updatedAt ? new Date(club.updatedAt).toLocaleDateString() : "recently"}</span>
                     </span>
                     <span className="clubs-admin-club-status" data-status={club.status}>{String(club.status || "unknown").replace(/([A-Z])/g, " $1")}</span>
                   </button>
@@ -2068,7 +2072,7 @@ export default function ClubsMode({
                   <div>
                     <p className="clubs-eyebrow">{statusLabel(application.status)}</p>
                     <h3>{application.proposedName || "Unnamed Club"}</h3>
-                    <span>{application.memberCount || application.memberIds?.length || 0}/5 members · every member has completed the mutual-agreement stage</span>
+                    <span>{application.memberCount || application.memberIds?.length || 0}/6 members · every member has completed the mutual-agreement stage</span>
                     <div className="clubs-history-metrics">
                       {(application.members || []).map(member => <span key={String(member?._id)}><b>{member?.name || "Player"}</b><small>OVR {member?.ovr ?? "—"}{member?.isCaptain ? " · CAPTAIN" : ""}</small></span>)}
                     </div>
@@ -2149,7 +2153,7 @@ export default function ClubsMode({
                       <span className="clubs-admin-directory-copy">
                         <span className="clubs-admin-directory-meta">
                           <span className="clubs-admin-directory-status" data-status={String(club.status || "unknown")}>{String(club.status || "unknown").replace(/([A-Z])/g, " $1")}</span>
-                          <span>{club.memberCount || club.memberIds?.length || 0}/5 players</span>
+                          <span>{club.memberCount || club.memberIds?.length || 0}/6 players</span>
                         </span>
                         <strong>{club.name || "Unnamed Club"}</strong>
                         <small>{club.description || "A registered GG Matchday Club and its current squad."}</small>
@@ -2316,7 +2320,7 @@ export default function ClubsMode({
                     <div className="clubs-club-crest" aria-hidden="true">GG</div>
                     <div>
                       <h2>{currentClub.name}</h2>
-                      <span>{currentClub.memberIds?.length || 0}/5 players · {currentClub.captainIds?.length || 0} captain(s)</span>
+                      <span>{currentClub.memberIds?.length || 0}/6 players · {currentClub.captainIds?.length || 0} captain(s)</span>
                     </div>
                   </div>
                 </div>
@@ -2348,7 +2352,7 @@ export default function ClubsMode({
               <section className="clubs-myclub-overview-grid" aria-label="My Club at a glance">
                 <article className="clubs-myclub-overview-stat">
                   <span>ACTIVE SQUAD</span>
-                  <strong>{currentClub.memberIds?.length || 0}/5</strong>
+                  <strong>{currentClub.memberIds?.length || 0}/6</strong>
                   <small>{currentClub.captainIds?.length || 0} elected captain(s)</small>
                 </article>
                 <article className="clubs-myclub-overview-stat">
@@ -2384,7 +2388,7 @@ export default function ClubsMode({
                   <div className="clubs-squad-panel-head">
                     <div>
                       <p className="clubs-eyebrow">SQUAD VIEW</p>
-                      <h3>Your {currentClub.memberIds?.length === 5 ? "five-player" : "four-player"} field</h3>
+                      <h3>Your {squadSize}-player field</h3>
                     </div>
                     <span>{squadHasCompleteOvr ? "Squad OVR ready" : "OVR developing…"}</span>
                   </div>
@@ -2559,7 +2563,7 @@ export default function ClubsMode({
                                 <button
                                   type="button"
                                   className={retained ? "clubs-primary-button is-retained" : "clubs-secondary-button"}
-                                  onClick={() => setRetainedPlayers(current => retained ? (current || []).filter(id => id !== String(playerId)) : (current || []).length < 5 ? [...(current || []), String(playerId)] : current)}
+                                  onClick={() => setRetainedPlayers(current => retained ? (current || []).filter(id => id !== String(playerId)) : (current || []).length < 6 ? [...(current || []), String(playerId)] : current)}
                                 >
                                   {retained ? "Retain" : "Select"}
                                 </button>
@@ -2570,7 +2574,7 @@ export default function ClubsMode({
                       </div>
                       {renewalState.isCaptain && (
                         <div className="clubs-renewal-action">
-                          <span>{(retainedPlayers || []).length >= 4 ? "Ready to renew with " + retainedPlayers.length + " players." : "Retain 4–5 players to renew. Fewer than 4 archives the Club."}</span>
+                          <span>{(retainedPlayers || []).length >= 4 ? "Ready to renew with " + retainedPlayers.length + " players." : "Retain 4–6 players to renew. Fewer than 4 archives the Club."}</span>
                           <button type="button" className="clubs-primary-button" disabled={busyId === "renewal"} onClick={submitRenewal}>
                             {busyId === "renewal" ? "Submitting…" : "Submit Renewal Decision"}
                           </button>

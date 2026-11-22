@@ -6,7 +6,7 @@ import ClubHistory from "../models/clubs/ClubHistory.js";
 import Match from "../models/Match.js";
 import Club from "../models/clubs/Club.js";
 import { getClubsConnection } from "../config/clubsDatabase.js";
-import { normalizeClubName, clubDateKey, clubDateStartUtc } from "../config/clubsRules.js";
+import { CLUB_MAX_MEMBERS, normalizeClubName, clubDateKey, clubDateStartUtc } from "../config/clubsRules.js";
 import { effectiveMatchRating } from "./ratings/index.js";
 
 const idOf = value => String(value?._id || value);
@@ -68,12 +68,32 @@ export function inferClubSides(mainMatch, contractMap, clubMatch) {
     sideCounts[participant.team] += 1;
     sideClubIds[participant.team].add(String(contract.clubId));
   }
-  if (sideCounts.A < 2 || sideCounts.A > 5 || sideCounts.B < 2 || sideCounts.B > 5) return null;
+  if (sideCounts.A < 2 || sideCounts.A > CLUB_MAX_MEMBERS || sideCounts.B < 2 || sideCounts.B > CLUB_MAX_MEMBERS) return null;
   if (sideClubIds.A.size !== 1 || sideClubIds.B.size !== 1) return null;
   const clubA = String(clubMatch.clubAId), clubB = String(clubMatch.clubBId);
   if (sideClubIds.A.has(clubA) && sideClubIds.B.has(clubB)) return { clubAIsSideA: true };
   if (sideClubIds.A.has(clubB) && sideClubIds.B.has(clubA)) return { clubAIsSideA: false };
   return null;
+}
+
+export async function validateBookedFixtureResult(mainMatch, fixtureId) {
+  const fixture = await ClubMatch.findOne({
+    _id: fixtureId, status: "accepted", source: { $ne: "unbooked" }, mainMatchId: null,
+  }).lean();
+  if (!fixture) return "This booking is no longer available to record.";
+  if (new Date(fixture.scheduledAt) > new Date()) return "Record this fixture on or after its scheduled date.";
+  if (clubDateKey(mainMatch.date) !== (fixture.fixtureDate || clubDateKey(fixture.scheduledAt))) {
+    return "The Match Record date must match the booking date.";
+  }
+  const participants = [...new Set(mainMatch.participants.map(item => idOf(item.player)))];
+  const [clubs, contracts] = await Promise.all([
+    Club.find({ _id: { $in: [fixture.clubAId, fixture.clubBId] }, status: "approved" }).select("name").lean(),
+    findContractMap(participants, mainMatch.date),
+  ]);
+  const names = matchClubNames(mainMatch, fixture, new Map(clubs.map(club => [idOf(club), club])));
+  const sides = inferClubSides(mainMatch, contracts, fixture);
+  return !names || !sides || names.clubAIsSideA !== sides.clubAIsSideA
+    ? "Use the booked Club names and assign 2–6 eligible players to the correct sides." : null;
 }
 
 export async function attachMainMatchToClubMatch(mainMatch) {
@@ -92,6 +112,9 @@ export async function attachMainMatchToClubMatch(mainMatch) {
   }
 
   const dayKey = clubDateKey(mainMatch.date);
+  if (dayKey > clubDateKey()) {
+    return { linked: false, clubMatchIds: [], affectedClubIds: [], reason: "fixture-has-not-started" };
+  }
   const clubDocs = await Club.find({ status: "approved" }).select("_id name nameNormalized").lean();
   const clubsById = new Map(clubDocs.map(club => [String(club._id), club]));
 
@@ -111,6 +134,12 @@ export async function attachMainMatchToClubMatch(mainMatch) {
   const linked = [];
   const affectedClubIds = new Set();
 
+  function confirmSides(fixture) {
+    const names = matchClubNames(mainMatch, fixture, clubsById);
+    const members = inferClubSides(mainMatch, contractMap, fixture);
+    return names && members && names.clubAIsSideA === members.clubAIsSideA ? members : null;
+  }
+
   const scoreFor = (clubMatch, inference) => {
     const scoreA = Number(mainMatch.teamA?.score || 0);
     const scoreB = Number(mainMatch.teamB?.score || 0);
@@ -127,9 +156,8 @@ export async function attachMainMatchToClubMatch(mainMatch) {
 
   // An already-linked match is authoritative and can safely be reconciled after edits.
   for (const clubMatch of allClubMatches.filter(item => String(item.mainMatchId) === String(mainMatch._id))) {
-    const nameMatch = matchClubNames(mainMatch, clubMatch, clubsById);
     const sideMatch = inferClubSides(mainMatch, contractMap, clubMatch);
-    if (!nameMatch || !sideMatch) continue;
+    if (!sideMatch) continue;
     const updated = await ClubMatch.findOneAndUpdate(
       { _id: clubMatch._id, mainMatchId: mainMatch._id, status: "completed" },
       { $set: scoreFor(clubMatch, sideMatch) },
@@ -147,13 +175,13 @@ export async function attachMainMatchToClubMatch(mainMatch) {
     item.status === "accepted" &&
     !item.mainMatchId &&
     item.source !== "unbooked" &&
-    matchClubNames(mainMatch, item, clubsById) &&
-    inferClubSides(mainMatch, contractMap, item),
+    (!mainMatch.clubFixtureId || idOf(item) === idOf(mainMatch.clubFixtureId)) &&
+    confirmSides(item),
   );
 
   if (bookedCandidates.length === 1) {
     const clubMatch = bookedCandidates[0];
-    const inference = inferClubSides(mainMatch, contractMap, clubMatch);
+    const inference = confirmSides(clubMatch);
     const updated = await ClubMatch.findOneAndUpdate(
       { _id: clubMatch._id, status: "accepted", mainMatchId: null },
       {
@@ -173,7 +201,7 @@ export async function attachMainMatchToClubMatch(mainMatch) {
   }
 
   // Unbooked lane: valid Clubs Match specification is enough to create a Club Match.
-  if (!linked.length && bookedCandidates.length === 0) {
+  if (!mainMatch.clubFixtureId && !linked.length && bookedCandidates.length === 0) {
     const candidates = clubDocs.filter(club => {
       const sideA = normalizedSideLabel(mainMatch.teamA?.label);
       const sideB = normalizedSideLabel(mainMatch.teamB?.label);
@@ -182,11 +210,7 @@ export async function attachMainMatchToClubMatch(mainMatch) {
     const sideAClub = candidates.find(club => normalizedSideLabel(club.name) === normalizedSideLabel(mainMatch.teamA?.label));
     const sideBClub = candidates.find(club => normalizedSideLabel(club.name) === normalizedSideLabel(mainMatch.teamB?.label));
     const unbookedInference = sideAClub && sideBClub
-      ? inferClubSides(
-        mainMatch,
-        contractMap,
-        { clubAId: sideAClub._id, clubBId: sideBClub._id },
-      )
+      ? confirmSides({ clubAId: sideAClub._id, clubBId: sideBClub._id })
       : null;
 
     if (sideAClub && sideBClub && String(sideAClub._id) !== String(sideBClub._id) && unbookedInference) {
@@ -238,6 +262,7 @@ export async function attachMainMatchToClubMatch(mainMatch) {
 
   return {
     linked: linked.length > 0,
+    source: linked[0]?.source || (linked.length ? "booked" : null),
     clubMatchIds: linked.map(item => String(item._id)),
     affectedClubIds: [...affectedClubIds],
   };

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { api } from "../../lib/api";
+import { refreshLiveTopics } from "../../lib/liveData";
 import { clubDateKey, clubInitials, fixtureDateLabel } from "./clubPresentation";
 
 export function ClubCrest({ club, name }) {
@@ -64,12 +66,56 @@ function FixtureRequestForm({ clubs, captainClubs, submitting, onRequest }) {
   );
 }
 
+function FixtureLineupForm({ fixture, club, players }) {
+  const clubId = String(club._id);
+  const draft = fixture.lineups?.find(lineup => String(lineup.clubId) === clubId);
+  const [selected, setSelected] = useState(() => draft?.playerIds?.map(String) || club.memberIds.map(String));
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  async function save(event) {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api(`/clubs/matches/${fixture._id}/lineup`, {
+        method: "PUT", body: { clubId, playerIds: selected },
+      });
+      setMessage({ text: result.confirmed ? "Lineup confirmed." : "Approval recorded. Waiting for your co-captain." });
+      refreshLiveTopics(["clubs"]);
+    } catch (error) {
+      setMessage({ text: error.message, error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <form className="clubs-fixture-lineup" onSubmit={save}>
+      <fieldset disabled={busy}>
+        <legend>{club.name} lineup</legend>
+        <p className="clubs-workspace-muted">Choose 2–6 eligible players. Co-captains confirm the same selection.</p>
+        {club.memberIds.map(id => {
+          const key = String(id);
+          return <label key={key}><input type="checkbox" checked={selected.includes(key)} onChange={event => {
+            setSelected(event.target.checked ? [...selected, key] : selected.filter(item => item !== key));
+          }} />{players.find(player => String(player._id) === key)?.name || "Club player"}</label>;
+        })}
+      </fieldset>
+      {message && <p role={message.error ? "alert" : "status"}>{message.text}</p>}
+      <button className="clubs-primary-button" disabled={busy || selected.length < 2 || selected.length > 6} type="submit">
+        {busy ? "Saving lineup…" : "Confirm lineup"}
+      </button>
+    </form>
+  );
+}
+
 export default function ClubFixtures({
-  clubs, fixtures, currentClub, captainClubs, playerId, requests, notice, busyId, loading, submitting,
+  clubs, fixtures, currentClub, captainClubs, playerId, players, requests, notice, busyId, loading, submitting,
   onRequest, onRespond, onCancel, onBetting,
 }) {
   const [view, setView] = useState(currentClub ? "mine" : "upcoming");
   const [showForm, setShowForm] = useState(false);
+  const [lineupId, setLineupId] = useState("");
   const captainIds = new Set(captainClubs.map(club => String(club._id)));
   const activeRequests = requests.filter(request =>
     captainIds.has(String(request.clubBId)) || captainIds.has(String(request.requestedByClubId)),
@@ -131,17 +177,25 @@ export default function ClubFixtures({
           ))}
       </div>
       <div className="clubs-fixture-grid">
-        {filtered.map(match => (
+        {filtered.map(match => {
+          const captainClub = captainClubs.find(club => [match.clubAId, match.clubBId].some(id => String(id) === String(club._id)));
+          const canSetLineup = captainClub && match.status === "accepted" && (match.fixtureDate || clubDateKey(match.scheduledAt)) > today;
+          return (
           <article className="clubs-workspace-card clubs-fixture-card" key={match._id}>
             <p className="clubs-fixture-meta"><span>{match.status === "completed" ? "Final" : "Confirmed"}</span><time>{fixtureDateLabel(match)}</time></p>
             <FixtureTeams fixture={match} clubs={clubs} />
+            {canSetLineup && <button type="button" className="clubs-secondary-button"
+              aria-expanded={lineupId === match._id}
+              onClick={() => setLineupId(lineupId === match._id ? "" : match._id)}>Set fixture lineup</button>}
+            {canSetLineup && lineupId === match._id && <FixtureLineupForm fixture={match} club={captainClub} players={players} />}
             {match.status === "accepted" && captainIds.has(String(match.requestedByClubId)) && (
               <div className="clubs-fixture-actions">
                 <button type="button" className="clubs-secondary-button" disabled={busyId === match._id} onClick={() => onCancel(match._id)}>Cancel fixture</button>
               </div>
             )}
           </article>
-        ))}
+          );
+        })}
         {filtered.length === 0 && <div className="clubs-empty clubs-workspace-empty" role={loading ? "status" : undefined}>
           <strong>{loading ? "Loading fixtures…" : activeView === "results" ? "No results yet" : "No confirmed fixtures yet"}</strong>
         </div>}

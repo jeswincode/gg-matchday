@@ -1,4 +1,4 @@
-# GG Matchday V3
+# GG Matchday V4.1
 
 GG Matchday is a football-tracking and club-management platform for recording matches, tracking player performance, comparing players, and running a separate community Clubs experience.
 
@@ -19,23 +19,38 @@ The application is built as one project with a React/Vite frontend and an Expres
 - **Notifications and community chat** — authenticated notifications and optional live chat.
 - **Account and admin workflows** — request editor access, link accounts to player profiles, submit profile changes for review, and manage authorised records.
 - **Responsive themes** — Dark and Gold Matchday experiences, mobile-specific refinements, and reduced-motion support.
+- **Matchday entry and navigation** — stadium video during startup, desktop continue prompt, mobile fullscreen with a browser fallback, and account checks that can finish after the workspace opens. Tabs remember their scroll position. On mobile, swipe between pages or drag across a navigation dock to select a tab.
+- **Starting XI and companion** — switch pitch formations, open player profiles from the lineup, and browse the substitutes bench. The draggable GG companion uses visible surfaces across Matchday and Clubs and can slide down the desktop rails or bounce off mobile edges.
 
 ### Ultimate Clubs
 
-Clubs is a separate product mode with its own navigation, data models, business rules, and database connection. Its main areas are **Club Hub, My Club, Market, Matches, Players, Reviews, and Admin**.
+Clubs is a separate product mode with its own navigation, data models, business rules, and database connection. Its main areas are **Club Hub, My Club, Matches, Betting, My Player, Market, Players, Reviews, and Admin**.
 
 The current Clubs workflows include:
 
-- Forming a club with member invitations and agreement, captain selection, Club details approval, and administrator review.
-- Managing membership, captain decisions, contract renewals, and historical club relationships.
+- Forming a Club of **4–6 members** through invitations, unanimous member agreement, captain voting, details approval, and administrator review. Existing four- and five-player Clubs can keep their squads or fill the new slots.
+- Managing membership, captain decisions, contract renewals, and historical Club relationships. Retaining fewer than four players at renewal archives the Club and releases the squad.
 - Discovering eligible players, making auction offers, choosing offers, and approving signings.
-- Requesting and accepting club fixtures.
-- Synchronising eligible completed Club matches from the regular Match Record.
+- Requesting and accepting future Club fixtures in IST. The receiving captains confirm a fixture, and pending requests expire after 24 hours.
+- Recording booked or unbooked results through **Matchday → Record**. For a booking, use **Record booked fixture** to fill the date and official Club names. Assign 2–6 eligible players per side. A valid unbooked result uses the word **Clubs** in the match name and both official Club names. The main Match Record drives the Clubs result, statistics and settlement.
 - Tracking club and player wallets, reward transactions, match predictions, and club-vs-club betting.
 - Reviewing players as teammates or opponents when the match-history eligibility rules are satisfied.
 - Administering applications, Clubs, and Club matches.
 
-Clubs rules such as formation, captain approval, contract boundaries, wallet separation, auction limits, fixture dates, rewards, and betting settlement are documented in [the V3 Clubs specification](docs/v3-clubs-spec.md). When changing this area, treat that specification and the corresponding backend code/tests as the reference; do not implement Club money or betting as frontend-only state.
+#### Betting and player earnings
+
+Club and Player Wallets hold separate in-game credits. Clubs start with 3,000 credits and use their budget for signings. Player Wallets start at zero and receive signing payments, match earnings and eligible betting returns. Credits have no cash value or withdrawal path.
+
+- **Pooled bets** retain the original Club-winner workflow. Winners split the stake pool. Draws, cancellations, and outcomes without a winning stake refund the pool.
+- **Fixed odds** are available on upcoming confirmed bookings. Markets cover home win, draw, away win, team clean sheets, and a player’s goal, assist, or hat-trick. Captains can confirm 2–6 eligible players for each side from **Clubs → Matches**. Forecasts use confirmed lineups where available and projected eligible players otherwise. The model combines recent Club scores with player performances, weights Club games more heavily, and uses baseline rates when records are sparse.
+- **Tickets and settlement** use 10–100 credits, with up to five distinct fixed-odds selections per player and fixture. The server locks the decimal price on acceptance. Total return includes the stake. A 6% odds adjustment and a 30× maximum apply. The system opens with 10,000 credits, takes stakes and reserves the full potential returns before accepting tickets. A losing stake stays with the bank. Cancellation refunds all fixed-odds stakes, and a player market refunds a ticket when the selected player did not play. The server applies each ticket once.
+- **Match earnings** are capped at 12 credits per player per Club match. Players earn 2 for appearing, 2 per goal, 1 per assist, 2 for a clean sheet, 3 for a Player of the Match award recorded at settlement, and up to 3 based on their match rating.
+
+The [V3 Clubs specification](docs/v3-clubs-spec.md) records the earlier design. The V4.1 rules above and the server tests define the current workflow.
+
+#### Deployment data separation
+
+The `main` deployment uses the production API and its official Matchday and Clubs databases. The `v4/fresh-start` preview uses the V4 preview API and separate Atlas databases. Keep the environment settings scoped to their existing targets. Changing the Git revision does not require copying preview records or credentials to production.
 
 ## Technology
 

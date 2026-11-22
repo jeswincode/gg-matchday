@@ -22,13 +22,21 @@ export function calculateBetPayouts(bets, winningClubId) {
   return payouts;
 }
 
+export async function lockBettableFixture(clubMatchId, session, lineupVersion) {
+  const lineup = lineupVersion === undefined ? {} : lineupVersion === 0
+    ? { $or: [{ lineupVersion: 0 }, { lineupVersion: { $exists: false } }] } : { lineupVersion };
+  return ClubMatch.findOneAndUpdate({
+    _id: clubMatchId, status: "accepted", source: { $ne: "unbooked" }, scheduledAt: { $gt: new Date() },
+    ...lineup,
+  }, { $inc: { __v: 1 } }, { session, returnDocument: "after" });
+}
+
 export async function placeClubMatchBet({ clubMatchId, playerId, clubId, stake, session }) {
   if (!mongoose.isValidObjectId(clubMatchId) || !mongoose.isValidObjectId(playerId) || !mongoose.isValidObjectId(clubId)) throw new Error("Invalid betting details.");
   const value = positiveMoney(stake);
   if (value < CLUB_BETTING_MIN_STAKE || value > CLUB_BETTING_MAX_STAKE) throw new Error(`Stake must be between ${CLUB_BETTING_MIN_STAKE} and ${CLUB_BETTING_MAX_STAKE} credits.`);
-  const match = await ClubMatch.findById(clubMatchId).session(session);
-  if (!match || match.status !== "accepted") throw new Error("Betting is available only for accepted Club Matches.");
-  if (new Date(match.scheduledAt) <= new Date()) throw new Error("Betting is closed because the match has started.");
+  const match = await lockBettableFixture(clubMatchId, session);
+  if (!match) throw new Error("Betting is closed for this Club Match.");
   if (![String(match.clubAId), String(match.clubBId)].includes(String(clubId))) throw new Error("Choose one of the two clubs in this fixture.");
   const club = await Club.findOne({ _id: clubId, status: "approved" }).session(session).lean();
   if (!club) throw new Error("The selected Club is not available for betting.");

@@ -140,6 +140,10 @@ test("captain fixture requests are private and a squad member can track an own-C
     await expect(slate.getByRole("region", { name: "Captain fixture requests" })).toHaveCount(0);
     await captain.getByRole("region", { name: "Captain fixture requests" }).getByRole("button", { name: "Accept" }).click();
     await expect(slate.getByText(opponent.name, { exact: true })).toBeVisible();
+    const lineupCard = captain.locator(".clubs-fixture-card").filter({ hasText: opponent.name });
+    await lineupCard.getByRole("button", { name: "Set fixture lineup" }).click();
+    await lineupCard.getByRole("button", { name: "Confirm lineup" }).click();
+    await expect(lineupCard.getByText("Lineup confirmed.", { exact: true })).toBeVisible();
     await expect(slate.getByRole("button", { name: "Cancel fixture" })).toHaveCount(0);
     await expect(slate.getByRole("button", { name: "Place bet" })).toHaveCount(0);
 
@@ -162,11 +166,21 @@ test("captain fixture requests are private and a squad member can track an own-C
     expect(unrelated.bets).toEqual([]);
 
     await page.locator('[data-primary-tab="betting"]').click();
-    await betting.getByRole("button", { name: "Settled", exact: true }).click();
+    await betting.getByRole("button", { name: "Fixed odds", exact: true }).click();
+    await betting.getByLabel("Booked fixture").selectOption(matchId);
+    await expect(betting.getByText(/1 of 2 lineups confirmed/)).toBeVisible();
+    await betting.getByRole("button", { name: /^Draw / }).click();
+    await betting.getByLabel("Stake (credits)").fill("10");
+    await expect(betting.getByText("Potential return", { exact: true })).toBeVisible();
+    await betting.getByRole("button", { name: "Place fixed-odds bet" }).click();
+    await expect(betting.getByRole("status").filter({ hasText: "Fixed-odds bet placed." })).toBeVisible();
+    await expect(betting.getByRole("heading", { name: "Draw" })).toBeVisible();
+    await betting.getByRole("button", { name: "Settled tickets", exact: true }).click();
     const cancelled = await request.post(api + "/clubs/matches/" + matchId + "/cancel", { headers: auth(opponentCaptainId) });
     expect(cancelled.status(), await cancelled.text()).toBe(200);
     matchId = undefined;
     await expect(betting.getByText("Refunded", { exact: true })).toBeVisible();
+    await expect(betting.getByText("Returned 10 cr", { exact: true })).toBeVisible();
     await page.locator('[data-primary-tab="playerDesk"]').click();
     await page.getByRole("button", { name: "Wallet", exact: true }).click();
     await expect(page.locator(".clubs-wallet-main-value")).toHaveText("80");

@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { refreshLiveTopics } from "../../lib/liveData";
 import { FixtureTeams } from "./ClubFixtures";
 import { credits, fixtureDateLabel } from "./clubPresentation";
+import ClubFixedOdds from "./ClubFixedOdds";
 
 const betLabels = { placed: "Open", won: "Won", lost: "Lost", refunded: "Refunded" };
 
@@ -68,6 +69,7 @@ function BetHistory({ items, clubs }) {
 }
 
 export default function ClubBetting({ clubs, fixtures, limits, revision, onWallet }) {
+  const [format, setFormat] = useState("pooled");
   const [view, setView] = useState("available");
   const [page, setPage] = useState(1);
   const [now, setNow] = useState(Date.now);
@@ -127,6 +129,11 @@ export default function ClubBetting({ clubs, fixtures, limits, revision, onWalle
         <div><h2>Betting</h2><p>Use in-game credits on confirmed fixtures, including your Club’s matches.</p></div>
         <button type="button" className="clubs-secondary-button" onClick={onWallet}>My Wallet</button>
       </div>
+      <div className="clubs-view-filters" aria-label="Betting format">
+        <button type="button" aria-pressed={format === "pooled"} onClick={() => setFormat("pooled")}>Pooled bets</button>
+        <button type="button" aria-pressed={format === "fixed"} onClick={() => setFormat("fixed")}>Fixed odds</button>
+      </div>
+      {format === "fixed" ? <ClubFixedOdds clubs={clubs} fixtures={fixtures} limits={limits} revision={revision} /> : <>
       <div className="clubs-workspace-card clubs-betting-balance">
         <div><span>Available player credits</span><strong>{wallet.loading || wallet.error ? "—" : credits(creditsAvailable)}</strong></div>
         <p>{minStake}–{maxStake} credits per bet · One pick per fixture · Closes at the scheduled start</p>
@@ -159,6 +166,7 @@ export default function ClubBetting({ clubs, fixtures, limits, revision, onWalle
           </div>}
         </>
       )}
+      </>}
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { getClubsConnection } from "../config/clubsDatabase.js";
 import { syncClubStatsForMatch } from "./clubsMatchSync.js";
 import { settleClubMatchRewards } from "./clubsMatchSettlement.js";
 import { settleClubMatchBets } from "./clubsBetting.js";
+import { settleCreditBets } from "./clubCreditBetting.js";
 import { recordProviderObservation } from "./providerHealth.js";
 
 export const CLUB_SYNC_RETRY_BASE_MS = 30_000;
@@ -26,6 +27,7 @@ async function settleLinkedClubMatches(syncResult) {
       await session.withTransaction(async () => {
         await settleClubMatchRewards({ clubMatchId, session });
         await settleClubMatchBets({ clubMatchId, session });
+        await settleCreditBets({ clubMatchId, session });
       });
     } finally {
       await session.endSession();

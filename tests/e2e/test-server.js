@@ -64,6 +64,8 @@ const formationPlayers = [
   { id: "65a000000000000000000012", name: "E2E Formation Invitee Two", position: "ST", pace: 84, physical: 82 },
   { id: "65a000000000000000000013", name: "E2E Formation Invitee Three", position: "CB", pace: 78, physical: 84 },
   { id: "65a000000000000000000014", name: "E2E Formation Invitee Four", position: "GK", pace: 70, physical: 76 },
+  { id: "65a000000000000000000019", name: "E2E Formation Invitee Five", position: "LB", pace: 75, physical: 74 },
+  { id: "65a000000000000000000020", name: "E2E Formation Invitee Six", position: "RW", pace: 78, physical: 71 },
 ];
 const formationRetryPlayers = [
   { id: "65a000000000000000000015", name: "E2E Formation Retry Founder", position: "CM", pace: 87, physical: 85 },
@@ -128,13 +130,13 @@ const browserClub = await Club.create({
   balance: 300,
   committedBalance: 50,
 });
-await ClubContract.create({
+await ClubContract.create(basePlayers.map(player => ({
   clubId: browserClub._id,
-  playerId: basePlayers[1].id,
+  playerId: player.id,
   startAt: new Date(Date.now() - 86_400_000),
   endAt: new Date(Date.now() + 30 * 86_400_000),
   source: "formation",
-});
+})));
 const { creditPlayerWallet } = await import("../../server/services/clubsEconomy.js");
 await creditPlayerWallet({
   playerId: basePlayers[1].id,

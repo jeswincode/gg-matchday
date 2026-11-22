@@ -390,6 +390,7 @@ function App() {
   ] = useState({});
 
   const [legacyMatchContext,setLegacyMatchContext] = useState(null);
+  const [bookedFixture, setBookedFixture] = useState(null);
   const [performanceCodes,setPerformanceCodes] = useState({});
 
   const [
@@ -1210,6 +1211,7 @@ function App() {
 
   function resetMatchForm() {
     setEditingMatchId(null);
+    setBookedFixture(null);
     setDate(
       localDateString()
     );
@@ -1569,6 +1571,7 @@ function App() {
 
       const payload = {
         date,
+        ...(bookedFixture && !editingMatchId ? { clubFixtureId: bookedFixture.id } : {}),
 
         name:
           matchName.trim() ||
@@ -1650,14 +1653,19 @@ function App() {
         );
       }
 
+      const savedMessage = editingMatchId ? "Match updated." : "Match recorded.";
+      let clubMessage = "";
+      if (data.clubsSyncPending) {
+        clubMessage = " Clubs synchronization is pending.";
+      } else if (data.clubResult === "booked" || data.clubResult === "unbooked") {
+        clubMessage = data.clubResult === "booked"
+          ? " The booked Club fixture is complete." : " Saved in Clubs as an unbooked result.";
+      } else if (/\bclubs\b/i.test(payload.name)) {
+        clubMessage = " No Club result was linked. Check the Club names and player contracts on the match date.";
+      }
       refreshLiveTopics(["matchday", "news"]);
       resetMatchForm();
-
-      setMessage(
-        editingMatchId
-          ? "Match updated."
-          : "Match recorded."
-      );
+      setMessage(savedMessage + clubMessage);
     } catch (error) {
       console.error(error);
 
@@ -2269,6 +2277,21 @@ function App() {
         {isEditor && (
           <MatchRecordForm
             onSubmit={saveMatch}
+            bookedFixture={bookedFixture}
+            onChooseFixture={fixture => {
+              setBookedFixture(fixture);
+              if (!fixture) return;
+              setDate(fixture.date);
+              setMatchName("Clubs · " + fixture.clubA + " vs " + fixture.clubB);
+              setTeamALabel(fixture.clubA);
+              setTeamBLabel(fixture.clubB);
+              setTeams({});
+              setGoals({});
+              setAssists({});
+              setOwnGoals({});
+              setPerformanceCodes({});
+            }}
+            fixtureRevision={refreshKey}
             date={date}
             setDate={setDate}
             matchName={matchName}

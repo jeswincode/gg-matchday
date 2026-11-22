@@ -44,13 +44,14 @@ import {
 test("Clubs economy starts every new club at 3000", () => {
   assert.equal(CLUB_STARTING_BALANCE, 3000);
   assert.equal(CLUB_MIN_MEMBERS, 4);
-  assert.equal(CLUB_MAX_MEMBERS, 5);
+  assert.equal(CLUB_MAX_MEMBERS, 6);
 });
 
-test("Club formation sets cover both four-player and five-player squads", () => {
+test("Club formations cover four through six players", () => {
   assert.deepEqual([...CLUB_FORMATIONS], [
     "1-2-1", "2-1-1", "1-3", "3-1", "2-2",
     "1-2-2", "2-2-1", "2-1-2", "1-3-1", "3-1-1",
+    "2-2-2", "2-1-3", "3-1-2",
   ]);
   for (const formation of CLUB_FORMATIONS) {
     assert.doesNotThrow(() => validateFormation(formation));
@@ -62,7 +63,7 @@ test("club names normalize for case and repeated whitespace", () => {
   assert.equal(normalizeClubName("GOLDEN GOONERS"), "golden gooners");
 });
 
-test("a club application accepts exactly four or five unique members", () => {
+test("a club application accepts four to six unique members", () => {
   assert.deepEqual(
     validateClubMemberCount(["a", "b", "c", "d"]),
     ["a", "b", "c", "d"],
@@ -73,11 +74,11 @@ test("a club application accepts exactly four or five unique members", () => {
   );
   assert.throws(
     () => validateClubMemberCount(["a", "b", "c"]),
-    /between 4 and 5/i,
+    /between 4 and 6/i,
   );
   assert.throws(
-    () => validateClubMemberCount(["a", "b", "c", "d", "e", "f"]),
-    /between 4 and 5/i,
+    () => validateClubMemberCount(["a", "b", "c", "d", "e", "f", "g"]),
+    /between 4 and 6/i,
   );
   assert.throws(
     () => validateClubMemberCount(["a", "b", "c", "d", "d"]),
@@ -129,7 +130,7 @@ test("captain approval helper requires every active captain", () => {
   assert.equal(activeCaptainApprovalComplete(["a", "b"], ["b", "a", "b"]), true);
 });
 
-test("renewal retention supports a 4-5 player active Club and archives smaller outcomes", () => {
+test("renewal retention supports a 4–6 player active Club and archives smaller outcomes", () => {
   const four = ["a", "b", "c", "d"];
   const five = ["a", "b", "c", "d", "e"];
   assert.deepEqual(validateRetention(four, four, ["a"]), four);
@@ -140,10 +141,10 @@ test("renewal retention supports a 4-5 player active Club and archives smaller o
   assert.deepEqual(validateRetention(five, [], ["a"]), []);
   assert.deepEqual(validateRetention(five, ["a", "b", "c"], ["a"]), ["a", "b", "c"]);
   assert.throws(() => validateRetention(five, ["b", "c", "d", "e"], []), /captain/i);
-  assert.throws(() => validateRetention(five, ["a", "b", "c", "d", "e", "f"], ["a"]), /five/i);
+  assert.throws(() => validateRetention(five, ["a", "b", "c", "d", "e", "f"], ["a"]), /active squad/i);
 });
 
-test("V3 Clubs economy rules expose the locked betting and reward values", () => {
+test("Clubs economy rules expose the V4.1 betting and reward values", () => {
   assert.equal(CLUB_BETTING_MIN_STAKE, 10);
   assert.equal(CLUB_BETTING_MAX_STAKE, 100);
   assert.equal(CLUB_PREDICTION_WEIGHTS.averagePlayerOvr, 0.30);
@@ -155,9 +156,12 @@ test("V3 Clubs economy rules expose the locked betting and reward values", () =>
   assert.deepEqual(CLUB_REWARDS, {
     matchWin: 100,
     matchDraw: 50,
-    playerAppearance: 10,
-    motm: 25,
-    cleanSheet: 10,
+    playerAppearance: 2,
+    goal: 2,
+    assist: 1,
+    motm: 3,
+    cleanSheet: 2,
+    playerMatchCap: 12,
     firstMatch: 25,
     fiveAppearances: 50,
     tenAppearances: 100,
@@ -214,7 +218,7 @@ test("V3 Club Match requests use a 24-hour expiry and fixture dates are date-onl
 });
 
 
-test("V3 renewal preserves the 4-5 active Club minimum", () => {
+test("V3 renewal preserves the 4–6 active Club minimum", () => {
   const four = ["a", "b", "c", "d"];
   const five = ["a", "b", "c", "d", "e"];
   assert.deepEqual(validateRetention(four, ["a", "b", "c", "d"], ["a"]), four);
@@ -223,10 +227,10 @@ test("V3 renewal preserves the 4-5 active Club minimum", () => {
   assert.deepEqual(validateRetention(five, [], ["a"]), []);
   assert.deepEqual(validateRetention(five, ["a", "b", "c"], ["a"]), ["a", "b", "c"]);
   assert.throws(() => validateRetention(five, ["b", "c", "d", "e"], []), /captain/i);
-  assert.throws(() => validateRetention(five, ["a", "b", "c", "d", "e", "f"], ["a"]), /four or five/i);
+  assert.throws(() => validateRetention(five, ["a", "b", "c", "d", "e", "f"], ["a"]), /active squad/i);
 });
 
-test("Clubs meta exposes 4-5 member policy", async () => {
+test("Clubs meta exposes 4–6 member policy", async () => {
   const source = await fs.promises.readFile("server/routes/clubs.js", "utf8");
   assert.match(source, /clubMinMembers: CLUB_MIN_MEMBERS/);
   assert.match(source, /clubMaxMembers: CLUB_MAX_MEMBERS/);

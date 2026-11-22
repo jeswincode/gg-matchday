@@ -6,6 +6,8 @@ const FORMATION_PLAYERS = [
   { id: "65a000000000000000000012", name: "E2E Formation Invitee Two" },
   { id: "65a000000000000000000013", name: "E2E Formation Invitee Three" },
   { id: "65a000000000000000000014", name: "E2E Formation Invitee Four" },
+  { id: "65a000000000000000000019", name: "E2E Formation Invitee Five" },
+  { id: "65a000000000000000000020", name: "E2E Formation Invitee Six" },
 ];
 const FORMATION_RETRY_PLAYERS = [
   { id: "65a000000000000000000015", name: "E2E Formation Retry Founder" },
@@ -95,7 +97,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
 
     await founder.getByRole("button", { name: /Form a Club/ }).first().click();
     const inviteSelects = founder.locator("#clubs-formation-form .clubs-invite-grid select");
-    await expect(inviteSelects).toHaveCount(4);
+    await expect(inviteSelects).toHaveCount(5);
     for (let index = 1; index < actors.length; index += 1) {
       await inviteSelects.nth(index - 1).selectOption(actors[index].id);
     }
@@ -176,7 +178,7 @@ test("Club formation works across member, captain, and admin browser sessions", 
     adminBeforeDetails = await newClubsActor(browser, { role: "admin" });
     pages.push(adminBeforeDetails);
     await adminBeforeDetails.getByRole("button", { name: /^Applications/ }).click();
-    await expect(adminBeforeDetails.getByText("No Club formations are waiting for admin action.")).toBeVisible();
+    await expect(adminBeforeDetails.locator(".clubs-application").filter({ hasText: formationClubName })).toHaveCount(0);
 
     // The elected captain approves the details using their own session.
     const captainPage = electedCandidate.id === actors[0].id
@@ -200,14 +202,15 @@ test("Club formation works across member, captain, and admin browser sessions", 
       `/api/clubs/admin/applications/${formationId}/approve`,
       201,
     );
-    await expect(admin.getByText("No Club formations are waiting for admin action.")).toBeVisible();
+    await expect(application).toHaveCount(0);
     await admin.getByRole("button", { name: "Clubs", exact: true }).click();
     await expect(admin.locator(".clubs-admin-directory-card").filter({ hasText: formationClubName })).toBeVisible();
 
     // Verify approval from an already-open member session.
     await goToPrimaryTab(founder, "My Club");
     await expect(founder.getByRole("heading", { name: formationClubName, exact: true })).toBeVisible();
-    await expect(founder.locator(".clubs-myclub-overview-stat").first()).toContainText("4/5");
+    await expect(founder.locator(".clubs-myclub-overview-stat").first()).toContainText(actors.length + "/6");
+    await expect(founder.locator(".clubs-field-card")).toHaveCount(actors.length);
     await expect(founder.getByRole("heading", { name: "Club timeline" })).toBeVisible();
   } finally {
     await Promise.allSettled(pages.map(page => page.close()));
@@ -255,7 +258,7 @@ test("auction signing reserves budget and settles only after player choice and b
     const totalRow = captainOne.locator(".clubs-command-budget-breakdown div").filter({ hasText: "Total club funds" });
     await expect(reservedRow).toContainText("200");
     await expect(totalRow).toContainText("3,000");
-    await expect(captainOne.locator(".clubs-myclub-overview-stat").first()).toContainText("4/5");
+    await expect(captainOne.locator(".clubs-myclub-overview-stat").first()).toContainText("4/6");
 
     const target = await newClubsActor(browser, { role: "editor", playerId: auctionPlayers.target.id });
     pages.push(target);
@@ -290,7 +293,7 @@ test("auction signing reserves budget and settles only after player choice and b
     await goToPrimaryTab(captainOne, "My Club");
     await expect(captainOne.locator(".clubs-command-budget-breakdown div").filter({ hasText: "Reserved for offers" })).toContainText("200");
     await expect(captainOne.locator(".clubs-command-budget-breakdown div").filter({ hasText: "Total club funds" })).toContainText("3,000");
-    await expect(captainOne.locator(".clubs-myclub-overview-stat").first()).toContainText("4/5");
+    await expect(captainOne.locator(".clubs-myclub-overview-stat").first()).toContainText("4/6");
     await expect(target.locator(".clubs-wallet-main-value")).toHaveText("0");
 
     const captainTwo = await newClubsActor(browser, auctionPlayers.captainTwo);
@@ -311,7 +314,7 @@ test("auction signing reserves budget and settles only after player choice and b
     const finalTotalRow = captainOne.locator(".clubs-command-budget-breakdown div").filter({ hasText: "Total club funds" });
     await expect(finalReservedRow).toContainText("0");
     await expect(finalTotalRow).toContainText("2,800");
-    await expect(captainOne.locator(".clubs-myclub-overview-stat").first()).toContainText("5/5");
+    await expect(captainOne.locator(".clubs-myclub-overview-stat").first()).toContainText("5/6");
     await expect(captainOne.locator(".clubs-roster-premium-row").filter({ hasText: auctionPlayers.target.name })).toBeVisible();
 
     await expect(target.locator(".clubs-wallet-main-value")).toHaveText("200");

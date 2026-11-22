@@ -110,6 +110,8 @@ app.get("/api/health", async (req, res) => {
   return res.status(healthy ? 200 : 503).json({
     success: healthy,
     status: healthy ? "ok" : "degraded",
+    release: "4.1",
+    revision: process.env.RENDER_GIT_COMMIT || undefined,
     database: coreConnected ? "connected" : "disconnected",
     clubsDatabase: clubsConnected ? "connected" : "disconnected",
   });

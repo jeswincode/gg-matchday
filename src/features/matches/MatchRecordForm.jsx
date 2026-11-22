@@ -1,6 +1,22 @@
 import { useState } from "react";
 import PerformancePicker from "../ratings/PerformancePicker";
 import { calculateMatchRatings } from "../ratings/matchCalculator";
+import useResource from "../../components/useResource";
+
+function BookedFixturePicker({ selected, onChoose, revision }) {
+  const fixtures = useResource("/clubs/matches/recordable", revision);
+  if (fixtures.loading) return <p role="status">Loading confirmed fixtures…</p>;
+  if (fixtures.error) return <p role="alert">{fixtures.error}</p>;
+  const options = Array.isArray(fixtures.data) ? fixtures.data : [];
+  return (
+    <label>Confirmed Club fixture
+      <select value={selected?.id || ""} onChange={event => onChoose(options.find(item => item.id === event.target.value) || null)}>
+        <option value="">{options.length ? "Choose a confirmed fixture" : "No confirmed fixtures are ready to record"}</option>
+        {options.map(item => <option key={item.id} value={item.id}>{item.date} · {item.clubA} vs {item.clubB}</option>)}
+      </select>
+    </label>
+  );
+}
 
 function PointsLine({ items }) {
   return (
@@ -20,8 +36,10 @@ export default function MatchRecordForm({
   teamAScore, teamBScore, players, teams, setPlayerTeam, goals, setGoals, assists, setAssists, ownGoals, setOwnGoals,
   performanceCodes, setPerformanceCodes, assignedPlayers, totalGoals, totalAssists,
   savingMatch, editingMatchId, resetMatchForm, changeCount,
+  bookedFixture, onChooseFixture, fixtureRevision,
 }) {
   const [playerSearch, setPlayerSearch] = useState("");
+  const [chooseFixture, setChooseFixture] = useState(false);
   const playerQuery = playerSearch.trim().toLocaleLowerCase();
   const visiblePlayers = playerQuery ? players.filter(player => String(player.name ?? "").toLocaleLowerCase().includes(playerQuery)) : players;
   const teamACount = assignedPlayers.filter(player => teams[String(player._id)] === 'A').length;
@@ -30,8 +48,19 @@ export default function MatchRecordForm({
   return (
     <section className="card gg-match-form-card">
       <form onSubmit={onSubmit}>
+        {!editingMatchId && <>
+          <button type="button" className="secondary-button" aria-expanded={chooseFixture}
+            onClick={() => setChooseFixture(value => !value)}>
+            {chooseFixture ? "Close fixture picker" : bookedFixture ? "Change booked fixture" : "Record booked fixture"}
+          </button>
+          {bookedFixture && <button type="button" className="secondary-button"
+            onClick={() => onChooseFixture(null)}>Clear booking</button>}
+          {chooseFixture && <div className="form-grid">
+            <BookedFixturePicker selected={bookedFixture} onChoose={onChooseFixture} revision={fixtureRevision} />
+          </div>}
+        </>}
         <div className="form-grid">
-          <label>Date<input type="date" required value={date} onChange={e => setDate(e.target.value)} /></label>
+          <label>Date<input type="date" required value={date} readOnly={Boolean(bookedFixture && !editingMatchId)} onChange={e => setDate(e.target.value)} /></label>
           <label>Match name<input value={matchName} maxLength={160} onChange={e => setMatchName(e.target.value)} placeholder="Sunday Football" /></label>
         </div>
 

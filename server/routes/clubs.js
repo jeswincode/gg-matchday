@@ -6,11 +6,12 @@ import ClubFormationApplication from "../models/clubs/ClubFormationApplication.j
 import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { requireAuth, requireAdmin, requireEditor } from "../middleware/auth.js";
 import {
   CLUB_FORMATIONS,
   CLUB_FORMATIONS_4,
   CLUB_FORMATIONS_5,
+  CLUB_FORMATIONS_6,
   CLUB_MIN_MEMBERS,
   CLUB_MAX_MEMBERS,
   CLUB_STARTING_BALANCE,
@@ -39,6 +40,7 @@ import AuctionOffer from "../models/clubs/AuctionOffer.js";
 import ClubRenewalDecision from "../models/clubs/ClubRenewalDecision.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import ClubMatchBet from "../models/clubs/ClubMatchBet.js";
+import { ClubCreditBet } from "../models/clubs/ClubCreditBet.js";
 import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import JoinRequest from "../models/clubs/JoinRequest.js";
 import ClubSyncJob from "../models/ClubSyncJob.js";
@@ -49,6 +51,8 @@ import { settleClubMatchRewards } from "../services/clubsMatchSettlement.js";
 import { generateClubMatchPrediction } from "../services/clubsPrediction.js";
 import { buildPlayerClubAnalytics } from "../services/playerClubAnalytics.js";
 import { placeClubMatchBet, settleClubMatchBets } from "../services/clubsBetting.js";
+import { CREDIT_MARKETS, loadCreditMarkets } from "../services/clubCreditMarkets.js";
+import { ensureCreditBank, placeCreditBet, quoteCreditBet, settleCreditBets } from "../services/clubCreditBetting.js";
 import {
   activeCaptainApprovalComplete,
   validateRetention,
@@ -170,6 +174,7 @@ router.get("/meta", (req, res) => {
     formations: CLUB_FORMATIONS,
     formations4: CLUB_FORMATIONS_4,
     formations5: CLUB_FORMATIONS_5,
+    formations6: CLUB_FORMATIONS_6,
     activeClubPolicy: "one-active-club-per-player",
     captainPolicy: "top-two-ovr-candidates; every active member votes; tie creates two co-captains",
     bettingPolicy: "player-wallet betting only; one bet per player per fixture, including their own Club fixture; pooled winner payout; draw/cancellation/no-winner refunds",
@@ -445,7 +450,7 @@ router.get("/home", requireAuth, async (req, res) => {
             subsection: "squad",
             eyebrow: "CONTRACT CONTROL",
             title: "Club renewal is due",
-            description: "Keep 4–5 players to renew the Club, or retain fewer to archive it.",
+            description: "Keep 4–6 players to renew the Club, or retain fewer to archive it.",
             actionLabel: "OPEN RENEWAL →",
             entityId: currentClub._id,
           };
@@ -497,7 +502,7 @@ router.get("/home", requireAuth, async (req, res) => {
             section: "overview",
             eyebrow: "GET STARTED",
             title: "Build your Club world",
-            description: "Form a 4–5 player squad or request to join an official Club.",
+            description: "Form a 4–6 player squad or request to join an official Club.",
             actionLabel: "EXPLORE CLUBS →",
           };
     }
@@ -609,8 +614,8 @@ router.post("/formation", requireAuth, async (req, res) => {
       playerProfile: { $in: memberIds },
     }).select("playerProfile name email").lean();
 
-    if (linkedUsers.length !== memberIds.length) {
-      const linked = new Set(linkedUsers.map(user => String(user.playerProfile)));
+    const linked = new Set(linkedUsers.map(user => String(user.playerProfile)));
+    if (linked.size !== memberIds.length) {
       const missingNames = players
         .filter(player => !linked.has(String(player._id)))
         .map(player => player.name);
@@ -1008,7 +1013,7 @@ router.post("/auction/offers", requireAuth, async (req, res) => {
     await session.withTransaction(async () => {
       const state = await getUserClubCaptainState(req.user.playerProfile, clubId);
       if (!state?.isCaptain) throw new Error("Only a club captain can make a signing offer.");
-      if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("Your club already has five players.");
+      if (state.club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("Your Club roster is full.");
       if (state.club.memberIds.some(id => String(id) === String(playerId))) throw new Error("That player is already in your club.");
       const activeContract = await ClubContract.findOne({ playerId, status: "active" }).session(session).lean();
       if (activeContract) throw new Error("That player is already under an active club contract.");
@@ -1097,7 +1102,7 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
       const club = await Club.findOne({ _id: offer.clubId, status: "approved" }).session(session);
       if (!club) throw new Error("Club not found.");
       if (!club.captainIds.some(id => String(id) === String(playerId))) throw new Error("Only an elected captain can approve the signing.");
-      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has five players.");
+      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The Club roster is full.");
       const activeContract = await ClubContract.findOne({ playerId: offer.playerId, status: "active" }).session(session);
       if (activeContract) throw new Error("That player is already in an active club.");
       const approvalIds = [...new Set([...offer.captainApprovalIds.map(String), String(playerId)])];
@@ -1173,7 +1178,7 @@ router.post("/join-requests", requireAuth, async (req, res) => {
     const club = await Club.findOne({ _id: clubId, status: "approved" }).lean();
     if (!club) return res.status(404).json({ message: "Club not found." });
     if (club.memberIds.some(id => String(id) === String(playerId))) return res.status(409).json({ message: "You are already in this club." });
-    if (club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "That club already has five players." });
+  if (club.memberIds.length >= CLUB_MAX_MEMBERS) return res.status(409).json({ message: "That Club roster is full." });
     const activeContract = await ClubContract.findOne({ playerId, status: "active" }).lean();
     if (activeContract) return res.status(409).json({ message: "You can join another club only after your current contract ends." });
     const pending = await JoinRequest.findOne({ playerId, clubId, status: "pending" }).lean();
@@ -1207,7 +1212,7 @@ router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) =
         response = { request, club };
         return;
       }
-      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The club already has five players.");
+      if (club.memberIds.length >= CLUB_MAX_MEMBERS) throw new Error("The Club roster is full.");
       const activeContract = await ClubContract.findOne({ playerId: request.playerId, status: "active" }).session(session);
       if (activeContract) throw new Error("That player already has an active club contract.");
       request.captainApprovalIds = [...new Set([...request.captainApprovalIds.map(String), String(captainId)])];
@@ -1220,7 +1225,7 @@ router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) =
       const startAt = now;
       const endAt = nextRenewalBoundary(now);
       const updatedClub = await Club.findOneAndUpdate(
-        { _id: club._id, status: "approved", memberIds: { $not: { $elemMatch: { $eq: request.playerId } } } },
+        { _id: club._id, status: "approved", memberIds: { $ne: request.playerId }, [`memberIds.${CLUB_MAX_MEMBERS - 1}`]: { $exists: false } },
         { $push: { memberIds: request.playerId } },
         { returnDocument: "after", session },
       );
@@ -1288,7 +1293,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
     const state = await getUserClubCaptainState(playerId, clubId);
     if (!state?.isCaptain) return res.status(403).json({ message: "Only club captains can decide renewals." });
     if (state.club.memberIds.length < CLUB_MIN_MEMBERS || state.club.memberIds.length > CLUB_MAX_MEMBERS) {
-      return res.status(409).json({ message: "Renewal requires a 4-5 player club." });
+      return res.status(409).json({ message: "Renewal requires a 4–6 player Club." });
     }
 
     const requestedRetention = req.body?.retainedPlayerIds;
@@ -1298,7 +1303,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
     const retained = validateRetention(state.club.memberIds, requestedRetention, state.club.captainIds);
     const activeContracts = await ClubContract.find({ clubId, status: "active" }).sort({ endAt: 1 }).lean();
     if (activeContracts.length < CLUB_MIN_MEMBERS || activeContracts.length > CLUB_MAX_MEMBERS) {
-      return res.status(409).json({ message: "The club must have 4 or 5 active contracts to renew." });
+      return res.status(409).json({ message: "The Club must have 4–6 active contracts to renew." });
     }
     const storedBoundaryAt = activeContracts[0].endAt;
     const boundaryAt = clubDateStartUtc(clubDateKey(storedBoundaryAt));
@@ -1342,7 +1347,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
           await contract.save({ session });
         }
 
-        if (retained.length < 4) {
+        if (retained.length < CLUB_MIN_MEMBERS) {
           club.memberIds = [];
           club.captainIds = [];
           club.status = "archived";
@@ -1427,6 +1432,7 @@ router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, r
       if (existing) previousStatus = existing.settlementStatus || "pending";
       result = await settleClubMatchRewards({ clubMatchId: req.params.matchId, session });
       await settleClubMatchBets({ clubMatchId: req.params.matchId, session });
+      await settleCreditBets({ clubMatchId: req.params.matchId, session });
     });
     await writeClubAdminAudit(req, {
       action: "match-settlement",
@@ -1640,6 +1646,63 @@ router.post("/matches/:matchId/prediction/refresh", requireAuth, async (req, res
   }
 });
 
+router.get("/fixed-odds/tickets", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  const view = req.query.view ?? "open";
+  const page = Number(req.query.page ?? 1);
+  if (!["open", "settled"].includes(view) || !Number.isSafeInteger(page) || page < 1 || page > 1000) {
+    return res.status(400).json({ message: "Choose a valid ticket history page." });
+  }
+  try {
+    const tickets = await ClubCreditBet.find({ playerId, status: view === "open" ? "open" : { $ne: "open" } })
+      .sort({ createdAt: -1, _id: -1 }).skip((page - 1) * 20).limit(21)
+      .populate({ path: "clubMatchId", select: "clubAId clubBId fixtureDate",
+        populate: { path: "clubAId clubBId", select: "name" } }).lean();
+    res.set("Cache-Control", "private, no-store");
+    return res.json({ tickets: tickets.slice(0, 20), hasMore: tickets.length > 20 });
+  } catch {
+    return res.status(500).json({ message: "Unable to load your fixed-odds tickets." });
+  }
+});
+
+router.get("/fixed-odds/:matchId", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res) || !requireLinkedPlayer(req, res)) return;
+  if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid fixture." });
+  try {
+    res.set("Cache-Control", "private, no-store");
+    const fixture = await ClubMatch.findById(req.params.matchId).lean();
+    const markets = await loadCreditMarkets(fixture);
+    return res.json({ ...markets, ticketLimit: CREDIT_MARKETS.fixtureLimit });
+  } catch (error) {
+    return res.status(409).json({ message: error.message });
+  }
+});
+
+router.post("/fixed-odds/:matchId", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const playerId = requireLinkedPlayer(req, res);
+  if (!playerId) return;
+  const { matchId } = req.params;
+  const { selectionKey, odds, stake } = req.body || {};
+  if (!mongoose.isValidObjectId(matchId) || typeof selectionKey !== "string" || selectionKey.length > 60 ||
+      typeof odds !== "number" || !Number.isFinite(odds) || typeof stake !== "number") {
+    return res.status(400).json({ message: "Choose a valid selection and stake." });
+  }
+  const session = await getClubsConnection().startSession();
+  try {
+    const quote = await quoteCreditBet({ clubMatchId: matchId, selectionKey, odds, stake });
+    await ensureCreditBank();
+    const result = await session.withTransaction(() => placeCreditBet({ clubMatchId: matchId, playerId, quote, session }));
+    return res.status(201).json(result);
+  } catch (error) {
+    return res.status(409).json({ message: error?.code === 11000 ? "You already placed this selection." : error.message });
+  } finally {
+    await session.endSession();
+  }
+});
+
 router.get("/matches/:matchId/bets/me", requireAuth, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   const playerId = requireLinkedPlayer(req, res);
@@ -1719,6 +1782,7 @@ router.post("/matches/:matchId/bets/settle", requireAuth, requireAdmin, async (r
     let result;
     await session.withTransaction(async () => {
       result = await settleClubMatchBets({ clubMatchId: req.params.matchId, session });
+      await settleCreditBets({ clubMatchId: req.params.matchId, session });
     });
     return res.json(result);
   } catch (error) {
@@ -1728,13 +1792,72 @@ router.post("/matches/:matchId/bets/settle", requireAuth, requireAdmin, async (r
   }
 });
 
+router.get("/matches/recordable", requireAuth, requireEditor, async (_req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  try {
+    const fixtures = await ClubMatch.find({
+      status: "accepted", source: { $ne: "unbooked" }, mainMatchId: null, scheduledAt: { $lte: new Date() },
+    }).select("clubAId clubBId scheduledAt fixtureDate").sort({ scheduledAt: -1 }).limit(100)
+      .populate("clubAId clubBId", "name").lean();
+    res.set("Cache-Control", "private, no-store");
+    return res.json(fixtures.filter(item => item.clubAId?.name && item.clubBId?.name)
+      .map(item => ({ id: String(item._id), date: item.fixtureDate || clubDateKey(item.scheduledAt),
+        clubA: item.clubAId.name, clubB: item.clubBId.name })));
+  } catch {
+    return res.status(500).json({ message: "Unable to load confirmed Club fixtures." });
+  }
+});
+
+router.put("/matches/:matchId/lineup", requireAuth, async (req, res) => {
+  if (!ensureClubsDatabase(res)) return;
+  const captainId = requireLinkedPlayer(req, res);
+  if (!captainId) return;
+  const { clubId, playerIds } = req.body || {};
+  if (!mongoose.isValidObjectId(req.params.matchId) || !mongoose.isValidObjectId(clubId) ||
+      !Array.isArray(playerIds) || playerIds.length < 2 || playerIds.length > CLUB_MAX_MEMBERS ||
+      playerIds.some(id => typeof id !== "string" || !mongoose.isValidObjectId(id)) ||
+      new Set(playerIds).size !== playerIds.length) {
+    return res.status(400).json({ message: "Select 2–6 unique players for this fixture." });
+  }
+  try {
+    const fixture = await ClubMatch.findOne({
+      _id: req.params.matchId, status: "accepted", scheduledAt: { $gt: new Date() },
+      $or: [{ clubAId: clubId }, { clubBId: clubId }],
+    });
+    if (!fixture) return res.status(409).json({ message: "Lineup selection has closed for this fixture." });
+    const club = await Club.findOne({ _id: clubId, status: "approved", captainIds: captainId, memberIds: captainId }).lean();
+    if (!club) return res.status(403).json({ message: "Only a captain can confirm their Club lineup." });
+    const members = new Set(club.memberIds.map(String));
+    const eligible = await ClubContract.distinct("playerId", {
+      clubId, playerId: { $in: playerIds }, startAt: { $lte: fixture.scheduledAt }, endAt: { $gt: fixture.scheduledAt },
+    });
+    if (eligible.length !== playerIds.length || playerIds.some(id => !members.has(id))) {
+      return res.status(400).json({ message: "Each player needs a contract covering the fixture date." });
+    }
+    const lineup = fixture.lineups.find(item => String(item.clubId) === clubId);
+    const samePlayers = lineup && JSON.stringify(lineup.playerIds.map(String).sort()) === JSON.stringify([...playerIds].sort());
+    const approvals = [...new Set([...(samePlayers ? lineup.approvals.map(String) : []), String(captainId)])];
+    const confirmed = activeCaptainApprovalComplete(club.captainIds, approvals);
+    if (!samePlayers || confirmed !== lineup?.confirmed) fixture.lineupVersion += 1;
+    if (lineup) {
+      lineup.set({ playerIds, approvals, confirmed });
+    } else {
+      fixture.lineups.push({ clubId, playerIds, approvals, confirmed });
+    }
+    await fixture.save();
+    return res.json({ confirmed });
+  } catch (error) {
+    return res.status(409).json({ message: error.name === "VersionError" ? "The fixture changed. Refresh and retry." : error.message });
+  }
+});
+
 router.get("/matches", async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   try {
     const [fixtures, results] = await Promise.all([
       ClubMatch.find({ status: "accepted", scheduledAt: { $gte: clubDateStartUtc(clubDateKey()) } })
-        .select("-captainResponses -responseDecision").sort({ scheduledAt: 1 }).limit(100).lean(),
-      ClubMatch.find({ status: "completed" }).select("-captainResponses -responseDecision").sort({ scheduledAt: -1 }).limit(50).lean(),
+        .select("-captainResponses -responseDecision -lineups.approvals").sort({ scheduledAt: 1 }).limit(100).lean(),
+      ClubMatch.find({ status: "completed" }).select("-captainResponses -responseDecision -lineups.approvals").sort({ scheduledAt: -1 }).limit(50).lean(),
     ]);
     return res.json([...fixtures, ...results]);
   } catch (error) {
@@ -1813,7 +1936,7 @@ router.post("/matches", requireAuth, async (req, res) => {
     return res.status(201).json(match);
   } catch (error) {
     console.error("Create club match request error:", error);
-    if (error?.code === 11000) {
+    if (error?.code === 11000 && error?.keyPattern?.fixtureDate) {
       return res.status(409).json({ message: "A Club Match fixture is already booked for that date." });
     }
     return res.status(400).json({ message: error.message || "Failed to request the club match." });
@@ -1911,6 +2034,7 @@ router.post("/matches/:matchId/cancel", requireAuth, async (req, res) => {
         current.status = "cancelled";
         cancelled = await current.save({ session });
         await settleClubMatchBets({ clubMatchId: match._id, session });
+        await settleCreditBets({ clubMatchId: match._id, session });
       });
       return res.json(cancelled);
     } finally {
@@ -2315,7 +2439,7 @@ router.get("/admin/overview", requireAuth, requireAdmin, async (req, res) => {
           target: "adminClubs",
           entityId: String(club._id),
           title: club.name,
-          subtitle: (club.memberIds?.length || 0) + "/5 members · renewal approaching",
+          subtitle: (club.memberIds?.length || 0) + "/" + CLUB_MAX_MEMBERS + " members · renewal approaching",
           detail: "Contract boundary: " + new Date(boundary).toLocaleDateString(),
           actionLabel: "OPEN CLUB →",
           createdAt: boundary,

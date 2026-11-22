@@ -2,6 +2,7 @@ import Club from "../models/clubs/Club.js";
 import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
 import PlayerWallet from "../models/clubs/PlayerWallet.js";
 import PlayerWalletTransaction from "../models/clubs/PlayerWalletTransaction.js";
+import { CLUB_MIN_MEMBERS, CLUB_MAX_MEMBERS } from "../config/clubsRules.js";
 
 export function availableClubBalance(club) {
   return Math.max(0, Number(club?.balance || 0) - Number(club?.committedBalance || 0));
@@ -28,13 +29,13 @@ export function activeCaptainApprovalComplete(captainIds, approvalIds) {
 export function validateRetention(memberIds, retainedPlayerIds, captainIds) {
   const members = new Set((memberIds || []).map(String));
   const retained = [...new Set((retainedPlayerIds == null ? [...members] : retainedPlayerIds).map(String))];
-  if (members.size < 4 || members.size > 5) {
-    throw new Error("A Club must contain four or five members while active.");
+  if (members.size < CLUB_MIN_MEMBERS || members.size > CLUB_MAX_MEMBERS) {
+    throw new Error("An active Club must contain 4–6 members.");
   }
-  if (retained.length > members.size || retained.length > 5 || retained.some(id => !members.has(id))) {
-    throw new Error("A Club renewal can retain only players from the active four or five player squad.");
+  if (retained.length > members.size || retained.some(id => !members.has(id))) {
+    throw new Error("A Club renewal can retain only players from the active squad.");
   }
-  if (retained.length >= 4) {
+  if (retained.length >= CLUB_MIN_MEMBERS) {
     const retainedCaptains = (captainIds || []).filter(id => retained.includes(String(id)));
     if (retainedCaptains.length === 0) {
       throw new Error("At least one existing captain must be retained when a Club remains active.");
