@@ -118,6 +118,74 @@ test("Starting XI shares players and formations between a compact pitch and the 
   await expect(squad.getByRole("group", { name: "3-5-2 football formation" })).toBeVisible();
 });
 
+test("substitutes use pitch cards on a vertical bench or a scrollable mobile row", async ({ page }, info) => {
+  const starters = ["LW", "ST", "RW", "CM", "CM", "CDM", "LB", "CB", "CB", "RB", "GK"].map((position, i) => ({
+    _id: "starter-" + i, name: "Starter " + (i + 1), position, preferredPositions: [position],
+  }));
+  const reserves = Array.from({ length: 6 }, (_, i) => ({
+    _id: "reserve-" + i, name: "Reserve " + (i + 1), position: "CM", preferredPositions: [],
+  }));
+  const players = [...starters, ...reserves];
+  await stubPublicApi(page, players.map(player => ({ playerId: player._id, name: player.name, position: player.position, ggRating: 5.5 })));
+  await page.route("**/api/players", route => route.fulfill({ json: players }));
+  await enterGuestMatchday(page);
+  await page.getByRole("navigation", { name: "Matchday tabs" }).getByRole("button", { name: "Players" }).click();
+
+  const pitch = page.getByRole("group", { name: "4-3-3 football formation" });
+  const bench = page.getByRole("list", { name: "Substitute seats" });
+  const benchCards = bench.getByRole("button");
+  await expect(pitch.getByRole("button")).toHaveCount(11);
+  await expect(benchCards).toHaveCount(6);
+  await expect(benchCards.nth(0)).toHaveClass("gg-lineup-player");
+  await expect(benchCards.nth(0)).toHaveAccessibleName("Reserve 1, CM, GG rating 5.50");
+  await bench.scrollIntoViewIfNeeded();
+  const pitchBox = await pitch.boundingBox();
+  const benchBox = await bench.boundingBox();
+  const first = await benchCards.nth(0).boundingBox();
+  const second = await benchCards.nth(1).boundingBox();
+  if (info.project.name === "chromium-mobile") {
+    expect(benchBox.y).toBeGreaterThanOrEqual(pitchBox.y + pitchBox.height);
+    expect(first.y).toBeCloseTo(second.y, 0);
+    expect(second.x).toBeGreaterThan(first.x);
+    const touch = await nativeTouch(page);
+    const y = Math.round(benchBox.y + benchBox.height / 2);
+    await touch("touchStart", 305, y);
+    await touch("touchMove", 250, y);
+    await touch("touchMove", 140, y);
+    await touch("touchEnd");
+    await expect.poll(() => bench.evaluate(node => node.scrollLeft)).toBeGreaterThan(15);
+    await expect(page.locator('#matchday-pager > [data-pane="current"]')).toHaveAttribute("data-tab", "players");
+  } else {
+    expect(benchBox.x).toBeGreaterThan(pitchBox.x + pitchBox.width);
+    expect(first.x).toBeCloseTo(second.x, 0);
+    expect(second.y).toBeGreaterThan(first.y);
+  }
+  await benchCards.last().click();
+  await expect(page.getByRole("heading", { name: "Reserve 6", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Back to Players/ }).click();
+  await expect(benchCards.last()).toBeInViewport();
+});
+
+test("shared dialog motion restores focus and respects reduced motion", async ({ page }) => {
+  await stubPublicApi(page);
+  await enterGuestMatchday(page);
+  const opener = page.getByRole("button", { name: /Hall of Fame/ });
+  const dialog = page.getByRole("dialog", { name: "Hall of Fame" });
+  await opener.click();
+  await expect(dialog).toHaveCSS("animation-name", "signature-dialog-in");
+  const close = dialog.getByRole("button", { name: "Close dialog" });
+  await expect(close).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(opener).toBeFocused();
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await opener.click();
+  await expect(dialog).toHaveCSS("animation-name", "none");
+  await close.click();
+  await expect(dialog).toHaveCount(0);
+});
+
 test("mobile asks for fullscreen after loading and keeps the Matchday pages in fullscreen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
@@ -318,25 +386,44 @@ test("Clubs opens on first click without replacing the page with a loading scree
   // Track even short-lived fallbacks, not just what remains after the click.
   await page.evaluate(() => {
     window.__clubsEntryFallbackSeen = false;
+    window.__workspacePhases = [];
     window.__clubsEntryObserver = new MutationObserver(() => {
       if (document.body.textContent?.includes("Opening Clubs…")) {
         window.__clubsEntryFallbackSeen = true;
       }
+      const stage = document.querySelector(".gg-workspace-transition");
+      if (!stage) return;
+      const rendered = document.querySelector(".clubs-app") ? "clubs" : "matchday";
+      const state = [stage.dataset.phase, rendered, stage.dataset.workspace].join(":");
+      if (window.__workspacePhases.at(-1) !== state) window.__workspacePhases.push(state);
     });
-    window.__clubsEntryObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    window.__clubsEntryObserver.observe(document.body, { childList: true, subtree: true, characterData: true,
+      attributes: true, attributeFilter: ["data-phase"] });
   });
 
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Club Hub" })).toBeVisible();
-  expect(await page.evaluate(() => {
-    window.__clubsEntryObserver.disconnect();
-    return window.__clubsEntryFallbackSeen;
-  })).toBe(false);
+  await expect(page.locator(".gg-workspace-transition")).toHaveCount(0);
 
   await page.getByRole("button", { name: /Matchday/i }).first().click();
   await expect(page.locator("main.app")).toBeVisible();
   await expect(page.locator(".bottom-nav")).toBeVisible();
+  await expect(page.locator(".gg-workspace-transition")).toHaveCount(0);
+  const transition = await page.evaluate(() => {
+    window.__clubsEntryObserver.disconnect();
+    return { fallback: window.__clubsEntryFallbackSeen, phases: window.__workspacePhases };
+  });
+  expect(transition.fallback).toBe(false);
+  expect(transition.phases).toEqual([
+    "covering:matchday:clubs", "covered:clubs:clubs", "revealing:clubs:clubs",
+    "covering:clubs:matchday", "covered:matchday:matchday", "revealing:matchday:matchday",
+  ]);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Club Hub" })).toBeVisible();
+  await expect(page.locator(".gg-workspace-transition")).toHaveCount(0);
 });
 
 test("admin control center keeps distinct workspaces and returns to Matchday", async ({ page }) => {
@@ -607,6 +694,8 @@ test("mobile dock highlights follow the finger and navigate only on release", as
   await dragBetween(page.locator(".bottom-nav"), /Home$/, /Players$/);
   await expect(page).toHaveURL(/tab=players/);
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.locator(".clubs-app")).toBeVisible();
+  await expect(page.locator(".gg-workspace-transition")).toHaveCount(0);
   await dragBetween(page.locator(".clubs-nav-main"), "Club Hub", "Players");
   await expect(page).toHaveURL(url => url.searchParams.get("view") === "clubs" && url.searchParams.get("tab") === "players");
 });
@@ -657,6 +746,7 @@ test("Matchday keeps the next panel ready during a deep page swipe and resets th
   const previewTop = (await homePane.boundingBox()).y;
   await touch("touchEnd");
   await expect(homePane).toHaveAttribute("data-pane", "current");
+  await expect(homePane).not.toHaveAttribute("data-signature-page-enter", "");
   expect(Math.abs((await homePane.boundingBox()).y - previewTop)).toBeLessThanOrEqual(1);
   expect(await page.evaluate(() => window.scrollY)).toBe(homeScroll);
   await navigation.getByRole("button", { name: /Record$/ }).click();
@@ -770,12 +860,12 @@ test("mobile Dark and Gold palettes stay aligned across Matchday and Clubs trans
   expect(darkPageFitsViewport).toBeTruthy();
 
   // Compare the selected theme after the mode transition has settled.
-  await expect(page.locator(".product-mode-transition")).toHaveCount(0);
+  await expect(page.locator(".gg-workspace-transition")).toHaveCount(0);
 
   // Returning to Matchday must preserve the ability to choose Gold independently.
   await page.getByRole("button", { name: /Matchday/ }).click();
   await expect(html).toHaveAttribute("data-product-mode", "matchday");
-  await expect(page.locator(".product-mode-transition")).toHaveCount(0);
+  await expect(page.locator(".gg-workspace-transition")).toHaveCount(0);
   await themeSwitch.getByRole("button", { name: "Gold", exact: true }).click();
   await expect(html).toHaveAttribute("data-theme", "golden");
   await page.getByRole("button", { name: "Clubs", exact: true }).click();

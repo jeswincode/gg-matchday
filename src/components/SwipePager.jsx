@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { readTabScroll, saveTabScroll, useTabScroll } from "../lib/tabHistory";
 import "./swipe-pager.css";
@@ -12,11 +12,22 @@ function isHorizontalScroller(target, root) {
 
 export default function SwipePager({ tabs, active, onNavigate, onMotionChange, renderPane, id }) {
   const surface = useRef(null);
+  const swipeArrival = useRef(null);
   const readTabs = useEffectEvent(() => tabs);
   const navigate = useEffectEvent(tab => onNavigate(tab));
   const reportMotion = useEffectEvent(moving => onMotionChange?.(moving));
   const activeIndex = tabs.indexOf(active);
   useTabScroll(id, active);
+
+  useLayoutEffect(() => {
+    const arrivedBySwipe = swipeArrival.current === active;
+    swipeArrival.current = null;
+    if (arrivedBySwipe) return;
+    const pane = surface.current.querySelector(':scope > [data-pane="current"]');
+    if (!pane) return;
+    pane.dataset.signaturePageEnter = "";
+    return () => { delete pane.dataset.signaturePageEnter; };
+  }, [active]);
 
   useEffect(() => {
     const pager = surface.current;
@@ -145,6 +156,7 @@ export default function SwipePager({ tabs, active, onNavigate, onMotionChange, r
         clearMotion();
         if (next === undefined || activePane() !== current.pane) return;
         saveTabScroll(pager.id, current.pane.dataset.tab);
+        swipeArrival.current = next;
         flushSync(() => navigate(next));
       };
       if (reducedMotion.matches || !pager.dataset.swiping) {

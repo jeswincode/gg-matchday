@@ -1,12 +1,27 @@
 import { createPortal } from "react-dom";
-import { useEffect, useEffectEvent, useId, useRef } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
 const tabbable = "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex='0']";
+const exitDuration = 145;
 
 export default function Modal({ title, onClose, children, className = "" }) {
   const dialogRef = useRef(null);
   const heading = useId();
-  const closeFromKeyboard = useEffectEvent(() => onClose());
+  const [closing, setClosing] = useState(false);
+  const finishClose = useEffectEvent(() => onClose());
+
+  function dismiss() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) onClose();
+    else setClosing(true);
+  }
+
+  const closeFromKeyboard = useEffectEvent(dismiss);
+
+  useEffect(() => {
+    if (!closing) return;
+    const timer = window.setTimeout(finishClose, exitDuration + 35);
+    return () => window.clearTimeout(timer);
+  }, [closing]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -39,11 +54,15 @@ export default function Modal({ title, onClose, children, className = "" }) {
   }, []);
 
   const modal = (
-    <div className="gg-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
-      <section ref={dialogRef} className={`gg-modal ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby={heading}>
+    <div className="gg-backdrop" data-closing={closing ? "" : undefined} style={{ "--signature-dialog-exit": exitDuration + "ms" }}
+      onMouseDown={event => event.target === event.currentTarget && dismiss()}>
+      <section ref={dialogRef} className={`gg-modal ${className}`.trim()} role="dialog" aria-modal="true" aria-labelledby={heading}
+        onAnimationEnd={event => {
+          if (closing && event.target === event.currentTarget && event.animationName === "signature-dialog-out") onClose();
+        }}>
         <header className="gg-modal-head">
           <div><p className="eyebrow">GG MATCHDAY</p><h2 id={heading}>{title}</h2></div>
-          <button type="button" className="secondary-button" aria-label="Close dialog" onClick={onClose}>×</button>
+          <button type="button" className="secondary-button" aria-label="Close dialog" onClick={dismiss}>×</button>
         </header>
         {children}
       </section>

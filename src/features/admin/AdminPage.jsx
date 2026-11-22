@@ -109,7 +109,7 @@ export default function AdminPage({
     </section>
   );
   return (
-    <section className="admin-workspace tab-content" aria-label="GG Matchday admin control center">
+    <section className="admin-workspace tab-content" aria-label="GG Matchday admin control center" data-signature-page-enter>
       <div className="admin-mobile-bar">
         <button type="button" className="admin-mobile-toggle" aria-label="Open admin sections" aria-controls="admin-sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><AdminIcon name="menu"/> Sections</button>
         <strong>GG / ADMIN</strong>

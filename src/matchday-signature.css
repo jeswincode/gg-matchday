@@ -238,14 +238,9 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
   bottom: -.2em;
 }
 
-#root .home-page :is(.home-hero .eyebrow, .feature-label),
-
-.product-mode-transition[class*="--to-"]::before {
+#root .home-page :is(.home-hero .eyebrow, .feature-label) {
   background: linear-gradient(140deg, var(--signature-base), var(--signature-wave));
 }
-.product-mode-transition .product-mode-wave--one { background: var(--signature-base); }
-.product-mode-transition .product-mode-wave--two { background: var(--signature-wave); }
-.product-mode-transition .product-mode-wave--three { background: var(--signature-accent); }
 
 @media (min-width: 761px) {
   #root .bottom-nav button small { font-size: .75rem; }
@@ -339,8 +334,6 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
   .gg-match-form-card .gg-performance-row:not(.assigned) { min-height: 0; padding-block: 5px; }
   .gg-match-form-card .gg-performance-row:not(.assigned) > div:first-child small { display: none; }
   .gg-match-form-card .gg-performance-row > .team-switch button { min-width: 44px; min-height: 44px; }
-  .gg-squad .gg-bench { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .gg-squad .gg-bench .gg-player-link span { overflow-wrap: anywhere; }
   .clubs-workspace .clubs-workspace-heading { gap: 8px; margin-bottom: 10px; }
   #root .clubs-workspace .clubs-view-filters button { flex: 1 1 auto; padding-inline: 7px; font-size: .82rem; }
 }

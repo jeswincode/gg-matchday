@@ -3,6 +3,7 @@ import {API_URL, api, authenticatedFetch, invalidate} from './lib/api';
 import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
 import SwipePager from "./components/SwipePager";
+import WorkspaceTransition from "./components/WorkspaceTransition";
 import useDockDrag from "./components/useDockDrag";
 import { pushTab, readTab, readWorkspace, useTabHistory } from "./lib/tabHistory";
 import { pauseBackgroundForSwipe, setBackgroundActive } from "./video-background";
@@ -116,10 +117,8 @@ function App() {
   const [playersError, setPlayersError] = useState("");
   const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('gg-theme')==='golden'?'golden':'dark';}catch{return 'dark';}});
   const [modeTransition,setModeTransition]=useState(null);
-  const modeTransitionTimer = useRef(null);
+  const pendingWorkspace = useRef(null);
   const closeModal=useCallback(()=>{setModal(null);setDetailId(null);},[]);
-
-  useEffect(() => () => window.clearTimeout(modeTransitionTimer.current), []);
 
   useEffect(()=>{
     try{
@@ -158,17 +157,43 @@ function App() {
     activeTab,
     setActiveTab,
   ] = useState(() => readWorkspace() === "matchday" && TAB_ORDER.includes(readTab()) ? readTab() : TABS.HOME);
-  function switchProductMode(nextMode, destination) {
-    if(nextMode===productMode) return;
-    window.clearTimeout(modeTransitionTimer.current);
-    setModeTransition(`to-${nextMode}-${theme}`);
-    setProductMode(nextMode);
-    if (nextMode === "matchday") setExperience("app");
+  function switchProductMode(nextMode, destination, adminEntry = false) {
+    if (nextMode === productMode || pendingWorkspace.current) return;
     const defaultTab = nextMode === "clubs" ? "overview" : TAB_ORDER.includes(activeTab) ? activeTab : TABS.HOME;
-    pushTab(nextMode, destination ?? defaultTab);
-    modeTransitionTimer.current = window.setTimeout(()=>setModeTransition(null),225);
+    function openWorkspace() {
+      setClubsAdminEntry(adminEntry);
+      setProductMode(nextMode);
+      if (nextMode === "matchday") setExperience("app");
+      pushTab(nextMode, destination ?? defaultTab);
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      openWorkspace();
+      return;
+    }
+    pendingWorkspace.current = { workspace: nextMode, phase: "covering", openWorkspace };
+    setModeTransition({ workspace: nextMode, phase: "covering" });
   }
+
+  function advanceWorkspaceTransition(phase) {
+    const pending = pendingWorkspace.current;
+    if (pending?.phase !== phase) return;
+    if (phase === "revealing") {
+      pendingWorkspace.current = null;
+      setModeTransition(null);
+      return;
+    }
+
+    pending.phase = phase === "covering" ? "covered" : "revealing";
+    if (phase === "covering") pending.openWorkspace();
+    setModeTransition({ workspace: pending.workspace, phase: pending.phase });
+  }
+
   useTabHistory((workspace, tab) => {
+    if (pendingWorkspace.current) {
+      pendingWorkspace.current = null;
+      setModeTransition(null);
+    }
     setProductMode(workspace);
     setClubsAdminEntry(false);
     closeModal();
@@ -2021,43 +2046,20 @@ function App() {
   // RENDER
   // =========================================================
 
-  const modeTransitionLayer = modeTransition ? (
-    <div className={`product-mode-transition product-mode-transition--${modeTransition}`} aria-hidden="true">
-      <span className="product-mode-wave product-mode-wave--one" />
-      <span className="product-mode-wave product-mode-wave--two" />
-      <span className="product-mode-wave product-mode-wave--three" />
-    </div>
-  ) : null;
-
+  let workspaceContent;
   if (activeExperience === "startup") {
-    return <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
-  }
-
-  if (fullscreenPromptOpen) {
-    return <MobileFullscreenScreen onContinue={() => setMobileEntryComplete(true)} />;
-  }
-
-  if (productMode === "clubs" && (!authLoading || activeExperience === "app")) {
-
-    return (
-      <>
-        <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin}
-          adminEntry={clubsAdminEntry} onOpenOwnProfile={linkedPlayerId ? openOwnProfile : null}
-          openingOwnProfile={openingOwnProfile} ownProfileError={linkedPlayerId ? ownProfileError : ""} />
-        {modeTransitionLayer}
-      </>
-    );
-  }
-
-  if (activeExperience === "entry") {
-    return <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} signingIn={signingIn} message={message} />;
-  }
-
-  if (activeExperience === "welcome") {
-    return <WelcomeScreen onEnter={() => setExperience("app")} />;
-  }
-
-  return (
+    workspaceContent = <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
+  } else if (fullscreenPromptOpen) {
+    workspaceContent = <MobileFullscreenScreen onContinue={() => setMobileEntryComplete(true)} />;
+  } else if (productMode === "clubs" && (!authLoading || activeExperience === "app")) {
+    workspaceContent = <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin}
+      adminEntry={clubsAdminEntry} onOpenOwnProfile={linkedPlayerId ? openOwnProfile : null}
+      openingOwnProfile={openingOwnProfile} ownProfileError={linkedPlayerId ? ownProfileError : ""} />;
+  } else if (activeExperience === "entry") {
+    workspaceContent = <LoginDashboard onSignIn={signIn} onGuest={enterGuestMode} busy={authLoading} signingIn={signingIn} message={message} />;
+  } else if (activeExperience === "welcome") {
+    workspaceContent = <WelcomeScreen onEnter={() => setExperience("app")} />;
+  } else workspaceContent = (
     <main className={"app" + (activeTab === TABS.ADMIN ? " app--admin" : " app--matchday")}
       data-page-swipes={activeTab === TABS.ADMIN ? undefined : ""} data-companion-world>
       <NotificationIndicator accountId={accountId} />
@@ -2078,7 +2080,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={() => { setClubsAdminEntry(false); switchProductMode("clubs"); }}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={() => switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2405,7 +2407,7 @@ function App() {
           handleEditorRequest={handleEditorRequest}
           revokeEditor={revokeEditor}
           onBackToMatchday={() => { setActiveTab(TABS.HOME); window.scrollTo(0, 0); }}
-          onOpenClubsAdmin={() => { setClubsAdminEntry(true); switchProductMode("clubs"); }}
+          onOpenClubsAdmin={() => switchProductMode("clubs", undefined, true)}
           onOpenProfileAdmin={() => setProfileRequestMode("admin")}
         />
         </Suspense>
@@ -2496,9 +2498,13 @@ function App() {
         <ProfileRequests key={`${backendUser?.id}:${linkedPlayerId}:${profileRequestMode}`} mode={profileRequestMode}
           playerId={linkedPlayerId} onClose={() => setProfileRequestMode(null)} />}
       </Suspense>
-      {modeTransitionLayer}
     </main>
   );
+
+  return <>
+    {workspaceContent}
+    {modeTransition && <WorkspaceTransition {...modeTransition} onPhaseDone={advanceWorkspaceTransition} />}
+  </>;
 }
 
 // =========================================================

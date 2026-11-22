@@ -85,7 +85,7 @@ export default function PlayerProfile({
     : <span className="profile-photo-fallback" aria-hidden="true">{player.name?.charAt(0).toUpperCase()}</span>;
 
   return (
-    <section className="player-profile" ref={profileSection}>
+    <section className="player-profile" ref={profileSection} data-signature-page-enter>
     
       <button
         type="button"

@@ -1,7 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import { formations, selectSquad } from "../lib/formations";
 import { rating } from "../lib/format";
-import { PlayerButton } from "./common";
 import "./starting-xi.css";
 
 const quickFormations = ["4-3-3", "4-4-2", "4-2-3-1"];
@@ -12,11 +11,11 @@ function LineupPlayer({ player, position, playerRating, onPlayer }) {
   </span>;
 
   return <button type="button" className="gg-lineup-player" onClick={() => onPlayer(player._id)}
-    aria-label={`${player.name}, ${position}${playerRating == null ? "" : `, GG rating ${rating(playerRating)}`}`}>
+    aria-label={`${player.name}, ${position || "position not set"}${playerRating == null ? "" : `, GG rating ${rating(playerRating)}`}`}>
     {player.profileImage ? <img src={player.profileImage} alt="" loading="lazy" /> :
       <span className="gg-lineup-avatar" aria-hidden="true">{player.name?.charAt(0)}</span>}
     <strong>{player.name}</strong>
-    <span className="gg-lineup-position">{position}</span>
+    <span className="gg-lineup-position">{position || "—"}</span>
     <span className="gg-lineup-rating">{rating(playerRating)}</span>
   </button>;
 }
@@ -69,10 +68,12 @@ export default function Squad({ players, statistics = [], onPlayer }) {
       </div> : <ul className="gg-lineup-list" aria-label={`${formation} player lineup`}>{lineup}</ul>}
       <aside className="gg-lineup-bench" aria-label="Bench">
         <h3>Bench <small>{bench.length}</small></h3>
-        <div className="gg-bench">
-          {bench.map(player => <PlayerButton key={player._id} player={player} onPlayer={onPlayer} />)}
-          {!bench.length && <p className="muted">No players on the bench.</p>}
-        </div>
+        {bench.length ? <ul className="gg-bench" aria-label="Substitute seats" role="list">
+          {bench.map(player => <li key={player._id} className="gg-bench-seat">
+            <LineupPlayer player={player} position={player.preferredPositions?.[0] || player.position}
+              playerRating={ratings.get(String(player._id))} onPlayer={onPlayer} />
+          </li>)}
+        </ul> : <p className="muted gg-bench-empty">No players on the bench.</p>}
       </aside>
     </div>
   </section>;

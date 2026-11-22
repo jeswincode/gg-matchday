@@ -1,29 +1,133 @@
 :root {
-  --signature-popup-surface: color-mix(in srgb, var(--signature-surface) 72%, var(--signature-base));
-  --signature-popup-edge: color-mix(in srgb, var(--signature-edge) 56%, var(--signature-base));
-  --signature-ease-out: cubic-bezier(.2, .72, .25, 1);
+  --signature-popup-surface: color-mix(in srgb, var(--signature-surface) 74%, var(--signature-base));
+  --signature-popup-edge: color-mix(in srgb, var(--signature-edge) 64%, var(--signature-base));
+  --signature-ease-out: cubic-bezier(.16, 1, .3, 1);
+  --signature-ease-in: cubic-bezier(.4, 0, .75, .4);
+  --signature-press: 110ms;
+  --signature-popover: 165ms;
+  --signature-page: 200ms;
+  --signature-dialog: 240ms;
 }
 
-:root :is(.gg-modal, .pr-modal, .home-goals-panel, .gg-code-menu-portal) {
+html[data-theme] :is(.gg-modal, .pr-modal, .home-goals-panel, .gg-code-menu-portal) {
   color: var(--signature-ink);
   border-color: var(--signature-popup-edge);
-  background: var(--signature-glass), var(--signature-popup-surface);
+  border-top-color: color-mix(in srgb, var(--signature-accent) 36%, var(--signature-popup-edge));
+  background:
+    radial-gradient(ellipse at 87% 0%, color-mix(in srgb, var(--signature-wave) 49%, transparent), transparent 58%),
+    var(--signature-glass), var(--signature-popup-surface);
+  box-shadow: 0 24px 64px rgb(0 0 0 / .42), inset 0 1px rgb(255 255 255 / .035);
 }
 
-:root .pr-modal .pr-card {
+:root :is(.gg-modal-head, .pr-head) {
+  position: relative;
+  border-bottom-color: var(--signature-popup-edge);
+}
+
+:root :is(.gg-modal-head, .pr-head)::after {
+  content: "";
+  position: absolute;
+  inset: auto auto -1px 0;
+  width: min(48%, 240px);
+  height: 1px;
+  background: linear-gradient(90deg, var(--signature-secondary), transparent);
+  pointer-events: none;
+}
+
+html[data-theme] .pr-modal .pr-card {
   background: var(--signature-base);
   border-color: var(--signature-popup-edge);
 }
+
+:where(.app, .clubs-workspace) :is(.page-title, .clubs-workspace-heading) {
+  background-image: linear-gradient(105deg, color-mix(in srgb, var(--signature-wave) 28%, transparent), transparent 60%);
+}
+
+.gg-workspace-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: clip;
+  isolation: isolate;
+  touch-action: none;
+  --shutter-ink: var(--signature-accent);
+  --shutter-light: var(--signature-secondary);
+  --shutter-panel: color-mix(in srgb, var(--signature-base) 74%, var(--signature-surface));
+}
+
+.gg-workspace-transition[data-workspace="clubs"] {
+  --shutter-light: color-mix(in srgb, var(--signature-secondary) 58%, #82b89d);
+}
+
+.gg-workspace-shutter {
+  position: absolute;
+  inset-inline: 0;
+  height: calc(50% + 1px);
+  background:
+    linear-gradient(105deg, transparent 32%, color-mix(in srgb, var(--shutter-light) 25%, transparent) 51%, transparent 68%),
+    var(--shutter-panel);
+}
+
+.gg-workspace-shutter::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(114deg, transparent 0 42px, rgb(255 255 255 / .045) 43px 44px, transparent 45px 72px);
+}
+
+.gg-workspace-shutter::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--shutter-ink) 50%, transparent);
+}
+
+.gg-workspace-shutter--top { top: 0; --shutter-travel: -101%; }
+.gg-workspace-shutter--bottom { bottom: 0; --shutter-travel: 101%; }
+.gg-workspace-shutter--top::after { bottom: 0; }
+.gg-workspace-shutter--bottom::after { top: 0; }
+
+.gg-workspace-transition[data-phase="covering"] .gg-workspace-shutter {
+  animation: signature-shutter var(--shutter-duration) var(--signature-ease-out) both;
+}
+
+.gg-workspace-transition[data-phase="revealing"] .gg-workspace-shutter {
+  animation: signature-shutter var(--shutter-duration) var(--signature-ease-in) reverse both;
+}
+
+.gg-workspace-mark {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  translate: -50% -50%;
+  display: grid;
+  min-width: 132px;
+  justify-items: center;
+  gap: 5px;
+  padding: 11px 22px 10px;
+  border: 1px solid color-mix(in srgb, var(--shutter-ink) 64%, var(--shutter-panel));
+  border-radius: 15px;
+  background: var(--signature-glass), var(--shutter-panel);
+  color: var(--shutter-ink);
+  box-shadow: 0 0 34px color-mix(in srgb, var(--shutter-light) 26%, transparent);
+}
+
+.gg-workspace-monogram { font-size: 1.65rem; font-weight: 900; line-height: 1; letter-spacing: -.08em; }
+.gg-workspace-destination { font-size: .68rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.gg-workspace-transition[data-phase="covering"] .gg-workspace-mark { animation: signature-workspace-mark 110ms var(--signature-ease-out) 65ms both; }
+.gg-workspace-transition[data-phase="revealing"] .gg-workspace-mark { animation: signature-workspace-mark 110ms var(--signature-ease-in) reverse both; }
 
 @media (max-width: 760px) {
   :root :is(.gg-modal, .pr-modal) :is(.gg-modal-head, .pr-head) {
     background-color: var(--signature-popup-surface);
   }
+  :root .pr-modal .pr-head { position: sticky; }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   :root :is(.gg-backdrop, .pr-backdrop) {
     background: transparent;
+    animation: none;
   }
 
   :root :is(.gg-backdrop, .pr-backdrop)::before {
@@ -33,55 +137,87 @@
     z-index: -1;
     pointer-events: none;
     background: rgb(4 5 9 / .72);
-    animation: signature-scrim-in 130ms ease-out backwards;
+    animation: signature-scrim-in 170ms var(--signature-ease-out) backwards;
   }
 
-  :is(.home-goals-backdrop, .clubs-admin-dismiss) {
-    animation: signature-scrim-in 130ms ease-out backwards;
+  :is(.home-goals-backdrop, .clubs-admin-dismiss, .admin-menu-scrim) {
+    animation: signature-scrim-in var(--signature-popover) var(--signature-ease-out) backwards;
   }
 
-  :is(.gg-modal, .pr-modal, .home-goals-panel, .gg-code-menu-portal) {
-    animation: signature-pop-in 180ms var(--signature-ease-out) backwards;
+  :root :is(.gg-modal, .pr-modal) {
+    animation: signature-dialog-in var(--signature-dialog) var(--signature-ease-out) backwards;
+  }
+
+  :root .gg-backdrop[data-closing]::before {
+    animation: signature-scrim-in var(--signature-dialog-exit) var(--signature-ease-in) reverse both;
+  }
+
+  :root .gg-backdrop[data-closing] .gg-modal {
+    animation: signature-dialog-out var(--signature-dialog-exit) var(--signature-ease-in) both;
+    pointer-events: none;
+  }
+
+  :is(.home-goals-panel, .gg-code-menu-portal, .clubs-nav-secondary[data-open="true"]) {
+    animation: signature-pop-in var(--signature-popover) var(--signature-ease-out) backwards;
+  }
+
+  [data-signature-page-enter] {
+    animation: signature-page-in var(--signature-page) var(--signature-ease-out) backwards;
+  }
+
+  [data-signature-page-enter] .gg-bench-seat {
+    animation: signature-pop-in var(--signature-page) var(--signature-ease-out) backwards;
   }
 
   #root .clubs-workspace :is(.clubs-topbar.clubs-compact-header, .clubs-command-header) {
-    animation: signature-panel-in 160ms var(--signature-ease-out) backwards;
+    animation: signature-pop-in var(--signature-popover) var(--signature-ease-out) backwards;
   }
 
-  .clubs-workspace :is(.clubs-primary-button, .clubs-secondary-button) {
-    transition: translate 130ms var(--signature-ease-out), transform 130ms var(--signature-ease-out),
-      background-color 130ms ease-out, border-color 130ms ease-out, color 130ms ease-out;
+  :where(.app, .clubs-workspace, .gg-modal, .pr-modal) :where(
+    .secondary-button, .primary-button, .save-button, .admin-nav-item,
+    .clubs-primary-button, .clubs-secondary-button, .clubs-nav-item, .gg-lineup-player,
+    .gg-lineup-presets button, .gg-glass-tabs button
+  ) {
+    transition: translate var(--signature-press) var(--signature-ease-out),
+      background-color var(--signature-popover) ease-out, border-color var(--signature-popover) ease-out;
   }
 
-  .clubs-workspace :is(.clubs-primary-button, .clubs-secondary-button):active:not(:disabled) {
+  :where(.app, .clubs-workspace, .gg-modal, .pr-modal) :where(
+    .secondary-button, .primary-button, .save-button, .admin-nav-item,
+    .clubs-primary-button, .clubs-secondary-button, .clubs-nav-item, .gg-lineup-presets button, .gg-glass-tabs button
+  ):active:not(:disabled) {
     translate: 0 1px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .gg-lineup-player:is(:hover, :focus-visible) {
+      border-color: var(--signature-secondary);
+      background-color: var(--panel-soft);
+    }
   }
 
   @media (max-width: 850px) {
     .clubs-workspace .clubs-admin-rail[data-open="true"] {
-      animation: signature-rail-in 180ms var(--signature-ease-out) backwards;
+      animation: signature-rail-in var(--signature-dialog) var(--signature-ease-out) backwards;
     }
   }
 
   @media (max-width: 760px) {
-    .clubs-workspace .clubs-nav-secondary[data-open="true"] {
-      animation: signature-pop-in 160ms var(--signature-ease-out) backwards;
-    }
+    :root :is(.gg-modal, .pr-modal) { --dialog-lift: 11px; }
   }
 }
 
-@keyframes signature-scrim-in {
-  from { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .gg-workspace-transition { display: none; }
+  .gg-pitch-spot { transition: none; }
+  .gg-bench { scroll-snap-type: none; }
 }
 
-@keyframes signature-pop-in {
-  from { opacity: .72; translate: 0 7px; }
-}
-
-@keyframes signature-panel-in {
-  from { opacity: .9; translate: 0 3px; }
-}
-
-@keyframes signature-rail-in {
-  from { opacity: .8; translate: -10px 0; }
-}
+@keyframes signature-shutter { from { translate: 0 var(--shutter-travel); } to { translate: 0 0; } }
+@keyframes signature-workspace-mark { from { opacity: 0; scale: .9; } to { opacity: 1; scale: 1; } }
+@keyframes signature-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes signature-pop-in { from { opacity: .62; translate: 0 5px; } }
+@keyframes signature-page-in { from { opacity: .72; } }
+@keyframes signature-dialog-in { from { opacity: .45; translate: 0 var(--dialog-lift, 9px); scale: .985; } }
+@keyframes signature-dialog-out { to { opacity: 0; translate: 0 5px; scale: .99; } }
+@keyframes signature-rail-in { from { opacity: .8; translate: -12px 0; } }

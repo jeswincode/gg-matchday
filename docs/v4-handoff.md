@@ -71,6 +71,14 @@ Take the next user-selected feature through local implementation, focused tests,
 - The world reads the active workspace and the topmost open dialog. It uses the visible top edges of headers, navigation, cards and sections as surfaces. Inactive tabs and clipped or hidden elements are excluded. Add `data-companion-surface="unique-name"` to an element to give it a stable target, or use `data-companion-surface="off"` to exclude a subtree.
 - The Phase 2 controller can dispatch `gg:companion` custom events on `window` with `detail: { type: "move", target, pose }`, `{ type: "pose", pose }` or `{ type: "say", text, duration }`. A target can be a visible element or its surface name. Supported poses are `stand`, `sit` and `celebrate`. A line of dialogue uses plain text and a duration in milliseconds.
 
+## Matchday Signature motion
+
+- New destinations inside `SwipePager` inherit the same page entrance on taps and keyboard navigation. Swipe arrivals use the pager animation and its saved scroll coordinates. Standalone pages can use `data-signature-page-enter`. Shared durations, easing and the Dark and Gold treatments live in [`matchday-motion.css`](../src/matchday-motion.css).
+- Use the shared `Modal` for dialogs. It supplies the scrim, panel motion, keyboard dismissal and focus restoration. Use the same motion tokens for small menus and drawers. Reduced-motion settings skip the workspace shutter and page or dialog movement.
+- The Clubs and Matchday workspace shutter covers the current page before navigation. It holds the new page behind the opaque panels for a beat before revealing it. Keep the longer transition for workspace changes so primary tabs and controls stay quick.
+- The pitch and substitutes use the same player card. The bench follows the pitch touchline on desktop and scrolls sideways below the pitch on phones, with one seat per available substitute.
+- References include [Sportening's lineup](https://dribbble.com/shots/15394948-Sportening-Football-lineup-and-stats), [The Guru Fox's pop-up overlay](https://dribbble.com/shots/27409033-Pop-up-Overlay-Daily-UI-Challenge-016), [Fluent 2's motion guidelines](https://fluent2.microsoft.design/motion) and [IFAB's technical area markings](https://www.theifab.com/laws/latest/the-field-of-play/#the-technical-area).
+
 ## Open in Codex
 
 - **Desktop or CLI.** Open a local checkout of this repository on `v4/fresh-start`. For a fresh checkout, run `git clone --single-branch --branch v4/fresh-start https://github.com/jeswincode/gg-matchday.git`. In the desktop app, open the checkout folder as a local project. Use `git branch --show-current` to confirm the branch. Codex reads the root [`AGENTS.md`](../AGENTS.md). [Desktop setup](https://learn.chatgpt.com/docs/app) · [Repository instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md)

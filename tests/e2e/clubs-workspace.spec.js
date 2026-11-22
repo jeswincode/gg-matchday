@@ -76,7 +76,7 @@ test("the account avatar and profile edit button open the appropriate profile se
   await avatar.click();
   const account = page.getByRole("dialog", { name: "Account profile settings" });
   await expect(account.getByRole("heading", { name: "Linked player profile" })).toBeVisible();
-  await expect(account).toHaveCSS("animation-name", "signature-pop-in");
+  await expect(account).toHaveCSS("animation-name", "signature-dialog-in");
   await account.getByRole("button", { name: "Gold", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "golden");
   await page.emulateMedia({ reducedMotion: "reduce" });
