@@ -1,0 +1,67 @@
+.gg-footballer {
+  --player-kit: var(--signature-accent, #ab98d9);
+  --player-socks: var(--player-kit);
+  --player-trim: #f8e6a9;
+  --player-number: #191722;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.gg-footballer[data-kit="away"] { --player-kit: #ebdfba; --player-trim: #79613a; }
+.gg-footballer[data-kit="training"] { --player-kit: #87bd9a; --player-trim: #f3eed0; }
+.gg-footballer:is([data-kit="madrid"], [data-temporary-kit="madrid"]) { --player-kit: #faf7eb; --player-trim: #dcb56a; }
+.gg-footballer:is([data-kit="barcelona"], [data-temporary-kit="barcelona"]) { --player-kit: #234a99; --player-trim: #a5254e; --player-number: #fff2b8; }
+.gg-player-pupils { translate: var(--gaze-x, 0px) var(--gaze-y, 0px); }
+.gg-player-finger, .gg-player-stripes { opacity: 0; }
+.gg-footballer:is([data-kit="barcelona"], [data-temporary-kit="barcelona"]) .gg-player-stripes { opacity: 1; }
+.gg-player-art { transform-origin: 40px 84px; }
+.gg-player-arm--left { transform-origin: 26px 51px; }
+.gg-player-arm--right { transform-origin: 54px 51px; }
+.gg-player-leg--left { transform-origin: 34px 72px; }
+.gg-player-leg--right { transform-origin: 46px 72px; }
+[data-pose="sit"] .gg-player-art { transform: scaleY(.84); }
+[data-pose="sit"] .gg-player-leg--left { rotate: 27deg; }
+[data-pose="sit"] .gg-player-leg--right { rotate: -27deg; }
+[data-pose="slide"] .gg-player-art { rotate: 12deg; }
+[data-edge="left-rail"][data-pose="slide"] .gg-player-art { rotate: -12deg; }
+[data-pose="slide"] .gg-player-arm--right { rotate: -55deg; }
+[data-edge="left-rail"][data-pose="slide"] .gg-player-arm--left { rotate: 55deg; }
+[data-pose="held"] .gg-player-art { rotate: -9deg; }
+.gg-footballer[data-action="run"] .gg-player-leg,
+.gg-footballer[data-action="walk"] .gg-player-leg { animation: gg-stride 280ms ease-in-out infinite alternate; }
+.gg-footballer[data-action="walk"] .gg-player-leg { animation-duration: 430ms; }
+.gg-footballer[data-action="run"] .gg-player-leg--right,
+.gg-footballer[data-action="walk"] .gg-player-leg--right { animation-direction: alternate-reverse; }
+.gg-footballer[data-action="run"] .gg-player-art { rotate: calc(10deg * var(--run-direction, 1)); }
+.gg-footballer[data-action="siuu"] .gg-player-art { animation: gg-siuu 760ms ease both; }
+.gg-footballer[data-action="siuu"] .gg-player-arm--left { rotate: 38deg; }
+.gg-footballer[data-action="siuu"] .gg-player-arm--right { rotate: -38deg; }
+.gg-footballer[data-action="sky"] .gg-player-arm--left { rotate: 148deg; }
+.gg-footballer[data-action="sky"] .gg-player-arm--right { rotate: -148deg; }
+.gg-footballer[data-action="sky"] .gg-player-finger { opacity: 1; }
+.gg-footballer[data-action="wave"] .gg-player-arm--right { animation: gg-wave 330ms ease-in-out 4 alternate; }
+.gg-footballer[data-action="kick"] .gg-player-leg--right { animation: gg-kick 520ms ease-in-out; }
+.gg-footballer[data-action="change"] .gg-player-jersey { animation: gg-kit-change 560ms ease both; }
+@keyframes gg-stride { from { rotate: -27deg; } to { rotate: 30deg; } }
+@keyframes gg-siuu { 0% { transform: scaleX(1); } 42% { transform: translateY(-21px) scaleX(-.65); } 72% { transform: translateY(0) scaleX(1) scaleY(.88); } 100% { transform: none; } }
+@keyframes gg-wave { from { rotate: -120deg; } to { rotate: -160deg; } }
+@keyframes gg-kick { 45% { rotate: -65deg; } }
+@keyframes gg-kit-change { 45% { opacity: .1; translate: 0 -9px; } 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .gg-footballer * { animation: none !important; }
+  .gg-footballer[data-action="wave"] .gg-player-arm--right { rotate: -140deg; }
+}
+
+.gg-player-number-madrid, .gg-player-number-barcelona { display: none; }
+.gg-footballer:is([data-kit="madrid"], [data-temporary-kit="madrid"]) .gg-player-number-madrid,
+.gg-footballer:is([data-kit="barcelona"], [data-temporary-kit="barcelona"]) .gg-player-number-barcelona { display: inline; }
+.gg-footballer:is([data-kit="madrid"], [data-kit="barcelona"], [data-temporary-kit="madrid"], [data-temporary-kit="barcelona"]) .gg-player-number-default { display: none; }
+
+.gg-footballer[data-action="sky"] .gg-player-leg {
+  animation: gg-celebration-step 310ms ease-in-out 3 alternate;
+}
+.gg-footballer[data-action="sky"] .gg-player-leg--right { animation-direction: alternate-reverse; }
+.gg-player-eyes { transform-origin: 40px 29px; animation: gg-player-blink 6.8s linear infinite; }
+@keyframes gg-celebration-step { 0%, 100% { rotate: 0deg; } 50% { rotate: 16deg; } }
+@keyframes gg-player-blink { 0%, 90%, 94%, 100% { scale: 1; } 92% { scale: 1 .12; } }

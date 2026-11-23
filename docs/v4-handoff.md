@@ -67,6 +67,20 @@ Take the next user-selected feature through local implementation, focused tests,
 - Clubs Admin uses the Matchday Admin layout with Clubs styling. The grouped sidebar opens Dashboard, Applications, Clubs, Matches, Action queue, and Activity & audit. Desktop keeps navigation visible beside a separately scrolling work area. On mobile, Sections opens the sidebar drawer. The dashboard has shortcuts to active workflows and recent Club records, and Matches can be searched by Club, date, or record ID.
 - The [Clubs workspace browser test](../tests/e2e/clubs-workspace.spec.js) checks captain and member views in independent sessions, a same-Club bet, private history, and a cancellation refund against isolated fixtures.
 
+## V4.2 Companion and Community World
+
+- Sign in with a local fixture account. The Companion starts seated above the Matchday account avatar. Tap to wake it, drag it back to the avatar to park it, or use right-click, a long press, or Shift+F10 for its actions. Account profile settings saves the kit, player style, complexion and celebration to the existing account.
+- **Enter Community World** opens Matchday Grounds. A map click or facility button moves the player along the campus paths. **Wave** can target a selected player, **Emote** uses the saved celebration, **Kick** is available at the training ground or pitch, and **Sit** at the clubhouse.
+- The room uses authenticated event streams served by one Express process. Presence, movement and emotes are temporary. Multiple API instances would need shared room state and event delivery. Only the appearance setting is stored in the core account document.
+- Use `tests/e2e/companion-world.spec.js` with the isolated browser fixture to check the account locker and live interaction from independent browser sessions.
+
+### Isolated V4.2 preview setup
+
+- Configure a dedicated Render service for the preview branch with its own MongoDB and Firebase project. Point `MONGODB_URI` at `gg_matchday_v42_demo` and `CLUBS_MONGODB_URI` at `gg_matchday_v42_demo_clubs`. Use the same preview Firebase project for `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` and the Vercel frontend's `VITE_FIREBASE_*` settings in [the environment example](../.env.example).
+- Set `VITE_API_URL` to the preview Render URL with an `/api` suffix. Add the Vercel preview origin to Render's `CORS_ORIGINS` and its hostname to the preview Firebase project's authorized domains.
+- Run `node scripts/seed-v42-preview.mjs` in the preview runtime with `V42_PREVIEW_ATLAS_HOST` set to its verified Atlas SRV hostname. The seed adds fictional players, two clubs and contracts, a completed result shared by both databases, and a confirmed upcoming fixture. Repeating the seed preserves edits to existing records.
+- Check `/api/health` on the preview API, then sign in with two preview accounts in separate browser sessions and join Community World from both.
+
 ## GG Companion foundation
 
 - Leaflet's [PipWorld](https://github.com/itsadithyakv/Leaflet-BookReader/blob/main/apps/src/components/PipWorld.tsx) and [PipSay](https://github.com/itsadithyakv/Leaflet-BookReader/blob/main/apps/src/components/PipSay.tsx) were the interaction references. GG Matchday has its own surfaces, styling and movement code.

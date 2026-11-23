@@ -17,6 +17,7 @@ router.get("/me", requireAuth, async (req, res) => {
         role: user.role,
         accessRequest: user.accessRequest || "none",
         playerProfile: user.playerProfile || null,
+        companion: user.companion,
       },
     });
   } catch (error) {

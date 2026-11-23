@@ -23,10 +23,12 @@ import Calendar from './features/calendar/Calendar';
 import MatchRecordForm from './features/matches/MatchRecordForm';
 // Heavier destinations stay split, but suspend only inside their own view.
 const Clasico = lazy(() => import('./components/Clasico'));
+const CommunityWorld = lazy(() => import('./features/world/CommunityWorld'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const ProfileRequests = lazy(() => import('./ProfileRequests'));
 // Clubs is a primary product surface, so its code must be ready before
 // navigation; background prefetch can race the user's first click.
+import CompanionWorld from './features/companion/CompanionWorld';
 import ClubsMode from './features/clubs/ClubsMode';
 const Awards = lazy(()=>import('./components/Awards'));
 const loadMatchDetail = () => import('./components/MatchDetail');
@@ -96,6 +98,7 @@ function localDateString(
 
 function App() {
   const dockDrag = useDockDrag();
+  const [worldAccount, setWorldAccount] = useState(null);
   const [experience,setExperience]=useState('startup');
   const [mobileEntry] = useState(() => window.matchMedia("(max-width: 767px), (hover: none) and (pointer: coarse)").matches);
   const [mobileEntryComplete, setMobileEntryComplete] = useState(() => Boolean(document.fullscreenElement));
@@ -748,6 +751,7 @@ function App() {
   async function logout() {
     try {
       await signOut(auth);
+      setWorldAccount(null);
       closeModal();
       closePlayerEditor();
 
@@ -2104,7 +2108,7 @@ function App() {
           <>
             <div className="account-user">
               <button type="button" className="gg-avatar-action gg-account-avatar" aria-label="Account profile settings"
-                aria-haspopup="dialog" onClick={() => { setOwnProfileError(""); setModal("account"); }}>
+                data-companion-surface="companion-seat" aria-haspopup="dialog" onClick={() => { setOwnProfileError(""); setModal("account"); }}>
               {authUser.photoURL ? (
                 <img
                   src={
@@ -2530,6 +2534,9 @@ function App() {
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
       {modal === "account" && authUser && <AccountProfileSettings
         account={authUser} role={backendUser?.role} linked={Boolean(linkedPlayerId)} theme={theme} onTheme={setTheme}
+        key={accountId || authUser.uid} companion={backendUser?.companion}
+        onCompanionSave={accountId ? companion => setBackendUser(current =>
+          current?.id === accountId ? { ...current, companion } : current) : null}
         opening={openingOwnProfile} error={ownProfileError} canEdit={isEditor} onClose={closeModal}
         onOpenPlayer={() => openOwnProfile()}
         onEditPlayer={() => {
@@ -2549,6 +2556,10 @@ function App() {
 
   return <>
     {workspaceContent}
+    <CompanionWorld enabled={Boolean(accountId)} account={backendUser} onWorld={() => setWorldAccount(accountId)} />
+    {accountId && worldAccount === accountId && <Suspense fallback={<p className="gg-world-loading" role="status">Opening Community World…</p>}>
+      <CommunityWorld key={accountId} onClose={() => setWorldAccount(null)} />
+    </Suspense>}
     {modeTransition && <WorkspaceTransition {...modeTransition} onPhaseDone={advanceWorkspaceTransition} />}
   </>;
 }

@@ -31,9 +31,9 @@
   position: absolute;
   left: 0;
   top: 0;
-  transform: translate3d(calc(var(--companion-x) - 16px), calc(var(--companion-y) - 32px), 0);
-  width: 32px;
-  height: 32px;
+  transform: translate3d(calc(var(--companion-x) - var(--companion-size) / 2), calc(var(--companion-y) - var(--companion-size)), 0);
+  width: var(--companion-size);
+  height: var(--companion-size);
   display: grid;
   align-items: end;
   padding: 0;
@@ -46,30 +46,86 @@
   cursor: grab;
 }
 
-.gg-companion-token span {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  border: 1px solid var(--signature-edge);
-  border-radius: 50%;
-  background: var(--signature-accent);
-  font-size: 11px;
-  font-weight: 900;
-  transform-origin: center bottom;
-}
+.gg-companion-stage { --companion-size: 44px; }
+.gg-companion-stage[data-legacy] { --companion-size: 32px; }
 
 .gg-companion-token[data-pose="held"] { cursor: grabbing; }
-.gg-companion-token[data-pose="sit"] span { transform: scaleY(.73); }
-.gg-companion-token[data-pose="slide"] span { transform: scaleX(.77) scaleY(1.07); }
-.gg-companion-token[data-edge="left-rail"] span { transform-origin: left bottom; }
-.gg-companion-token[data-edge="right-rail"] span { transform-origin: right bottom; }
-.gg-companion-token[data-pose="celebrate"] span { animation: gg-companion-celebrate 420ms ease-out 2 alternate; }
+.gg-companion-token:focus-visible { outline: 2px solid var(--signature-accent); outline-offset: 2px; border-radius: 12px; }
+.gg-companion-token[data-pose="celebrate"] .gg-player-art { animation: gg-companion-celebrate 420ms ease-out 2 alternate; }
+
+.gg-companion-actions {
+  position: absolute;
+  top: max(8px, calc(var(--companion-y) - 124px));
+  left: clamp(110px, var(--companion-x), calc(100% - 110px));
+  translate: -50%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 214px;
+  min-height: 74px;
+  border: 1px solid var(--signature-edge);
+  border-radius: 115px 115px 14px 14px;
+  overflow: hidden;
+  background: var(--signature-surface);
+  box-shadow: 0 8px 24px #12101982;
+  pointer-events: auto;
+  z-index: 2;
+}
+.gg-companion-stage[data-menu-below] .gg-companion-actions { top: calc(var(--companion-y) + 6px); }
+.gg-companion-actions button {
+  color: var(--signature-ink);
+  display: grid;
+  place-content: end center;
+  gap: 3px;
+  padding: 12px 10px 8px;
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.gg-companion-actions button + button { border-left: 1px solid var(--signature-edge); }
+.gg-companion-actions button:is(:hover,:focus-visible) {
+  background: var(--signature-accent);
+  color: var(--signature-on-accent);
+  outline: 0;
+}
+.gg-companion-actions span { font-size: .95rem; }
+
+.gg-companion-locker {
+  display: grid;
+  grid-template-columns: minmax(100px, .7fr) minmax(0, 1.3fr);
+  gap: 1rem;
+  margin-block: .75rem;
+}
+.gg-locker-portrait {
+  min-height: 142px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--signature-edge);
+  border-radius: 12px;
+  background: radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--signature-accent) 26%, transparent), transparent 72%);
+  overflow: hidden;
+}
+.gg-locker-portrait .gg-footballer { width: clamp(78px, 16vw, 124px); height: auto; }
+.gg-locker-controls { display: grid; gap: .5rem; }
+.gg-locker-controls > div { display: grid; gap: .2rem; }
+.gg-locker-controls label { color: var(--signature-ink); font-size: .8rem; }
+.gg-locker-controls select {
+  color: var(--signature-ink);
+  background: var(--signature-surface);
+  border: 1px solid var(--signature-edge);
+  border-radius: 6px;
+  min-height: 36px;
+  max-width: 100%;
+  padding: 4px 8px;
+  font: inherit;
+}
 
 .gg-companion-speech {
   position: absolute;
   left: clamp(96px, var(--companion-x), calc(100% - 96px));
-  top: max(75px, calc(var(--companion-y) - 39px));
+  top: max(75px, calc(var(--companion-y) - var(--companion-size) - 7px));
   translate: -50% -100%;
   box-sizing: border-box;
   width: max-content;
@@ -90,5 +146,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .gg-companion-token[data-pose="celebrate"] span { animation: none; }
+  .gg-companion-token[data-pose="celebrate"] .gg-player-art { animation: none; }
 }
+
+.gg-companion-speech::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 5px);
+  width: 9px;
+  height: 9px;
+  transform: translateY(-4px) rotate(45deg);
+  border-right: 1px solid var(--signature-edge);
+  border-bottom: 1px solid var(--signature-edge);
+  background: var(--signature-surface);
+}
+.gg-world-loading { position: fixed; z-index: 203; inset: 2rem auto auto 50%; translate: -50%; }
