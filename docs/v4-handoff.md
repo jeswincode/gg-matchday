@@ -76,10 +76,11 @@ Take the next user-selected feature through local implementation, focused tests,
 
 ### Isolated V4.2 preview setup
 
-- Configure a dedicated Render service for the preview branch with its own MongoDB and Firebase project. Point `MONGODB_URI` at `gg_matchday_v42_demo` and `CLUBS_MONGODB_URI` at `gg_matchday_v42_demo_clubs`. Use the same preview Firebase project for `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` and the Vercel frontend's `VITE_FIREBASE_*` settings in [the environment example](../.env.example).
-- Set `VITE_API_URL` to the preview Render URL with an `/api` suffix. Add the Vercel preview origin to Render's `CORS_ORIGINS` and its hostname to the preview Firebase project's authorized domains.
-- Run `node scripts/seed-v42-preview.mjs` in the preview runtime with `V42_PREVIEW_ATLAS_HOST` set to its verified Atlas SRV hostname. The seed adds fictional players, two clubs and contracts, a completed result shared by both databases, and a confirmed upcoming fixture. Repeating the seed preserves edits to existing records.
-- Check `/api/health` on the preview API, then sign in with two preview accounts in separate browser sessions and join Community World from both.
+- Deploy `v4/fresh-start` explicitly to the Preview environment of the `gg-matchday-v42-preview` Vercel project. Point the [stable preview alias](https://gg-matchday-v42-demo.vercel.app/) at that deployment. The branch disables automatic Vercel Git deployments so a push cannot build it under the existing Matchday project.
+- Set `VITE_API_URL` in Vercel Preview to `https://gg-matchday-v42-preview-api.onrender.com/api`. Set `CORS_ORIGINS` on the [preview Render service](https://dashboard.render.com/web/srv-dc2642dg1s2s73935v0g) and authorize `gg-matchday-v42-demo.vercel.app` in the preview Firebase project. Use the same Firebase project for Render's `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` and Vercel's `VITE_FIREBASE_*` settings in [the environment example](../.env.example).
+- In the [preview Atlas project](https://cloud.mongodb.com/v2/6b045f16a5d1925f146876b6), allow the Render service's outbound ranges. Supply `MONGODB_URI` for `gg_matchday_v42_demo` and `CLUBS_MONGODB_URI` for `gg_matchday_v42_demo_clubs`. Render runs `scripts/seed-v42-preview.mjs` before starting the API. The seed checks `V42_PREVIEW_ATLAS_HOST` and both database names before it connects. Repeating it preserves edits to existing records.
+- The Atlas preview contains eight fictional players, two fictional clubs, their contracts, a linked result and an upcoming fixture. It also contains a point-in-time import of 16 public player profiles, 31 Matchday results, two clubs and one completed Club match from the original site's public API. Preview Firebase accounts are created through preview sign-in.
+- Check [preview API health](https://gg-matchday-v42-preview-api.onrender.com/api/health) for both database connections. Sign in with two preview accounts in separate browser sessions, join Community World, and confirm that each account can see the other move and emote.
 
 ## GG Companion foundation
 

@@ -87,6 +87,8 @@ test("independent sessions share route movement, emotes, direct waves and depart
     await page.getByRole("button", { name: "Kick" }).click();
     await expect(peer.locator(".gg-footballer")).toHaveAttribute("data-action", "kick");
     await expect(peer.locator(".gg-footballer")).not.toHaveAttribute("data-action", "kick");
+    await page.getByRole("button", { name: "Emote", exact: true }).click();
+    await expect(peer.locator(".gg-footballer")).toHaveAttribute("data-action", /^(siuu|sky)$/);
     await peer.click();
     await second.getByRole("button", { name: "Wave to Playwright editor" }).click();
     await expect(page.getByText("Waving to you!")).toBeVisible();
