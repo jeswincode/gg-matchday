@@ -28,7 +28,7 @@ const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const ProfileRequests = lazy(() => import('./ProfileRequests'));
 // Clubs is a primary product surface, so its code must be ready before
 // navigation; background prefetch can race the user's first click.
-import CompanionWorld from './features/companion/CompanionWorld';
+import CompanionWorld from './features/companion/CompanionWorld.jsx';
 import ClubsMode from './features/clubs/ClubsMode';
 const Awards = lazy(()=>import('./components/Awards'));
 const loadMatchDetail = () => import('./components/MatchDetail');
