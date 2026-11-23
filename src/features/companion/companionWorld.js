@@ -1,16 +1,12 @@
 const workspaceSelector = "[data-companion-world]";
-const surfaceSelector = [
-  "[data-companion-surface]", "header", "nav", "section", "article",
-  ".card", '[class*="-card"]', "[role=tab]", "nav button", "nav a", "[role=dialog]",
-].join(",");
 const unavailableSelector = '[inert], [hidden], [aria-hidden="true"], [data-companion-surface="off"]';
 const clippingOverflow = /^(auto|clip|hidden|scroll)$/;
 
-function visibleTop(element, viewport, clips) {
+function visibleTab(element, viewport, clips) {
   if (element.closest(unavailableSelector) || element.checkVisibility?.({ visibilityProperty: true }) === false) return null;
   const rect = element.getBoundingClientRect();
   const top = rect.top;
-  if (top < viewport.top || top > viewport.bottom || rect.height < 6) return null;
+  if (top < viewport.top || top > viewport.bottom - 8 || rect.height < 8) return null;
 
   let left = Math.max(viewport.left, rect.left);
   let right = Math.min(viewport.right, rect.right);
@@ -29,11 +25,13 @@ function visibleTop(element, viewport, clips) {
       right = Math.min(right, clip.rect.right);
     }
   }
-  return right - left >= 28 ? { element, left, right, top, key: element.dataset?.companionSurface || element.id } : null;
+  return right - left >= 22 ? {
+    element, left, right, top, bottom: Math.min(rect.bottom, viewport.bottom - 8),
+    key: element.dataset.companionSurface || element.dataset.primaryTab || element.id,
+  } : null;
 }
 
-// Read once after scroll or layout changes. Surface references are valid only
-// while their elements remain visible in the active workspace or dialog.
+// Read only the perch and the visible destination controls in the active workspace.
 export function readCompanionWorld(stage, rails, bodyHeight) {
   const bounds = stage.getBoundingClientRect();
   const leftRail = rails[0].getBoundingClientRect();
@@ -47,23 +45,29 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
     railMode,
   };
   const workspace = document.querySelector(workspaceSelector);
-  if (!workspace) return { ...viewport, workspace, surfaces: [] };
+  if (!workspace) return { ...viewport, workspace, tabs: [], surfaces: [], perch: null };
 
-  const dialogs = [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')]
-    .filter(dialog => !dialog.closest(unavailableSelector) && dialog.getClientRects().length);
-  const room = dialogs.at(-1) || workspace;
-  const elements = [...room.querySelectorAll(surfaceSelector)];
-  if (room !== workspace) elements.unshift(room);
+  const matchdayDock = workspace.querySelector(".bottom-nav");
+  const clubsDock = workspace.querySelector(".clubs-destination-nav");
+  const dock = matchdayDock || clubsDock || workspace.querySelector(".admin-sidebar-nav, .clubs-admin-rail nav");
+  const vertical = Boolean(dock && !matchdayDock && (!clubsDock || getComputedStyle(clubsDock).display !== "flex"));
+  const selector = matchdayDock ? ":scope > button:not(:disabled)"
+    : clubsDock && !vertical ? ".clubs-nav-main button[data-primary-tab]:not(:disabled)"
+      : "button:not(:disabled)";
   const clips = new Map();
-  const surfaces = elements.map(element => visibleTop(element, viewport, clips))
-    .filter(surface => surface && surface.top >= viewport.top + bodyHeight)
-    .sort((a, b) => a.top - b.top);
-  return { ...viewport, workspace, surfaces };
+  const tabs = dock ? [...dock.querySelectorAll(selector)]
+    .map(element => visibleTab(element, viewport, clips))
+    .filter(tab => tab && (vertical || tab.top >= viewport.top + bodyHeight))
+    .sort((a, b) => vertical ? a.top - b.top : a.left - b.left) : [];
+  const seat = workspace.querySelector('[data-companion-surface="companion-seat"]');
+  const perch = seat ? visibleTab(seat, viewport, clips) : null;
+  const surfaces = vertical ? [] : tabs.toSorted((a, b) => a.top - b.top);
+  return { ...viewport, workspace, tabs, surfaces, perch, vertical };
 }
 
 export const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
 
-export function stepCompanion(actor, world, dt, radius) {
+function stepFlight(actor, world, dt, radius) {
   const left = world.left + radius;
   const right = world.right - radius;
   const ceiling = world.top + radius * 2;
@@ -71,9 +75,13 @@ export function stepCompanion(actor, world, dt, radius) {
 
   if (actor.rail && world.railMode) {
     actor.x = actor.rail === "left" ? left : right;
-    actor.y = Math.min(floor, actor.y + 270 * dt);
+    actor.vy = Math.min(475, actor.vy + 680 * dt);
+    actor.y = Math.min(floor, actor.y + actor.vy * dt);
     if (actor.y < floor) return;
     actor.rail = "";
+    actor.edge = "";
+    actor.impact = actor.vy;
+    actor.vy = 0;
     actor.pose = "stand";
     return;
   }
@@ -82,34 +90,52 @@ export function stepCompanion(actor, world, dt, radius) {
     actor.pose = "air";
   }
 
+  const previousX = actor.x;
   const previousY = actor.y;
-  actor.vy += 1650 * dt;
+  actor.vy += 2040 * dt;
+  actor.vx *= Math.exp(-.55 * dt);
   actor.x += actor.vx * dt;
   actor.y += actor.vy * dt;
   if (actor.x < left || actor.x > right) {
     const edge = actor.x < left ? "left" : "right";
     actor.x = clamp(actor.x, left, right);
     actor.edge = world.railMode ? edge + "-rail" : edge + "-bounce";
-    if (world.railMode && actor.y < floor - 4 && Math.abs(actor.vx) > 120) {
+    if (world.railMode && actor.y < floor - 4 && Math.abs(actor.vx) > 145) {
       actor.rail = edge;
-      actor.vx = actor.vy = 0;
+      actor.vx = 0;
+      actor.vy = clamp(actor.vy, 85, 235);
       actor.pose = "slide";
       return;
     }
-    actor.vx *= -.55;
+    actor.vx *= -.64;
   }
   if (actor.y < ceiling) {
     actor.y = ceiling;
     actor.vy = Math.max(0, actor.vy);
   }
 
-  const landing = actor.vy >= 0 && world.surfaces.find(surface =>
-    surface.top >= previousY - .5 && surface.top <= actor.y &&
-    actor.x >= surface.left + radius / 2 && actor.x <= surface.right - radius / 2);
+  const crossingX = top => previousX + (actor.x - previousX) * ((top - previousY) / (actor.y - previousY));
+  const landing = actor.y > previousY && world.surfaces.find(surface => {
+    if (surface.top < previousY - .5 || surface.top > actor.y) return false;
+    const x = crossingX(surface.top);
+    const inset = Math.min(radius * .36, (surface.right - surface.left) / 4);
+    return x >= surface.left + inset && x <= surface.right - inset;
+  });
   if (landing || actor.y >= floor) {
+    if (landing) actor.x = crossingX(landing.top);
     actor.surface = landing ? landing.element : null;
     actor.y = landing ? landing.top : floor;
+    actor.impact = actor.vy;
     actor.vx = actor.vy = 0;
+    actor.edge = "";
     actor.pose = "stand";
+  }
+}
+
+export function stepCompanion(actor, world, dt, radius) {
+  // Keep contact checks stable during slow frames and high-speed throws.
+  const steps = Math.max(1, Math.ceil(dt * 120));
+  for (let index = 0; index < steps && (actor.pose === "air" || actor.rail); index += 1) {
+    stepFlight(actor, world, dt / steps, radius);
   }
 }

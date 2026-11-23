@@ -1,80 +1,138 @@
 import { clamp, readCompanionWorld, stepCompanion } from "./companionWorld";
-
+import { celebrationFrame, celebrationTiming } from "./companionCelebration";
 import { guideFor } from "./companionGuide";
+import { createCompanionSpeech } from "./companionSpeech";
 
 function activeTab(workspace) {
   return workspace.querySelector('[data-pane="current"][data-tab]')?.dataset.tab || "admin";
 }
-const contactPoses = new Set(["stand", "sit", "celebrate"]);
+const contactPoses = new Set(["stand", "sit", "hang", "celebrate"]);
+const landingLine = "10 on 10 landing";
+
+function rememberPoint(drag, event) {
+  const point = { x: event.clientX, y: event.clientY, time: event.timeStamp };
+  drag.points.push(point);
+  while (drag.points.length > 1 && point.time - drag.points[0].time > 105) drag.points.shift();
+  return point;
+}
+
+function throwVelocity(drag, event, reduced) {
+  if (reduced || event.type !== "pointerup") return { vx: 0, vy: 0 };
+  const end = rememberPoint(drag, event);
+  const first = drag.points[0];
+  const seconds = Math.max(.018, (end.time - first.time) / 1000);
+  return {
+    vx: clamp((end.x - first.x) / seconds, -2450, 2450),
+    vy: clamp((end.y - first.y) / seconds, -1650, 1350),
+  };
+}
 
 export default function runCompanion(stage, token, bubble, rails, options) {
-  const radius = options.legacy ? 16 : 22;
+  const radius = options.legacy ? 16 : 26;
   const rig = token.querySelector(".gg-footballer");
   const shell = document.getElementById("root");
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   const actor = { x: 0, y: 0, vx: 0, vy: 0, pose: "stand" };
-  let world, frame, lastFrame, drag, jump, dialogTimer, holdTimer, guideTimer, emote;
+  let world, frame, lastFrame, drag, travel, holdTimer, guideTimer, emote, landingUntil;
   let idle = !options.legacy;
   let pointer;
-  let tab, lastTip, ignoreTapUntil = 0, openAfterRelease;
+  let tab, lastTip, ignoreTapUntil = 0;
+  let patrolDirection = 1;
   const visited = new Set();
+  const speech = createCompanionSpeech(bubble, motion, schedule);
 
-  function seat(room) {
-    return room.surfaces.find(surface => surface.key === "companion-seat") ||
-      room.surfaces.find(surface => surface.key === "matchday-header");
+  function currentTab(room) {
+    return room.tabs.find(item => item.element.hasAttribute("aria-current")) || room.tabs[0];
   }
 
-  function navigation(room) {
-    const controls = room.surfaces.filter(surface => surface.element.closest("nav") &&
-      surface.element.matches('button:not(:disabled), a[href], [role="tab"]'));
-    const primary = controls.filter(surface => surface.element.closest(".bottom-nav, .clubs-destination-nav"));
-    if (primary.length) return primary;
-    const pane = room.surfaces.find(surface => surface.key === activeTab(room.workspace));
-    return controls.length ? controls : pane ? [pane] : room.surfaces.slice(0, 1);
+  function targetFor(surface, room) {
+    const edge = room.vertical && surface.element !== room.perch?.element;
+    return {
+      x: edge ? clamp(surface.right + radius * .52, room.left + radius, room.right - radius)
+        : (surface.left + surface.right) / 2,
+      y: edge ? clamp((surface.top + surface.bottom) / 2 + radius, room.top + radius * 2, room.bottom - 8)
+        : surface.top,
+      edge,
+    };
   }
 
-  function leap(surface, pose, landed) {
+  function nextTabOnDock(room, from, direction) {
+    const index = room.tabs.indexOf(from);
+    return room.tabs[index + direction] || room.tabs[index - direction];
+  }
+
+  function travelTo(surface, pose, landed) {
     if (!surface) return;
+    const room = measure();
+    const target = targetFor(surface, room);
+    const fromTab = room.tabs.some(item => item.element === actor.surface);
+    const toTab = surface.element !== room.perch?.element;
+    const mode = fromTab && toTab ? room.vertical ? "climb" : "walk" : "jump";
+    const distance = Math.hypot(target.x - actor.x, target.y - actor.y);
+    if (distance < 2 || motion.matches) {
+      travel = undefined;
+      placeAt(surface, pose);
+      landed?.();
+      schedule();
+      return;
+    }
     actor.rail = actor.edge = "";
     actor.surface = null;
     actor.vx = actor.vy = 0;
-    actor.pose = "air";
-    jump = { element: surface.element, pose, x: actor.x, y: actor.y,
-      started: performance.now(), duration: 420, landed };
+    actor.pose = mode === "jump" ? "air" : target.edge ? "hang" : "stand";
+    travel = {
+      element: surface.element, mode, pose, x: actor.x, y: actor.y,
+      direction: Math.sign(target.x - actor.x),
+      started: performance.now(),
+      duration: mode === "jump" ? clamp(340 + distance * .27, 340, 580)
+        : clamp(distance * (target.edge ? 10 : 6), 230, 2400),
+      rise: mode === "jump" ? clamp(33 + distance * .052, 38, 76) : 0,
+      landed,
+    };
     schedule();
   }
 
   function wake() {
     idle = false;
     const room = measure();
-    const controls = navigation(room);
-    const current = controls.find(surface => surface.element.hasAttribute("aria-current"));
-    leap(current || controls[0], "stand", () => say("10 on 10 landing"));
+    const current = currentTab(room);
+    if (current) travelTo(current, "stand", () => speech.say(landingLine, { priority: 1 }));
+    else if (room.perch) {
+      idle = true;
+      placeAt(room.perch, "sit");
+      speech.say("I’ll be here when you need a hand.");
+    }
   }
 
   function startEmote() {
     if (emote || drag || token.hidden) return;
     const room = measure();
-    const controls = navigation(room);
+    const controls = room.tabs;
     const closest = controls.toSorted((a, b) =>
-      Math.abs((a.left + a.right) / 2 - actor.x) - Math.abs((b.left + b.right) / 2 - actor.x))[0];
+      Math.abs(room.vertical ? targetFor(a, room).y - actor.y : targetFor(a, room).x - actor.x) -
+      Math.abs(room.vertical ? targetFor(b, room).y - actor.y : targetFor(b, room).x - actor.x))[0] || room.perch;
     if (!closest) return;
     idle = false;
-    const ronaldo = rig.dataset.celebration === "ronaldo";
-    // Desktop Clubs uses a vertical rail. Sprint across the active page ledge there.
+    const timing = celebrationTiming(rig.dataset.celebration);
     const row = controls.filter(surface => Math.abs(surface.top - closest.top) < 24);
     const ledge = row.length > 1 ? row : [closest];
     const left = Math.min(...ledge.map(surface => surface.left));
     const right = Math.max(...ledge.map(surface => surface.right));
-    emote = { ronaldo, left, right, kit: ronaldo ? "madrid" : "barcelona" };
-    leap(closest, "stand", () => {
+    speech.hide();
+    emote = { timing };
+    travelTo(closest, "stand", () => {
       emote.start = performance.now();
       emote.x = actor.x;
       emote.y = actor.y;
+      const edge = room.vertical && closest !== room.perch;
+      const next = edge && timing.ronaldo && !motion.matches ? nextTabOnDock(room, closest, 1) : null;
+      emote.climb = Boolean(next);
+      emote.destinationY = next ? targetFor(next, room).y : actor.y;
+      emote.support = next?.element || closest.element;
       const direction = actor.x < (left + right) / 2 ? 1 : -1;
-      emote.destination = ronaldo
-        ? clamp(direction > 0 ? right : left, room.left + radius, room.right - radius)
-        : clamp(actor.x + direction * 32, room.left + radius, room.right - radius);
+      const target = timing.ronaldo ? direction > 0 ? right - 9 : left + 9 : actor.x + direction * 35;
+      emote.destination = motion.matches || edge || closest === room.perch
+        ? actor.x : clamp(target, room.left + radius, room.right - radius);
       rig.style.setProperty("--run-direction", String(direction));
       schedule();
     });
@@ -82,26 +140,40 @@ export default function runCompanion(stage, token, bubble, rails, options) {
 
   function animateEmote(now) {
     if (!emote?.start) return;
-    const { start, x, y, destination, ronaldo, kit } = emote;
+    const { start, x, y, destination, destinationY, timing, climb, support: endTab } = emote;
     const elapsed = now - start;
-    const duration = ronaldo ? 760 : 970;
-    actor.x = motion.matches ? destination : x + (destination - x) * clamp((elapsed - 560) / duration, 0, 1);
-    actor.y = y;
-    rig.dataset.temporaryKit = elapsed >= 260 ? kit : "";
-    rig.dataset.action = elapsed < 560 ? "change" : ronaldo
-      ? elapsed < 560 + duration ? "run" : "siuu" : "sky";
-    if (ronaldo && elapsed >= 560 + duration + 530 && !emote.spoke) {
-      emote.spoke = true;
-      say("SIUUU", 2400);
+    const { moveAt, poseAt, finishAt } = timing;
+    const progress = clamp((elapsed - moveAt) / (poseAt - moveAt), 0, 1);
+    actor.x = x + (destination - x) * (timing.ronaldo ? progress * progress * (3 - 2 * progress) : progress);
+    actor.y = y + (destinationY - y) * progress;
+    const celebration = celebrationFrame(timing, elapsed);
+    const { kit } = celebration;
+    const action = climb && celebration.action === "run" ? "climb" : celebration.action;
+    if (rig.dataset.temporaryKit !== kit) {
+      if (kit) rig.dataset.temporaryKit = kit;
+      else delete rig.dataset.temporaryKit;
     }
-    if (elapsed >= 560 + duration + 850) {
+    if (action && action !== rig.dataset.action) rig.dataset.action = action;
+    if (timing.ronaldo && elapsed >= poseAt + (motion.matches ? 0 : 565) && !emote.spoke) {
+      emote.spoke = true;
+      speech.say("SIUUU", { duration: 2100, priority: 2 });
+    }
+    if (elapsed >= finishAt) {
       emote = undefined;
       delete rig.dataset.action;
       delete rig.dataset.temporaryKit;
-      const support = world.surfaces.find(surface => Math.abs(surface.top - y) < 2 &&
+      if (world.vertical || endTab === world.perch?.element) {
+        const end = world.tabs.find(item => item.element === endTab) || world.perch;
+        if (end) {
+          idle = end === world.perch;
+          placeAt(end, idle ? "sit" : "stand");
+          return;
+        }
+      }
+      const support = world.surfaces.find(surface => Math.abs(surface.top - y) < 3 &&
         actor.x >= surface.left && actor.x <= surface.right);
       actor.surface = support?.element ?? null;
-      actor.pose = "stand";
+      actor.pose = support || motion.matches ? "stand" : "air";
     }
   }
   let dirty = true;
@@ -124,28 +196,32 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   }
 
   function placeAt(surface, pose) {
-    actor.x = (surface.left + surface.right) / 2;
-    actor.y = surface.top;
+    const point = targetFor(surface, world);
+    actor.x = point.x;
+    actor.y = point.y;
     actor.surface = surface.element;
-    actor.pose = pose;
-    actor.rail = "";
+    actor.pose = point.edge ? "hang" : pose;
+    actor.rail = actor.edge = "";
   }
 
   function draw(now) {
     frame = 0;
     const previousWorkspace = world?.workspace;
     const room = measure();
-    token.hidden = !room.workspace || (!options.legacy && Boolean(document.querySelector('[aria-modal="true"]')));
+    token.hidden = (!room.tabs.length && !room.perch) ||
+      (!options.legacy && Boolean(document.querySelector('[aria-modal="true"]')));
     if (token.hidden) options.hideMenu();
     if (token.hidden) {
-      jump = undefined;
+      travel = undefined;
+      clearTimeout(holdTimer);
       drag = undefined;
+      delete stage.dataset.menuDirection;
       if (emote) {
         emote = undefined;
         delete rig.dataset.action;
         delete rig.dataset.temporaryKit;
       }
-      bubble.hidden = true;
+      speech.hide();
       return;
     }
     if (previousWorkspace !== room.workspace || !actor.x) {
@@ -165,69 +241,99 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         const visit = scope + tab;
         guideTimer = window.setTimeout(() => {
           if (idle || drag || emote || token.hidden || token.getAttribute("aria-expanded") === "true") return;
-          const available = navigation(measure());
-          const surface = available.find(item => item.element.hasAttribute("aria-current")) || available[0];
-          leap(surface, "stand", () => {
+          const destination = currentTab(measure());
+          if (!destination) {
+            speech.say(guideFor(tab, options.account()), { priority: 1 });
+            return;
+          }
+          travelTo(destination, "stand", () => {
             if (visited.has(visit)) return;
             visited.add(visit);
             lastTip = Date.now();
-            say(guideFor(tab, options.account()), 6500);
+            speech.say(guideFor(tab, options.account()), { priority: 1 });
           });
         }, 650);
       }
     }
 
-    if (idle && !drag && !jump) {
-      const perch = seat(room);
-      if (perch) placeAt(perch, "sit");
+    if (idle && !drag && !travel && room.perch) {
+      placeAt(room.perch, "sit");
     }
-    if (jump) {
-      const destination = room.surfaces.find(surface => surface.element === jump.element);
+    if (travel) {
+      const destination = room.tabs.find(surface => surface.element === travel.element) ||
+        (room.perch?.element === travel.element ? room.perch : null);
       if (!destination) {
         if (emote && !emote.start) emote = undefined;
-        jump = undefined;
+        travel = undefined;
         actor.pose = "air";
       } else {
-        const progress = Math.min(1, (now - jump.started) / jump.duration);
+        const progress = clamp((now - travel.started) / travel.duration, 0, 1);
         if (progress >= 1 || motion.matches) {
-          const { pose, landed } = jump;
+          const { pose, landed, mode } = travel;
           placeAt(destination, pose);
-          jump = undefined;
+          travel = undefined;
+          if (mode === "jump" && actor.pose === "stand") landingUntil = now + 215;
           landed?.();
         } else {
-          actor.x = jump.x + ((destination.left + destination.right) / 2 - jump.x) * progress;
-          actor.y = jump.y + (destination.top - jump.y) * progress - Math.sin(progress * Math.PI) * 46;
+          const { x, y, edge } = targetFor(destination, room);
+          actor.x = travel.x + (x - travel.x) * progress;
+          actor.y = travel.y + (y - travel.y) * progress - 4 * travel.rise * progress * (1 - progress);
+          actor.pose = travel.mode === "jump" ? "air" : edge ? "hang" : "stand";
         }
       }
     } else if (!emote && contactPoses.has(actor.pose)) {
-      const support = room.surfaces.find(surface => surface.element === actor.surface);
+      const support = room.tabs.find(surface => surface.element === actor.surface) ||
+        (room.perch?.element === actor.surface ? room.perch : null);
       if (support) {
-        actor.x = clamp(actor.x, support.left + radius / 2, support.right - radius / 2);
-        actor.y = support.top;
+        const point = targetFor(support, room);
+        if (point.edge) actor.x = point.x;
+        else {
+          const inset = Math.min(radius * .36, (support.right - support.left) / 4);
+          actor.x = clamp(actor.x, support.left + inset, support.right - inset);
+        }
+        actor.y = point.y;
+        if (actor.pose === "hang" || point.edge) actor.pose = point.edge ? "hang" : "stand";
       } else if (actor.surface && !motion.matches) {
         actor.surface = null;
         actor.pose = "air";
       } else {
         actor.surface = null;
-        actor.y = room.bottom - 8;
+        const destination = currentTab(room) || room.perch;
+        if (destination) travelTo(destination, destination === room.perch ? "sit" : "stand");
       }
     }
 
     animateEmote(now);
-    const wasAirborne = actor.pose === "air";
-    if (!jump && !emote && (actor.pose === "air" || actor.rail)) {
+    const wasAirborne = actor.pose === "air" || Boolean(actor.rail);
+    if (!travel && !emote && wasAirborne) {
       stepCompanion(actor, room, Math.min((now - (lastFrame || now)) / 1000, .032), radius);
     }
-    if (!options.legacy && !idle && wasAirborne && !jump && actor.pose === "stand" && actor.surface?.closest("nav")) {
-      say("10 on 10 landing");
+    if (actor.impact !== undefined) {
+      landingUntil = now + (actor.impact > 720 ? 315 : 215);
+      actor.impact = undefined;
+    }
+    if (!idle && wasAirborne && !travel && !emote && actor.pose === "stand") {
+      if (actor.surface && !options.legacy) speech.say(landingLine, { priority: 1 });
+      else if (!actor.surface) {
+        const destination = currentTab(room) || room.perch;
+        if (destination) travelTo(destination, destination === room.perch ? "sit" : "stand");
+      }
     }
     actor.x = clamp(actor.x, room.left + radius, room.right - radius);
     actor.y = clamp(actor.y, room.top + radius * 2, room.bottom - 8);
     stage.style.setProperty("--companion-x", actor.x + "px");
     stage.style.setProperty("--companion-y", actor.y + "px");
-    stage.toggleAttribute("data-menu-below", actor.y < 124);
+    stage.toggleAttribute("data-menu-below", actor.y < radius * 2 + 86);
     token.dataset.pose = actor.pose;
     token.dataset.edge = actor.edge || "";
+    if (travel && travel.mode !== "jump") {
+      token.dataset.travel = travel.mode;
+      rig.style.setProperty("--travel-direction", String(travel.direction || 1));
+    } else if (token.dataset.travel) delete token.dataset.travel;
+    const landing = !motion.matches && !emote && actor.pose === "stand" && now < landingUntil;
+    token.toggleAttribute("data-landing", landing);
+    const lean = drag?.moved ? drag.lean : clamp(actor.vx / 95, -16, 16);
+    rig.style.setProperty("--player-lean", (motion.matches ? 0 : lean ?? -6) + "deg");
 
     if (pointer) {
       const dx = pointer.x - actor.x;
@@ -236,25 +342,33 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       rig.style.setProperty("--gaze-x", (dx * 2 / length) + "px");
       rig.style.setProperty("--gaze-y", (dy * 1.8 / length) + "px");
     }
-    const moving = jump || actor.pose === "air" || actor.rail || emote?.start;
+    const speaking = speech.draw(actor, room, radius * 2, now);
+    const moving = travel || actor.pose === "air" || actor.rail || emote?.start;
     lastFrame = moving ? now : 0;
-    if (moving) schedule();
+    if (moving || landing || speaking) schedule();
   }
 
   function pickUp(event) {
     if (drag || emote || !event.isPrimary || event.button !== 0) return;
     options.hideMenu();
+    speech.hide();
     if (!options.legacy && event.pointerType !== "mouse") {
       holdTimer = window.setTimeout(() => {
-        if (drag && !drag.moved) drag.longPress = true;
-      }, 500);
+        if (!drag || drag.moved) return;
+        drag.menu = true;
+        actor.pose = drag.pose;
+        actor.surface = drag.surface;
+        options.showMenu(false);
+        schedule();
+      }, 480);
     }
     drag = {
-      originX: actor.x, originY: actor.y, pointer: event.pointerId, x: event.clientX, y: event.clientY, time: event.timeStamp, moved: false,
+      startX: event.clientX, startY: event.clientY, pointer: event.pointerId, points: [], moved: false,
       offsetX: actor.x - event.clientX, offsetY: actor.y - event.clientY,
-      pose: contactPoses.has(actor.pose) ? actor.pose : "stand", surface: actor.surface,
+      pose: contactPoses.has(actor.pose) ? actor.pose : "air", surface: actor.surface,
     };
-    jump = undefined;
+    rememberPoint(drag, event);
+    travel = undefined;
     actor.rail = actor.edge = "";
     actor.surface = null;
     actor.pose = "held";
@@ -263,57 +377,79 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     schedule();
   }
 
+  function menuDirection(event) {
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    const button = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-companion-action]");
+    if (button && stage.contains(button) && Math.abs(dx) + Math.abs(dy) > 16) {
+      return button.dataset.companionAction;
+    }
+    if (dy < -18 && Math.abs(dx) > 13) return dx < 0 ? "world" : "emote";
+    return "";
+  }
+
   function move(event) {
     if (drag?.pointer !== event.pointerId) return;
-    const elapsed = Math.max(8, event.timeStamp - drag.time);
-    actor.vx = clamp((event.clientX - drag.x) * 1000 / elapsed, -2600, 2600);
-    actor.vy = clamp((event.clientY - drag.y) * 1000 / elapsed, -1800, 1800);
-    actor.x = event.clientX + drag.offsetX;
-    actor.y = event.clientY + drag.offsetY;
-    drag.moved ||= Math.abs(event.clientX + drag.offsetX - drag.originX) +
-      Math.abs(event.clientY + drag.offsetY - drag.originY) > 5;
-    Object.assign(drag, { x: event.clientX, y: event.clientY, time: event.timeStamp });
+    if (drag.menu) {
+      stage.dataset.menuDirection = menuDirection(event);
+      return;
+    }
+    const previous = drag.points.at(-1);
+    const point = rememberPoint(drag, event);
+    const distance = Math.hypot(point.x - drag.startX, point.y - drag.startY);
+    if (!drag.moved && distance < (event.pointerType === "mouse" ? 4 : 9)) return;
+    drag.moved = true;
+    clearTimeout(holdTimer);
+    drag.lean = clamp((point.x - previous.x) * .6, -18, 18);
+    actor.x = point.x + drag.offsetX;
+    actor.y = point.y + drag.offsetY;
     schedule();
   }
 
   function release(event) {
-    window.clearTimeout(holdTimer);
     if (drag?.pointer !== event.pointerId) return;
-    if (drag.longPress && !drag.moved && event.type === "pointerup") {
-      actor.pose = drag.pose;
-      actor.surface = drag.surface;
+    clearTimeout(holdTimer);
+    const released = event.type === "pointerup";
+    if (drag.menu) {
+      const action = released ? menuDirection(event) : "";
       drag = undefined;
+      delete stage.dataset.menuDirection;
       ignoreTapUntil = performance.now() + 350;
-      // Let the original touch release complete before putting buttons under it.
-      openAfterRelease = window.setTimeout(menu, 0);
+      if (!released) options.hideMenu();
+      if (action) options.selectMenu(action);
       schedule();
       return;
     }
-    const perch = seat(measure());
-    if (!options.legacy && drag.moved && event.type === "pointerup") {
+    Object.assign(actor, throwVelocity(drag, event, motion.matches));
+    const speed = Math.hypot(actor.vx, actor.vy);
+    const { perch } = measure();
+    if (released && drag.moved) {
+      actor.x = event.clientX + drag.offsetX;
+      actor.y = event.clientY + drag.offsetY;
+    }
+    if (!options.legacy && drag.moved) {
       ignoreTapUntil = performance.now() + 350;
-      if (perch && event.clientX >= perch.left - 20 && event.clientX <= perch.right + 20 &&
-        Math.abs(event.clientY - perch.top) < 45) {
+      if (released && perch && actor.x >= perch.left - 23 && actor.x <= perch.right + 23 &&
+        Math.abs(actor.y - perch.top) < 40) {
         idle = true;
         placeAt(perch, "sit");
-        bubble.hidden = true;
+        speech.hide();
         drag = undefined;
         schedule();
         return;
       }
       const wasIdle = idle;
       idle = false;
-      if (wasIdle && (motion.matches || Math.hypot(actor.vx, actor.vy) < 700)) {
+      if (released && wasIdle && (motion.matches || speed < 610)) {
         drag = undefined;
         wake();
         return;
       }
     }
-    const thrown = event.type === "pointerup" && event.timeStamp - drag.time < 100 && !motion.matches;
-    if (!thrown) actor.vx = actor.vy = 0;
     if (!drag.moved) {
       actor.surface = drag.surface;
       actor.pose = drag.pose;
+      actor.vx = actor.vy = 0;
     } else if (motion.matches) {
       const support = world.surfaces.find(surface => actor.x >= surface.left && actor.x <= surface.right
         && Math.abs(actor.y - surface.top) < 20);
@@ -324,17 +460,13 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     schedule();
   }
 
-  function say(text, duration = 3200) {
-    clearTimeout(dialogTimer);
-    bubble.textContent = text.slice(0, 160);
-    bubble.hidden = false;
-    dialogTimer = setTimeout(() => { bubble.hidden = true; }, clamp(duration, 1500, 15000));
-  }
-
   function command(event) {
     const action = event.detail;
     if (!action || !measure().workspace) return;
-    if (action.type === "say" && typeof action.text === "string" && !token.hidden) say(action.text, action.duration);
+    if (action.type === "say" && typeof action.text === "string" && !token.hidden) {
+      const duration = Number.isFinite(action.duration) ? clamp(action.duration, 1500, 15000) : undefined;
+      speech.say(action.text, { duration });
+    }
     if (action.type === "emote" && !options.legacy) startEmote();
     if (drag || emote || !contactPoses.has(action.pose)) return;
     idle = false;
@@ -343,16 +475,19 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       schedule();
     }
     if (action.type === "move") {
-      const target = world.surfaces.find(surface => surface.element === action.target || surface.key === action.target);
+      const target = [...world.tabs, world.perch].find(surface =>
+        surface && (surface.element === action.target || surface.key === action.target));
       if (!target) return;
-      leap(target, action.pose);
+      idle = target === world.perch && action.pose === "sit";
+      travelTo(target, action.pose);
     }
   }
 
   function menu(event) {
     event?.preventDefault();
     if (options.legacy || token.hidden || drag) return;
-    options.showMenu();
+    speech.hide();
+    options.showMenu(true);
   }
 
   function menuKey(event) {
@@ -368,19 +503,20 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   function greet(event) {
     if (!options.legacy) {
       if (event.detail && performance.now() < ignoreTapUntil) return;
-      if (token.getAttribute("aria-expanded") === "true" || drag || jump || emote ||
+      if (token.getAttribute("aria-expanded") === "true" || drag || travel || emote ||
         (event.detail && (actor.pose === "air" || actor.rail))) return;
       if (idle) wake();
       else {
         lastTip = Date.now();
-        say(guideFor(activeTab(measure().workspace), options.account()), 6500);
+        const room = measure();
+        if (room.workspace) speech.say(guideFor(activeTab(room.workspace), options.account()), { priority: 1 });
       }
       return;
     }
     // Pointer clicks after a throw are generated by pointer capture.
     if (event.detail && (actor.pose === "air" || actor.rail)) return;
     if (contactPoses.has(actor.pose)) actor.pose = actor.pose === "sit" ? "stand" : "sit";
-    say("Ready for Matchday.");
+    speech.say("Ready for Matchday.");
     schedule();
   }
 
@@ -392,18 +528,19 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   // Dialogs are portalled next to the root.
   layout.observe(document.body, { childList: true });
   const roam = options.legacy ? null : window.setInterval(() => {
-    if (idle || drag || jump || emote || token.hidden || document.hidden || motion.matches ||
+    if (idle || drag || travel || emote || token.hidden || document.hidden || motion.matches ||
       token.getAttribute("aria-expanded") === "true" || !contactPoses.has(actor.pose)) return;
     const room = measure();
-    const optionsOnPage = navigation(room).filter(surface => surface.element !== actor.surface);
-    if (optionsOnPage.length) {
-      leap(optionsOnPage[Math.floor(Math.random() * optionsOnPage.length)], "stand", () => {
-        if (Date.now() - (lastTip || 0) < 65_000) return;
-        lastTip = Date.now();
-        say("A little movement keeps the legs warm.");
-      });
-    }
-  }, 26_000);
+    if (room.tabs.length < 2) return;
+    const from = room.tabs.findIndex(item => item.element === actor.surface);
+    if (from === 0 || from === room.tabs.length - 1) patrolDirection = from === 0 ? 1 : -1;
+    const destination = from < 0 ? currentTab(room) : room.tabs[from + patrolDirection];
+    travelTo(destination, "stand", () => {
+      if (!lastTip || Date.now() - lastTip < 60_000) return;
+      lastTip = Date.now();
+      speech.say("Ready for the next play.");
+    });
+  }, 7200);
   const resize = new ResizeObserver(invalidate);
   resize.observe(shell);
   resize.observe(stage);
@@ -415,6 +552,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   token.addEventListener("pointermove", move);
   token.addEventListener("pointerup", release);
   token.addEventListener("pointercancel", release);
+  token.addEventListener("lostpointercapture", release);
   token.addEventListener("click", greet);
   token.addEventListener("contextmenu", menu);
   token.addEventListener("keydown", menuKey);
@@ -424,10 +562,9 @@ export default function runCompanion(stage, token, bubble, rails, options) {
 
   return () => {
     cancelAnimationFrame(frame);
-    clearTimeout(dialogTimer);
     clearTimeout(guideTimer);
     clearTimeout(holdTimer);
-    clearTimeout(openAfterRelease);
+    speech.release();
     window.clearInterval(roam);
     layout.disconnect();
     resize.disconnect();
@@ -439,6 +576,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     token.removeEventListener("pointermove", move);
     token.removeEventListener("pointerup", release);
     token.removeEventListener("pointercancel", release);
+    token.removeEventListener("lostpointercapture", release);
     token.removeEventListener("click", greet);
     token.removeEventListener("contextmenu", menu);
     token.removeEventListener("keydown", menuKey);

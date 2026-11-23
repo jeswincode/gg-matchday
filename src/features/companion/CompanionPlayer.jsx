@@ -2,70 +2,99 @@ import { useId } from "react";
 import { companionLook } from "../../../shared/companion";
 import "./player.css";
 
-const skin = { sand: "#f0b780", copper: "#c78556", umber: "#9b5c42" };
+const complexions = { sand: "#eab082", copper: "#bd805c", umber: "#91583f" };
+const shirt = "M29 47 36 44h12l7 3 10 9-8 8-5-4 2 12H30l2-12-5 4-8-8Z";
+const hairlines = {
+  striker: "M23 28 20 19 24 12 31 9 38 10 48 7 57 12 62 17 61 28 56 24 54 18 46 20 39 17 30 23 27 28Z",
+  playmaker: "M23 28 21 24 20 17 24 13 27 8 34 9 40 5 48 8 54 8 60 13 64 19 60 28 55 25 54 19 46 21 39 20 33 23 27 23Z",
+};
 
-export default function CompanionPlayer({ look, action, kit }) {
+export default function CompanionPlayer({ look, action, kit, temporaryKit }) {
   const id = useId();
   const profile = companionLook(look);
-  return <svg className="gg-footballer" data-kit={kit || profile.kit} data-action={action} data-celebration={profile.celebration}
-    viewBox="0 0 80 92" aria-hidden="true" style={{ "--player-skin": skin[profile.complexion] }}>
+  const shade = id + "-shade";
+  const flare = id + "-flare";
+  const shirtClip = id + "-shirt";
+
+  return <svg className="gg-footballer" viewBox="0 0 84 96" aria-hidden="true"
+    data-kit={kit || profile.kit} data-temporary-kit={temporaryKit} data-action={action}
+    data-celebration={profile.celebration} style={{ "--player-skin": complexions[profile.complexion] }}>
     <defs>
-      <linearGradient id={id} x2="0.85" y2="1">
-        <stop stopColor="#fff" stopOpacity=".24" />
-        <stop offset="1" stopColor="#101825" stopOpacity=".25" />
+      <linearGradient id={shade} x2=".8" y2="1">
+        <stop stopColor="#fff" stopOpacity=".27" />
+        <stop offset=".58" stopColor="#fff" stopOpacity="0" />
+        <stop offset="1" stopColor="#101726" stopOpacity=".35" />
       </linearGradient>
-      <clipPath id={id + "-shirt"}><path d="M27 45 34 42h12l8 3 6 11-11 5v9H31v-9l-11-5z" /></clipPath>
+      <linearGradient id={flare} x1="0" x2="1" y1="1" y2="0">
+        <stop stopColor="#e94d32" />
+        <stop offset=".49" stopColor="#ffbb58" />
+        <stop offset="1" stopColor="#fff0ba" />
+      </linearGradient>
+      <clipPath id={shirtClip}><path d={shirt} /></clipPath>
     </defs>
-    <ellipse cx="40" cy="88" rx="19" ry="3.5" fill="#0a1010" opacity=".35" />
-    <g className="gg-player-art" stroke="#191922" strokeWidth="1.7" strokeLinejoin="round">
+    <ellipse className="gg-player-shadow" cx="42" cy="93" rx="21" ry="2.4" />
+    <g className="gg-player-art" stroke="#131921" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">
       <g className="gg-player-leg gg-player-leg--left">
-        <path fill="var(--player-socks)" d="M30 70h9l-1 13h-9z" />
-        <path fill="#242735" d="M30 81h8v6H24c-3-2 0-6 6-6z" />
-        <path stroke="#f9d990" d="M26 84h6" />
+        <path fill="var(--player-skin)" d="M29 72h11l-1 7h-9Z" />
+        <path fill="var(--player-socks)" d="M30 77h9l-1 13h-9Z" />
+        <path d="M30 79h8m-8 3h8" stroke="var(--player-trim)" strokeWidth="1" />
+        <path fill="var(--player-boot)" d="M30 87h9l1 5H22l1-3 5-1Z" />
+        <path d="M25 90h6m1-2h3" stroke="var(--player-trim)" strokeWidth="1" />
       </g>
       <g className="gg-player-leg gg-player-leg--right">
-        <path fill="var(--player-socks)" d="M41 70h9l1 13h-9z" />
-        <path fill="#242735" d="M42 81h8c6 0 9 4 6 6H42z" />
-        <path stroke="#f9d990" d="M48 84h6" />
+        <path fill="var(--player-skin)" d="M44 72h11l-1 7h-9Z" />
+        <path fill="var(--player-socks)" d="M45 77h9l1 13h-9Z" />
+        <path d="M46 79h8m-8 3h8" stroke="var(--player-trim)" strokeWidth="1" />
+        <path fill="var(--player-boot)" d="M45 87h9l3 2 5 1v2H44Z" />
+        <path d="M53 90h5m-9-2h3" stroke="var(--player-trim)" strokeWidth="1" />
       </g>
-      <path fill="#282937" d="M30 62h20l3 13H42l-2-5-2 5H27z" />
+      <path fill="var(--player-shorts)" d="M30 68h24l3 10H45l-3-6-3 6H27Z" />
+      <path d="m29 74 1-6m25 6-1-6" stroke="var(--player-trim)" strokeWidth="1.15" opacity=".75" />
       <g className="gg-player-arm gg-player-arm--left">
-        <path fill="var(--player-skin)" d="M24 51q-5 4-8 13c-.5 3 3 4 5 1l8-9z" />
-        <path className="gg-player-finger" fill="var(--player-skin)" d="m17 64-4 5q-2 1-2-1l4-7z" />
+        <path fill="var(--player-skin)" d="m24 54 6 5-5 7-5 5-4-2 3-6Z" />
+        <path d="m18 67 4 2" stroke="var(--player-trim)" strokeWidth="2" />
+        <path className="gg-player-finger" fill="var(--player-skin)" d="m17 67-4 7 2 1 5-5Z" />
       </g>
       <g className="gg-player-arm gg-player-arm--right">
-        <path fill="var(--player-skin)" d="M56 51q5 4 8 13c.5 3-3 4-5 1l-8-9z" />
-        <path className="gg-player-finger" fill="var(--player-skin)" d="m63 64 4 5q2 1 2-1l-4-7z" />
+        <path fill="var(--player-skin)" d="m60 54-6 5 5 7 5 5 4-2-3-6Z" />
+        <path d="m66 67-4 2" stroke="var(--player-trim)" strokeWidth="2" />
+        <path className="gg-player-finger" fill="var(--player-skin)" d="m67 67 4 7-2 1-5-5Z" />
       </g>
+      <path fill="var(--player-skin)" d="M37 38h10l1 9-6 5-6-5Z" />
       <g className="gg-player-jersey">
-        <path fill="var(--player-kit)" d="M27 45 34 42h12l8 3 6 11-11 5v9H31v-9l-11-5z" />
-        <g clipPath={`url(#${id}-shirt)`} stroke="none">
-          <path className="gg-player-stripes" fill="var(--player-trim)" d="M33 43h5v28h-5zm9 0h5v28h-5z" />
-          <path fill={`url(#${id})`} d="M20 42h40v28H20z" />
+        <path fill="var(--player-kit)" d={shirt} />
+        <g clipPath={`url(#${shirtClip})`} stroke="none">
+          <path className="gg-player-bib" fill="var(--player-panel)" d="M20 47h14l8 8 8-8h14v7L42 65 20 54Z" />
+          <path className="gg-player-stripes" fill="var(--player-panel)" d="M31 43h6v30h-6zm11 0h6v30h-6zm11 0h6v30h-6z" />
+          <path fill={`url(#${shade})`} d="M19 44h46v29H19z" />
         </g>
-        <path d="m34 44 6 4 6-4m-24 11 7 3m22 0 7-3" stroke="var(--player-trim)" fill="none" />
-        <path d="M44 53h3v3l-1.5 1-1.5-1z" fill="var(--player-trim)" stroke="none" />
-        <text x="39" y="64" textAnchor="middle" stroke="none" fill="var(--player-number)" fontSize="10" fontWeight="900">
-          <tspan className="gg-player-number-default">GG</tspan><tspan className="gg-player-number-madrid" x="39">7</tspan><tspan className="gg-player-number-barcelona" x="39">10</tspan>
+        <path d="m36 45 6 5 6-5m-25 13 5 4m33-4-5 4" fill="none" stroke="var(--player-trim)" strokeWidth="1.5" />
+        <path d="M48 53h5l-1 4-1.5 1-1.5-1Z" fill="var(--player-trim)" stroke="none" />
+        <text x="42" y="67" textAnchor="middle" stroke="none" fill="var(--player-number)" fontSize="9" fontWeight="900">
+          <tspan className="gg-player-number-default">GG</tspan>
+          <tspan className="gg-player-number-madrid" x="42">7</tspan>
+          <tspan className="gg-player-number-barcelona" x="42">10</tspan>
         </text>
       </g>
-      <path fill="var(--player-skin)" d="M34 37h12v8q-6 6-12 0z" />
-      <path fill="var(--player-skin)" d="M21 23c-10-4-10 10 0 11m38-11c10-4 10 10 0 11" />
-      <path fill="var(--player-skin)" d="M19 17Q20 9 40 9t21 8v13c-1 12-10 16-21 16S20 42 19 30z" />
-      <path fill={profile.style === "playmaker" ? "#3b251e" : "#241f2c"}
-        d={profile.style === "playmaker"
-          ? "M19 27q-9-11 1-17 1-8 9-6 5-6 13-3 9-2 12 4 12 1 10 13l-4 9-3-11q-8 4-14-2-8 7-19 3z"
-          : "M19 27q-8-8-2-14 0-8 9-10l10-2 11 2 10 0-4 5q13 1 11 13l-4 6-4-11-9 3-19 0-4-1z"} />
-      <path d="M26 10q9-5 23-3" fill="none" stroke="#fff" opacity=".18" />
-      <path d="M25 23q4-3 8-1m14 0q4-2 8 1" fill="none" stroke="#312328" strokeLinecap="round" />
+      <path fill="var(--player-skin)" d="M25 24q-8-3-8 4 0 5 8 6m34-10q8-3 8 4 0 5-8 6" />
+      <path fill="var(--player-skin)" d="M25 16 32 11h20l7 6 1 14-4 10-8 6H36l-8-6-4-10Z" />
+      <path fill={`url(#${shade})`} stroke="none" d="M25 16 32 11h20l7 6 1 14-4 10-8 6H36l-8-6-4-10Z" />
+      <path fill="#252331" d={hairlines[profile.style]} />
+      <path d="m26 17 6-3 8 1m5-3 7 1 4 4" stroke="#776272" opacity=".66" fill="none" />
+      <path d="M30 25q3-2 7 0m10 0q4-2 7 0" fill="none" strokeWidth="1.6" />
       <g className="gg-player-eyes" stroke="none">
-        <ellipse cx="30" cy="29" rx="4.2" ry="4.6" fill="#fff7ea" />
-        <ellipse cx="50" cy="29" rx="4.2" ry="4.6" fill="#fff7ea" />
-        <g className="gg-player-pupils" fill="#252433">
-          <ellipse cx="30" cy="29" rx="2.4" ry="3.2" /><ellipse cx="50" cy="29" rx="2.4" ry="3.2" />
+        <path fill="#fff5e7" d="M29 29q4-4 9 0-1 4-5 4-3 0-4-4Zm17 0q5-4 9 0-1 4-4 4-4 0-5-4Z" />
+        <g className="gg-player-pupils" fill="#202434">
+          <circle cx="34" cy="30" r="2.1" />
+          <circle cx="50" cy="30" r="2.1" />
         </g>
       </g>
-      <path d="M36 36q4 4 8 0" fill="none" stroke="#713d36" strokeLinecap="round" />
+      <path d="m41 32-1 4h3m-5 3q4 2 8-1" stroke="#754638" strokeWidth="1" fill="none" />
+    </g>
+    <g className="gg-player-kit-flare" fill={`url(#${flare})`}>
+      <path d="M19 78q-8-9 4-17-3 6 2 8-1-7 7-13-3 10 6 12-10 3-19 10Z" />
+      <path d="M43 66q17-4 17-15 4 3 3 9 4-2 7-8 3 8-1 14-10 8-26 0Z" />
+      <path d="m25 49 3 3-1 4-3-3Zm35-7 2 4-2 3-2-3Zm-20 7 1 3-2 2-1-3Z" />
     </g>
   </svg>;
 }

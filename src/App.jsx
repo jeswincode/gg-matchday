@@ -2577,6 +2577,7 @@ function NavButton({
   return (
     <button
       type="button"
+      data-primary-tab={label.toLowerCase()}
       aria-current={active ? "page" : undefined}
       className={
         active
