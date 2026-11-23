@@ -10,6 +10,9 @@ export default function HomePage({
   loadingPlayers,
   playersError,
   matches,
+  loadingMatches,
+  archiveError,
+  onRetryArchive,
   overview,
   totalAllTimeGoals,
   news,
@@ -48,15 +51,20 @@ export default function HomePage({
                 : latestTopScorer && latestTopScorer.goals === 2
                   ? `${latestTopScorer.name} delivers a two-goal performance.`
                   : `${latestMatch.name} adds another chapter to the GG story.`
-            : "Your football story starts here."}
+            : loadingMatches ? "Loading the latest Matchday…"
+              : archiveError ? "Matchday archive unavailable" : "Your football story starts here."}
         </h2>
         <p>
           {latestMatch
             ? `${latestTopScorer?.name || "The players"} ${latestTopScorer
                 ? `recorded ${latestTopScorer.goals} goal${latestTopScorer.goals === 1 ? "" : "s"}`
                 : "featured in the latest match"}.`
-            : "Record your first match and the Matchday story will appear here."}
+            : !loadingMatches && !archiveError && "Record your first match and the Matchday story will appear here."}
         </p>
+
+        {!latestMatch && archiveError && <button type="button" className="secondary-button" onClick={onRetryArchive}>
+          Retry Matchday data
+        </button>}
 
         {latestMatch && (
           <div className="feature-score">
@@ -74,9 +82,9 @@ export default function HomePage({
       </section>
 
       <HomeAnalyticsHub
-        players={players.length}
-        matches={overview?.matches ?? matches.length}
-        goals={overview?.goals ?? totalAllTimeGoals}
+        players={!players.length && (loadingPlayers || playersError) ? "…" : players.length}
+        matches={overview?.matches ?? ((loadingMatches || archiveError) && !matches.length ? "…" : matches.length)}
+        goals={overview?.goals ?? ((loadingMatches || archiveError) && !matches.length ? "…" : totalAllTimeGoals)}
         onPlayers={onPlayers}
         onRecord={onRecord}
         onPlayer={onPlayer}

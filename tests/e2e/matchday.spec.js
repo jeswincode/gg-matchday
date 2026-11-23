@@ -231,24 +231,81 @@ test("mobile opens Matchday after fullscreen while the account request is still 
   await expect(page).toHaveURL(/tab=leaderboard/);
 });
 
-test("mobile keeps Matchday open when the pending account check fails", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
+test("desktop opens Matchday while permissions are still being verified", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium-desktop", "Desktop entrance only");
   let finishAccount;
   const account = new Promise(resolve => { finishAccount = resolve; });
   await stubPublicApi(page);
   await page.route("**/api/auth/me", async route => {
     await account;
-    await route.fulfill({ status: 503, json: { message: "Account check unavailable." } });
+    await route.fulfill({ json: { user: { id: "slow-desktop-account", name: "Returning admin", role: "admin" } } });
+  });
+  try {
+    await page.goto("/");
+    await enterSignedInMatchday(page);
+    await expect(page.getByRole("status").filter({ hasText: "Checking account..." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Request Editor Access" })).toHaveCount(0);
+  } finally { finishAccount(); }
+  await expect(page.getByRole("button", { name: "⚙ Admin" })).toBeVisible();
+});
+
+test("mobile recovers account and archive data in place while the API wakes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubPublicApi(page);
+  let ready = false;
+  let attempts = 0;
+  let wake;
+  const serverReady = new Promise(resolve => { wake = resolve; });
+  await page.route("**/api/auth/me", async route => {
+    attempts++;
+    if (attempts === 1) return route.fulfill({ status: 200, contentType: "text/html", body: "Service is starting" });
+    if (attempts === 2) return route.fulfill({ status: 503, json: { message: "Server is starting" } });
+    await serverReady;
+    return route.fulfill({ json: { user: { id: "returning-admin", name: "Returning admin", role: "admin" } } });
+  });
+  await page.route(url => url.pathname === "/api/matches" && url.searchParams.has("page"), route => {
+    if (!ready) return route.fulfill({ status: 503, json: { message: "Server is starting" } });
+    return route.fulfill({ json: [{ _id: "test-match", name: "Recovered fixture", date: "2026-11-01", teamA: { label: "Home", score: 1 }, teamB: { label: "Away", score: 0 } }] });
+  });
+  try {
+    await page.goto("/");
+    await completeMobileEntry(page);
+    await expect(page.getByRole("status").filter({ hasText: "Checking account..." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Request Editor Access" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Retry Matchday data" })).toBeVisible();
+  } finally {
+    ready = true;
+    wake();
+  }
+  await expect(page.getByText("Returning admin", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "⚙ Admin" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recovered fixture adds another chapter to the GG story." })).toBeVisible();
+  await expect(page.locator(".gg-entry-screen")).toHaveCount(0);
+  expect(attempts).toBeGreaterThan(2);
+});
+
+test("mobile lets a signed-in account retry a failed verification without leaving Matchday", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  let finishAccount;
+  const account = new Promise(resolve => { finishAccount = resolve; });
+  let denied = true;
+  await stubPublicApi(page);
+  await page.route("**/api/auth/me", async route => {
+    await account;
+    if (denied) return route.fulfill({ status: 403, json: { message: "Account verification unavailable." } });
+    return route.fulfill({ json: { user: { id: "returning-editor", name: "Returning editor", role: "editor" } } });
   });
   try {
     await page.goto("/");
     await completeMobileEntry(page);
     await expect(page.getByRole("navigation", { name: "Matchday tabs" })).toBeVisible();
   } finally { finishAccount(); }
-  await expect(page.getByText("Viewer mode", { exact: true })).toBeVisible();
+  await expect(page.getByText("Account not synced", { exact: true })).toBeVisible();
   await expect(page.locator(".gg-entry-screen")).toHaveCount(0);
-  await page.getByRole("button", { name: "Sign In", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Request Editor Access" })).toHaveCount(0);
+  denied = false;
+  await page.getByRole("button", { name: "Retry account sync" }).click();
+  await expect(page.getByText("Returning editor", { exact: true })).toBeVisible();
 });
 
 test("Dark and Gold use their own favicons and keep the choice on reload", async ({ page }) => {

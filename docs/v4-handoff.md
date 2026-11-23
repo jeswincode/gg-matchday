@@ -8,7 +8,7 @@ The active application branch is [`v4/fresh-start`](https://github.com/jeswincod
 | --- | --- |
 | V4 frontend | [Vercel branch preview](https://gg-matchday-git-v4-fresh-start-jeswincode.vercel.app/). The Vite build uses `VITE_API_URL` with an `/api` suffix. |
 | V4 API | [`gg-matchday-v4-fresh-api` on Render](https://dashboard.render.com/web/srv-dbuk4g6k1f9s73agustg), auto-deploying on commits to `v4/fresh-start`. Check [API health](https://gg-matchday-v4-fresh-api.onrender.com/api/health) for both database connections. The preview origin belongs in the API's `CORS_ORIGINS` and in Firebase's authorized domains when sign-in needs it. |
-| V3 production | `main`, the production Vercel frontend, and Render service `gg-matchday`. Keep these outside V4 work. The older Render service `gg-matchday-v4-api` tracks `v4/development` and is outside this workflow too. |
+| V4.1 production | `main`, the production Vercel frontend, and Render service `gg-matchday`. Release explicitly authorized changes here and use the isolated preview or local fixtures for test writes. The older Render service `gg-matchday-v4-api` tracks `v4/development`. |
 
 ## Architecture and local setup
 
@@ -47,7 +47,8 @@ Take the next user-selected feature through local implementation, focused tests,
 
 - Matchday and Clubs remember each tab’s scroll position while the app is open. The URL records the selected tab so links reopen that destination and browser Back and Forward follow tab navigation. Clubs destinations still follow the viewer’s existing access rules.
 - Mobile swipe previews use the destination tab's saved scroll position before the tab becomes active. The startup splash waits up to 1.8 seconds for the session. If the check is still pending when fullscreen entry finishes, Matchday opens and shows the check in the account bar. Dark uses the original V3 icon and Gold uses the V4 gradient icon, including on reload.
-- Account checks time out after 15 seconds. A newer Firebase identity cancels the previous check and clears its role while the new account loads.
+- Account checks retry temporary errors with a 20-second limit per attempt and a bounded backoff. The Matchday shell can open while verification continues. The account bar only shows permissions after the API confirms them, and offers an in-place retry if sync fails. Signing out or changing the Firebase identity cancels the previous check. Public Matchday data can load independently of Firebase token refresh.
+- My Club statistics and player reviews enrich their results from the Matchday player database through its model. Club statistics and review records are stored in the separate Clubs database.
 
 - Matchday keeps neighboring mobile tabs laid out and refreshes the primary tab data while the workspace is open. The mobile Matchday and Clubs dock highlights settle on the selected tab when a drag is released. The Matchday background video holds its frame during horizontal gestures and resumes after navigation settles, subject to the device's reduced-motion preference.
 - V3 moves a single stage on touch. The V4 pager keeps the incoming page visible during the drag and moves only the two pane transforms per frame. It accepts shorter deliberate horizontal drags, keeps native vertical scrolling, and settles the drag in 95 ms. Native-touch browser tests cover a short drag and a second drag begun before the first has settled.

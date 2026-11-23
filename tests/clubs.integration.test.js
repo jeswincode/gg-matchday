@@ -26,6 +26,7 @@ const { default: ClubFormationApplication } = await import("../server/models/clu
 const { default: ClubHistory } = await import("../server/models/clubs/ClubHistory.js");
 const { default: ClubAdminAuditEvent } = await import("../server/models/clubs/ClubAdminAuditEvent.js");
 const { default: ClubPlayerStats } = await import("../server/models/clubs/ClubPlayerStats.js");
+const { default: PlayerReview } = await import("../server/models/clubs/PlayerReview.js");
 const { rebuildClubPlayerStats } = await import("../server/services/clubsMatchSync.js");
 const { default: Match } = await import("../server/models/Match.js");
 const { default: PlayerStats } = await import("../server/models/PlayerStats.js");
@@ -730,6 +731,37 @@ test("Club player-history ratings use effectiveMatchRating for legacy own-goal r
   assert.ok(stats);
   assert.equal(stats.ratedMatches, 1);
   assert.equal(stats.ratingTotal, 7, "the legacy own-goal penalty must be applied once in Club history");
+});
+
+test("Club statistics and reviews read player identities from the separate Matchday database", async () => {
+  const club = await Club.create({
+    name: "Separate Database FC",
+    description: "Regression fixture for Club reads.",
+    memberIds: players.slice(0, 4).map(player => player._id),
+    captainIds: [players[0]._id],
+    status: "approved",
+  });
+  await ClubPlayerStats.create({ clubId: club._id, playerId: players[0]._id, matches: 1, goals: 2 });
+  await PlayerReview.create({
+    reviewerPlayerId: players[0]._id, reviewedPlayerId: players[1]._id, relationship: "teammate",
+    clubId: club._id, stars: 4, observation: "Good support in midfield.", eligibilityMatchCount: 1,
+  });
+  try {
+    const stats = await request(`/clubs/${club._id}/stats`, { token: null });
+    assert.equal(stats.status, 200, JSON.stringify(stats.data));
+    assert.equal(stats.data.stats[0].goals, 2);
+    assert.equal(stats.data.stats[0].playerId.name, players[0].name);
+
+    const given = await request("/clubs/reviews/me", { playerId: players[0]._id });
+    assert.equal(given.status, 200, JSON.stringify(given.data));
+    assert.equal(given.data.find(row => row.clubId === String(club._id))?.reviewedPlayerId?.name, players[1].name);
+
+    const received = await request(`/clubs/reviews/player/${players[1]._id}`, { token: null });
+    assert.equal(received.status, 200, JSON.stringify(received.data));
+    assert.equal(received.data.find(row => row.clubId === String(club._id))?.reviewerPlayerId?.name, players[0].name);
+  } finally {
+    await Promise.all([Club.findByIdAndDelete(club._id), ClubPlayerStats.deleteMany({ clubId: club._id }), PlayerReview.deleteMany({ clubId: club._id })]);
+  }
 });
 
 test("GET player attributes is read-only when there is no current snapshot", async () => {

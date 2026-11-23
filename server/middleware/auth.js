@@ -17,6 +17,7 @@ export async function requireAuth(
   res,
   next
 ) {
+  let verifiedIdentity = false;
   try {
     const testToken = String(req.headers["x-e2e-test-token"] || "");
     if (testToken) {
@@ -28,6 +29,7 @@ export async function requireAuth(
       if (!matches) {
         return res.status(401).json({ message: "Invalid test authentication token." });
       }
+      verifiedIdentity = true;
 
       const roleHeader = String(req.headers["x-e2e-test-role"] || "viewer");
       const role = ["viewer", "editor", "admin"].includes(roleHeader) ? roleHeader : "viewer";
@@ -82,6 +84,7 @@ export async function requireAuth(
       await firebaseAuth.verifyIdToken(
         token
       );
+    verifiedIdentity = true;
 
     const firebaseUid =
       decoded.uid;
@@ -188,6 +191,10 @@ export async function requireAuth(
       "Authentication error:",
       error.message
     );
+
+    if (verifiedIdentity || ["app/network-error", "app/network-timeout"].includes(error?.code)) {
+      return res.status(503).json({ message: "Matchday account service is temporarily unavailable." });
+    }
 
     return res.status(
       401

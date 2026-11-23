@@ -1,6 +1,6 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
 import {API_URL, api, authenticatedFetch, invalidate} from './lib/api';
-import { createAccountSync } from "./lib/accountSync";
+import { createAccountSync, fetchMatchdayAccount } from "./lib/accountSync";
 import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
 import SwipePager from "./components/SwipePager";
@@ -230,6 +230,8 @@ function App() {
     ),
   );
   const [signingIn, setSigningIn] = useState(false);
+  const [accountSyncError, setAccountSyncError] = useState("");
+  const retryAccountSync = useRef(null);
 
   const [
     message,
@@ -450,115 +452,105 @@ function App() {
   // =========================================================
 
   useEffect(() => {
-    if (import.meta.env.VITE_E2E_TEST_AUTH_SECRET) {
-      let active = true;
-      const params = new URLSearchParams(window.location.search);
-      const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
-      const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
-      if (role === "guest") {
-        // Initial state is already signed out and not loading for explicit E2E
-        // guest mode, so avoid redundant state updates during effect setup.
-        return () => { active = false; };
-      }
-      const headers = {
-        "X-E2E-Test-Token": import.meta.env.VITE_E2E_TEST_AUTH_SECRET,
-        "X-E2E-Test-Role": role,
-        ...(playerId ? { "X-E2E-Test-Player-Id": playerId } : {}),
-      };
-      fetch(`${API_URL}/auth/me`, { headers })
-        .then(async response => {
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(data.message || "Test authentication failed.");
-          if (!active) return;
-          setAuthUser({
-            uid: `e2e-test:${role}:${playerId || "unlinked"}`,
-            displayName: data.user?.name || `Playwright ${role}`,
-            email: data.user?.email || "playwright@test.invalid",
-            photoURL: "",
-            getIdToken: async () => "",
-          });
-          setBackendUser(data.user || null);
-          setMessage("");
-        })
-        .catch(error => {
-          if (!active) return;
-          setBackendUser(null);
-          setMessage(`Test authentication failed: ${error.message}`);
-        })
-        .finally(() => {
-          if (active) setAuthLoading(false);
-        });
-      return () => { active = false; };
-    }
-
-    if (!auth) return;
+    const testSecret = import.meta.env.VITE_E2E_TEST_AUTH_SECRET;
+    if (!auth && !testSecret) return;
 
     let active = true;
+    let unsubscribe;
+    let testHeaders;
 
     const accountSync = createAccountSync({
       onIdentity(user) {
         setAuthUser(user);
         setBackendUser(null);
+        setAccountSyncError("");
         setAuthLoading(Boolean(user));
       },
-      async load(firebaseUser, signal) {
-        const token = await firebaseUser.getIdToken();
-        signal.throwIfAborted();
-        const response = await fetch(`${API_URL}/auth/me`, {
-          signal,
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.message || `Authentication sync failed (${response.status}).`);
-        return data.user || null;
+      onStart() {
+        setAccountSyncError("");
+        setAuthLoading(true);
       },
-      onResult(user) {
+      async load(firebaseUser, signal) {
+        if (testHeaders) return fetchMatchdayAccount(API_URL, testHeaders, signal);
+        async function loadWithToken(forceRefresh) {
+          const token = await firebaseUser.getIdToken(forceRefresh);
+          signal.throwIfAborted();
+          return fetchMatchdayAccount(API_URL, { Authorization: `Bearer ${token}` }, signal);
+        }
+        try {
+          return await loadWithToken(false);
+        } catch (error) {
+          if (error?.status === 401 && !signal.aborted) return loadWithToken(true);
+          throw error;
+        }
+      },
+      onResult(user, { recovered }) {
         setBackendUser(user);
-        setMessage("");
+        if (recovered) refreshLiveTopics(["matchday", "news", "clubs"]);
       },
       onError(error) {
-        setMessage(`Could not sync your account: ${error.message}`);
+        setAccountSyncError(error?.retryable === false
+          ? "We couldn't verify your Matchday account. Try again or sign out and back in."
+          : "Matchday is taking longer than expected to sync your account.");
       },
       onSettled() { setAuthLoading(false); },
     });
 
-    const unsubscribe = onAuthStateChanged(auth, user => {
-      if (active) void accountSync.sync(user);
-    });
+    function retryWhenAvailable() {
+      if (!document.hidden) void accountSync.retry({ automatic: true });
+    }
 
-    // Consume a pending redirect result on startup as an explicit
-    // fallback for browsers where the auth observer is delayed.
-    getRedirectResult(auth)
-      .then((result) => {
-        if (active && result?.user && result.user.uid === auth.currentUser?.uid) {
-          return accountSync.sync(result.user);
-        }
-        return undefined;
-      })
-      .catch((error) => {
-        console.error("Redirect auth result error:", error);
-
-        if (active && !auth.currentUser) {
-          setAuthLoading(false);
-          setMessage(
-            error?.code === "auth/web-storage-unsupported"
-              ? "Google sign-in needs browser storage enabled."
-              : `${error?.code || "auth-error"}: ${error?.message || "Google sign-in could not be completed."}`,
-          );
-        }
+    if (testSecret) {
+      const params = new URLSearchParams(window.location.search);
+      const role = params.get("e2eRole") || import.meta.env.VITE_E2E_TEST_ROLE || "viewer";
+      const playerId = params.get("e2ePlayerId") || import.meta.env.VITE_E2E_TEST_PLAYER_ID || "";
+      if (role === "guest") return;
+      testHeaders = {
+        "X-E2E-Test-Token": testSecret,
+        "X-E2E-Test-Role": role,
+        ...(playerId ? { "X-E2E-Test-Player-Id": playerId } : {}),
+      };
+      void accountSync.sync({ uid: `e2e-test:${role}:${playerId || "unlinked"}`, displayName: `Playwright ${role}` });
+    } else {
+      unsubscribe = onAuthStateChanged(auth, user => {
+        if (active) void accountSync.sync(user);
       });
 
+      // Consume a pending redirect result when the auth observer is delayed.
+      getRedirectResult(auth)
+        .then(result => {
+          if (active && result?.user && result.user.uid === auth.currentUser?.uid) {
+            return accountSync.sync(result.user);
+          }
+        })
+        .catch(error => {
+          console.error("Redirect auth result error:", error);
+          if (active && !auth.currentUser) {
+            setAuthLoading(false);
+            setMessage(error?.code === "auth/web-storage-unsupported"
+              ? "Google sign-in needs browser storage enabled."
+              : `${error?.code || "auth-error"}: ${error?.message || "Google sign-in could not be completed."}`);
+          }
+        });
+    }
+
+    retryAccountSync.current = accountSync.retry;
+    window.addEventListener("online", retryWhenAvailable);
+    document.addEventListener("visibilitychange", retryWhenAvailable);
     return () => {
       active = false;
       accountSync.cancel();
-      unsubscribe();
+      unsubscribe?.();
+      retryAccountSync.current = null;
+      window.removeEventListener("online", retryWhenAvailable);
+      document.removeEventListener("visibilitychange", retryWhenAvailable);
     };
   }, []);
 
   const finishStartup = useCallback(() => {
     setExperience(mobileEntry && mobileEntryComplete && authLoading
       ? "app"
-      : authUser && !authLoading ? "welcome" : "entry");
+      : authUser ? "welcome" : "entry");
   }, [authUser, authLoading, mobileEntry, mobileEntryComplete]);
 
   function completeMobileEntry() {
@@ -570,7 +562,7 @@ function App() {
     setExperience("app");
   }
 
-  const signedInEntry = experience === "entry" && authUser && !authLoading;
+  const signedInEntry = experience === "entry" && Boolean(authUser);
   const activeExperience = signedInEntry || experience === "welcome"
     ? (mobileEntry ? "app" : "welcome")
     : experience;
@@ -616,7 +608,7 @@ function App() {
   useEffect(() => {
     if (!matchdayActive) return undefined;
     let active = true;
-    api("/players").then(latest => {
+    api("/players", { publicRead: true }).then(latest => {
       if (!active || !Array.isArray(latest)) return;
       setPlayersError("");
       setPlayers(latest);
@@ -635,7 +627,7 @@ function App() {
     const pages = Array.from({ length: archivePage }, async (_, index) => {
       const page = index + 1;
       if (loaded.has(page)) return loaded.get(page);
-      const matches = await api(`/matches?page=${page}&limit=50`);
+      const matches = await api(`/matches?page=${page}&limit=50`, { publicRead: true });
       if (active) loaded.set(page, matches);
       return matches;
     });
@@ -654,14 +646,14 @@ function App() {
   useEffect(() => {
     if (!primaryTabsActive) return undefined;
     let active = true;
-    api("/stats/overview").then(data => { if (active) setOverview(data); }).catch(() => {});
+    api("/stats/overview", { publicRead: true }).then(data => { if (active) setOverview(data); }).catch(() => {});
     return () => { active = false; };
   }, [primaryTabsActive, refreshKey]);
 
   useEffect(() => {
     if (!primaryTabsActive) return undefined;
     let active = true;
-    api("/news?limit=6").then(data => {
+    api("/news?limit=6", { publicRead: true }).then(data => {
       if (active) setNews(Array.isArray(data) ? data : []);
     }).catch(error => { if (active) console.error(error); })
       .finally(() => { if (active) setNewsLoading(false); });
@@ -671,7 +663,7 @@ function App() {
   useEffect(() => {
     if (!primaryTabsActive) return undefined;
     let active = true;
-    api("/stats/leaderboard").then(data => {
+    api("/stats/leaderboard", { publicRead: true }).then(data => {
       if (active) setLeaderboard(Array.isArray(data.leaderboard) ? data.leaderboard : []);
     }).catch(error => { if (active) console.error(error); });
     return () => { active = false; };
@@ -2056,7 +2048,19 @@ function App() {
     workspaceContent = <StartupScreen authLoading={authLoading} onComplete={finishStartup} />;
   } else if (fullscreenPromptOpen) {
     workspaceContent = <MobileFullscreenScreen onContinue={completeMobileEntry} />;
-  } else if (productMode === "clubs" && (!authLoading || activeExperience === "app")) {
+  } else if (productMode === "clubs" && (authLoading || accountSyncError)) {
+    workspaceContent = <main className="app app--matchday">
+      <section className="account-bar">
+        <span className="account-status" role={accountSyncError ? "alert" : "status"}>
+          {accountSyncError || "Checking account..."}
+        </span>
+        <div className="account-actions">
+          {accountSyncError && <button type="button" className="secondary-button" onClick={() => retryAccountSync.current?.()}>Retry account sync</button>}
+          <button type="button" className="secondary-button" onClick={() => switchProductMode("matchday")}>← Matchday</button>
+        </div>
+      </section>
+    </main>;
+  } else if (productMode === "clubs") {
     workspaceContent = <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin}
       adminEntry={clubsAdminEntry} onOpenOwnProfile={linkedPlayerId ? openOwnProfile : null}
       openingOwnProfile={openingOwnProfile} ownProfileError={linkedPlayerId ? ownProfileError : ""} />;
@@ -2111,7 +2115,7 @@ function App() {
               ) : (
                 <span>
                   {(
-                    authUser.displayName ||
+                    backendUser?.name || authUser.displayName ||
                     authUser.email ||
                     "U"
                   )
@@ -2127,16 +2131,12 @@ function App() {
               <div>
                 <strong>
                   {
-                    authUser.displayName ||
-                    "GG Matchday User"
+                    backendUser?.name || authUser.displayName || "GG Matchday User"
                   }
                 </strong>
 
                 <small>
-                  {
-                    backendUser?.role ||
-                    "viewer"
-                  }
+                  {backendUser?.role || "Account not synced"}
                 </small>
               </div>
 
@@ -2144,7 +2144,10 @@ function App() {
 
             <div className="account-actions">
 
-              {!isEditor &&
+              {accountSyncError && <button type="button" className="secondary-button" onClick={() => retryAccountSync.current?.()}>
+                Retry account sync
+              </button>}
+              {backendUser && !isEditor &&
                 !hasPendingRequest && (
                   <button
                     type="button"
@@ -2214,6 +2217,7 @@ function App() {
 
       {/* MESSAGE */}
 
+      {accountSyncError && <p className="global-message" role="alert">{accountSyncError}</p>}
       {linkedPlayerId && ownProfileError && <p className="global-message" role="alert">{ownProfileError}</p>}
       {message && (
         <div className="global-message">
@@ -2249,6 +2253,9 @@ function App() {
           loadingPlayers={loadingPlayers}
           playersError={playersError}
           matches={matches}
+          loadingMatches={loadingMatches}
+          archiveError={archiveError}
+          onRetryArchive={() => refreshLiveTopics(["matchday", "news"])}
           overview={overview}
           totalAllTimeGoals={totalAllTimeGoals}
           news={news}

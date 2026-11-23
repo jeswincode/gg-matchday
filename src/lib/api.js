@@ -101,16 +101,17 @@ export async function authenticatedFetch(url, options = {}) {
   return fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
 }
 
-export async function api(path, { method = 'GET', body, signal, ...options } = {}) {
+export async function api(path, { method = 'GET', body, signal, publicRead = false, ...options } = {}) {
   const normalizedMethod = String(method || 'GET').toUpperCase();
-  const key = `${auth?.currentUser?.uid || 'public'}:${path}`;
+  const anonymous = publicRead && normalizedMethod === 'GET';
+  const key = `${anonymous ? 'anonymous' : auth?.currentUser?.uid || 'public'}:${path}`;
   const hit = cache.get(key);
   if (normalizedMethod === 'GET' && !signal && hit && hit.until > Date.now()) return hit.data;
   if (normalizedMethod === 'GET' && !signal && pending.has(key)) return pending.get(key).task;
   const revision = cacheRevision;
 
   const task = (async () => {
-    const token = await auth?.currentUser?.getIdToken();
+    const token = anonymous ? null : await auth?.currentUser?.getIdToken();
     let response;
     try {
       response = await fetch(`${API_URL}${path}`, {
@@ -120,7 +121,7 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
         headers: {
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...e2eAuthHeaders(),
+          ...(anonymous ? {} : e2eAuthHeaders()),
         },
         ...(body !== undefined ? { body: typeof body === 'string' ? body : JSON.stringify(body) } : {}),
       });
@@ -136,7 +137,7 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
       throw error;
     }
 
-    const data = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => null);
     if (!response.ok) {
       const requestId = requestIdFrom(response, data);
       const serverMessage = typeof data?.message === 'string' ? data.message.trim() : '';
@@ -157,10 +158,15 @@ export async function api(path, { method = 'GET', body, signal, ...options } = {
       throw error;
     }
 
+    if (anonymous && data === null) {
+      throw new ApiError('Matchday data is temporarily unavailable.', {
+        status: response.status, method: normalizedMethod, path, retryable: true,
+      });
+    }
     if (normalizedMethod === 'GET') {
-      if (revision === cacheRevision) cache.set(key, { path, data, until: Date.now() + 15_000 });
+      if (revision === cacheRevision) cache.set(key, { path, data: data ?? {}, until: Date.now() + 15_000 });
     } else invalidate(path);
-    return data;
+    return data ?? {};
   })().finally(() => {
     if (pending.get(key)?.task === task) pending.delete(key);
   });

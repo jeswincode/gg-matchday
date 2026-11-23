@@ -1533,7 +1533,7 @@ router.get("/reviews/me", requireAuth, async (req, res) => {
     const reviews = await PlayerReview.find({ reviewerPlayerId: playerId })
       .sort({ createdAt: -1 })
       .limit(100)
-      .populate("reviewedPlayerId", "name profileImage position")
+      .populate({ path: "reviewedPlayerId", model: Player, select: "name profileImage position" })
       .lean();
     return res.json(reviews);
   } catch {
@@ -1548,7 +1548,7 @@ router.get("/reviews/player/:playerId", async (req, res) => {
     const reviews = await PlayerReview.find({ reviewedPlayerId: req.params.playerId })
       .sort({ createdAt: -1 })
       .limit(100)
-      .populate("reviewerPlayerId", "name profileImage position")
+      .populate({ path: "reviewerPlayerId", model: Player, select: "name profileImage position" })
       .lean();
     return res.json(reviews);
   } catch {
@@ -2072,7 +2072,7 @@ router.get("/:clubId/stats", async (req, res) => {
     if (!club) return res.status(404).json({ message: "Club not found." });
 
     const stats = await ClubPlayerStats.find({ clubId: club._id })
-      .populate("playerId", "name profileImage position")
+      .populate({ path: "playerId", model: Player, select: "name profileImage position" })
       .sort({ matches: -1, ratingTotal: -1 })
       .lean();
 
