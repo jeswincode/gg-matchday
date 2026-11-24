@@ -1,6 +1,7 @@
-import { clamp, readCompanionWorld, stepCompanion } from "./companionWorld";
+import { clamp, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
 import { celebrationFrame, celebrationTiming } from "./companionCelebration";
 import { guideFor } from "./companionGuide";
+import { recoveryTab, skillFrame } from "./companionSkills";
 import { createCompanionSpeech } from "./companionSpeech";
 
 function activeTab(workspace) {
@@ -8,10 +9,13 @@ function activeTab(workspace) {
 }
 const contactPoses = new Set(["stand", "sit", "hang", "celebrate"]);
 const landingLine = "10 on 10 landing";
+const idleDelay = 34_000;
+const gazeDelay = 1900;
 
 function rememberPoint(drag, event) {
   const point = { x: event.clientX, y: event.clientY, time: event.timeStamp };
   drag.points.push(point);
+  if (drag.points.length > 16) drag.points.shift();
   while (drag.points.length > 1 && point.time - drag.points[0].time > 105) drag.points.shift();
   return point;
 }
@@ -28,18 +32,29 @@ function throwVelocity(drag, event, reduced) {
 }
 
 export default function runCompanion(stage, token, bubble, rails, options) {
-  const radius = options.legacy ? 16 : 26;
+  const radius = options.legacy ? 16 : 29;
   const rig = token.querySelector(".gg-footballer");
   const shell = document.getElementById("root");
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   const actor = { x: 0, y: 0, vx: 0, vy: 0, pose: "stand" };
-  let world, frame, lastFrame, drag, travel, holdTimer, guideTimer, emote, landingUntil;
+  let world, frame, lastFrame, drag, travel, holdTimer, guideTimer, idleTimer, emote, skill, landingUntil;
   let idle = !options.legacy;
-  let pointer;
-  let tab, lastTip, ignoreTapUntil = 0;
-  let patrolDirection = 1;
+  let tab, ignoreTapUntil = 0;
+  let nextGaze = 0;
+  let finishGaze;
+  let skillSide = 1;
   const visited = new Set();
   const speech = createCompanionSpeech(bubble, motion, schedule);
+
+  function setStyle(element, name, value) {
+    if (element.style.getPropertyValue(name) !== value) element.style.setProperty(name, value);
+  }
+
+  function pingIdle(delay = idleDelay) {
+    if (options.legacy || motion.matches || document.hidden) return;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(startIdleSkill, delay);
+  }
 
   function currentTab(room) {
     return room.tabs.find(item => item.element.hasAttribute("aria-current")) || room.tabs[0];
@@ -48,9 +63,9 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   function targetFor(surface, room) {
     const edge = room.vertical && surface.element !== room.perch?.element;
     return {
-      x: edge ? clamp(surface.right + radius * .52, room.left + radius, room.right - radius)
+      x: edge ? clamp(surface.right + radius * .42, room.left + radius, room.right - radius)
         : (surface.left + surface.right) / 2,
-      y: edge ? clamp((surface.top + surface.bottom) / 2 + radius, room.top + radius * 2, room.bottom - 8)
+      y: edge ? clamp((surface.top + surface.bottom) / 2 + radius * 1.12, room.top + radius * 2, room.bottom - 8)
         : surface.top,
       edge,
     };
@@ -84,9 +99,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       element: surface.element, mode, pose, x: actor.x, y: actor.y,
       direction: Math.sign(target.x - actor.x),
       started: performance.now(),
-      duration: mode === "jump" ? clamp(340 + distance * .27, 340, 580)
-        : clamp(distance * (target.edge ? 10 : 6), 230, 2400),
-      rise: mode === "jump" ? clamp(33 + distance * .052, 38, 76) : 0,
+      duration: mode === "jump" ? clamp(430 + distance * .3, 430, 790)
+        : clamp(distance * (target.edge ? 9 : 4.6), 290, 2100),
       landed,
     };
     schedule();
@@ -106,6 +120,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
 
   function startEmote() {
     if (emote || drag || token.hidden) return;
+    stopSkill();
+    pingIdle();
     const room = measure();
     const controls = room.tabs;
     const closest = controls.toSorted((a, b) =>
@@ -133,7 +149,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       const target = timing.ronaldo ? direction > 0 ? right - 9 : left + 9 : actor.x + direction * 35;
       emote.destination = motion.matches || edge || closest === room.perch
         ? actor.x : clamp(target, room.left + radius, room.right - radius);
-      rig.style.setProperty("--run-direction", String(direction));
+      emote.direction = direction;
+      setStyle(rig, "--run-direction", String(direction));
       schedule();
     });
   }
@@ -142,19 +159,21 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     if (!emote?.start) return;
     const { start, x, y, destination, destinationY, timing, climb, support: endTab } = emote;
     const elapsed = now - start;
-    const { moveAt, poseAt, finishAt } = timing;
-    const progress = clamp((elapsed - moveAt) / (poseAt - moveAt), 0, 1);
-    actor.x = x + (destination - x) * (timing.ronaldo ? progress * progress * (3 - 2 * progress) : progress);
+    const { moveAt, plantAt, impactAt, finishAt } = timing;
+    const progress = clamp((elapsed - moveAt) / (plantAt - moveAt), 0, 1);
+    const stride = timing.ronaldo ? progress * progress * (2 - progress) : progress;
+    actor.x = x + (destination - x) * stride;
     actor.y = y + (destinationY - y) * progress;
-    const celebration = celebrationFrame(timing, elapsed);
-    const { kit } = celebration;
+    const celebration = celebrationFrame(timing, elapsed, emote.direction < 0 ? "left" : "right");
+    const { kit, facing } = celebration;
     const action = climb && celebration.action === "run" ? "climb" : celebration.action;
     if (rig.dataset.temporaryKit !== kit) {
       if (kit) rig.dataset.temporaryKit = kit;
       else delete rig.dataset.temporaryKit;
     }
     if (action && action !== rig.dataset.action) rig.dataset.action = action;
-    if (timing.ronaldo && elapsed >= poseAt + (motion.matches ? 0 : 565) && !emote.spoke) {
+    emote.facing = climb && action === "climb" ? "left" : facing;
+    if (timing.ronaldo && elapsed >= impactAt && !emote.spoke) {
       emote.spoke = true;
       speech.say("SIUUU", { duration: 2100, priority: 2 });
     }
@@ -179,7 +198,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   let dirty = true;
 
   function schedule() {
-    if (!frame) frame = requestAnimationFrame(draw);
+    if (!frame && !document.hidden) frame = requestAnimationFrame(draw);
   }
 
   function invalidate() {
@@ -204,14 +223,93 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     actor.rail = actor.edge = "";
   }
 
+  function stopSkill() {
+    if (!skill) return;
+    const destination = skill.destination;
+    skill = undefined;
+    delete token.dataset.skill;
+    delete rig.dataset.action;
+    stage.removeAttribute("data-ball");
+    stage.removeAttribute("data-sparks");
+    if (destination && actor.pose === "rescue") actor.pose = "air";
+  }
+
+  function startSkill(name, direction, wallX, destination) {
+    const target = destination ? targetFor(destination, measure()) : actor;
+    skill = { name, direction, wallX, destination, x: actor.x, y: actor.y,
+      targetX: target.x, targetY: target.y, start: performance.now() };
+    token.dataset.skill = name;
+    rig.dataset.action = name;
+    setStyle(rig, "--run-direction", String(direction));
+    if (destination) {
+      actor.pose = "rescue";
+      actor.rail = actor.edge = "";
+      actor.vx = actor.vy = 0;
+    }
+    schedule();
+  }
+
+  function startIdleSkill() {
+    if (idle || token.hidden || document.hidden) return;
+    if (drag || travel || emote || skill || actor.pose !== "stand" ||
+      token.getAttribute("aria-expanded") === "true") {
+      pingIdle();
+      return;
+    }
+    const room = measure();
+    const index = room.tabs.findIndex(item => item.element === actor.surface);
+    if (room.vertical || index < 0 || room.tabs.length < 2) return;
+    const dockEnd = index === 0 ? -1 : index === room.tabs.length - 1 ? 1 : 0;
+    const direction = dockEnd || skillSide;
+    skillSide *= -1;
+    const rail = direction < 0 ? room.left + 5 : room.right - 5;
+    const tab = room.tabs[index];
+    const edge = direction < 0 ? tab.left - 12 : tab.right + 12;
+    const wall = Math.abs(rail - actor.x) < 110 ? rail : clamp(edge, room.left + 6, room.right - 6);
+    startSkill(dockEnd ? "juggle" : "rainbow", direction, wall);
+    pingIdle(54_000);
+  }
+
+  function animateSkill(now) {
+    if (!skill) return;
+    const sprite = skillFrame(skill, now);
+    if (sprite.x !== undefined) {
+      actor.x = sprite.x;
+      actor.y = sprite.y;
+    }
+    stage.toggleAttribute("data-ball", sprite.ballVisible);
+    if (sprite.ballVisible) {
+      setStyle(stage, "--ball-x", sprite.ballX.toFixed(1) + "px");
+      setStyle(stage, "--ball-y", sprite.ballY.toFixed(1) + "px");
+      setStyle(stage, "--ball-spin", Math.round((now - skill.start) * .6 * skill.direction) + "deg");
+    }
+    if (sprite.impact && !stage.hasAttribute("data-sparks")) {
+      setStyle(stage, "--spark-x", sprite.ballX + "px");
+      setStyle(stage, "--spark-y", sprite.ballY + "px");
+    }
+    stage.toggleAttribute("data-sparks", sprite.impact);
+    if (sprite.done) {
+      const destination = world.surfaces.find(tab => tab.element === skill.destination?.element);
+      stopSkill();
+      if (destination) {
+        placeAt(destination, "stand");
+        landingUntil = now + 245;
+      }
+    }
+  }
+
   function draw(now) {
     frame = 0;
     const previousWorkspace = world?.workspace;
     const room = measure();
-    token.hidden = (!room.tabs.length && !room.perch) ||
-      (!options.legacy && Boolean(document.querySelector('[aria-modal="true"]')));
-    if (token.hidden) options.hideMenu();
+    const hidden = (!room.tabs.length && !room.perch) || (!options.legacy && room.blocked);
+    if (hidden !== token.hidden) {
+      token.hidden = hidden;
+      if (hidden) options.hideMenu();
+    }
     if (token.hidden) {
+      stopSkill();
+      clearTimeout(idleTimer);
       travel = undefined;
       clearTimeout(holdTimer);
       drag = undefined;
@@ -225,6 +323,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       return;
     }
     if (previousWorkspace !== room.workspace || !actor.x) {
+      stopSkill();
       actor.x = room.right - 48;
       actor.y = room.bottom - 8;
       actor.surface = null;
@@ -241,6 +340,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         const visit = scope + tab;
         guideTimer = window.setTimeout(() => {
           if (idle || drag || emote || token.hidden || token.getAttribute("aria-expanded") === "true") return;
+          stopSkill();
           const destination = currentTab(measure());
           if (!destination) {
             speech.say(guideFor(tab, options.account()), { priority: 1 });
@@ -249,7 +349,6 @@ export default function runCompanion(stage, token, bubble, rails, options) {
           travelTo(destination, "stand", () => {
             if (visited.has(visit)) return;
             visited.add(visit);
-            lastTip = Date.now();
             speech.say(guideFor(tab, options.account()), { priority: 1 });
           });
         }, 650);
@@ -277,11 +376,13 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         } else {
           const { x, y, edge } = targetFor(destination, room);
           actor.x = travel.x + (x - travel.x) * progress;
-          actor.y = travel.y + (y - travel.y) * progress - 4 * travel.rise * progress * (1 - progress);
+          actor.y = travel.mode === "jump"
+            ? projectileY(travel.y, y, progress * travel.duration / 1000, travel.duration / 1000)
+            : travel.y + (y - travel.y) * progress;
           actor.pose = travel.mode === "jump" ? "air" : edge ? "hang" : "stand";
         }
       }
-    } else if (!emote && contactPoses.has(actor.pose)) {
+    } else if (!emote && !skill?.destination && contactPoses.has(actor.pose)) {
       const support = room.tabs.find(surface => surface.element === actor.surface) ||
         (room.perch?.element === actor.surface ? room.perch : null);
       if (support) {
@@ -305,9 +406,15 @@ export default function runCompanion(stage, token, bubble, rails, options) {
 
     animateEmote(now);
     const wasAirborne = actor.pose === "air" || Boolean(actor.rail);
-    if (!travel && !emote && wasAirborne) {
-      stepCompanion(actor, room, Math.min((now - (lastFrame || now)) / 1000, .032), radius);
+    if (!travel && !emote && !skill && wasAirborne) {
+      const elapsed = Math.min((now - (lastFrame || now)) / 1000, .045);
+      const rescue = !motion.matches && !options.legacy && recoveryTab(room, actor);
+      if (rescue) {
+        const direction = actor.x < (rescue.left + rescue.right) / 2 ? -1 : 1;
+        startSkill("volley", direction, direction < 0 ? room.left + 4 : room.right - 4, rescue);
+      } else stepCompanion(actor, room, elapsed, radius);
     }
+    animateSkill(now);
     if (actor.impact !== undefined) {
       landingUntil = now + (actor.impact > 720 ? 315 : 215);
       actor.impact = undefined;
@@ -319,37 +426,37 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         if (destination) travelTo(destination, destination === room.perch ? "sit" : "stand");
       }
     }
-    actor.x = clamp(actor.x, room.left + radius, room.right - radius);
+    const halfWidth = actor.rail ? radius * .54 : radius;
+    actor.x = clamp(actor.x, room.left + halfWidth, room.right - halfWidth);
     actor.y = clamp(actor.y, room.top + radius * 2, room.bottom - 8);
-    stage.style.setProperty("--companion-x", actor.x + "px");
-    stage.style.setProperty("--companion-y", actor.y + "px");
+    setStyle(stage, "--companion-x", actor.x.toFixed(1) + "px");
+    setStyle(stage, "--companion-y", actor.y.toFixed(1) + "px");
     stage.toggleAttribute("data-menu-below", actor.y < radius * 2 + 86);
-    token.dataset.pose = actor.pose;
-    token.dataset.edge = actor.edge || "";
+    const pose = actor.rail && actor.cling > 0 ? "hang" : actor.pose;
+    if (token.dataset.pose !== pose) token.dataset.pose = pose;
+    if (token.dataset.edge !== (actor.edge || "")) token.dataset.edge = actor.edge || "";
     if (travel && travel.mode !== "jump") {
-      token.dataset.travel = travel.mode;
-      rig.style.setProperty("--travel-direction", String(travel.direction || 1));
+      if (token.dataset.travel !== travel.mode) token.dataset.travel = travel.mode;
+      setStyle(rig, "--travel-direction", String(travel.direction || 1));
     } else if (token.dataset.travel) delete token.dataset.travel;
     const landing = !motion.matches && !emote && actor.pose === "stand" && now < landingUntil;
     token.toggleAttribute("data-landing", landing);
     const lean = drag?.moved ? drag.lean : clamp(actor.vx / 95, -16, 16);
-    rig.style.setProperty("--player-lean", (motion.matches ? 0 : lean ?? -6) + "deg");
-
-    if (pointer) {
-      const dx = pointer.x - actor.x;
-      const dy = pointer.y - (actor.y - radius * 1.4);
-      const length = Math.max(24, Math.hypot(dx, dy));
-      rig.style.setProperty("--gaze-x", (dx * 2 / length) + "px");
-      rig.style.setProperty("--gaze-y", (dy * 1.8 / length) + "px");
-    }
+    setStyle(rig, "--player-lean", (motion.matches ? 0 : Math.round(lean ?? -6)) + "deg");
+    const direction = skill?.direction || (pose === "hang" || pose === "slide"
+      ? actor.rail === "right" ? 1 : -1 : travel?.mode === "walk" ? travel.direction : Math.abs(actor.vx) > 130 ? Math.sign(actor.vx) : 0);
+    const facing = emote?.facing || (direction < 0 ? "left" : direction > 0 ? "right" : "front");
+    if (rig.dataset.facing !== facing) rig.dataset.facing = facing;
+    if (pose === "hang" || pose === "slide") setStyle(rig, "--grip-direction", String(direction));
     const speaking = speech.draw(actor, room, radius * 2, now);
-    const moving = travel || actor.pose === "air" || actor.rail || emote?.start;
+    const moving = travel || actor.pose === "air" || actor.rail || emote?.start || skill;
     lastFrame = moving ? now : 0;
     if (moving || landing || speaking) schedule();
   }
 
   function pickUp(event) {
     if (drag || emote || !event.isPrimary || event.button !== 0) return;
+    stopSkill();
     options.hideMenu();
     speech.hide();
     if (!options.legacy && event.pointerType !== "mouse") {
@@ -421,7 +528,6 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       return;
     }
     Object.assign(actor, throwVelocity(drag, event, motion.matches));
-    const speed = Math.hypot(actor.vx, actor.vy);
     const { perch } = measure();
     if (released && drag.moved) {
       actor.x = event.clientX + drag.offsetX;
@@ -438,9 +544,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         schedule();
         return;
       }
-      const wasIdle = idle;
       idle = false;
-      if (released && wasIdle && (motion.matches || speed < 610)) {
+      if (released && motion.matches) {
         drag = undefined;
         wake();
         return;
@@ -486,6 +591,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   function menu(event) {
     event?.preventDefault();
     if (options.legacy || token.hidden || drag) return;
+    stopSkill();
     speech.hide();
     options.showMenu(true);
   }
@@ -495,9 +601,16 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   }
 
   function lookAt(event) {
-    if (token.hidden) return;
-    pointer = { x: event.clientX, y: event.clientY };
-    schedule();
+    if (event.timeStamp < nextGaze || token.hidden || document.hidden || motion.matches ||
+      drag || travel || emote || skill || !contactPoses.has(actor.pose)) return;
+    nextGaze = event.timeStamp + gazeDelay;
+    setStyle(rig, "--gaze-x", Math.sign(event.clientX - actor.x) + "px");
+    setStyle(rig, "--gaze-y", Math.sign(event.clientY - (actor.y - radius * 1.55)) + "px");
+    clearTimeout(finishGaze);
+    finishGaze = setTimeout(() => {
+      rig.style.removeProperty("--gaze-x");
+      rig.style.removeProperty("--gaze-y");
+    }, 550);
   }
 
   function greet(event) {
@@ -507,7 +620,6 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         (event.detail && (actor.pose === "air" || actor.rail))) return;
       if (idle) wake();
       else {
-        lastTip = Date.now();
         const room = measure();
         if (room.workspace) speech.say(guideFor(activeTab(room.workspace), options.account()), { priority: 1 });
       }
@@ -520,27 +632,43 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     schedule();
   }
 
+  const surfaceSelector = '[data-companion-world], [data-companion-surface="companion-seat"], .bottom-nav, .clubs-destination-nav, .admin-sidebar-nav, .clubs-admin-rail, [aria-modal="true"]';
+  const tabsSelector = ".bottom-nav, .clubs-destination-nav, .admin-sidebar-nav, .clubs-admin-rail";
   const layout = new MutationObserver(records => {
-    if (records.some(record => !stage.contains(record.target))) invalidate();
+    const relevant = records.some(record => {
+      const target = record.target;
+      if (!(target instanceof Element) || stage.contains(target)) return false;
+      if (record.type === "attributes") {
+        return record.attributeName === "data-pane" || record.attributeName === "aria-modal" ||
+          Boolean(target.closest(tabsSelector)) || Boolean(target.matches(surfaceSelector));
+      }
+      if (target.closest(tabsSelector)) return true;
+      return [...record.addedNodes, ...record.removedNodes].some(node => node instanceof Element &&
+        (node.matches(surfaceSelector) || node.querySelector(surfaceSelector)));
+    });
+    if (relevant) invalidate();
   });
   layout.observe(shell, { subtree: true, childList: true, attributes: true,
-    attributeFilter: ["class", "hidden", "inert", "aria-hidden", "aria-modal", "data-pane", "data-companion-surface"] });
+    attributeFilter: ["class", "disabled", "hidden", "inert", "aria-hidden", "aria-current", "aria-modal", "data-pane", "data-companion-surface"] });
   // Dialogs are portalled next to the root.
   layout.observe(document.body, { childList: true });
-  const roam = options.legacy ? null : window.setInterval(() => {
-    if (idle || drag || travel || emote || token.hidden || document.hidden || motion.matches ||
-      token.getAttribute("aria-expanded") === "true" || !contactPoses.has(actor.pose)) return;
-    const room = measure();
-    if (room.tabs.length < 2) return;
-    const from = room.tabs.findIndex(item => item.element === actor.surface);
-    if (from === 0 || from === room.tabs.length - 1) patrolDirection = from === 0 ? 1 : -1;
-    const destination = from < 0 ? currentTab(room) : room.tabs[from + patrolDirection];
-    travelTo(destination, "stand", () => {
-      if (!lastTip || Date.now() - lastTip < 60_000) return;
-      lastTip = Date.now();
-      speech.say("Ready for the next play.");
-    });
-  }, 7200);
+  function activity() {
+    if (skill && !skill.destination) stopSkill();
+    pingIdle();
+  }
+
+  function visibility() {
+    stage.toggleAttribute("data-paused", document.hidden);
+    if (document.hidden) {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      lastFrame = 0;
+      clearTimeout(idleTimer);
+      return;
+    }
+    pingIdle();
+    invalidate();
+  }
   const resize = new ResizeObserver(invalidate);
   resize.observe(shell);
   resize.observe(stage);
@@ -558,6 +686,9 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   token.addEventListener("keydown", menuKey);
   window.addEventListener("pointermove", lookAt, { passive: true });
   window.addEventListener("pointerdown", lookAt, { passive: true });
+  window.addEventListener("pointerdown", activity, { passive: true });
+  window.addEventListener("keydown", activity, { passive: true });
+  document.addEventListener("visibilitychange", visibility);
   schedule();
 
   return () => {
@@ -565,7 +696,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     clearTimeout(guideTimer);
     clearTimeout(holdTimer);
     speech.release();
-    window.clearInterval(roam);
+    clearTimeout(idleTimer);
+    clearTimeout(finishGaze);
     layout.disconnect();
     resize.disconnect();
     document.removeEventListener("scroll", invalidate, true);
@@ -582,5 +714,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     token.removeEventListener("keydown", menuKey);
     window.removeEventListener("pointermove", lookAt);
     window.removeEventListener("pointerdown", lookAt);
+    window.removeEventListener("pointerdown", activity);
+    window.removeEventListener("keydown", activity);
+    document.removeEventListener("visibilitychange", visibility);
   };
 }

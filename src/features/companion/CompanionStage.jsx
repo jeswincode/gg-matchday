@@ -52,6 +52,15 @@ export default function CompanionStage({ account, look, legacy, onWorld }) {
         title={legacy ? undefined : "Tap for a tip. Right-click or hold for actions."} hidden>
         <CompanionPlayer look={look} />
       </button>
+      <svg className="gg-companion-ball" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true">
+        <path className="gg-ball-shell" d="M8 2h8v2h4v4h2v8h-2v4h-4v2H8v-2H4v-4H2V8h2V4h4Z" />
+        <path className="gg-ball-panels" d="M8 3h5v4h-3v3H5V7h3Zm9 5h4v7h-4v-3h-3V9h3ZM7 14h5v4h4v3H8v-3H5v-3h2Z" />
+        <path className="gg-ball-shine" d="M8 5h3v2H8Zm9 11h2v2h-2Z" />
+      </svg>
+      <svg className="gg-companion-sparks" viewBox="0 0 44 44" shapeRendering="crispEdges" aria-hidden="true">
+        <path className="gg-spark-wave" d="M10 12h3v-3h4V7h12v2h4v3h3v8h-2v-7h-3v-2H15v2h-3v5h-2Zm3 16h3v3h4v2h10v2H19v-2h-5v-3h-1Z" />
+        <path className="gg-spark-fire" d="M7 8h3v3H7Zm26-4h4v4h-4ZM4 23h5v2H4Zm31-1h3v4h-3Zm-12 16h3v3h-3Z" />
+      </svg>
       <p className="gg-companion-speech" ref={bubble} role="status" hidden />
       {open && <div className="gg-companion-actions" ref={menu} role="group" aria-label="Companion actions">
         <button type="button" data-companion-action="world" onClick={() => selectAction("world")}>

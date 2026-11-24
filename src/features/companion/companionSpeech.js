@@ -56,7 +56,7 @@ export function createCompanionSpeech(bubble, motion, schedule) {
     }
 
     if (width && height) {
-      const head = actor.y - bodySize * (actor.pose === "sit" ? .86 : .97);
+      const head = actor.y - bodySize * (actor.pose === "sit" ? .77 : .91);
       const left = clamp(actor.x - width / 2, room.left + 8, room.right - width - 8);
       const above = head - height - 9;
       const below = above < room.top + 6;

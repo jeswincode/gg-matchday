@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { stepCompanion } from "../src/features/companion/companionWorld.js";
+import { projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
 
 function flying(overrides) {
   return { x: 46, y: 90, vx: 2000, vy: 1000, pose: "air", ...overrides };
@@ -24,10 +24,21 @@ test("a desktop edge catches a firm throw and lets the Companion slide", () => {
   stepCompanion(actor, desktop, .018, 26);
   assert.equal(actor.rail, "right");
   assert.equal(actor.pose, "slide");
-  assert.equal(actor.x, 114);
+  assert.equal(actor.x, field.right - 26 * .54);
   const grabbedAt = actor.y;
-  stepCompanion(actor, desktop, .032, 26);
-  assert.ok(actor.y > grabbedAt);
+  for (let index = 0; index < 8; index++) stepCompanion(actor, desktop, .025, 26);
+  assert.ok(actor.y > grabbedAt && actor.x > 114);
+});
+
+test("an upward throw has an apex followed by falling", () => {
+  const room = { ...field, right: 700 };
+  const actor = flying({ x: 150, y: 310, vx: 280, vy: -620 });
+  for (let index = 0; index < 14; index++) stepCompanion(actor, room, .016, 26);
+  assert.ok(actor.x > 200 && actor.y < 244 && actor.vy < 0);
+  for (let index = 0; index < 24; index++) stepCompanion(actor, room, .016, 26);
+  assert.ok(actor.x > 300 && actor.y > 300 && actor.vy > 0);
+  assert.equal(projectileY(200, 200, .5, .5), 200);
+  assert.ok(projectileY(200, 200, .25, .5) < 130);
 });
 
 test("a mobile edge returns the same throw to the play area", () => {

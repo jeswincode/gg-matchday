@@ -1,22 +1,40 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { routeDuration, routePosition } from "../../../shared/communityWorld";
+import { celebrationCues, celebrationFrame, celebrationTiming } from "../companion/companionCelebration";
 import CompanionPlayer from "../companion/CompanionPlayer";
 import { useActionFinished } from "./useActionFinished";
 
-const emotes = { wave: 1500, celebrate: 2400, kick: 650 };
+const emotes = { wave: 1500, kick: 650 };
 
 export default function WorldAvatar({ player, self, receivedWave, selected, onSelect }) {
   const marker = useRef(null);
-  const lifetime = routeDuration(player.route) || emotes[player.action] || 0;
+  const [frame, setFrame] = useState(null);
+  const celebration = player.action === "celebrate" ? player.look.celebration : null;
+  const timing = celebration ? celebrationTiming(celebration) : null;
+  const lifetime = routeDuration(player.route) || timing?.finishAt || emotes[player.action] || 0;
   const finished = useActionFinished(player.startAt, lifetime);
-  const ronaldo = player.look.celebration === "ronaldo";
-  const celebrating = !finished && player.action === "celebrate";
+  const look = !finished && timing
+    ? frame?.revision === player.revision ? frame : celebrationFrame(timing, 0) : {};
   const action = finished ? undefined : {
-    move: "walk", wave: "wave", kick: "kick", celebrate: ronaldo ? "siuu" : "sky",
+    move: "walk", wave: "wave", kick: "kick", celebrate: look.action,
   }[player.action];
 
   useEffect(() => {
+    if (!celebration) return;
+    const timing = celebrationTiming(celebration);
+    const elapsed = performance.now() - player.startAt;
+    if (elapsed >= timing.finishAt) return;
+    const cues = celebrationCues(timing);
+    const next = [Math.max(0, ...cues.filter(at => at <= elapsed)), ...cues.filter(at => at > elapsed)];
+    const timers = next.map(at => window.setTimeout(() => {
+      setFrame({ ...celebrationFrame(timing, at), revision: player.revision });
+    }, Math.max(0, at - elapsed)));
+    return () => timers.forEach(window.clearTimeout);
+  }, [celebration, player.revision, player.startAt]);
+
+  useEffect(() => {
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+    const rig = marker.current?.querySelector(".gg-footballer");
     let frame;
     const duration = routeDuration(player.route);
     function place(now) {
@@ -25,6 +43,14 @@ export default function WorldAvatar({ player, self, receivedWave, selected, onSe
       marker.current?.style.setProperty("--world-x", x + "%");
       marker.current?.style.setProperty("--world-y", y + "%");
       marker.current?.style.setProperty("--world-depth", Math.round(y * 10));
+      if (duration && rig) {
+        const next = routePosition(player.route, elapsed + 16);
+        const dx = next.x - x;
+        const dy = next.y - y;
+        const facing = reduced.matches || elapsed >= duration ? "front" : Math.abs(dx) > Math.abs(dy)
+          ? dx > 0 ? "right" : "left" : dy < 0 ? "back" : "front";
+        if (rig.dataset.facing !== facing) rig.dataset.facing = facing;
+      }
       if (!reduced.matches && elapsed < duration) frame = requestAnimationFrame(place);
     }
     place(performance.now());
@@ -39,8 +65,8 @@ export default function WorldAvatar({ player, self, receivedWave, selected, onSe
     data-selected={selected || undefined} {...selection} {...(self ? {} : { type: "button" })}>
     <span className="gg-world-name">{player.name}{self && <small> · You</small>}</span>
     {!finished && player.action === "wave" && <span className="gg-world-speech" role={receivedWave ? "status" : undefined}>{receivedWave ? "Waving to you!" : "Hello!"}</span>}
-    {celebrating && ronaldo && <span className="gg-world-speech">SIUUU</span>}
-    <CompanionPlayer key={player.revision} look={player.look} action={action} kit={celebrating ? ronaldo ? "madrid" : "barcelona" : undefined} />
+    {action === "impact" && <span className="gg-world-speech">SIUUU</span>}
+    <CompanionPlayer key={player.revision} look={player.look} action={action} temporaryKit={look.kit} facing={look.facing} />
     {!finished && player.action === "kick" && <span className="gg-world-ball" aria-hidden="true">⚽</span>}
   </Element>;
 }

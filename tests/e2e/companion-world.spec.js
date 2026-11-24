@@ -31,6 +31,7 @@ async function openActions(character, project, gesture) {
 }
 
 test("signed-in Companion perches, guides, saves a kit and performs the chosen celebration", async ({ page }, info) => {
+  test.slow();
   await page.goto("/?e2eRole=editor");
   await enterSignedInMatchday(page);
   const character = page.getByRole("button", { name: "GG Companion", exact: true });
@@ -62,10 +63,12 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
   await tabs.getByRole("button", { name: "Calendar" }).click();
   await expect(character).toHaveAttribute("data-travel", "walk");
   await expect(footballer).toHaveCSS("--travel-direction", "1");
+  await expect(footballer).toHaveAttribute("data-facing", "right");
   await expect(speech).toContainText("Choose a date to see its matches.");
   await tabs.getByRole("button", { name: "Leaderboard" }).click();
   await expect(character).toHaveAttribute("data-travel", "walk");
   await expect(footballer).toHaveCSS("--travel-direction", "-1");
+  await expect(footballer).toHaveAttribute("data-facing", "left");
   await expect(speech).toContainText("Pick a position or period");
 
   if (info.project.name === "chromium-desktop") {
@@ -84,7 +87,10 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
 
   await avatar.click();
   await page.getByLabel("Matchday kit").selectOption("away");
-  await page.getByLabel("Celebration", { exact: true }).selectOption("messi");
+  const angles = page.getByRole("group", { name: "Kit preview angle" });
+  await angles.getByRole("button", { name: "Back" }).click();
+  await expect(page.getByRole("img", { name: /Companion kit preview, back view/ })).toBeVisible();
+  await page.getByRole("radio", { name: /Messi/ }).check();
   await page.getByRole("button", { name: "Save companion" }).click();
   await expect(page.getByText("Companion saved.")).toBeVisible();
   await page.getByRole("button", { name: "Close dialog" }).click();
@@ -121,6 +127,7 @@ test("desktop Clubs Companion hangs from the active navigation tab and climbs to
   await expect(companion).toHaveAttribute("data-pose", "sit");
   await companion.click();
   await expect(companion).toHaveAttribute("data-pose", "hang");
+  await expect(companion.locator(".gg-footballer")).toHaveAttribute("data-facing", "left");
   const initial = await companion.boundingBox();
   const hubBox = await hub.boundingBox();
   expect(initial.x + initial.width / 2).toBeGreaterThan(hubBox.x + hubBox.width);
@@ -130,6 +137,53 @@ test("desktop Clubs Companion hangs from the active navigation tab and climbs to
   const final = await companion.boundingBox();
   expect(final.y).toBeGreaterThan(initial.y);
   await expect(companion).toHaveAttribute("data-pose", "hang");
+});
+
+test("desktop Companion volleys back onto the dock and does skills after inactivity", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium-desktop", "Desktop dock recovery is distinct from mobile edge rebounds.");
+  await page.clock.install();
+  await page.goto("/?e2eRole=editor");
+  await enterSignedInMatchday(page);
+  const companion = page.getByRole("button", { name: "GG Companion", exact: true });
+  const tabs = page.getByRole("navigation", { name: "Matchday tabs" });
+  await companion.click();
+  await expect(companion).toHaveAttribute("data-pose", "stand");
+  const actor = await companion.boundingBox();
+  const dock = await tabs.boundingBox();
+  await page.mouse.move(actor.x + actor.width / 2, actor.y + actor.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(dock.x / 2, dock.y - 10, { steps: 12 });
+  await page.clock.runFor(150);
+  await page.mouse.up();
+  await expect(companion).toHaveAttribute("data-skill", "volley");
+  await expect(page.locator(".gg-companion-ball")).toBeVisible();
+  await expect(companion).toHaveAttribute("data-pose", "stand");
+  await expect.poll(async () => (await companion.boundingBox()).x).toBeGreaterThan(dock.x);
+
+  const leaderboard = tabs.getByRole("button", { name: "Leaderboard" });
+  await leaderboard.click();
+  await expect(companion).toHaveAttribute("data-travel", "walk");
+  await expect(companion).not.toHaveAttribute("data-travel", "walk");
+  await page.clock.fastForward(34_050);
+  await expect(companion).toHaveAttribute("data-skill", "rainbow");
+  await expect(companion).not.toHaveAttribute("data-skill", "rainbow");
+  await page.clock.runFor(300);
+  await companion.locator("..").evaluate(stage => {
+    const watch = new MutationObserver(records => {
+      stage.dataset.measuredLayoutWrites = String(Number(stage.dataset.measuredLayoutWrites) + records.length);
+    });
+    stage.dataset.measuredLayoutWrites = "0";
+    watch.observe(stage, { attributeFilter: ["style"] });
+    window.setTimeout(() => watch.disconnect(), 1_500);
+  });
+  await page.mouse.move(120, 210, { steps: 24 });
+  await expect(companion.locator("..")).toHaveAttribute("data-measured-layout-writes", "0");
+  await tabs.getByRole("button", { name: "Players" }).click();
+  await expect(companion).toHaveAttribute("data-travel", "walk");
+  await expect(companion).not.toHaveAttribute("data-travel", "walk");
+  await page.clock.fastForward(34_050);
+  await expect(companion).toHaveAttribute("data-skill", "juggle");
+  await expect(companion).not.toHaveAttribute("data-skill", "juggle");
 });
 
 test("independent sessions share route movement, emotes, direct waves and departures", async ({ browser, page }, info) => {

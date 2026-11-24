@@ -45,7 +45,8 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
     railMode,
   };
   const workspace = document.querySelector(workspaceSelector);
-  if (!workspace) return { ...viewport, workspace, tabs: [], surfaces: [], perch: null };
+  const blocked = Boolean(document.querySelector('[aria-modal="true"]'));
+  if (!workspace) return { ...viewport, workspace, tabs: [], surfaces: [], perch: null, blocked };
 
   const matchdayDock = workspace.querySelector(".bottom-nav");
   const clubsDock = workspace.querySelector(".clubs-destination-nav");
@@ -62,19 +63,29 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
   const seat = workspace.querySelector('[data-companion-surface="companion-seat"]');
   const perch = seat ? visibleTab(seat, viewport, clips) : null;
   const surfaces = vertical ? [] : tabs.toSorted((a, b) => a.top - b.top);
-  return { ...viewport, workspace, tabs, surfaces, perch, vertical };
+  return { ...viewport, workspace, tabs, surfaces, perch, vertical, blocked };
 }
 
 export const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
+
+export const companionGravity = 2400;
+
+export function projectileY(from, to, elapsed, duration) {
+  const launchVelocity = (to - from) / duration - companionGravity * duration / 2;
+  return from + launchVelocity * elapsed + companionGravity * elapsed * elapsed / 2;
+}
 
 function stepFlight(actor, world, dt, radius) {
   const left = world.left + radius;
   const right = world.right - radius;
   const ceiling = world.top + radius * 2;
   const floor = world.bottom - 8;
+  const reach = radius * .54;
 
   if (actor.rail && world.railMode) {
-    actor.x = actor.rail === "left" ? left : right;
+    actor.x = actor.rail === "left" ? world.left + reach : world.right - reach;
+    actor.cling = Math.max(0, (actor.cling ?? 0) - dt);
+    if (actor.cling > 0) return;
     actor.vy = Math.min(475, actor.vy + 680 * dt);
     actor.y = Math.min(floor, actor.y + actor.vy * dt);
     if (actor.y < floor) return;
@@ -92,8 +103,8 @@ function stepFlight(actor, world, dt, radius) {
 
   const previousX = actor.x;
   const previousY = actor.y;
-  actor.vy += 2040 * dt;
-  actor.vx *= Math.exp(-.55 * dt);
+  actor.vy += companionGravity * dt;
+  actor.vx *= Math.exp(-.23 * dt);
   actor.x += actor.vx * dt;
   actor.y += actor.vy * dt;
   if (actor.x < left || actor.x > right) {
@@ -102,6 +113,8 @@ function stepFlight(actor, world, dt, radius) {
     actor.edge = world.railMode ? edge + "-rail" : edge + "-bounce";
     if (world.railMode && actor.y < floor - 4 && Math.abs(actor.vx) > 145) {
       actor.rail = edge;
+      actor.x = edge === "left" ? world.left + reach : world.right - reach;
+      actor.cling = .13;
       actor.vx = 0;
       actor.vy = clamp(actor.vy, 85, 235);
       actor.pose = "slide";
