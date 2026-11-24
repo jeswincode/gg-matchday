@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { jumpDuration, projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
 import { celebrationDestination } from "../src/features/companion/companionCelebration.js";
-import { touchMenuAction, touchMenuLayout } from "../src/features/companion/companionTouchMenu.js";
+import { touchMenuAction, touchMenuLayout } from "../src/features/companion/companionTouchLayout.js";
 
 function flying(overrides) {
   return { x: 46, y: 90, vx: 2000, vy: 1000, pose: "air", ...overrides };

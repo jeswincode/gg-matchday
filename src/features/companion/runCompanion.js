@@ -3,7 +3,7 @@ import { celebrationDestination, celebrationFrame, celebrationTiming } from "./c
 import { guideFor } from "./companionGuide";
 import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
 import { createCompanionSpeech } from "./companionSpeech";
-import { touchMenuAction, touchMenuLayout } from "./companionTouchMenu";
+import { touchMenuAction, touchMenuLayout } from "./companionTouchLayout";
 
 function activeTab(workspace) {
   return workspace.querySelector('[data-pane="current"][data-tab]')?.dataset.tab || "admin";
@@ -774,7 +774,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   function menu(event) {
     event?.preventDefault();
     if (options.legacy || token.hidden || drag) return;
-    if (event.type === "contextmenu" &&
+    if (event?.type === "contextmenu" &&
       (event.pointerType === "touch" || event.pointerType === "pen" || event.sourceCapabilities?.firesTouchEvents)) return;
     stopSkill();
     stopPeekHide();
