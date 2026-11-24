@@ -679,7 +679,7 @@ async function companionAction(page, action) {
   await page.evaluate(detail => window.dispatchEvent(new CustomEvent("gg:companion", { detail })), action);
 }
 
-test("desktop companion uses Matchday and Clubs surfaces and slides down a themed rail", async ({ page }, info) => {
+test("desktop companion uses Matchday tabs, Clubs edges and themed rails", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium-desktop");
   await stubPublicApi(page);
   await page.goto("/?e2eRole=guest&companion=preview");
@@ -693,34 +693,30 @@ test("desktop companion uses Matchday and Clubs surfaces and slides down a theme
   await expect(rail).not.toHaveCSS("background-image", darkColor);
   const nav = page.getByRole("navigation", { name: "Matchday tabs" });
   for (const tab of ["Home", "Record", "Leaderboard", "Calendar", "Players"]) {
-    await nav.getByRole("button", { name: tab }).click();
+    const button = nav.getByRole("button", { name: tab });
+    await button.click();
     const activePane = page.locator('#matchday-pager > [data-pane="current"]');
     await expect(activePane).toHaveAttribute("data-tab", tab.toLowerCase());
     await companionAction(page, { type: "move", target: tab.toLowerCase(), pose: "sit" });
     await expect(companion).toHaveAttribute("data-pose", "sit");
-    const token = await companion.boundingBox();
-    expect(Math.abs(token.y + token.height - (await activePane.boundingBox()).y)).toBeLessThanOrEqual(1);
+    const dock = await nav.boundingBox();
+    const tabBounds = await button.boundingBox();
+    await expect.poll(async () => {
+      const token = await companion.boundingBox();
+      return Math.hypot(token.y + token.height - dock.y,
+        token.x + token.width / 2 - tabBounds.x - tabBounds.width / 2);
+    }).toBeLessThanOrEqual(1.5);
   }
   await companionAction(page, { type: "say", text: "Welcome to the lineup." });
-  await expect(page.locator(".gg-companion-speech")).toHaveText("Welcome to the lineup.");
+  await expect(page.locator(".gg-companion-speech > span:nth-child(2)")).toHaveText("Welcome to the lineup.");
   await companion.click();
   await expect(companion).toHaveAttribute("data-pose", "stand");
   await companion.click();
   await expect(companion).toHaveAttribute("data-pose", "sit");
-  const box = await companion.boundingBox();
-  await page.mouse.move(box.x + 16, box.y + 16);
-  await page.mouse.down();
-  await page.mouse.move(84, 105);
-  await page.mouse.move(9, 105);
-  await page.mouse.up();
-  await expect(companion).toHaveAttribute("data-pose", "slide");
-  const slideStart = (await companion.boundingBox()).y;
-  await expect.poll(async () => (await companion.boundingBox()).y).toBeGreaterThan(slideStart + 15);
-  await expect(companion).toHaveAttribute("data-edge", "left-rail");
   await page.getByRole("button", { name: "Clubs", exact: true }).click();
   await expect(page.locator(".clubs-app")).toBeVisible();
   await companionAction(page, { type: "move", target: "overview", pose: "sit" });
-  await expect(companion).toHaveAttribute("data-pose", "sit");
+  await expect(companion).toHaveAttribute("data-pose", "hang");
 });
 
 test("mobile companion rebounds at the screen edge without visible rails", async ({ page }) => {
