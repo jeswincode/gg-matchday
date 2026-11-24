@@ -1,8 +1,9 @@
+import CompanionSettings from "../companion/CompanionSettings";
 import Modal from "../../components/Modal";
 
 export default function AccountProfileSettings({
   account, role, linked, theme, onTheme, onOpenPlayer, onEditPlayer,
-  canEdit, opening, error, onClose,
+  canEdit, opening, error, onClose, companion, onCompanionSave,
 }) {
   return <Modal title="Account profile settings" onClose={onClose} className="gg-account-settings">
     <dl className="gg-account-details">
@@ -17,6 +18,7 @@ export default function AccountProfileSettings({
         <button type="button" aria-pressed={theme === "golden"} onClick={() => onTheme("golden")}>Gold</button>
       </div>
     </section>
+    {onCompanionSave && <CompanionSettings name={account.displayName} look={companion} onSave={onCompanionSave} />}
     {role !== "admin" && <section className="gg-account-setting">
       <h3>Linked player profile</h3>
       {linked ? <div className="gg-account-setting-actions">

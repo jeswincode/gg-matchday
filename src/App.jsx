@@ -27,6 +27,7 @@ const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const ProfileRequests = lazy(() => import('./ProfileRequests'));
 // Clubs is a primary product surface, so its code must be ready before
 // navigation; background prefetch can race the user's first click.
+import CompanionWorld from './features/companion/CompanionWorld.jsx';
 import ClubsMode from './features/clubs/ClubsMode';
 const Awards = lazy(()=>import('./components/Awards'));
 const loadMatchDetail = () => import('./components/MatchDetail');
@@ -2104,7 +2105,7 @@ function App() {
           <>
             <div className="account-user">
               <button type="button" className="gg-avatar-action gg-account-avatar" aria-label="Account profile settings"
-                aria-haspopup="dialog" onClick={() => { setOwnProfileError(""); setModal("account"); }}>
+                data-companion-surface="companion-seat" aria-haspopup="dialog" onClick={() => { setOwnProfileError(""); setModal("account"); }}>
               {authUser.photoURL ? (
                 <img
                   src={
@@ -2530,6 +2531,9 @@ function App() {
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
       {modal === "account" && authUser && <AccountProfileSettings
         account={authUser} role={backendUser?.role} linked={Boolean(linkedPlayerId)} theme={theme} onTheme={setTheme}
+        key={accountId || authUser.uid} companion={backendUser?.companion}
+        onCompanionSave={accountId ? companion => setBackendUser(current =>
+          current?.id === accountId ? { ...current, companion } : current) : null}
         opening={openingOwnProfile} error={ownProfileError} canEdit={isEditor} onClose={closeModal}
         onOpenPlayer={() => openOwnProfile()}
         onEditPlayer={() => {
@@ -2549,6 +2553,7 @@ function App() {
 
   return <>
     {workspaceContent}
+    <CompanionWorld enabled={Boolean(accountId)} account={backendUser} />
     {modeTransition && <WorkspaceTransition {...modeTransition} onPhaseDone={advanceWorkspaceTransition} />}
   </>;
 }
@@ -2566,6 +2571,7 @@ function NavButton({
   return (
     <button
       type="button"
+      data-primary-tab={label.toLowerCase()}
       aria-current={active ? "page" : undefined}
       className={
         active

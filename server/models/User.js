@@ -1,8 +1,14 @@
 import mongoose from "mongoose";
+import { companionOptions } from "../../shared/companion.js";
 
 const userSchema =
   new mongoose.Schema(
     {
+      companion: {
+        type: new mongoose.Schema(Object.fromEntries(Object.entries(companionOptions).map(
+          ([key, values]) => [key, { type: String, enum: values }],
+        )), { _id: false }),
+      },
       chatMonth: { type: String, default: "" },
       chatMessagesUsed: { type: Number, default: 0 },
       firebaseUid: {
