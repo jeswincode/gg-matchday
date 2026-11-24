@@ -3,6 +3,7 @@ import { celebrationDestination, celebrationFrame, celebrationTiming } from "./c
 import { guideFor } from "./companionGuide";
 import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
 import { createCompanionSpeech } from "./companionSpeech";
+import { touchMenuAction, touchMenuLayout } from "./companionTouchMenu";
 
 function activeTab(workspace) {
   return workspace.querySelector('[data-pane="current"][data-tab]')?.dataset.tab || "admin";
@@ -638,11 +639,11 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     speech.hide();
     if (!options.legacy && event.pointerType !== "mouse") {
       holdTimer = window.setTimeout(() => {
-        if (!drag || drag.moved) return;
-        drag.menu = true;
+        if (!drag || drag.moved || document.hidden) return;
+        drag.menu = touchMenuLayout(actor.x, actor.y - radius, measure());
         actor.pose = drag.pose;
         actor.surface = drag.surface;
-        options.showMenu(false);
+        options.showMenu(drag.menu);
         schedule();
       }, 800);
     }
@@ -662,17 +663,16 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   }
 
   function menuDirection(event) {
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
-    if (dy < -18 && -dy >= Math.abs(dx) * 1.25) return "emote";
-    if (Math.abs(dx) > 18 && dy < Math.abs(dx) * .65) return dx < 0 ? "world" : "celebration";
-    return "";
+    return touchMenuAction(drag.menu, event.clientX - drag.startX, event.clientY - drag.startY);
   }
 
   function move(event) {
     if (drag?.pointer !== event.pointerId) return;
     if (drag.menu) {
-      stage.dataset.menuDirection = menuDirection(event);
+      if (!drag.menuCancelled) {
+        const action = menuDirection(event);
+        if (stage.dataset.menuDirection !== action) stage.dataset.menuDirection = action;
+      }
       return;
     }
     const previous = drag.points.at(-1);
@@ -695,11 +695,11 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     clearTimeout(holdTimer);
     const released = event.type === "pointerup";
     if (drag.menu) {
-      const action = released ? menuDirection(event) : "";
+      const action = released && !drag.menuCancelled ? menuDirection(event) : "";
       drag = undefined;
       delete stage.dataset.menuDirection;
       ignoreTapUntil = performance.now() + 350;
-      if (!released) options.hideMenu();
+      options.hideMenu();
       if (action) options.selectMenu(action);
       schedule();
       return;
@@ -774,10 +774,12 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   function menu(event) {
     event?.preventDefault();
     if (options.legacy || token.hidden || drag) return;
+    if (event.type === "contextmenu" &&
+      (event.pointerType === "touch" || event.pointerType === "pen" || event.sourceCapabilities?.firesTouchEvents)) return;
     stopSkill();
     stopPeekHide();
     speech.hide();
-    options.showMenu(true);
+    options.showMenu();
   }
 
   function menuKey(event) {
@@ -842,7 +844,15 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     attributeFilter: ["class", "disabled", "hidden", "inert", "aria-hidden", "aria-current", "aria-modal", "data-pane", "data-open", "data-phase", "data-companion-surface"] });
   // Dialogs are portalled next to the root.
   layout.observe(document.body, { childList: true });
-  function activity() {
+  function cancelTouchMenu() {
+    if (!drag?.menu) return;
+    drag.menuCancelled = true;
+    delete stage.dataset.menuDirection;
+    options.hideMenu();
+  }
+
+  function activity(event) {
+    if (event.key === "Escape") cancelTouchMenu();
     if (skill && !skill.destination) stopSkill();
     pingIdle();
   }
@@ -854,6 +864,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       frame = 0;
       lastFrame = 0;
       clearTimeout(idleTimer);
+      clearTimeout(holdTimer);
+      cancelTouchMenu();
       stopPeekHide();
       return;
     }

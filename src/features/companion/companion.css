@@ -173,14 +173,55 @@
 .gg-companion-stage[data-menu-below] .gg-companion-actions button:first-child { translate: 6px -17px; rotate: 24deg; }
 .gg-companion-stage[data-menu-below] .gg-companion-actions button:last-child { translate: -6px -17px; rotate: -24deg; }
 .gg-companion-actions button span { padding: 3px 4px; border-radius: 5px; white-space: nowrap; }
-.gg-companion-actions button:is(:hover,:focus-visible) span,
-.gg-companion-stage[data-menu-direction="world"] button[data-companion-action="world"] span,
-.gg-companion-stage[data-menu-direction="emote"] button[data-companion-action="emote"] span,
-.gg-companion-stage[data-menu-direction="celebration"] button[data-companion-action="celebration"] span {
+.gg-companion-actions button:is(:hover,:focus-visible) span {
   color: var(--signature-accent);
   background: color-mix(in srgb, var(--signature-accent) 14%, transparent);
 }
 .gg-companion-actions button:focus-visible { outline: 1px solid var(--signature-accent); border-radius: 17px; }
+
+.gg-companion-touch-menu {
+  position: absolute;
+  translate: -50% -50%;
+  width: 144px;
+  height: 144px;
+  z-index: 2;
+  pointer-events: none;
+  color: var(--signature-ink);
+}
+.gg-companion-touch-rim, .gg-companion-touch-track { fill: none; stroke-linecap: round; }
+.gg-companion-touch-rim { stroke: var(--signature-edge); stroke-width: 28px; }
+.gg-companion-touch-track { stroke: var(--signature-surface); stroke-width: 26px; }
+.gg-companion-touch-menu circle { fill: var(--touch-menu-highlight, transparent); }
+.gg-companion-touch-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gg-companion-stage[data-menu-direction="world"] .gg-companion-touch-menu [data-companion-action="world"],
+.gg-companion-stage[data-menu-direction="emote"] .gg-companion-touch-menu [data-companion-action="emote"],
+.gg-companion-stage[data-menu-direction="celebration"] .gg-companion-touch-menu [data-companion-action="celebration"] {
+  color: var(--signature-accent);
+  --touch-menu-highlight: color-mix(in srgb, var(--signature-accent) 18%, var(--signature-surface));
+}
+.gg-companion-confirmation {
+  position: absolute;
+  left: clamp(80px, var(--companion-x), calc(100% - 80px));
+  top: min(calc(var(--companion-y) + 4px), calc(100% - 33px));
+  translate: -50%;
+  z-index: 2;
+  margin: 0;
+  padding: 4px 9px;
+  border: 1px solid var(--signature-edge);
+  border-radius: 6px;
+  background: var(--signature-surface);
+  color: var(--signature-ink);
+  font-size: .75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.gg-companion-confirmation:empty { opacity: 0; }
 
 .gg-companion-locker {
   display: grid;
