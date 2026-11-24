@@ -1,4 +1,4 @@
-import { clamp, clubsPeekSelector, jumpDuration, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
+import { clamp, clubsPeekSelector, companionGravity, jumpDuration, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
 import { celebrationDestination, celebrationFrame, celebrationTiming } from "./companionCelebration";
 import { guideFor } from "./companionGuide";
 import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
@@ -51,6 +51,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   let nextGaze = 0;
   let finishGaze;
   let tour, pitchPoint, pitchTimer, pitchHistory, nextPitch = 0, platformVisit = false;
+  let deferredPitch = false;
   const remindedAt = new Map();
   const noteIndex = new Map();
   const visited = new Set();
@@ -98,6 +99,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       : fromTab && toTab && room.tabs.includes(surface) && pose !== "footing" && !actor.footing
       ? room.vertical ? "climb" : "walk" : "jump";
     const distance = Math.hypot(target.x - actor.x, target.y - actor.y);
+    const platformJump = mode === "jump" && room.platforms.includes(surface);
+    const windup = platformJump && contactPoses.has(actor.pose) ? 120 : 0;
     if (distance < 2 || motion.matches) {
       travel = undefined;
       placeAt(surface, pose);
@@ -113,7 +116,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     peek = undefined;
     travel = {
       element: surface.element, mode, pose, x: actor.x, y: actor.y,
-      landingX,
+      landingX, platformJump, windup,
       direction: Math.sign(target.x - actor.x),
       started: performance.now(),
       duration: mode === "jump" ? Math.max(1, jumpDuration(actor.y, target.y, room.top + radius * 2, distance))
@@ -455,7 +458,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     }
     stage.toggleAttribute("data-sparks", sprite.impact);
     if (sprite.done) {
-      const destination = world.surfaces.find(tab => tab.element === skill.destination?.element);
+      const destination = skill.destination &&
+        (world.tabs.find(tab => tab.element === skill.destination.element) || currentTab(world));
       stopSkill();
       if (destination) {
         placeAt(destination, "stand");
@@ -470,11 +474,21 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     commentTimer = setTimeout(commentate, delay);
   }
 
-  function startPitch(field) {
-    const y = clamp(actor.y - field.rect.top - radius, field.top - field.rect.top, field.bottom - field.rect.top);
-    const x = clamp(actor.x - field.rect.left, field.left - field.rect.left, field.right - field.rect.left);
+  function startPitch(room, drop) {
+    const field = room.field;
+    const point = field.entryAt(drop?.x ?? actor.x, drop?.y ?? actor.y - radius);
     const entry = performance.now();
-    tour = { element: field.element, formation: field.formation, seen: pitchHistory.seen, x, y, entry, at: entry };
+    const duration = drop || motion.matches ? 0 : jumpDuration(actor.y, point.y + radius, room.top + radius * 2,
+      Math.hypot(point.x - actor.x, point.y + radius - actor.y));
+    const x = point.x - field.rect.left;
+    const y = point.y - field.rect.top;
+    if (drop) pitchHistory = { element: field.element, formation: field.formation, seen: new Set() };
+    tour = { element: field.element, formation: field.formation, seen: pitchHistory.seen, x, y,
+      entry, entryDuration: duration, at: entry + duration };
+    idle = false;
+    deferredPitch = false;
+    delete token.dataset.grabSide;
+    delete token.dataset.platformJump;
     stopSkill();
     stopPeekHide();
     schedule();
@@ -515,15 +529,18 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       return false;
     }
     if (pitchPoint && token.getAttribute("aria-expanded") === "true") return true;
-    const entry = motion.matches ? 1 : Math.min(1, (now - tour.entry) / 450);
-    if (entry < 1) {
-      const point = walkOnPitch(actor, { x: field.rect.left + tour.x, y: field.rect.top + tour.y + radius }, entry);
+    if (!motion.matches && now < tour.entry + tour.entryDuration) {
+      const elapsed = Math.max(0, now - tour.entry);
+      const progress = elapsed / tour.entryDuration;
+      const x = actor.x + (field.rect.left + tour.x - actor.x) * progress;
+      const y = projectileY(actor.y, field.rect.top + tour.y + radius, elapsed / 1000, tour.entryDuration / 1000);
       token.dataset.pose = "air";
-      setStyle(stage, "--companion-x", point.x + "px");
-      setStyle(stage, "--companion-y", (point.y - 84 * entry * (1 - entry)) + "px");
+      setStyle(stage, "--companion-x", x + "px");
+      setStyle(stage, "--companion-y", y + "px");
       schedule();
       return true;
     }
+    if (!tour.player) tour.at = Math.min(tour.at, now);
     if (tour.at <= now) {
       const remaining = field.players.filter(player => !tour.seen.has(player.id));
       const target = remaining[Math.floor(Math.random() * remaining.length)];
@@ -592,8 +609,11 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       remindedAt.set(reminder.key, now);
       speech.say(reminder.text, { action: reminder.action, priority: 1 });
     } else if (pitch && pitchCanStart(room.field, now)) {
-      idle = false;
-      startPitch(room.field);
+      if (deferredPitch || Math.random() < .65) startPitch(room);
+      else {
+        deferredPitch = true;
+        pingCommentary(2500 + Math.random() * 2500);
+      }
       return;
     } else if (room.platforms.length && !motion.matches && (!platformVisit || room.platforms.some(platform =>
       platform.element === actor.surface))) {
@@ -705,6 +725,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     if (nextTab !== tab || changedWorkspace) {
       tab = nextTab;
       platformVisit = false;
+      deferredPitch = false;
       pingCommentary();
       window.clearTimeout(guideTimer);
       if (!changedWorkspace && !idle && !options.legacy && !drag && !emote) {
@@ -729,6 +750,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     }
 
     if (tour && drawPitch(room, now)) return;
+    let platformJumpPhase;
     if (idle && !drag && !travel) {
       if (room.perch) placeAt(room.perch, "sit");
       else if (room.tabs.length) beginFall();
@@ -741,7 +763,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         travel = undefined;
         actor.pose = "air";
       } else {
-        const progress = clamp((now - travel.started) / travel.duration, 0, 1);
+        const elapsed = now - travel.started - travel.windup;
+        const progress = clamp(elapsed / travel.duration, 0, 1);
         if (progress >= 1 || motion.matches) {
           const { pose, landed, mode } = travel;
           placeAt(destination, pose);
@@ -752,11 +775,17 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         } else {
           const { x, y, edge } = targetFor(destination, room, travel.pose);
           const endpoint = travel.landingX === undefined ? x : clamp(travel.landingX, destination.left + 12, destination.right - 12);
-          actor.x = travel.x + (endpoint - travel.x) * progress;
+          const advance = travel.platformJump && y < travel.y ? progress - .38 * progress * (1 - progress) : progress;
+          actor.x = travel.x + (endpoint - travel.x) * advance;
           actor.y = travel.mode === "jump"
             ? projectileY(travel.y, y, progress * travel.duration / 1000, travel.duration / 1000)
             : travel.y + (y - travel.y) * progress;
           actor.pose = travel.mode === "jump" ? "air" : edge ? "hang" : "stand";
+          if (travel.platformJump) {
+            const duration = travel.duration / 1000;
+            const apex = .5 - (y - travel.y) / (companionGravity * duration * duration);
+            platformJumpPhase = elapsed < 0 ? "launch" : progress < apex ? "rise" : "fall";
+          }
         }
       }
     } else if (actor.pose === "peek") {
@@ -820,17 +849,23 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     const pose = actor.rail && actor.cling > 0 ? "hang" : actor.pose;
     if (token.dataset.pose !== pose) token.dataset.pose = pose;
     if (token.dataset.edge !== (actor.edge || "")) token.dataset.edge = actor.edge || "";
+    if (platformJumpPhase && token.dataset.platformJump !== platformJumpPhase) token.dataset.platformJump = platformJumpPhase;
+    else if (!platformJumpPhase && token.dataset.platformJump) delete token.dataset.platformJump;
+    if (travel && (travel.mode !== "jump" || platformJumpPhase)) {
+      setStyle(rig, "--travel-direction", String(travel.direction || 1));
+    }
     if (travel && travel.mode !== "jump") {
       if (token.dataset.travel !== travel.mode) token.dataset.travel = travel.mode;
-      setStyle(rig, "--travel-direction", String(travel.direction || 1));
     } else if (token.dataset.travel) delete token.dataset.travel;
     const landing = !motion.matches && !emote && actor.pose === "stand" && now < landingUntil;
     token.toggleAttribute("data-landing", landing);
     const lean = drag?.moved ? drag.lean : clamp(actor.vx / 95, -16, 16);
     setStyle(rig, "--player-lean", (motion.matches ? 0 : Math.round(lean ?? -6)) + "deg");
     drawGrip(lean || 0);
+    const movingDirection = travel?.mode === "walk" || platformJumpPhase ? travel.direction
+      : Math.abs(actor.vx) > 130 ? Math.sign(actor.vx) : 0;
     const direction = skill?.direction || (pose === "hang" || pose === "slide"
-      ? actor.rail === "right" ? 1 : -1 : travel?.mode === "walk" ? travel.direction : Math.abs(actor.vx) > 130 ? Math.sign(actor.vx) : 0);
+      ? actor.rail === "right" ? 1 : -1 : movingDirection);
     const facing = emote?.facing || (direction < 0 ? "left" : direction > 0 ? "right" : "front");
     if (rig.dataset.facing !== facing) rig.dataset.facing = facing;
     if (pose === "hang" || pose === "slide") setStyle(rig, "--grip-direction", String(direction));
@@ -928,7 +963,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       return;
     }
     Object.assign(actor, throwVelocity(drag, event, motion.matches));
-    const { perch, platforms } = measure();
+    const room = measure();
+    const { perch, platforms, field } = room;
     if (!options.legacy && drag.moved) {
       ignoreTapUntil = performance.now() + 350;
       if (released) {
@@ -944,16 +980,31 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         schedule();
         return;
       }
-      const nearbyPlatform = released && platforms.find(surface =>
-        event.clientX >= surface.left + 12 && event.clientX <= surface.right - 12 &&
-        Math.abs(event.clientY - surface.top) <= 40 && Math.abs(actor.vy) < 950);
-      if (nearbyPlatform) {
+      const { clientX: x, clientY: y } = event;
+      if (released && field?.players.length && options.guide().pitch &&
+        x >= field.rect.left && x <= field.rect.right && y >= Math.max(field.rect.top, room.playTop) &&
+        y <= Math.min(field.rect.bottom, room.playBottom)) {
         drag = undefined;
-        idle = false;
-        travelTo(nearbyPlatform, "stand", undefined, event.clientX);
+        startPitch(room, { x, y });
         return;
       }
-      if (released && (idle || motion.matches)) {
+      const below = released && platforms.find(surface =>
+        x >= surface.left + 12 && x <= surface.right - 12 && y <= surface.top);
+      if (below && motion.matches) {
+        idle = false;
+        placeAt(below, "stand");
+        actor.x = x;
+        drag = undefined;
+        schedule();
+        return;
+      }
+      if (below && actor.vy >= 0 && actor.y > below.top) {
+        // A low release can put the feet on the ledge while the hand is still above it.
+        const inset = Math.min(radius * .36, (below.right - below.left) / 4);
+        actor.x = clamp(actor.x, below.left + inset, below.right - inset);
+        actor.y = below.top;
+      }
+      if (released && ((idle && !below) || motion.matches)) {
         drag = undefined;
         wake();
         return;

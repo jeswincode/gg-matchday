@@ -28,7 +28,13 @@ export function readPitch(room) {
     const point = candidates.find(standable);
     return point ? [{ id: spot.companionPlayer, note: spot.companionNote, x: point[0], y: point[1], faceX: x, faceY: y }] : [];
   });
-  return { ...bounds, rect, players, element, formation: element.dataset.companionPitch,
+  function entryAt(x, y) {
+    const point = [clamp(x, left, right), clamp(y, top, bottom)];
+    if (standable(point) || !players.length) return { x: point[0], y: point[1] };
+    const distance = player => Math.hypot(player.x - point[0], player.y - point[1]);
+    return players.reduce((nearest, player) => distance(player) < distance(nearest) ? player : nearest);
+  }
+  return { ...bounds, rect, players, element, entryAt, formation: element.dataset.companionPitch,
     lineupSize: cards.filter(({ spot }) => spot.companionPlayer).length };
 }
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { jumpDuration, projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
 import { celebrationDestination } from "../src/features/companion/companionCelebration.js";
 import { touchMenuAction, touchMenuLayout } from "../src/features/companion/companionTouchLayout.js";
+import { recoveryTab } from "../src/features/companion/companionSkills.js";
 
 function flying(overrides) {
   return { x: 46, y: 90, vx: 2000, vy: 1000, pose: "air", ...overrides };
@@ -30,6 +31,21 @@ test("a desktop edge catches a firm throw and lets the Companion slide", () => {
   const grabbedAt = actor.y;
   for (let index = 0; index < 8; index++) stepCompanion(actor, desktop, .025, 26);
   assert.ok(actor.y > grabbedAt && actor.x > 114);
+});
+
+test("a wall volley recovers to navigation while a direct throw can land on a higher panel", () => {
+  const panel = { left: 10, right: 130, top: 290, element: {} };
+  const dock = { left: 40, right: 100, top: 510, element: {} };
+  const room = { ...field, railMode: true, tabs: [dock], surfaces: [panel, dock] };
+  const sliding = flying({ rail: "right", cling: 0, x: 125, vy: 100 });
+  assert.equal(recoveryTab(room, { ...sliding, y: 330 }), undefined);
+  assert.equal(recoveryTab(room, { ...sliding, y: 529 }), dock);
+  assert.equal(recoveryTab({ ...room, tabs: [] }, { ...sliding, y: 529 }), undefined);
+  const direct = flying({ x: 95, y: 270, vx: 0, vy: 420 });
+  assert.equal(recoveryTab(room, direct), undefined);
+  for (let i = 0; i < 4; i++) stepCompanion(direct, room, .016, 12);
+  assert.equal(direct.surface, panel.element);
+  assert.equal(direct.y, panel.top);
 });
 
 test("an upward throw has an apex followed by falling", () => {
