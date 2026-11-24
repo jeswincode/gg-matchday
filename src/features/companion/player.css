@@ -95,6 +95,15 @@
 [data-pose="air"] .gg-player-leg--left { rotate: 19deg; }
 [data-pose="air"] .gg-player-leg--right { rotate: -26deg; }
 [data-pose="air"] .gg-player-arm--right { rotate: -36deg; }
+[data-platform-jump] .gg-player-art { transition: scale 70ms ease-out, rotate 70ms ease-out; }
+[data-platform-jump="launch"] .gg-player-art { scale: 1.05 .86; }
+[data-platform-jump="launch"] .gg-player-shin { rotate: -28deg; }
+[data-platform-jump="rise"] .gg-player-art { scale: .97 1.04; rotate: calc(9deg * var(--travel-direction, 1)); }
+[data-platform-jump="rise"] .gg-player-arm--left { rotate: 33deg; }
+[data-platform-jump="rise"] .gg-player-leg--right { rotate: -39deg; }
+[data-platform-jump="fall"] .gg-player-art { rotate: calc(-4deg * var(--travel-direction, 1)); }
+[data-platform-jump="fall"] .gg-player-shin { rotate: 18deg; }
+[data-platform-jump="fall"] .gg-player-arm--right { rotate: -19deg; }
 
 [data-pose="hang"] .gg-player-art, [data-pose="slide"] .gg-player-art { rotate: calc(8deg * var(--grip-direction, -1)); }
 [data-pose="hang"] .gg-player-arm--right, [data-pose="slide"] .gg-player-arm--right { rotate: -101deg; }
@@ -265,4 +274,22 @@
   .gg-footballer[data-action="wave"] .gg-player-arm--right { rotate: -140deg; }
   .gg-footballer[data-action="sky"] .gg-player-arm--left { rotate: 160deg; }
   .gg-footballer[data-action="sky"] .gg-player-arm--right { rotate: -160deg; }
+}
+
+.gg-player-overhead, .gg-player-grab-arm { display: none; }
+[data-pose="pitch"] .gg-player-overhead { display: inline; }
+[data-pose="pitch"] .gg-footballer > :not(.gg-player-overhead) { display: none; }
+.gg-overhead-turn { transform-origin: 27px 32px; rotate: var(--pitch-facing, 0deg); }
+[data-pitch-walk] .gg-overhead-step { animation: gg-overhead-step 430ms steps(4, end) infinite alternate; }
+[data-pitch-walk] .gg-overhead-step--right { animation-direction: alternate-reverse; }
+@keyframes gg-overhead-step { from { translate: 0 -4px; } to { translate: 0 3px; } }
+[data-grab-side] .gg-player-grab-arm { display: inline; --grab-skin: var(--player-skin); }
+[data-grab-side="left"] .gg-player-grab-arm { --grab-skin: var(--player-skin-shadow); }
+[data-grab-side="right"] .gg-grab-captain-trim { display: none; }
+[data-grab-side="right"] .gg-player-arm--right,
+[data-grab-side="left"] .gg-player-arm--left { opacity: 0; }
+[data-grab-side] .gg-player-leg--left { rotate: calc(7deg + var(--player-lean, 0deg) * .48); }
+[data-grab-side] .gg-player-leg--right { rotate: calc(-11deg + var(--player-lean, 0deg) * .72); }
+@media (prefers-reduced-motion: reduce) {
+  [data-pitch-walk] .gg-overhead-step { animation: none; }
 }

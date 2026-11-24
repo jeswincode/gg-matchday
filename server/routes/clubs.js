@@ -203,6 +203,7 @@ function publicMatchSnapshot(match, clubsById) {
     clubAName: clubA?.name || "Club",
     clubBName: clubB?.name || "Club",
     status: match.status,
+    source: match.source,
     fixtureDate: match.fixtureDate || matchDateKey(match),
     scheduledAt: match.scheduledAt,
     clubAScore: match.clubAScore ?? null,

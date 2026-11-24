@@ -64,7 +64,7 @@ export default function Calendar({canEdit,onOpen,onEdit,onDelete,refreshKey}){
         <p>Browse Matchday history day by day.</p>
       </div>
 
-      <section className="card calendar-card">
+      <section className="card calendar-card" data-companion-surface="calendar-panel">
         <div className="calendar-header">
           <button type="button" className="calendar-nav" onClick={previousMonth}>‹</button>
           <div>

@@ -5,7 +5,7 @@ import "./companion.css";
 const CompanionStage = lazy(() => import("./CompanionStage.jsx"));
 const preview = new URLSearchParams(window.location.search).get("companion") === "preview";
 
-export default function CompanionWorld({ account, enabled, clasicoSide }) {
+export default function CompanionWorld({ account, enabled, clasicoSide, guide, onVote, onFixture }) {
   const legacy = preview && !enabled;
   return <>
     <span className="gg-companion-rail gg-companion-rail--left" aria-hidden="true" />
@@ -13,7 +13,7 @@ export default function CompanionWorld({ account, enabled, clasicoSide }) {
     {(enabled || legacy) && <Suspense fallback={null}>
       <CompanionStage key={account?.id || (legacy ? "preview" : "account")} account={account}
         look={account?.companion} celebration={iconicCelebration(account?.role, clasicoSide, account?.companion)}
-        legacy={legacy} />
+        legacy={legacy} guide={guide} onVote={onVote} onFixture={onFixture} />
     </Suspense>}
   </>;
 }

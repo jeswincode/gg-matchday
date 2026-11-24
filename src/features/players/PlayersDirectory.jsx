@@ -21,7 +21,7 @@ export default function PlayersDirectory({
       </div>
 
       {isEditor && (
-        <section className="card">
+        <section className="card" data-companion-surface="add-player">
           <form onSubmit={addPlayer}>
             <label>
               <span>Add Player</span>

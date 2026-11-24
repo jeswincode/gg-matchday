@@ -23,6 +23,59 @@ test("Companion appearance saves the character and only accepts an administrator
   assert.equal(admin.data.look.celebration, "messi");
   assert.equal((await save("viewer", { ...appearance, character: "unknown" })).status, 400);
 });
+test("Companion reminders only include recent open votes for the linked participant", async () => {
+  const path = "/matches/pending-votes";
+  assert.equal((await request(path)).status, 401);
+  assert.deepEqual((await request(path, { token: "viewer" })).data, []);
+  const recent = new Date(Date.now() - 60_000);
+  const older = new Date(Date.now() - 15 * 86400000);
+  const match = fields => Match.create({ ...payload(), date: recent, ...fields });
+  const [eligible, closed, expired, unrelated] = await Promise.all([
+    match({ name: "Eligible vote" }),
+    match({ name: "Closed vote", votingClosed: true }),
+    match({ name: "Older match", date: older }),
+    match({ name: "Other match", participants: [payload().participants[1]], events: [] }),
+  ]);
+  try {
+    await User.updateOne({ _id: viewer._id }, { $set: { playerProfile: p1._id } });
+    await Vote.create({ match: eligible._id, player: p1._id, voter: (await User.findOne({ firebaseUid: "test-other" }))._id });
+    const result = await request(path, { token: "viewer" });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.data.map(row => row.name), ["Eligible vote"]);
+    const vote = await request("/matches/" + eligible._id + "/votes", {
+      token: "viewer", method: "POST", body: { playerId: String(p2._id) },
+    });
+    assert.equal(vote.status, 201);
+    assert.deepEqual((await request(path, { token: "viewer" })).data, []);
+  } finally {
+    await Vote.deleteMany({ match: eligible._id });
+    await Match.deleteMany({ _id: { $in: [eligible, closed, expired, unrelated].map(row => row._id) } });
+    await User.updateOne({ _id: viewer._id }, { $set: { playerProfile: null } });
+  }
+});
+test("Companion trends use actual recent ratings and compare ranks across matchdays", async () => {
+  const rows = Array.from({ length: 8 }, (_, index) => {
+    const latest = index >= 5;
+    const seed = payload();
+    return { ...seed, date: new Date(Date.UTC(2030, 0, latest ? 2 : 1, index)),
+      participants: [
+        { ...seed.participants[0], rating: latest ? 10 : 4, defensivePerformance: latest ? 10 : 5 },
+        { ...seed.participants[1], rating: latest ? 1 : 5, defensivePerformance: latest ? 1 : 6 },
+      ],
+      events: latest ? seed.events : [{ player: p2._id, type: "goal" }],
+    };
+  });
+  const matches = await Match.create(rows);
+  try {
+    const { status, data } = await request("/stats/companion-trends");
+    assert.equal(status, 200);
+    assert.deepEqual(data.improvement, { name: p1.name, before: 4, after: 10 });
+    assert.deepEqual(data.standout, { name: p1.name, rating: 10 });
+    assert.deepEqual(data.rise, { name: p1.name, from: 2, to: 1 });
+  } finally {
+    await Match.deleteMany({ _id: { $in: matches.map(match => match._id) } });
+  }
+});
 test('profile linking excludes admin identities and allows many unlinked accounts per player', async () => {
   const createAccount = (suffix, fields = {}) => User.create({
     firebaseUid: 'link-' + suffix, name: suffix, email: suffix + '@example.invalid', ...fields,

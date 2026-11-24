@@ -1,4 +1,4 @@
-import { clamp } from "./companionWorld";
+import { clamp } from "./companionWorld.js";
 
 const interpolate = (from, to, time) => from + (to - from) * time;
 const arc = (time, height) => 4 * time * (1 - time) * height;
@@ -13,10 +13,11 @@ export function wallJuggle(x, direction, wallX) {
 
 export function recoveryTab(room, actor) {
   if (room.clubs || !room.railMode || room.vertical || actor.vy < 0 || actor.y >= room.bottom) return;
+  if (actor.rail && actor.cling > 0) return;
   const landing = room.surfaces.find(tab => actor.x >= tab.left + 3 && actor.x <= tab.right - 3);
   if (landing && !actor.rail && actor.y <= landing.top + 1) return;
-  if (!room.surfaces.length) return;
-  const edge = room.surfaces.reduce((nearest, tab) => {
+  if (!room.tabs.length) return;
+  const edge = room.tabs.reduce((nearest, tab) => {
     const distance = tab => Math.abs(clamp(actor.x, tab.left, tab.right) - actor.x);
     return distance(tab) < distance(nearest) ? tab : nearest;
   });

@@ -3,12 +3,35 @@ import assert from "node:assert/strict";
 import { jumpDuration, projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
 import { celebrationDestination } from "../src/features/companion/companionCelebration.js";
 import { touchMenuAction, touchMenuLayout } from "../src/features/companion/companionTouchLayout.js";
+import { recoveryTab } from "../src/features/companion/companionSkills.js";
+import { gripOffset, gripPose } from "../src/features/companion/companionGrip.js";
 
 function flying(overrides) {
   return { x: 46, y: 90, vx: 2000, vy: 1000, pose: "air", ...overrides };
 }
 
 const field = { left: 0, right: 140, top: 0, bottom: 600, surfaces: [] };
+
+test("a grab bends either elbow and keeps its reach within the sprite's proportions", () => {
+  for (const side of [-1, 1]) {
+    for (const scale of [{ x: 1, y: 1 }, { x: 1.12, y: .98 }, { x: .92, y: 1.035 }]) {
+      for (const lean of [-21, 0, 21]) {
+        const grip = gripOffset(side, lean, scale);
+        const neutral = gripPose(side, grip.x, grip.y, lean, scale);
+        assert.ok(Math.abs(Math.sin((neutral.upper - neutral.lower) * Math.PI / 180)) > .5);
+        for (const [x, y] of [[grip.x, grip.y], [side * 110, -50], [-side * 35, -45]]) {
+          const { shoulder, elbow, lower } = gripPose(side, x, y, lean, scale);
+          const angle = lower * Math.PI / 180;
+          assert.ok(Math.abs(Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y) - 7) < .001);
+          const wristX = elbow.x + 7 * Math.cos(angle);
+          const wristY = elbow.y + 7 * Math.sin(angle);
+          assert.ok(side * (wristX - shoulder.x) > 3);
+          assert.ok(Math.hypot(wristX - shoulder.x, wristY - shoulder.y) <= 14.001);
+        }
+      }
+    }
+  }
+});
 
 test("a fast throw lands on the tab it crosses during the frame", () => {
   const tab = { left: 55, right: 88, top: 100, element: {} };
@@ -30,6 +53,21 @@ test("a desktop edge catches a firm throw and lets the Companion slide", () => {
   const grabbedAt = actor.y;
   for (let index = 0; index < 8; index++) stepCompanion(actor, desktop, .025, 26);
   assert.ok(actor.y > grabbedAt && actor.x > 114);
+});
+
+test("a wall volley recovers to navigation while a direct throw can land on a higher panel", () => {
+  const panel = { left: 10, right: 130, top: 290, element: {} };
+  const dock = { left: 40, right: 100, top: 510, element: {} };
+  const room = { ...field, railMode: true, tabs: [dock], surfaces: [panel, dock] };
+  const sliding = flying({ rail: "right", cling: 0, x: 125, vy: 100 });
+  assert.equal(recoveryTab(room, { ...sliding, y: 330 }), undefined);
+  assert.equal(recoveryTab(room, { ...sliding, y: 529 }), dock);
+  assert.equal(recoveryTab({ ...room, tabs: [] }, { ...sliding, y: 529 }), undefined);
+  const direct = flying({ x: 95, y: 270, vx: 0, vy: 420 });
+  assert.equal(recoveryTab(room, direct), undefined);
+  for (let i = 0; i < 4; i++) stepCompanion(direct, room, .016, 12);
+  assert.equal(direct.surface, panel.element);
+  assert.equal(direct.y, panel.top);
 });
 
 test("an upward throw has an apex followed by falling", () => {

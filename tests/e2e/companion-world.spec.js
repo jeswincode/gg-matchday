@@ -3,6 +3,170 @@ import { completeMobileEntry, enterSignedInMatchday } from "./entry-helpers.js";
 
 const actionLabels = { games: "Games", world: "Community World", emote: "Emote", celebration: "Iconic Celebration" };
 
+async function dropCompanion(companion, target, project) {
+  const page = companion.page();
+  const box = await companion.boundingBox();
+  const start = { x: Math.round(box.x + box.width / 2), y: Math.round(box.y + box.height / 2) };
+  if (project === "chromium-desktop") {
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(target.x, target.y, { steps: 8 });
+    // Stop at the destination long enough to release without throw momentum.
+    await page.waitForTimeout(130);
+    await page.mouse.up();
+    return;
+  }
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [start] });
+    await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [target] });
+    await page.waitForTimeout(130);
+    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  } finally {
+    await session.detach();
+  }
+}
+
+async function fixturePitch(page) {
+  await page.route("**/api/matches/pending-votes", route => route.fulfill({ json: [] }));
+  await page.route("**/api/clubs/home", route => route.fulfill({ json: {} }));
+  const lineup = ["LW", "ST", "RW", "CM", "CM", "CDM", "LB", "CB", "CB", "RB", "GK"].map((position, index) => ({
+    _id: "65a0000000000000000000" + String(index + 1).padStart(2, "0"), name: "E2E Pitch Player " + (index + 1),
+    position, preferredPositions: [position],
+  }));
+  await page.route("**/api/players", route => route.fulfill({ json: lineup }));
+}
+
+async function dropOnPitch(pitch, tabs, companion, project) {
+  await pitch.scrollIntoViewIfNeeded();
+  const turf = await pitch.boundingBox();
+  const dock = await tabs.boundingBox();
+  await dropCompanion(companion, {
+    x: Math.round(turf.x + turf.width * .13),
+    y: Math.round((Math.max(turf.y, 0) + Math.min(turf.y + turf.height, dock.y)) / 2),
+  }, project);
+  await expect(companion).toHaveAttribute("data-pose", "pitch", { timeout: 3_000 });
+}
+
+test("Companion links a participant to their pending Player of the Match vote", async ({ page }) => {
+  const response = page.waitForResponse(res => new URL(res.url()).pathname === "/api/matches/pending-votes" && res.ok());
+  await page.goto("/?e2eRole=viewer");
+  await enterSignedInMatchday(page);
+  const [pending] = await (await response).json();
+  expect(pending?.name).toBeTruthy();
+  const shortCut = page.getByRole("button", { name: "Open vote", exact: true });
+  await expect(shortCut).toBeVisible({ timeout: 19_000 });
+  await expect(shortCut.locator("..")).toContainText(pending.name);
+  await shortCut.click();
+  const match = page.getByRole("dialog", { name: pending.name });
+  await expect(match.getByRole("heading", { name: "Player of the Match" })).toBeVisible();
+});
+
+test("Companion lands on panels and tours Starting XI when idle or dropped onto the pitch", async ({ page }, info) => {
+  test.slow();
+  await fixturePitch(page);
+  await page.goto("/?e2eRole=editor");
+  await enterSignedInMatchday(page);
+  const companion = page.getByRole("button", { name: "GG Companion", exact: true });
+  await companion.click();
+  const tabs = page.getByRole("navigation", { name: "Matchday tabs" });
+  await tabs.getByRole("button", { name: "Calendar" }).click();
+  const calendar = page.locator('[data-companion-surface="calendar-panel"]');
+  await expect(calendar).toBeVisible();
+  await expect.poll(async () => {
+    const body = await companion.boundingBox();
+    const panel = await calendar.boundingBox();
+    return Math.abs(body.y + body.height - panel.y);
+  }, { timeout: 19_000 }).toBeLessThan(3);
+  const panel = await calendar.boundingBox();
+  const beforeDrop = await companion.boundingBox();
+  const x = Math.round(panel.x + panel.width * (beforeDrop.x < panel.x + panel.width / 2 ? .74 : .26));
+  await dropCompanion(companion, { x, y: Math.round(panel.y - 72) }, info.project.name);
+  await expect(companion).toHaveAttribute("data-pose", "stand", { timeout: 3_000 });
+  const dropped = await companion.boundingBox();
+  expect(Math.abs(dropped.y + dropped.height - panel.y)).toBeLessThan(3);
+  expect(Math.abs(dropped.x + dropped.width / 2 - x)).toBeLessThan(12);
+  await tabs.getByRole("button", { name: "Players" }).click();
+  const pitch = page.locator("[data-companion-pitch]:visible");
+  await pitch.scrollIntoViewIfNeeded();
+  const speech = page.locator(".gg-companion-speech > span:nth-child(2)");
+  await expect(companion).toHaveAttribute("data-pose", "pitch", { timeout: 24_000 });
+  await expect(companion.locator(".gg-player-overhead")).toBeVisible();
+  await expect(speech).toHaveText(/E2E.*(lines up|recorded|averages|won|leads).*\.$/, { timeout: 12_000 });
+  const first = await speech.textContent();
+  await expect.poll(async () => {
+    const line = await speech.textContent();
+    return line !== first && /^E2E.*\.$/.test(line);
+  },
+    { timeout: 12_000 }).toBeTruthy();
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  await expect(companion).not.toHaveAttribute("data-pose", "pitch");
+  await expect(companion).toHaveAttribute("data-pose", "stand");
+  await page.getByRole("button", { name: "Pitch", exact: true }).click();
+  await dropOnPitch(pitch, tabs, companion, info.project.name);
+  await expect(speech).toHaveText(/^E2E.*\.$/, { timeout: 7_000 });
+});
+
+test("a player profile, another tab and a dialog end a pitch tour with a fall", async ({ page }, info) => {
+  test.slow();
+  await fixturePitch(page);
+  await page.goto("/?tab=players&e2eRole=editor");
+  await enterSignedInMatchday(page);
+  const companion = page.locator(".gg-companion-token");
+  const stage = companion.locator("..");
+  const tabs = page.getByRole("navigation", { name: "Matchday tabs" });
+  const pitch = page.locator("[data-companion-pitch]:visible");
+  const closeProfile = page.getByRole("button", { name: "Back to Players" });
+
+  async function watchFall() {
+    await dropOnPitch(pitch, tabs, companion, info.project.name);
+    await stage.evaluate(node => {
+      const token = node.querySelector(".gg-companion-token");
+      delete node.dataset.fallDistance;
+      const feet = () => parseFloat(node.style.getPropertyValue("--companion-y"));
+      let start;
+      const watch = new MutationObserver(() => {
+        if (token.dataset.pose === "air") {
+          start ??= feet();
+          node.dataset.fallDistance = String(feet() - start);
+        } else if (start !== undefined) watch.disconnect();
+      });
+      watch.observe(node, { subtree: true, attributeFilter: ["data-pose", "style"] });
+      setTimeout(() => watch.disconnect(), 4000);
+    });
+  }
+
+  async function expectLanding() {
+    await expect.poll(async () => Number(await stage.getAttribute("data-fall-distance"))).toBeGreaterThan(16);
+    await expect(companion).toHaveAttribute("data-pose", "stand");
+    await expect.poll(async () => {
+      const sprite = await companion.boundingBox();
+      const dock = await tabs.boundingBox();
+      return Math.abs(sprite.y + sprite.height - dock.y);
+    }).toBeLessThan(3);
+  }
+
+  await watchFall();
+  await pitch.getByRole("button", { name: "E2E Pitch Player 6, CDM" }).click({ timeout: 5_000 });
+  await expect(closeProfile).toBeVisible();
+  await expectLanding();
+  await closeProfile.click();
+
+  await watchFall();
+  await tabs.getByRole("button", { name: "Record" }).click();
+  await expectLanding();
+  await tabs.getByRole("button", { name: "Players" }).click();
+
+  const avatar = page.getByRole("button", { name: "Account profile settings" });
+  await watchFall();
+  await avatar.click();
+  const dialog = page.getByRole("dialog", { name: "Account profile settings" });
+  await expect(dialog).toBeVisible();
+  await expect(companion).toBeHidden();
+  await dialog.getByRole("button", { name: "Close dialog" }).click();
+  await expectLanding();
+});
+
 async function openActions(character, project, gesture) {
   if (project === "chromium-mobile") {
     const stage = character.locator("..");
@@ -39,8 +203,14 @@ async function openActions(character, project, gesture) {
   } else {
     await character.click({ button: "right" });
     const menu = character.page().getByRole("group", { name: "Companion actions" });
-    await expect(menu.locator("textPath")).toHaveText(Object.values(actionLabels));
-    await expect(menu.locator(".gg-companion-menu-track")).toHaveCSS("stroke-linecap", "round");
+    await expect(menu.locator("button svg")).toHaveCount(4);
+    await expect(menu.locator(".gg-companion-touch-track")).toHaveCSS("stroke-linecap", "round");
+    const anchor = await character.boundingBox();
+    const arc = await menu.boundingBox();
+    expect(Math.abs(arc.x + arc.width / 2 - anchor.x - anchor.width / 2)).toBeLessThan(2);
+    await expect(menu.getByText("Games", { exact: true })).toBeHidden();
+    await menu.getByRole("button", { name: "Games" }).hover();
+    await expect(menu.getByText("Games", { exact: true })).toBeVisible();
     if (gesture) {
       await character.page().getByRole("button", { name: actionLabels[gesture], exact: true }).click();
     }
@@ -110,6 +280,9 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
     await page.mouse.move(standing.x + standing.width / 2, standing.y + standing.height / 2);
     await page.mouse.down();
     await page.mouse.move(perch.x + perch.width / 2, perch.y, { steps: 10 });
+    await expect(character).toHaveAttribute("data-grab-side", /left|right/);
+    await expect(footballer.locator("[data-grab-upper]")).toHaveAttribute("transform", /^translate\(.+\) rotate\(.+\)$/);
+    await expect(footballer.locator("[data-grab-lower]")).toHaveAttribute("transform", /^translate\(.+\) rotate\(.+\)$/);
     await page.mouse.up();
     await expect(character).toHaveAttribute("data-pose", "sit");
     await expect.poll(async () => {
@@ -209,17 +382,33 @@ test("desktop Companion volleys back onto the dock and does skills after inactiv
   const tabs = page.getByRole("navigation", { name: "Matchday tabs" });
   await companion.click();
   await expect(companion).toHaveAttribute("data-pose", "stand");
+  await tabs.getByRole("button", { name: "Calendar" }).click();
+  await expect(companion).toHaveAttribute("data-travel", "walk");
+  await expect(companion).not.toHaveAttribute("data-travel", "walk");
+  const panel = await page.locator('[data-companion-surface="calendar-panel"]').boundingBox();
   const actor = await companion.boundingBox();
   const dock = await tabs.boundingBox();
+  await companion.evaluate(token => {
+    const observer = new MutationObserver(records => {
+      if (token.dataset.pose === "slide" || records.some(record => record.oldValue === "slide")) {
+        token.dataset.sawRailSlide = "true";
+        observer.disconnect();
+      }
+    });
+    observer.observe(token, { attributes: true, attributeFilter: ["data-pose"], attributeOldValue: true });
+  });
   await page.mouse.move(actor.x + actor.width / 2, actor.y + actor.height / 2);
   await page.mouse.down();
-  await page.mouse.move(dock.x / 2, dock.y - 10, { steps: 12 });
-  await page.clock.runFor(150);
+  await page.mouse.move(dock.x / 2, panel.y - 30, { steps: 12 });
+  await page.mouse.move(12, panel.y - 30, { steps: 8 });
   await page.mouse.up();
   await expect(companion).toHaveAttribute("data-skill", "volley");
+  await expect(companion).toHaveAttribute("data-saw-rail-slide", "true");
   await expect(page.locator(".gg-companion-ball")).toBeVisible();
   await expect(companion).toHaveAttribute("data-pose", "stand");
   await expect.poll(async () => (await companion.boundingBox()).x).toBeGreaterThan(dock.x);
+  const recovered = await companion.boundingBox();
+  expect(Math.abs(recovered.y + recovered.height - dock.y)).toBeLessThan(3);
 
   const leaderboard = tabs.getByRole("button", { name: "Leaderboard" });
   await leaderboard.click();
@@ -392,6 +581,8 @@ test("mobile Clubs peeks behind fixture tabs and throws rebound onto the dock", 
   try {
     await touch("touchStart", actor.x + actor.width / 2, actor.y + actor.height / 2);
     await touch("touchMove", right - 155, 160);
+    await expect(companion.locator("[data-grab-upper]")).toBeVisible();
+    await expect(companion.locator("[data-grab-lower]")).toBeVisible();
     await touch("touchMove", right - 8, 160);
     await touch("touchEnd");
     await expect(companion).toHaveAttribute("data-edge", "right-bounce");
