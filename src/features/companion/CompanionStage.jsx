@@ -3,8 +3,9 @@ import CompanionPlayer from "./CompanionPlayer";
 import CompanionDesktopMenu from "./CompanionDesktopMenu.jsx";
 import CompanionTouchMenu from "./CompanionTouchMenu.jsx";
 import runCompanion from "./runCompanion";
+import { useCompanionGuide } from "./useCompanionGuide";
 
-export default function CompanionStage({ account, look, celebration, legacy }) {
+export default function CompanionStage({ account, look, celebration, legacy, guide, onVote, onFixture }) {
   const stage = useRef(null);
   const token = useRef(null);
   const bubble = useRef(null);
@@ -14,6 +15,8 @@ export default function CompanionStage({ account, look, celebration, legacy }) {
   const desktopMenu = menuMode?.type === "desktop";
   const currentAccount = useEffectEvent(() => account);
   const currentCelebration = useEffectEvent(() => celebration);
+  const brief = useCompanionGuide(legacy ? null : account, guide, onVote, onFixture);
+  const currentGuide = useEffectEvent(() => brief);
 
   function selectAction(action) {
     setMenuMode(null);
@@ -27,7 +30,7 @@ export default function CompanionStage({ account, look, celebration, legacy }) {
   useEffect(() => {
     return runCompanion(stage.current, token.current, bubble.current,
       document.querySelectorAll(".gg-companion-rail"), {
-        legacy, account: currentAccount, celebration: currentCelebration,
+        legacy, account: currentAccount, celebration: currentCelebration, guide: currentGuide,
         showMenu: setMenuMode,
         hideMenu: () => setMenuMode(null),
         selectMenu: selectFromGesture,
@@ -36,7 +39,7 @@ export default function CompanionStage({ account, look, celebration, legacy }) {
 
   useEffect(() => {
     if (!desktopMenu) return;
-    menu.current?.querySelector("button")?.focus({ preventScroll: true });
+    if (menuMode.keyboard) menu.current?.querySelector("button")?.focus({ preventScroll: true });
     function dismiss(event) {
       if (event.type === "keydown" && event.key !== "Escape") return;
       if (event.type === "pointerdown" && (menu.current?.contains(event.target) || token.current?.contains(event.target))) return;
@@ -49,7 +52,7 @@ export default function CompanionStage({ account, look, celebration, legacy }) {
       window.removeEventListener("pointerdown", dismiss);
       window.removeEventListener("keydown", dismiss);
     };
-  }, [desktopMenu]);
+  }, [desktopMenu, menuMode]);
 
   return (
     <div className="gg-companion-stage" data-legacy={legacy || undefined} ref={stage} data-no-tab-swipe>
@@ -68,9 +71,9 @@ export default function CompanionStage({ account, look, celebration, legacy }) {
         <path className="gg-spark-wave" d="M10 12h3v-3h4V7h12v2h4v3h3v8h-2v-7h-3v-2H15v2h-3v5h-2Zm3 16h3v3h4v2h10v2H19v-2h-5v-3h-1Z" />
         <path className="gg-spark-fire" d="M7 8h3v3H7Zm26-4h4v4h-4ZM4 23h5v2H4Zm31-1h3v4h-3Zm-12 16h3v3h-3Z" />
       </svg>
-      <p className="gg-companion-speech" ref={bubble} role="status" hidden />
+      <div className="gg-companion-speech" ref={bubble} hidden />
       {open && (desktopMenu
-        ? <CompanionDesktopMenu menuRef={menu} below={menuMode.below} onSelect={selectAction} />
+        ? <CompanionDesktopMenu menuRef={menu} layout={menuMode} onSelect={selectAction} />
         : <CompanionTouchMenu layout={menuMode} />)}
     </div>
   );

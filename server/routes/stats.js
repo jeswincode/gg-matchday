@@ -24,6 +24,7 @@ import {
 } from "../services/statistics.js";
 import { classifyPlayerStyles } from "../services/playerStyles.js";
 import { loadPlayerStatistics } from "../services/persistedStatistics.js";
+import { effectiveMatchRating } from "../services/ratings/index.js";
 
 const router = express.Router();
 const round = value => Number(Number(value).toFixed(2));
@@ -233,6 +234,46 @@ router.get("/leaderboard", safe(async (req, res) => {
     offensive: filtered.filter(stats => stats.eligible).sort(sortOffensive),
     defensive: filtered.filter(stats => stats.eligible && stats.defensiveEligible).sort(sortDefensive),
   });
+}));
+
+router.get("/companion-trends", safe(async (_req, res) => {
+  const [players, matches] = await Promise.all([
+    Player.find().select("name").lean(),
+    Match.find().select("date createdAt teamA teamB participants events").sort({ date: -1, createdAt: -1, _id: -1 }).lean(),
+  ]);
+  if (!matches.length) return res.json({});
+  const sessionDate = new Date(matches[0].date).toISOString().slice(0, 10);
+  const prior = matches.filter(match => new Date(match.date).toISOString().slice(0, 10) !== sessionDate);
+  const previousRanks = new Map(buildStatistics(players, prior).map(row => [row.playerId, row.rank]));
+  const current = buildStatistics(players, matches);
+  const rise = current.filter(row => row.rank !== null && previousRanks.get(row.playerId) > row.rank)
+    .map(row => ({ name: row.name, from: previousRanks.get(row.playerId), to: row.rank }))
+    .sort((a, b) => (b.from - b.to) - (a.from - a.to) || a.to - b.to)[0];
+
+  const ratings = new Map();
+  for (const match of matches) for (const participant of match.participants || []) {
+    const playerId = id(participant.player);
+    const games = ratings.get(playerId) || [];
+    if (games.length === 6) continue;
+    const value = effectiveMatchRating(participant);
+    if (value === null) continue;
+    games.push(value);
+    ratings.set(playerId, games);
+  }
+  const average = values => values.reduce((sum, value) => sum + value, 0) / values.length;
+  const improvement = players.flatMap(player => {
+    const games = ratings.get(id(player));
+    if (games?.length !== 6) return [];
+    const before = average(games.slice(3));
+    const after = average(games.slice(0, 3));
+    return after - before >= 1 && before < 6.5 ? [{ name: player.name, before, after }] : [];
+  }).sort((a, b) => (b.after - b.before) - (a.after - a.before))[0];
+  const latest = matches.filter(match => new Date(match.date).toISOString().slice(0, 10) === sessionDate);
+  const standout = latest.flatMap(match => (match.participants || []).map(participant => ({
+    playerId: id(participant.player), rating: effectiveMatchRating(participant),
+  }))).filter(row => row.rating >= 8).sort((a, b) => b.rating - a.rating)[0];
+  const star = standout && players.find(player => id(player) === standout.playerId);
+  res.json({ rise, improvement, standout: star ? { name: star.name, rating: standout.rating } : null });
 }));
 
 router.get("/awards", safe(async (req, res) => {

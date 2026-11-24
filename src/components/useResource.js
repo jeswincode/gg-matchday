@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 export default function useResource(path, refreshKey = 0, { keepPreviousData = false } = {}) {
   const [state, setState] = useState(null);
   useEffect(() => {
+    if (!path) return;
     let active = true;
     api(path).then(data => {
       if (active) setState({ path, data, error: "" });
@@ -16,6 +17,7 @@ export default function useResource(path, refreshKey = 0, { keepPreviousData = f
     });
     return () => { active = false; };
   }, [path, refreshKey]);
+  if (!path) return { data: null, error: "", loading: false };
   return state?.path === path ? { ...state, loading: false } : {
     data: keepPreviousData ? state?.data ?? null : null,
     error: "",

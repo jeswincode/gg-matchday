@@ -90,6 +90,7 @@
 .gg-companion-stage[data-legacy] { --companion-size: 32px; }
 
 .gg-companion-token[data-pose="held"] { cursor: grabbing; }
+.gg-companion-token[data-pitch-walk] { pointer-events: none; }
 .gg-companion-stage[data-shutters] { z-index: 10000; }
 .gg-companion-stage[data-shutters] .gg-companion-token {
   scale: 1 var(--shutter-scale, 1);
@@ -123,61 +124,57 @@
 .gg-companion-token[data-pose="celebrate"] .gg-player-art { animation: gg-companion-celebrate 420ms ease-out 2 alternate; }
 
 .gg-companion-actions {
-  --menu-width: min(352px, calc(100% - 12px));
   position: absolute;
-  top: calc(var(--companion-y) - var(--companion-size) - 83px);
-  left: clamp(calc(var(--menu-width) / 2 + 6px), var(--companion-x),
-    calc(100% - var(--menu-width) / 2 - 6px));
-  translate: -50%;
-  width: var(--menu-width);
-  aspect-ratio: 352 / 82;
+  top: calc(var(--companion-y) - var(--companion-size) / 2);
+  left: var(--companion-x);
+  translate: -50% -50%;
+  width: 144px;
+  height: 144px;
   z-index: 2;
+  color: var(--signature-ink);
 }
-.gg-companion-actions[data-below] {
-  top: calc(var(--companion-y) + 3px);
-}
-.gg-companion-actions svg {
-  display: block;
-  width: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 3px 4px color-mix(in srgb, var(--signature-base) 70%, transparent));
-}
-.gg-companion-menu-rim, .gg-companion-menu-track {
-  fill: none;
-  stroke-linecap: round;
-}
-.gg-companion-menu-rim { stroke: var(--signature-edge); stroke-width: 32px; }
-.gg-companion-menu-track { stroke: var(--signature-surface); stroke-width: 30px; }
-.gg-companion-menu-highlight {
-  fill: none;
-  stroke: var(--menu-highlight-fill, transparent);
-  stroke-width: 30px;
-  stroke-linecap: round;
-}
-.gg-companion-actions text {
-  fill: var(--menu-highlight-ink, var(--signature-ink));
-  text-anchor: middle;
-  font-size: 12px;
-  font-weight: 750;
-}
+.gg-companion-actions > svg { display: block; width: 100%; }
 .gg-companion-actions button {
+  display: grid;
+  place-items: center;
   position: absolute;
   translate: -50% -50%;
-  height: 44px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   background: transparent;
-  border: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: inherit;
   cursor: pointer;
   pointer-events: auto;
 }
-.gg-companion-actions button:focus-visible { outline: none; }
-.gg-companion-actions:has(button[data-companion-action="games"]:is(:hover,:focus-visible)) [data-menu-segment="games"],
-.gg-companion-actions:has(button[data-companion-action="world"]:is(:hover,:focus-visible)) [data-menu-segment="world"],
-.gg-companion-actions:has(button[data-companion-action="emote"]:is(:hover,:focus-visible)) [data-menu-segment="emote"],
-.gg-companion-actions:has(button[data-companion-action="celebration"]:is(:hover,:focus-visible)) [data-menu-segment="celebration"] {
-  --menu-highlight-fill: color-mix(in srgb, var(--signature-accent) 20%, var(--signature-surface));
-  --menu-highlight-ink: var(--signature-accent);
+.gg-companion-actions button svg { width: 18px; height: 18px; }
+.gg-companion-actions button:is(:hover, :focus-visible) {
+  background: var(--signature-surface);
+  color: var(--signature-accent);
+  border-color: var(--signature-edge);
 }
+.gg-companion-actions button span {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  translate: -50%;
+  padding: 4px 7px;
+  border: 1px solid var(--signature-border);
+  border-radius: 6px;
+  background: var(--signature-surface);
+  color: var(--signature-ink);
+  font-size: .72rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.gg-companion-actions[data-arc-side="left"] button span { left: 0; translate: 0; }
+.gg-companion-actions[data-arc-side="right"] button span { left: auto; right: 0; translate: 0; }
+.gg-companion-actions:has(:hover) button:hover span,
+.gg-companion-actions:not(:has(button:hover)) button:focus-visible span { display: block; }
 
 .gg-companion-touch-menu {
   position: absolute;
@@ -283,6 +280,18 @@
 .gg-companion-speech > [aria-hidden] { grid-area: 1 / 1; }
 .gg-companion-speech-size { visibility: hidden; }
 .gg-companion-speech-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.gg-companion-speech-action {
+  justify-self: center;
+  margin-top: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--signature-edge);
+  border-radius: 6px;
+  background: var(--signature-surface);
+  color: var(--signature-accent);
+  font: inherit;
+  pointer-events: auto;
+  cursor: pointer;
+}
 
 @keyframes gg-companion-say {
   from { opacity: 0; transform: translateY(3px); }
