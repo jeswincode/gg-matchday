@@ -55,6 +55,11 @@
 .gg-pixel-glow { filter: drop-shadow(0 0 1.4px var(--player-glow)); }
 .gg-player-shadow { fill: #090a13; opacity: .55; }
 .gg-player-art, .gg-player-direction { transform-origin: 27px 61px; }
+.gg-player-direction { scale: var(--body-width, 1) var(--body-height, 1); }
+.gg-footballer[data-character="captain"] { --body-width: 1.12; --body-height: .98; }
+.gg-footballer[data-character="winger"] { --body-width: .92; --body-height: 1.035; }
+.gg-footballer[data-player-style="playmaker"]:not([data-temporary-kit]) .gg-player-jersey { --player-panel: color-mix(in srgb, var(--player-kit) 65%, var(--player-trim)); }
+.gg-footballer[data-facing="back"] .gg-front-detail { display: none; }
 .gg-pixel-head { transform-origin: 27px 22px; scale: .85 .83; }
 .gg-player-arm--left { transform-origin: 17px 31px; }
 .gg-player-arm--right { transform-origin: 37px 31px; }
@@ -71,7 +76,7 @@
 .gg-footballer[data-facing="back"] .gg-player-pupils { display: none; }
 .gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-pixel-profile,
 .gg-footballer[data-facing="back"] .gg-pixel-back { display: inline; }
-.gg-footballer[data-facing="left"] .gg-player-direction { scale: -1 1; }
+.gg-footballer[data-facing="left"] .gg-player-direction { scale: calc(-1 * var(--body-width, 1)) var(--body-height, 1); }
 .gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-leg--left { translate: 3px 0; }
 .gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-leg--right { translate: -2px 0; }
 .gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-arm--left { translate: 3px -1px; }
@@ -161,6 +166,17 @@
 .gg-footballer[data-action="juggle"] .gg-player-leg--right {
   animation: gg-wall-juggle var(--juggle-period, 600ms) ease-in-out 3 both;
 }
+.gg-footballer[data-action="ball-juggle"] .gg-player-leg {
+  animation: gg-keep-up 1160ms steps(12) 2 both;
+}
+.gg-footballer[data-action="ball-juggle"] .gg-player-leg--left { animation-delay: -580ms; animation-iteration-count: 2.5; }
+.gg-footballer[data-action="ball-juggle"] .gg-player-arm--right { rotate: -26deg; }
+.gg-footballer[data-action="ball-juggle"] .gg-player-arm--left { rotate: 22deg; }
+.gg-footballer[data-action="stepovers"] .gg-player-leg {
+  animation: gg-stepover 530ms ease-in-out 3 both;
+}
+.gg-footballer[data-action="stepovers"] .gg-player-leg--left { animation-delay: -265ms; }
+.gg-footballer[data-action="stepovers"] .gg-player-art { animation: gg-stepover-balance 530ms ease-in-out 3; }
 .gg-footballer[data-action="volley"] .gg-player-art { rotate: calc(-17deg * var(--run-direction, 1)); }
 .gg-footballer[data-action^="change"] .gg-player-jersey { animation: gg-kit-change 510ms ease both; }
 .gg-footballer[data-action^="change"] .gg-player-kit-flare {
@@ -225,6 +241,18 @@
   28%, 79% { rotate: 0deg; }
   91% { rotate: 16deg; }
 }
+@keyframes gg-keep-up {
+  0%, 100% { rotate: -46deg; }
+  12% { rotate: -38deg; }
+  31%, 74% { rotate: 0deg; }
+  89% { rotate: 15deg; }
+}
+@keyframes gg-stepover {
+  0%, 100% { rotate: 0deg; }
+  28% { rotate: -27deg; transform: translate(3px, -3px); }
+  64% { rotate: 22deg; transform: translate(-2px, -2px); }
+}
+@keyframes gg-stepover-balance { 25% { rotate: 8deg; } 75% { rotate: -8deg; } }
 @keyframes gg-kit-change { 0%, 100% { opacity: 1; } 49% { opacity: .35; } }
 @keyframes gg-kit-flare {
   0% { opacity: 0; translate: 0 7px; scale: .66; }

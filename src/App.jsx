@@ -440,6 +440,9 @@ function App() {
   const isAdmin = isSignedIn && backendUser?.role === "admin";
 
   const linkedPlayerId = isSignedIn ? backendUser?.playerProfile : null;
+  const clasicoSide = linkedPlayerId
+    ? players.find(player => sameId(player._id, linkedPlayerId))?.clasicoSide ?? backendUser?.clasicoSide
+    : "";
   useEffect(() => () => { ownProfileRequest.current = null; }, [backendUser?.id, linkedPlayerId]);
 
   const isEditor = isSignedIn && (backendUser?.role === "editor" || isAdmin);
@@ -680,6 +683,9 @@ function App() {
         const updated = await api("/players/" + encodeURIComponent(id));
         if (!active) return;
         setPlayers(current => current.map(player => String(player._id) === String(id) ? updated : player));
+        setBackendUser(current => current?.playerProfile && sameId(current.playerProfile, id)
+          ? { ...current, clasicoSide: updated.clasicoSide }
+          : current);
         setSelectedPlayer(current => current && String(current._id) === String(id) ? updated : current);
       } catch { /* Reconnect reconciliation handles transient errors. */ }
     };
@@ -2530,7 +2536,8 @@ function App() {
 
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
       {modal === "account" && authUser && <AccountProfileSettings
-        account={authUser} role={backendUser?.role} linked={Boolean(linkedPlayerId)} theme={theme} onTheme={setTheme}
+        account={authUser} role={backendUser?.role} linked={Boolean(linkedPlayerId)} clasicoSide={clasicoSide}
+        theme={theme} onTheme={setTheme}
         key={accountId || authUser.uid} companion={backendUser?.companion}
         onCompanionSave={accountId ? companion => setBackendUser(current =>
           current?.id === accountId ? { ...current, companion } : current) : null}
@@ -2553,7 +2560,7 @@ function App() {
 
   return <>
     {workspaceContent}
-    <CompanionWorld enabled={Boolean(accountId)} account={backendUser} />
+    <CompanionWorld enabled={Boolean(accountId)} account={backendUser} clasicoSide={clasicoSide} />
     {modeTransition && <WorkspaceTransition {...modeTransition} onPhaseDone={advanceWorkspaceTransition} />}
   </>;
 }

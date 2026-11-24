@@ -1,10 +1,11 @@
 import { useEffect, useId, useState } from "react";
-import { companionLook, companionOptions } from "../../../shared/companion";
+import { companionLook, companionOptions, iconicCelebration } from "../../../shared/companion";
 import { api } from "../../lib/api";
 import { celebrationCues, celebrationFrame, celebrationTiming } from "./companionCelebration";
 import CompanionPlayer from "./CompanionPlayer";
 
 const labels = {
+  character: ["Character", "Original", "Captain", "Winger"],
   style: ["Player style", "Striker", "Playmaker"],
   kit: ["Matchday kit", "Theme kit", "Away kit", "Training kit"],
   complexion: ["Complexion", "Sand", "Copper", "Umber"],
@@ -12,7 +13,7 @@ const labels = {
 const angles = ["front", "left", "right", "back"];
 const celebrations = { ronaldo: "Ronaldo · SIUUU", messi: "Messi · Point to the sky" };
 
-export default function CompanionSettings({ look, name, onSave }) {
+export default function CompanionSettings({ look, name, role, clasicoSide, onSave }) {
   const id = useId();
   const [draft, setDraft] = useState(() => companionLook(look));
   const [status, setStatus] = useState("");
@@ -21,15 +22,16 @@ export default function CompanionSettings({ look, name, onSave }) {
   const [preview, setPreview] = useState(0);
   const [frame, setFrame] = useState({});
   const [angle, setAngle] = useState("front");
+  const celebration = iconicCelebration(role, clasicoSide, draft);
 
   useEffect(() => {
-    if (!preview) return;
-    const timing = celebrationTiming(draft.celebration);
+    if (!preview || !celebration) return;
+    const timing = celebrationTiming(celebration);
     const timers = celebrationCues(timing).slice(1).map(at => setTimeout(() => {
       setFrame(celebrationFrame(timing, at));
     }, at));
     return () => timers.forEach(clearTimeout);
-  }, [draft.celebration, preview]);
+  }, [celebration, preview]);
 
   function update(field, value) {
     setDraft(current => ({ ...current, [field]: value }));
@@ -44,8 +46,13 @@ export default function CompanionSettings({ look, name, onSave }) {
     setStatus("");
     setError("");
     try {
-      const result = await api("/world/appearance", { method: "PUT", body: draft });
-      onSave(result.look);
+      // A previous API version still requires the saved celebration field.
+      const { look: saved } = await api("/world/appearance", { method: "PUT", body: draft });
+      if ((saved.character || "original") !== draft.character) {
+        setError("Couldn’t save your selected character. Try again.");
+        return;
+      }
+      onSave(saved);
       setStatus("Companion saved.");
     } catch {
       setError("Couldn’t save your companion. Try again.");
@@ -78,21 +85,23 @@ export default function CompanionSettings({ look, name, onSave }) {
               {companionOptions[field].map((value, index) => <option key={value} value={value}>{names[index + 1]}</option>)}
             </select>
           </div>)}
-          <fieldset className="gg-celebration-switch" disabled={saving}>
-            <legend>Default celebration</legend>
+          {role === "admin" ? <fieldset className="gg-celebration-switch" disabled={saving}>
+            <legend>Iconic Celebration</legend>
             <div>{companionOptions.celebration.map(value => <label key={value}>
               <input type="radio" name={id + "celebration"} value={value} checked={draft.celebration === value}
                 onChange={() => update("celebration", value)} />
               {celebrations[value]}
             </label>)}</div>
-          </fieldset>
+          </fieldset> : <p className="muted">{celebration
+            ? celebrations[celebration] + " · Your El Clásico side"
+            : "Choose an El Clásico side on your linked player profile to unlock an Iconic Celebration."}</p>}
         </div>
       </div>
       <div className="gg-account-setting-actions">
-        <button type="button" className="secondary-button" onClick={() => {
-          setFrame(celebrationFrame(celebrationTiming(draft.celebration), 0));
+        {celebration && <button type="button" className="secondary-button" onClick={() => {
+          setFrame(celebrationFrame(celebrationTiming(celebration), 0));
           setPreview(value => value + 1);
-        }}>Preview celebration</button>
+        }}>Preview celebration</button>}
         <button type="submit" className="secondary-button" disabled={saving}>{saving ? "Saving…" : "Save companion"}</button>
       </div>
       {status && <p role="status">{status}</p>}
