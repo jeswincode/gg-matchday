@@ -5,6 +5,7 @@ import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
 import { createCompanionSpeech } from "./companionSpeech";
 import { touchMenuAction, touchMenuLayout } from "./companionTouchLayout";
 import { pitchHeading, readPitch, walkOnPitch } from "./companionPitch";
+import { gripPose } from "./companionGrip";
 
 function activeTab(workspace) {
   return workspace.querySelector('[data-pane="current"][data-tab]')?.dataset.tab || "admin";
@@ -37,7 +38,8 @@ function throwVelocity(drag, event, reduced) {
 export default function runCompanion(stage, token, bubble, rails, options) {
   const radius = options.legacy ? 16 : 29;
   const rig = token.querySelector(".gg-footballer");
-  const grabPaths = rig.querySelectorAll("[data-grab-path]");
+  const grabUpper = rig.querySelector("[data-grab-upper]");
+  const grabLower = rig.querySelector("[data-grab-lower]");
   const shell = document.getElementById("root");
   const motion = matchMedia("(prefers-reduced-motion: reduce)");
   const actor = { x: 0, y: 0, vx: 0, vy: 0, pose: "stand" };
@@ -51,6 +53,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   let nextGaze = 0;
   let finishGaze;
   let tour, pitchPoint, pitchTimer, pitchHistory, nextPitch = 0, platformVisit = false;
+  let fallingFromPitch = false;
   let deferredPitch = false;
   const remindedAt = new Map();
   const noteIndex = new Map();
@@ -263,6 +266,24 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     peek = undefined;
     Object.assign(actor, { surface: null, footing: false, rail: "", edge: "", vx: 0, vy: 0, pose: "air" });
     pingIdle();
+  }
+
+  function fallFromPitch(room) {
+    beginFall();
+    if (motion.matches) {
+      const destination = currentTab(room);
+      if (destination) placeAt(destination, "stand");
+      return;
+    }
+    fallingFromPitch = true;
+    lastFrame = 0;
+    if (room.vertical || !room.tabs.length) return;
+    const first = room.tabs[0];
+    const last = room.tabs.at(-1);
+    actor.y = Math.min(actor.y, first.top - 12);
+    const x = clamp(actor.x, first.left + radius * .36, last.right - radius * .36);
+    const duration = Math.sqrt(2 * Math.max(0, first.top - actor.y) / companionGravity);
+    if (duration > .08) actor.vx = (x - actor.x) / duration;
   }
 
   function showPeek(room) {
@@ -503,7 +524,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     return field.players.some(player => !pitchHistory.seen.has(player.id));
   }
 
-  function endPitch(room, returnToDock = true) {
+  function endPitch(room, exit = "dock") {
     if (!tour) return;
     tour = undefined;
     clearTimeout(pitchTimer);
@@ -511,10 +532,15 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     delete token.dataset.pitchWalk;
     speech.hide();
     nextPitch = performance.now() + 50_000;
-    if (returnToDock && pitchPoint && room.field && !motion.matches) {
+    if (pitchPoint) {
       actor.x = pitchPoint.x;
       actor.y = pitchPoint.y + radius;
       actor.surface = null;
+    }
+    if (exit === "fall") {
+      options.hideMenu();
+      fallFromPitch(room);
+    } else if (exit === "dock") {
       const destination = currentTab(room);
       if (destination) travelTo(destination, "stand");
     }
@@ -525,7 +551,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   function drawPitch(room, now) {
     const field = room.field;
     if (!field || field.element !== tour.element || field.formation !== tour.formation) {
-      endPitch(room, false);
+      endPitch(room, "fall");
       return false;
     }
     if (pitchPoint && token.getAttribute("aria-expanded") === "true") return true;
@@ -534,6 +560,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       const progress = elapsed / tour.entryDuration;
       const x = actor.x + (field.rect.left + tour.x - actor.x) * progress;
       const y = projectileY(actor.y, field.rect.top + tour.y + radius, elapsed / 1000, tour.entryDuration / 1000);
+      pitchPoint = { x, y: y - radius };
       token.dataset.pose = "air";
       setStyle(stage, "--companion-x", x + "px");
       setStyle(stage, "--companion-y", y + "px");
@@ -556,7 +583,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     }
     const target = field.players.find(player => player.id === tour.player);
     if (!target) {
-      endPitch(room, false);
+      endPitch(room, "fall");
       return false;
     }
     const dx = target.x - field.rect.left - tour.x;
@@ -652,31 +679,33 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     drag.swing = clamp(drag.swing + drag.angularVelocity * dt, -21, 21);
     drag.lean = motion.matches ? 0 : drag.swing;
     actor.x = drag.point.x - drag.hand * 8 - drag.lean * .55;
-    actor.y = drag.point.y + 44;
+    actor.y = drag.point.y + 42;
     return !motion.matches && (!resting || Math.abs(drag.angularVelocity) > .8 || Math.abs(drag.swing) > .25);
   }
 
   function drawGrip(lean) {
     if (!drag?.moved || !drag.point || options.legacy) return;
-    const { hand, point } = drag;
+    const { hand, point, bodyScale } = drag;
     token.dataset.grabSide = hand > 0 ? "right" : "left";
-    const angle = lean * Math.PI / 180;
-    const shoulderX = 27 + hand * 9 * Math.cos(angle) + 30 * Math.sin(angle);
-    const shoulderY = 61 + hand * 9 * Math.sin(angle) - 30 * Math.cos(angle);
     const scale = radius * 2 / 64;
-    const handX = 27 + (point.x - actor.x) / scale;
-    const handY = 64 + (point.y - actor.y) / scale;
-    const elbowX = (shoulderX + handX) / 2 + hand * 4;
-    const elbowY = (shoulderY + handY) / 2 + 2;
-    const arm = "M" + shoulderX + " " + shoulderY + " Q" + elbowX + " " + elbowY + " " + handX + " " + handY;
-    for (const path of grabPaths) path.setAttribute("d", arm);
+    const arm = gripPose(hand, (point.x - actor.x) / scale, (point.y - actor.y) / scale, lean, bodyScale);
+    grabUpper.setAttribute("transform", "translate(" + arm.shoulder.x + " " + arm.shoulder.y + ") rotate(" + arm.upper + ")");
+    grabLower.setAttribute("transform", "translate(" + arm.elbow.x + " " + arm.elbow.y + ") rotate(" + arm.lower + ")");
   }
 
   function draw(now) {
     frame = 0;
     const room = measure();
+    if (tour && shutters && !squeezed) {
+      endPitch(room, "shutter");
+      setStyle(stage, "--companion-x", actor.x + "px");
+    }
     if (actor.x && followShutters()) return;
-    const hidden = !room.workspace || (!options.legacy && room.blocked);
+    const blocked = !options.legacy && room.blocked;
+    if (tour && blocked && room.workspace) endPitch(room, "fall");
+    if (stage.inert !== blocked) stage.inert = blocked;
+    stage.toggleAttribute("data-dialog-fall", blocked && fallingFromPitch);
+    const hidden = !room.workspace || (blocked && !fallingFromPitch);
     if (hidden !== token.hidden) {
       token.hidden = hidden;
       if (hidden) options.hideMenu();
@@ -686,7 +715,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       }
     }
     if (token.hidden) {
-      endPitch(room, false);
+      endPitch(room, "discard");
+      fallingFromPitch = false;
       stopSkill();
       stopPeekHide();
       clearTimeout(idleTimer);
@@ -816,11 +846,20 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     const wasAirborne = actor.pose === "air" || Boolean(actor.rail);
     if (!drag && !travel && !emote && !skill && wasAirborne) {
       const elapsed = Math.min((now - (lastFrame || now)) / 1000, .045);
-      const rescue = !motion.matches && !options.legacy && recoveryTab(room, actor);
+      const rescue = !fallingFromPitch && !motion.matches && !options.legacy && recoveryTab(room, actor);
       if (rescue) {
         const direction = actor.x < (rescue.left + rescue.right) / 2 ? -1 : 1;
         startSkill("volley", direction, direction < 0 ? room.left + 4 : room.right - 4, rescue);
+      } else if (fallingFromPitch && !room.vertical && room.tabs.length) {
+        stepCompanion(actor, { ...room, railMode: false, dockTop: room.tabs[0].top, surfaces: room.tabs }, elapsed, radius);
       } else stepCompanion(actor, room, elapsed, radius);
+    }
+    if (fallingFromPitch && (!wasAirborne || actor.pose === "stand")) {
+      fallingFromPitch = false;
+      if (blocked) {
+        schedule();
+        return;
+      }
     }
     animateSkill(now);
     if (actor.impact !== undefined) {
@@ -861,7 +900,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     token.toggleAttribute("data-landing", landing);
     const lean = drag?.moved ? drag.lean : clamp(actor.vx / 95, -16, 16);
     setStyle(rig, "--player-lean", (motion.matches ? 0 : Math.round(lean ?? -6)) + "deg");
-    drawGrip(lean || 0);
+    drawGrip(Math.round(lean ?? 0));
     const movingDirection = travel?.mode === "walk" || platformJumpPhase ? travel.direction
       : Math.abs(actor.vx) > 130 ? Math.sign(actor.vx) : 0;
     const direction = skill?.direction || (pose === "hang" || pose === "slide"
@@ -877,13 +916,11 @@ export default function runCompanion(stage, token, bubble, rails, options) {
 
   function pickUp(event) {
     if (drag || emote || !event.isPrimary || event.button !== 0) return;
-    if (tour && pitchPoint) {
-      actor.x = pitchPoint.x;
-      actor.y = pitchPoint.y + radius;
-      actor.surface = null;
+    if (tour) {
+      endPitch(measure(), "grab");
       actor.pose = "air";
     }
-    endPitch(measure(), false);
+    fallingFromPitch = false;
     stopSkill();
     stopPeekHide();
     options.hideMenu();
@@ -903,6 +940,9 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       offsetX: actor.x - event.clientX, offsetY: actor.y - event.clientY,
       pose: contactPoses.has(actor.pose) ? actor.pose : "air", surface: actor.surface,
     };
+    const spriteStyle = getComputedStyle(rig);
+    drag.bodyScale = { x: parseFloat(spriteStyle.getPropertyValue("--body-width")) || 1,
+      y: parseFloat(spriteStyle.getPropertyValue("--body-height")) || 1 };
     rememberPoint(drag, event);
     travel = undefined;
     actor.rail = actor.edge = "";
@@ -1121,6 +1161,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       if (!(target instanceof Element) || stage.contains(target)) return false;
       if (record.type === "attributes") {
         return record.attributeName === "data-pane" || record.attributeName === "aria-modal" ||
+          (["hidden", "inert", "aria-hidden"].includes(record.attributeName) && tour && target.contains(tour.element)) ||
           Boolean(target.closest(tabsSelector)) || Boolean(target.matches(surfaceSelector));
       }
       if (target.closest(tabsSelector)) return true;

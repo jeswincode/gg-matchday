@@ -105,6 +105,21 @@ export default function CompanionPlayer({ look, action, kit, temporaryKit, facin
           <path className="gg-pixel-trim" d="M39 40h5v1h-5Z" />
           <path className="gg-player-finger" fill="var(--player-skin)" d="M42 43h2v4h-2Z" />
         </g>
+        <g className="gg-player-grab-arm">
+          <g data-grab-upper>
+            <path className="gg-pixel-outline" d="M-2-3h6v1h4v4H4v1h-6Z" />
+            <path fill="var(--player-kit)" d="M-2-2h6v4h-6Z" />
+            <path className="gg-pixel-trim" d="M3-2h1v4H3Z" />
+            <path fill="var(--grab-skin)" d="M4-1h4v2H4Z" />
+            {profile.character === "captain" && <path className="gg-pixel-trim gg-grab-captain-trim" d="M5-1h1v2H5Z" />}
+          </g>
+          <g data-grab-lower>
+            <path className="gg-pixel-outline" d="M-1-2h6v-1h4v1h1v3H9v2H5V2h-6Z" />
+            <path fill="var(--grab-skin)" d="M-1-1h6v-1h4v3H8v1H5V1h-6Z" />
+            <path className="gg-pixel-trim" d="M4-1h1v2H4Z" />
+            <path fill="var(--player-skin-shadow)" d="M8 0h1v1H8Z" />
+          </g>
+        </g>
         <path fill="var(--player-skin-shadow)" d="M23 18h8v9h-8Z" />
         <g className="gg-player-jersey gg-pixel-front">
           <path className="gg-pixel-outline" d={frontShirt} />
@@ -157,10 +172,6 @@ export default function CompanionPlayer({ look, action, kit, temporaryKit, facin
           {profile.character === "winger" && <path className="gg-pixel-trim" d="M20 10h15v1H20Z" />}
         </g>
       </g>
-    </g>
-    <g className="gg-player-grab-arm">
-      <path data-grab-path fill="none" stroke="#12121d" strokeWidth="7" strokeLinecap="round" />
-      <path data-grab-path fill="none" stroke="var(--player-skin)" strokeWidth="4" strokeLinecap="round" />
     </g>
     <g className="gg-player-kit-flare">
       <path fill="#f87a4c" d="M10 43h3v-6h3v-5h2v6h3v-3h3v-7h2v6h2v6h4v-4h2v-6h3v5h3v-8h2v9h3v6h-4v4H14v-2h-4Z" />

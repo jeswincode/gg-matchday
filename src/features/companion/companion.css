@@ -29,6 +29,7 @@
 }
 
 :root[data-theme="golden"] .gg-companion-stage { --companion-neon: #baff69; }
+.gg-companion-stage[data-dialog-fall] { z-index: 199; }
 
 .gg-companion-ball, .gg-companion-sparks {
   display: none;

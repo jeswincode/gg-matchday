@@ -4,12 +4,29 @@ import { jumpDuration, projectileY, stepCompanion } from "../src/features/compan
 import { celebrationDestination } from "../src/features/companion/companionCelebration.js";
 import { touchMenuAction, touchMenuLayout } from "../src/features/companion/companionTouchLayout.js";
 import { recoveryTab } from "../src/features/companion/companionSkills.js";
+import { gripPose } from "../src/features/companion/companionGrip.js";
 
 function flying(overrides) {
   return { x: 46, y: 90, vx: 2000, vy: 1000, pose: "air", ...overrides };
 }
 
 const field = { left: 0, right: 140, top: 0, bottom: 600, surfaces: [] };
+
+test("a grab bends either elbow and keeps its reach within the sprite's proportions", () => {
+  for (const side of [-1, 1]) {
+    const relaxed = gripPose(side, side * 11, -43, 0, { x: 1, y: 1 });
+    assert.ok(Math.abs(relaxed.upper - relaxed.lower) > 10);
+    for (const scale of [{ x: 1, y: 1 }, { x: 1.12, y: .98 }, { x: .92, y: 1.035 }]) {
+      const { shoulder, elbow, lower } = gripPose(side, side * 110, -50, side * 21, scale);
+      const angle = lower * Math.PI / 180;
+      assert.ok(Math.abs(Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y) - 7) < .001);
+      const wristX = elbow.x + 7 * Math.cos(angle);
+      const wristY = elbow.y + 7 * Math.sin(angle);
+      assert.ok(side * (wristX - shoulder.x) > 0);
+      assert.ok(Math.hypot(wristX - shoulder.x, wristY - shoulder.y) <= 14.001);
+    }
+  }
+});
 
 test("a fast throw lands on the tab it crosses during the frame", () => {
   const tab = { left: 55, right: 88, top: 100, element: {} };
