@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import CompanionPlayer from "./CompanionPlayer";
-import CompanionTouchMenu from "./CompanionTouchMenu";
-import { companionActions } from "./companionTouchMenu";
+import CompanionTouchMenu from "./CompanionTouchMenu.jsx";
+import { companionActions } from "./companionTouchLayout";
 import runCompanion from "./runCompanion";
 
 export default function CompanionStage({ account, look, celebration, legacy }) {
