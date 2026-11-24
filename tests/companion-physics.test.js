@@ -50,6 +50,23 @@ test("a mobile edge returns the same throw to the play area", () => {
   assert.ok(actor.vx < 0 && actor.x < 114);
 });
 
+test("mobile Clubs rebounds off the edge and lands on the dock even between tabs", () => {
+  const dockTop = 500;
+  const tabs = [{ left: 0, right: 52 }, { left: 88, right: 140 }]
+    .map(bounds => ({ ...bounds, top: dockTop, element: {} }));
+  const room = { ...field, clubs: true, railMode: false, dockTop, surfaces: tabs };
+  const throwAtEdge = flying({ x: 113, y: 155, vx: 1000, vy: -100 });
+  stepCompanion(throwAtEdge, room, .032, 26);
+  assert.equal(throwAtEdge.edge, "right-bounce");
+  assert.equal(throwAtEdge.pose, "air");
+  assert.equal(throwAtEdge.rail, undefined);
+  const dropInGap = flying({ x: 71, y: 484, vx: 0, vy: 1000 });
+  stepCompanion(dropInGap, room, .032, 26);
+  assert.equal(dropInGap.pose, "stand");
+  assert.equal(dropInGap.y, dockTop);
+  assert.equal(dropInGap.surface, tabs[1].element);
+});
+
 test("the jump from the avatar rises first even when the dock is far below it", () => {
   const start = 190;
   const dock = 780;

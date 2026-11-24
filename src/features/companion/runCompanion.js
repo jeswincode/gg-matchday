@@ -1,4 +1,4 @@
-import { clamp, jumpDuration, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
+import { clamp, clubsPeekSelector, jumpDuration, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
 import { celebrationDestination, celebrationFrame, celebrationTiming } from "./companionCelebration";
 import { guideFor } from "./companionGuide";
 import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
@@ -42,7 +42,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
   let idle = !options.legacy;
   let tab, ignoreTapUntil = 0;
   let workspace, shutters, squeezed, peek;
-  let peekTimer;
+  let peekTimer, lastPeek;
   let alternatePeek = false;
   let lastSkill, lastSkillWall;
   let nextGaze = 0;
@@ -251,15 +251,22 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     pingIdle();
   }
 
-  function showPeek(room, behindTab) {
-    const tab = behindTab && currentTab(room);
-    const side = actor.x > (room.left + room.right) / 2 ? "right" : "left";
-    peek = { side, element: tab?.element, y: actor.y };
+  function showPeek(room) {
+    const pool = room.contentTabs.some(tab => tab.element === lastPeek) || !room.contentTabs.length
+      ? room.peekTabs : room.contentTabs;
+    const alternatives = pool.filter(tab => tab.element !== lastPeek);
+    const tab = alternatives.length ? alternatives[Math.floor(Math.random() * alternatives.length)] : pool[0];
+    peek = tab?.element;
+    lastPeek = peek;
     actor.surface = null;
     actor.footing = false;
     actor.rail = actor.edge = "";
     actor.pose = "peek";
-    token.dataset.peek = tab ? "tab" : side;
+    if (!tab) {
+      delete token.dataset.peek;
+      return;
+    }
+    token.dataset.peek = "tab";
     // Restart only this short reveal, even when peeking from the same edge.
     token.dataset.peekTake = token.dataset.peekTake === "1" ? "2" : "1";
     updatePeek(room);
@@ -270,40 +277,28 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     delete token.dataset.peekHide;
   }
 
-  function hideThenPeek(room) {
-    const behindTab = !peek?.element;
-    const atSide = actor.pose === "peek" && !peek?.element;
-    const toRight = actor.x > (room.left + room.right) / 2;
-    setStyle(token, "--hide-x", atSide ? (toRight ? radius : -radius) + "px" : "0px");
-    setStyle(token, "--hide-y", atSide ? "0px" : radius * 2 + "px");
-    token.dataset.peekHide = atSide ? "side" : "tab";
+  function hideThenPeek() {
+    token.dataset.peekHide = "tab";
     peekTimer = setTimeout(() => {
       stopPeekHide();
       const current = measure();
       if (!current.clubs || token.hidden || shutters) return;
-      showPeek(current, behindTab);
+      showPeek(current);
       schedule();
     }, 260);
   }
 
   function updatePeek(room) {
-    const tab = room.tabs.find(surface => surface.element === peek?.element);
-    if (peek?.element && !tab) {
-      showPeek(room, false);
+    const tab = room.peekTabs.find(surface => surface.element === peek);
+    if (!tab) {
+      if (room.peekTabs.length) showPeek(room);
+      else delete token.dataset.peek;
       return;
     }
-    if (!peek) return;
-    if (tab) {
-      actor.x = room.vertical ? tab.right - radius * .56 : (tab.left + tab.right) / 2;
-      const mask = radius * .76;
-      actor.y = tab.top + mask;
-      setStyle(token, "--peek-mask", mask + "px");
-    } else {
-      const left = peek.side === "left";
-      actor.x = left ? room.left + 5 : room.right - 5;
-      actor.y = clamp(peek.y, room.top + radius * 3.4, room.bottom - radius * 2.3);
-      setStyle(token, "--peek-travel", (left ? -1 : 1) * radius + "px");
-    }
+    actor.x = (tab.left + tab.right) / 2;
+    const mask = radius * .76;
+    actor.y = tab.top + mask;
+    setStyle(token, "--peek-mask", mask + "px");
   }
 
   function followShutters() {
@@ -420,7 +415,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     const room = measure();
     alternatePeek = room.clubs && !alternatePeek;
     if (alternatePeek) {
-      hideThenPeek(room);
+      hideThenPeek();
     } else playSkill(room, false);
     pingIdle(54_000);
   }
@@ -490,7 +485,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       actor.y = world.bottom - radius * 2.5;
       if (room.clubs && !options.legacy) {
         idle = false;
-        showPeek(room, !room.vertical && room.tabs.length > 1);
+        showPeek(room);
         pingIdle();
       }
     } else if (changedWorkspace && workspace) {
@@ -598,7 +593,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       if (actor.surface && !options.legacy) speech.say(landingLine, { priority: 1 });
       else if (!actor.surface) {
         if (room.clubs && !options.legacy) {
-          showPeek(room, false);
+          showPeek(room);
           pingIdle();
         } else {
           const destination = currentTab(room);
@@ -606,9 +601,9 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         }
       }
     }
-    const halfWidth = actor.pose === "peek" ? 0 : actor.rail ? radius * .54 : radius;
+    const halfWidth = actor.rail ? radius * .54 : radius;
     actor.x = clamp(actor.x, room.left + halfWidth, room.right - halfWidth);
-    const lowerLimit = room.clubs && wasAirborne ? room.bottom + radius * 2 : room.bottom - 8;
+    const lowerLimit = room.clubs && room.railMode && wasAirborne ? room.bottom + radius * 2 : room.bottom - 8;
     actor.y = clamp(actor.y, room.top + radius * 2, lowerLimit);
     setStyle(stage, "--companion-x", actor.x.toFixed(1) + "px");
     setStyle(stage, "--companion-y", actor.y.toFixed(1) + "px");
@@ -827,8 +822,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     schedule();
   }
 
-  const surfaceSelector = '[data-companion-world], [data-companion-surface="companion-seat"], .bottom-nav, .clubs-destination-nav, .admin-sidebar-nav, .clubs-admin-navigation, .gg-workspace-transition, [aria-modal="true"]';
-  const tabsSelector = ".bottom-nav, .clubs-destination-nav, .admin-sidebar-nav, .clubs-admin-rail";
+  const tabsSelector = ".bottom-nav, .clubs-destination-nav, .admin-sidebar-nav, .clubs-admin-rail, " + clubsPeekSelector;
+  const surfaceSelector = '[data-companion-world], [data-companion-surface="companion-seat"], .clubs-admin-navigation, .gg-workspace-transition, [aria-modal="true"], ' + tabsSelector;
   const layout = new MutationObserver(records => {
     const relevant = records.some(record => {
       const target = record.target;

@@ -175,7 +175,13 @@ test("desktop Clubs Companion hangs from the active navigation tab and climbs to
   await page.mouse.up();
   await expect(companion).toHaveAttribute("data-pose", "slide");
   await expect(companion).toHaveAttribute("data-pose", "peek");
-  await expect(companion).toHaveAttribute("data-peek", "right");
+  await expect(companion).toHaveAttribute("data-peek", "tab");
+  const peek = await companion.boundingBox();
+  const anchors = await tabs.locator("button[data-primary-tab]")
+    .or(page.locator(".clubs-view-filters > button")).all();
+  const bounds = await Promise.all(anchors.map(anchor => anchor.boundingBox()));
+  expect(bounds.some(box => box && Math.abs(peek.x + peek.width / 2 - (box.x + box.width / 2)) < 2
+    && Math.abs(peek.y + peek.height - box.y - 22) < 3)).toBe(true);
 });
 
 test("desktop Companion volleys back onto the dock and does skills after inactivity", async ({ page }, info) => {
@@ -321,6 +327,46 @@ test("Clubs Admin has a peek instead of a header perch, and Emote plays a footba
   await openActions(companion, info.project.name, "emote");
   await expect(companion).toHaveAttribute("data-skill", /^(ball-juggle|rainbow|stepovers)$/);
   await expect(page.locator(".gg-companion-ball")).toBeVisible();
+});
+
+test("mobile Clubs peeks behind fixture tabs and throws rebound onto the dock", async ({ page }, info) => {
+  test.skip(info.project.name !== "chromium-mobile", "Exercises the mobile dock and touch throws.");
+  test.slow();
+  await page.clock.install();
+  await page.goto("/?view=clubs&tab=matches&e2eRole=editor");
+  await completeMobileEntry(page);
+  const companion = page.getByRole("button", { name: "GG Companion", exact: true });
+  const dock = page.getByRole("navigation", { name: "Clubs navigation" });
+  const filters = await page.locator('[data-pane="current"] .clubs-view-filters').boundingBox();
+  await expect(companion).toHaveAttribute("data-peek", "tab");
+  const firstPeek = await companion.boundingBox();
+  expect(firstPeek.y + firstPeek.height / 2).toBeGreaterThan(filters.y - 14);
+  expect(firstPeek.y + firstPeek.height / 2).toBeLessThan(filters.y + filters.height);
+  await companion.click();
+  await expect(companion).toHaveAttribute("data-pose", "stand");
+
+  const actor = await companion.boundingBox();
+  const right = await page.evaluate(() => innerWidth);
+  const client = await page.context().newCDPSession(page);
+  const touch = (type, x, y) => client.send("Input.dispatchTouchEvent",
+    { type, touchPoints: type === "touchEnd" ? [] : [{ x: Math.round(x), y: Math.round(y) }] });
+  try {
+    await touch("touchStart", actor.x + actor.width / 2, actor.y + actor.height / 2);
+    await touch("touchMove", right - 155, 160);
+    await touch("touchMove", right - 8, 160);
+    await touch("touchEnd");
+    await expect(companion).toHaveAttribute("data-edge", "right-bounce");
+    await expect(companion).toHaveAttribute("data-pose", "stand");
+    const standing = await companion.boundingBox();
+    expect(Math.abs(standing.y + standing.height - (await dock.boundingBox()).y)).toBeLessThan(2);
+  } finally {
+    await client.detach();
+  }
+  await page.clock.fastForward(34_100);
+  await expect(companion).toHaveAttribute("data-pose", "peek");
+  await expect(companion).toHaveAttribute("data-peek", "tab");
+  const nextPeek = await companion.boundingBox();
+  expect(Math.hypot(nextPeek.x - firstPeek.x, nextPeek.y - firstPeek.y)).toBeGreaterThan(12);
 });
 
 test("admins can switch celebrations and choose the Winger", async ({ page }) => {

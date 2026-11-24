@@ -1,6 +1,7 @@
 const workspaceSelector = "[data-companion-world]";
 const unavailableSelector = '[inert], [hidden], [aria-hidden="true"], [data-companion-surface="off"]';
 const clippingOverflow = /^(auto|clip|hidden|scroll)$/;
+export const clubsPeekSelector = ".clubs-view-filters, .clubs-admin-mobile-bar";
 
 function visibleTab(element, viewport, clips) {
   if (element.closest(unavailableSelector) || element.checkVisibility?.({ visibilityProperty: true }) === false) return null;
@@ -64,6 +65,7 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
     .map(tab => isVerticalDock ? tab : { ...tab, top: footing })
     .sort((a, b) => isVerticalDock ? a.top - b.top : a.left - b.left) : [];
   const vertical = isVerticalDock && tabs.length > 0;
+  const dockTop = clubs && !vertical && tabs.length ? footing : null;
   if (clubs && !tabs.length) {
     const sections = workspace.querySelector(".clubs-admin-mobile-bar button");
     const mobileTab = sections && visibleTab(sections, viewport, clips);
@@ -73,7 +75,12 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
   const seatBounds = seat && visibleTab(seat, viewport, clips);
   const perch = seatBounds && seatBounds.top >= viewport.top + bodyHeight ? seatBounds : null;
   const surfaces = vertical ? [] : tabs.toSorted((a, b) => a.top - b.top);
-  return { ...viewport, workspace, clubs, tabs, surfaces, perch, vertical, blocked };
+  const contentTabs = clubs ? [...workspace.querySelectorAll(".clubs-view-filters > button:not(:disabled)")]
+    .map(element => visibleTab(element, viewport, clips))
+    .filter(tab => tab && tab.top >= viewport.top + bodyHeight * .65 &&
+      (dockTop == null || tab.bottom <= dockTop)) : [];
+  const peekTabs = [...contentTabs, ...tabs.filter(tab => tab.top >= viewport.top + bodyHeight * .65)];
+  return { ...viewport, workspace, clubs, tabs, surfaces, contentTabs, peekTabs, dockTop, perch, vertical, blocked };
 }
 
 export const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
@@ -96,10 +103,11 @@ function stepFlight(actor, world, dt, radius) {
   const left = world.left + radius;
   const right = world.right - radius;
   const ceiling = world.top + radius * 2;
-  const floor = world.clubs ? world.bottom + radius * 2 : world.bottom - 8;
+  const dockTop = !world.railMode ? world.dockTop : null;
+  const floor = world.clubs && world.railMode ? world.bottom + radius * 2 : dockTop ?? world.bottom - 8;
   const reach = radius * .54;
 
-  if (actor.rail && (world.railMode || world.clubs)) {
+  if (actor.rail && world.railMode) {
     actor.x = actor.rail === "left" ? world.left + reach : world.right - reach;
     actor.cling = Math.max(0, (actor.cling ?? 0) - dt);
     if (actor.cling > 0) return;
@@ -127,7 +135,7 @@ function stepFlight(actor, world, dt, radius) {
   if (actor.x < left || actor.x > right) {
     const edge = actor.x < left ? "left" : "right";
     actor.x = clamp(actor.x, left, right);
-    const grip = world.railMode || world.clubs;
+    const grip = world.railMode;
     actor.edge = grip ? edge + "-rail" : edge + "-bounce";
     if (grip && actor.y < floor - 4 && Math.abs(actor.vx) > 145) {
       actor.rail = edge;
@@ -146,7 +154,7 @@ function stepFlight(actor, world, dt, radius) {
   }
 
   const crossingX = top => previousX + (actor.x - previousX) * ((top - previousY) / (actor.y - previousY));
-  const landing = actor.y > previousY && world.surfaces.find(surface => {
+  let landing = actor.y > previousY && world.surfaces.find(surface => {
     if (surface.top < previousY - .5 || surface.top > actor.y) return false;
     const x = crossingX(surface.top);
     const inset = Math.min(radius * .36, (surface.right - surface.left) / 4);
@@ -154,6 +162,14 @@ function stepFlight(actor, world, dt, radius) {
   });
   if (landing || actor.y >= floor) {
     if (landing) actor.x = crossingX(landing.top);
+    else if (dockTop != null) {
+      // Gaps between mobile dock buttons are still part of the same platform.
+      const x = actor.x;
+      const distance = tab => Math.abs(clamp(x, tab.left, tab.right) - x);
+      landing = world.surfaces.reduce((nearest, tab) => distance(tab) < distance(nearest) ? tab : nearest);
+      const inset = Math.min(radius * .36, (landing.right - landing.left) / 4);
+      actor.x = clamp(x, landing.left + inset, landing.right - inset);
+    }
     actor.surface = landing ? landing.element : null;
     actor.y = landing ? landing.top : floor;
     actor.impact = actor.vy;

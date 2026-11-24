@@ -98,9 +98,8 @@
 }
 .gg-companion-token[data-pose="peek"][data-peek="tab"] {
   clip-path: inset(-3px -3px var(--peek-mask) -3px);
-  --peek-travel: 0px;
-  --peek-drop: 30px;
 }
+.gg-companion-token[data-pose="peek"]:not([data-peek]) { visibility: hidden; }
 .gg-companion-token[data-pose="peek"] .gg-footballer {
   animation: gg-peep-in 660ms cubic-bezier(.27,.7,.31,1) both;
 }
@@ -110,15 +109,15 @@
 .gg-companion-token[data-peek-hide="tab"]:not([data-pose="peek"]) { clip-path: inset(-3px -3px 0 -3px); }
 .gg-companion-token[data-peek-hide] .gg-footballer { animation: gg-peep-out 260ms ease-in both; }
 @keyframes gg-peep-out {
-  to { translate: var(--hide-x) var(--hide-y); }
+  to { translate: 0 var(--companion-size); }
 }
 @keyframes gg-peep-in {
-  0%, 27% { translate: var(--peek-travel) var(--peek-drop, 0px); }
-  76% { translate: calc(-.1 * var(--peek-travel)) -2px; }
+  0%, 27% { translate: 0 42px; }
+  76% { translate: 0 -2px; }
 }
 @keyframes gg-peep-in-again {
-  0%, 27% { translate: var(--peek-travel) var(--peek-drop, 0px); }
-  76% { translate: calc(-.1 * var(--peek-travel)) -2px; }
+  0%, 27% { translate: 0 42px; }
+  76% { translate: 0 -2px; }
 }
 .gg-companion-token:focus-visible { outline: 2px solid var(--signature-accent); outline-offset: 2px; border-radius: 12px; }
 .gg-companion-token[data-pose="celebrate"] .gg-player-art { animation: gg-companion-celebrate 420ms ease-out 2 alternate; }
