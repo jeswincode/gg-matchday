@@ -114,8 +114,8 @@ export default function CompanionPlayer({ look, action, kit, temporaryKit, facin
             {profile.character === "captain" && <path className="gg-pixel-trim gg-grab-captain-trim" d="M5-1h1v2H5Z" />}
           </g>
           <g data-grab-lower>
-            <path className="gg-pixel-outline" d="M-1-2h6v-1h4v1h1v3H9v2H5V2h-6Z" />
-            <path fill="var(--grab-skin)" d="M-1-1h6v-1h4v3H8v1H5V1h-6Z" />
+            <path className="gg-pixel-outline" d="M-1-2h6v-2h4v1h1v5H9v1H5V2h-6Z" />
+            <path fill="var(--grab-skin)" d="M-1-1h6v-2h3v1h1v3H8v1H5V1h-6Z" />
             <path className="gg-pixel-trim" d="M4-1h1v2H4Z" />
             <path fill="var(--player-skin-shadow)" d="M8 0h1v1H8Z" />
           </g>
