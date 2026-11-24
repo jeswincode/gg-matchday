@@ -232,6 +232,8 @@ html[data-product-mode="clubs"] #root .clubs-app.clubs-workspace {
 
 #root .clubs-workspace .clubs-admin-nav-group button[aria-current="page"] .clubs-nav-icon { color: inherit; }
 
+#root .home-page .home-hero .home-hero-title { max-width: none; }
+
 #root .home-page .home-hero::after {
   color: color-mix(in srgb, var(--signature-secondary) 12%, transparent);
   -webkit-text-stroke: 0;

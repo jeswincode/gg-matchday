@@ -45,27 +45,35 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
     railMode,
   };
   const workspace = document.querySelector(workspaceSelector);
+  const clubs = workspace?.classList.contains("clubs-app") ?? false;
   const blocked = Boolean(document.querySelector('[aria-modal="true"]'));
   if (!workspace) return { ...viewport, workspace, tabs: [], surfaces: [], perch: null, blocked };
 
   const matchdayDock = workspace.querySelector(".bottom-nav");
   const clubsDock = workspace.querySelector(".clubs-destination-nav");
   const dock = matchdayDock || clubsDock || workspace.querySelector(".admin-sidebar-nav, .clubs-admin-rail nav");
-  const vertical = Boolean(dock && !matchdayDock && (!clubsDock || getComputedStyle(clubsDock).display !== "flex"));
+  const isVerticalDock = Boolean(dock && !matchdayDock && (!clubsDock || getComputedStyle(clubsDock).display !== "flex"));
   const selector = matchdayDock ? ":scope > button:not(:disabled)"
-    : clubsDock && !vertical ? ".clubs-nav-main button[data-primary-tab]:not(:disabled)"
+    : clubsDock && !isVerticalDock ? ".clubs-nav-main button[data-primary-tab]:not(:disabled)"
       : "button:not(:disabled)";
   const clips = new Map();
-  const footing = dock && !vertical ? dock.getBoundingClientRect().top : null;
+  const footing = dock && !isVerticalDock ? dock.getBoundingClientRect().top : null;
   const tabs = dock ? [...dock.querySelectorAll(selector)]
     .map(element => visibleTab(element, viewport, clips))
-    .filter(tab => tab && (vertical || footing >= viewport.top + bodyHeight))
-    .map(tab => vertical ? tab : { ...tab, top: footing })
-    .sort((a, b) => vertical ? a.top - b.top : a.left - b.left) : [];
+    .filter(tab => tab && (isVerticalDock || footing >= viewport.top + bodyHeight))
+    .map(tab => isVerticalDock ? tab : { ...tab, top: footing })
+    .sort((a, b) => isVerticalDock ? a.top - b.top : a.left - b.left) : [];
+  const vertical = isVerticalDock && tabs.length > 0;
+  if (clubs && !tabs.length) {
+    const sections = workspace.querySelector(".clubs-admin-mobile-bar button");
+    const mobileTab = sections && visibleTab(sections, viewport, clips);
+    if (mobileTab && mobileTab.top >= viewport.top + bodyHeight) tabs.push(mobileTab);
+  }
   const seat = workspace.querySelector('[data-companion-surface="companion-seat"]');
-  const perch = seat ? visibleTab(seat, viewport, clips) : null;
+  const seatBounds = seat && visibleTab(seat, viewport, clips);
+  const perch = seatBounds && seatBounds.top >= viewport.top + bodyHeight ? seatBounds : null;
   const surfaces = vertical ? [] : tabs.toSorted((a, b) => a.top - b.top);
-  return { ...viewport, workspace, tabs, surfaces, perch, vertical, blocked };
+  return { ...viewport, workspace, clubs, tabs, surfaces, perch, vertical, blocked };
 }
 
 export const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
@@ -88,10 +96,10 @@ function stepFlight(actor, world, dt, radius) {
   const left = world.left + radius;
   const right = world.right - radius;
   const ceiling = world.top + radius * 2;
-  const floor = world.bottom - 8;
+  const floor = world.clubs ? world.bottom + radius * 2 : world.bottom - 8;
   const reach = radius * .54;
 
-  if (actor.rail && world.railMode) {
+  if (actor.rail && (world.railMode || world.clubs)) {
     actor.x = actor.rail === "left" ? world.left + reach : world.right - reach;
     actor.cling = Math.max(0, (actor.cling ?? 0) - dt);
     if (actor.cling > 0) return;
@@ -119,8 +127,9 @@ function stepFlight(actor, world, dt, radius) {
   if (actor.x < left || actor.x > right) {
     const edge = actor.x < left ? "left" : "right";
     actor.x = clamp(actor.x, left, right);
-    actor.edge = world.railMode ? edge + "-rail" : edge + "-bounce";
-    if (world.railMode && actor.y < floor - 4 && Math.abs(actor.vx) > 145) {
+    const grip = world.railMode || world.clubs;
+    actor.edge = grip ? edge + "-rail" : edge + "-bounce";
+    if (grip && actor.y < floor - 4 && Math.abs(actor.vx) > 145) {
       actor.rail = edge;
       actor.x = edge === "left" ? world.left + reach : world.right - reach;
       actor.cling = .13;

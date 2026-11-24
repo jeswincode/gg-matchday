@@ -29,7 +29,7 @@ export default function HomePage({
     <section className="tab-content home-page">
       <section className="home-hero">
         <p className="eyebrow">YOUR FOOTBALL JOURNAL</p>
-        <h2>Welcome to GG Matchday.</h2>
+        <h2 className="home-hero-title">Welcome to<br />GG Matchday</h2>
         <p className="home-intro">
           Matches, players, rankings and
           every part of your football story in one

@@ -51,8 +51,8 @@ await Promise.all([
 ]);
 
 const basePlayers = [
-  { id: "65a000000000000000000001", name: "E2E Player One", position: "CM", pace: 72, physical: 70 },
-  { id: "65a000000000000000000002", name: "E2E Player Two", position: "ST", pace: 80, physical: 76 },
+  { id: "65a000000000000000000001", name: "E2E Player One", position: "CM", pace: 72, physical: 70, clasicoSide: "Messi" },
+  { id: "65a000000000000000000002", name: "E2E Player Two", position: "ST", pace: 80, physical: 76, clasicoSide: "Ronaldo" },
   { id: "65a000000000000000000003", name: "E2E Player Three", position: "CB", pace: 66, physical: 82 },
   { id: "65a000000000000000000004", name: "E2E Player Four", position: "GK", pace: 55, physical: 78 },
 ];

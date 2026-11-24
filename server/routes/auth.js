@@ -1,5 +1,6 @@
 import express from "express";
 import User from "../models/User.js";
+import Player from "../models/Player.js";
 import { requireAuth, requireAdmin } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -7,6 +8,9 @@ const router = express.Router();
 router.get("/me", requireAuth, async (req, res) => {
   try {
     const user = req.user;
+    const player = user.role !== "admin" && user.playerProfile
+      ? await Player.findById(user.playerProfile).select("clasicoSide").lean()
+      : null;
     res.json({
       user: {
         id: user._id,
@@ -17,6 +21,7 @@ router.get("/me", requireAuth, async (req, res) => {
         role: user.role,
         accessRequest: user.accessRequest || "none",
         playerProfile: user.playerProfile || null,
+        clasicoSide: player?.clasicoSide || "",
         companion: user.companion,
       },
     });

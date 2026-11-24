@@ -2,7 +2,13 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import CompanionPlayer from "./CompanionPlayer";
 import runCompanion from "./runCompanion";
 
-export default function CompanionStage({ account, look, legacy }) {
+const actions = [
+  ["world", "Community World"],
+  ["emote", "Emote"],
+  ["celebration", "Iconic Celebration"],
+];
+
+export default function CompanionStage({ account, look, celebration, legacy }) {
   const stage = useRef(null);
   const token = useRef(null);
   const bubble = useRef(null);
@@ -10,18 +16,20 @@ export default function CompanionStage({ account, look, legacy }) {
   const [menuMode, setMenuMode] = useState(null);
   const open = menuMode !== null;
   const currentAccount = useEffectEvent(() => account);
+  const currentCelebration = useEffectEvent(() => celebration);
 
   function selectAction(action) {
     setMenuMode(null);
     token.current?.focus({ preventScroll: true });
-    const detail = action === "world" ? { type: "say", text: "Work in Progress" } : { type: "emote" };
+    const detail = action === "world" ? { type: "say", text: "Work in Progress" }
+      : { type: action === "emote" ? "skill" : "emote" };
     window.dispatchEvent(new CustomEvent("gg:companion", { detail }));
   }
   const selectFromGesture = useEffectEvent(selectAction);
 
   useEffect(() => runCompanion(stage.current, token.current, bubble.current,
     document.querySelectorAll(".gg-companion-rail"), {
-      legacy, account: currentAccount,
+      legacy, account: currentAccount, celebration: currentCelebration,
       showMenu: moveFocus => setMenuMode(moveFocus ? "focus" : "touch"),
       hideMenu: () => setMenuMode(null),
       selectMenu: selectFromGesture,
@@ -49,7 +57,7 @@ export default function CompanionStage({ account, look, legacy }) {
       <button type="button" className="gg-companion-token" ref={token}
         aria-label={legacy ? "GG Companion preview" : "GG Companion"}
         aria-expanded={legacy ? undefined : open} aria-keyshortcuts={legacy ? undefined : "Shift+F10 ArrowDown"}
-        title={legacy ? undefined : "Tap for a tip. Right-click or hold for 1.5 seconds for actions."} hidden>
+        title={legacy ? undefined : "Tap for a tip. Right-click or hold for 0.8 seconds for actions."} hidden>
         <CompanionPlayer look={look} />
       </button>
       <svg className="gg-companion-ball" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true">
@@ -63,12 +71,8 @@ export default function CompanionStage({ account, look, legacy }) {
       </svg>
       <p className="gg-companion-speech" ref={bubble} role="status" hidden />
       {open && <div className="gg-companion-actions" ref={menu} role="group" aria-label="Companion actions">
-        <button type="button" data-companion-action="world" onClick={() => selectAction("world")}>
-          <span>Community World</span>
-        </button>
-        <button type="button" data-companion-action="emote" onClick={() => selectAction("emote")}>
-          <span>Emote</span>
-        </button>
+        {actions.map(([action, label]) => <button key={action} type="button" data-companion-action={action}
+          onClick={() => selectAction(action)}><span>{label}</span></button>)}
       </div>}
     </div>
   );

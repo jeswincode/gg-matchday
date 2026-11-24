@@ -12,7 +12,7 @@ export function wallJuggle(x, direction, wallX) {
 }
 
 export function recoveryTab(room, actor) {
-  if (!room.railMode || room.vertical || actor.vy < 0 || actor.y >= room.bottom) return;
+  if (room.clubs || !room.railMode || room.vertical || actor.vy < 0 || actor.y >= room.bottom) return;
   const landing = room.surfaces.find(tab => actor.x >= tab.left + 3 && actor.x <= tab.right - 3);
   if (landing && !actor.rail && actor.y <= landing.top + 1) return;
   if (!room.surfaces.length) return;
@@ -48,6 +48,30 @@ export function skillFrame(skill, now) {
       impact: elapsed >= 240 && elapsed < 445,
       ballVisible: elapsed < 1390,
       done: elapsed >= 1520,
+    };
+  }
+  if (name === "ball-juggle") {
+    const period = 580;
+    const cycle = Math.floor(elapsed / period);
+    const time = (elapsed % period) / period;
+    const foot = cycle % 2 ? -1 : 1;
+    return {
+      ballX: x + direction * (14 + foot * interpolate(-3, 3, time)),
+      ballY: y - 13 - arc(time, [37, 51, 42, 32][cycle] || 0),
+      impact: time * period < 145,
+      ballVisible: cycle < 4,
+      done: cycle >= 4,
+    };
+  }
+  if (name === "stepovers") {
+    const time = clamp(elapsed / 1840, 0, 1);
+    const finish = clamp((time - .78) / .22, 0, 1);
+    return {
+      ballX: x + direction * (15 + Math.sin(time * Math.PI * 6) * (1 - finish) * 3 + finish * 34),
+      ballY: y - 8 - arc(finish, 11),
+      impact: time >= .78 && time < .9,
+      ballVisible: time < 1,
+      done: time >= 1,
     };
   }
   const { footX, contactX, period } = skill.juggle;
