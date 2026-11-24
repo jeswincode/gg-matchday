@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import CompanionPlayer from "./CompanionPlayer";
 import runCompanion from "./runCompanion";
 
-export default function CompanionStage({ account, look, legacy, onWorld }) {
+export default function CompanionStage({ account, look, legacy }) {
   const stage = useRef(null);
   const token = useRef(null);
   const bubble = useRef(null);
@@ -14,8 +14,8 @@ export default function CompanionStage({ account, look, legacy, onWorld }) {
   function selectAction(action) {
     setMenuMode(null);
     token.current?.focus({ preventScroll: true });
-    if (action === "world") onWorld();
-    else window.dispatchEvent(new CustomEvent("gg:companion", { detail: { type: "emote" } }));
+    const detail = action === "world" ? { type: "say", text: "Work in Progress" } : { type: "emote" };
+    window.dispatchEvent(new CustomEvent("gg:companion", { detail }));
   }
   const selectFromGesture = useEffectEvent(selectAction);
 
@@ -49,7 +49,7 @@ export default function CompanionStage({ account, look, legacy, onWorld }) {
       <button type="button" className="gg-companion-token" ref={token}
         aria-label={legacy ? "GG Companion preview" : "GG Companion"}
         aria-expanded={legacy ? undefined : open} aria-keyshortcuts={legacy ? undefined : "Shift+F10 ArrowDown"}
-        title={legacy ? undefined : "Tap for a tip. Right-click or hold for actions."} hidden>
+        title={legacy ? undefined : "Tap for a tip. Right-click or hold for 1.5 seconds for actions."} hidden>
         <CompanionPlayer look={look} />
       </button>
       <svg className="gg-companion-ball" viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true">
@@ -64,10 +64,10 @@ export default function CompanionStage({ account, look, legacy, onWorld }) {
       <p className="gg-companion-speech" ref={bubble} role="status" hidden />
       {open && <div className="gg-companion-actions" ref={menu} role="group" aria-label="Companion actions">
         <button type="button" data-companion-action="world" onClick={() => selectAction("world")}>
-          <span aria-hidden="true">◉</span> Enter Community World
+          <span>Community World</span>
         </button>
         <button type="button" data-companion-action="emote" onClick={() => selectAction("emote")}>
-          <span aria-hidden="true">✦</span> Emote
+          <span>Emote</span>
         </button>
       </div>}
     </div>

@@ -94,31 +94,37 @@
 
 .gg-companion-actions {
   position: absolute;
-  top: calc(var(--companion-y) - var(--companion-size) - 80px);
-  left: clamp(116px, var(--companion-x), calc(100% - 116px));
+  top: calc(var(--companion-y) - var(--companion-size) - 47px);
+  left: clamp(97px, var(--companion-x), calc(100% - 97px));
   translate: -50%;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: 224px;
-  min-height: 72px;
-  border: 1px solid var(--signature-edge);
-  border-radius: 115px 115px 14px 14px;
-  overflow: hidden;
-  background: var(--signature-glass), var(--signature-surface);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--signature-base) 70%, transparent);
+  grid-template-columns: 1.65fr 1fr;
+  width: 186px;
+  height: 44px;
+  isolation: isolate;
   pointer-events: auto;
   z-index: 2;
 }
-.gg-companion-stage[data-menu-below] .gg-companion-actions {
-  top: calc(var(--companion-y) + 8px);
-  border-radius: 14px 14px 115px 115px;
+.gg-companion-actions::before {
+  content: "";
+  position: absolute;
+  inset: 4px 0;
+  z-index: -1;
+  border: 1px solid var(--signature-edge);
+  border-radius: 57% 57% 42% 42% / 88% 88% 32% 32%;
+  background: var(--signature-glass), var(--signature-surface);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--signature-base) 65%, transparent);
+  pointer-events: none;
 }
+.gg-companion-stage[data-menu-below] .gg-companion-actions {
+  top: calc(var(--companion-y) + 3px);
+}
+.gg-companion-stage[data-menu-below] .gg-companion-actions::before { scale: 1 -1; }
 .gg-companion-actions button {
   color: var(--signature-ink);
   display: grid;
-  place-content: end center;
-  gap: 3px;
-  padding: 12px 10px 8px;
+  place-content: center;
+  padding: 0 6px;
   background: transparent;
   border: 0;
   font: inherit;
@@ -126,15 +132,14 @@
   font-weight: 750;
   cursor: pointer;
 }
-.gg-companion-actions button + button { border-left: 1px solid var(--signature-edge); }
-.gg-companion-actions button:is(:hover,:focus-visible),
-.gg-companion-stage[data-menu-direction="world"] button[data-companion-action="world"],
-.gg-companion-stage[data-menu-direction="emote"] button[data-companion-action="emote"] {
-  background: var(--signature-accent);
-  color: var(--signature-on-accent);
-  outline: 0;
+.gg-companion-actions button span { padding: 3px 4px; border-radius: 5px; white-space: nowrap; }
+.gg-companion-actions button:is(:hover,:focus-visible) span,
+.gg-companion-stage[data-menu-direction="world"] button[data-companion-action="world"] span,
+.gg-companion-stage[data-menu-direction="emote"] button[data-companion-action="emote"] span {
+  color: var(--signature-accent);
+  background: color-mix(in srgb, var(--signature-accent) 14%, transparent);
 }
-.gg-companion-actions span { font-size: .95rem; }
+.gg-companion-actions button:focus-visible { outline: 1px solid var(--signature-accent); border-radius: 17px; }
 
 .gg-companion-locker {
   display: grid;
@@ -244,4 +249,3 @@
   top: 0;
   transform: translate(-50%, -5px) rotate(225deg);
 }
-.gg-world-loading { position: fixed; z-index: 203; inset: 2rem auto auto 50%; translate: -50%; }

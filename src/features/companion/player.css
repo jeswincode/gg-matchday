@@ -63,7 +63,7 @@
 .gg-player-shin--left { transform-origin: 22px 49px; }
 .gg-player-shin--right { transform-origin: 33px 49px; }
 .gg-player-pupils { translate: var(--gaze-x, 0px) var(--gaze-y, 0px); }
-.gg-player-kit-flare, .gg-player-finger { opacity: 0; }
+.gg-player-kit-flare, .gg-player-finger, .gg-messi-kiss-hand { opacity: 0; }
 .gg-pixel-profile, .gg-pixel-back, .gg-player-stripes,
 .gg-player-number-madrid, .gg-player-number-barcelona { display: none; }
 
@@ -111,12 +111,12 @@
 .gg-footballer:is([data-action="walk"], [data-action="run"], [data-action="messi-walk"]) .gg-player-shin,
 [data-travel="walk"] .gg-player-shin { animation: var(--shin-cycle, gg-walk-shin) var(--stride) var(--stride-speed) var(--stride-delay, 0ms) infinite; }
 .gg-player-leg--left { --stride-delay: calc(var(--stride) / -2); }
-.gg-footballer:is([data-action="walk"], [data-action="run"]) .gg-player-arm, [data-travel="walk"] .gg-player-arm {
+.gg-footballer:is([data-action="walk"], [data-action="run"], [data-action="messi-walk"]) .gg-player-arm, [data-travel="walk"] .gg-player-arm {
   animation: gg-walk-arm var(--stride) var(--stride-speed) infinite;
 }
-.gg-footballer:is([data-action="walk"], [data-action="run"]) .gg-player-arm--right,
+.gg-footballer:is([data-action="walk"], [data-action="run"], [data-action="messi-walk"]) .gg-player-arm--right,
 [data-travel="walk"] .gg-player-arm--right { animation-delay: calc(var(--stride) / -2); }
-.gg-footballer:is([data-action="walk"], [data-action="run"]) .gg-player-art,
+.gg-footballer:is([data-action="walk"], [data-action="run"], [data-action="messi-walk"]) .gg-player-art,
 [data-travel="walk"] .gg-player-art { animation: gg-stride-bob calc(var(--stride) / 2) steps(3) infinite; }
 .gg-footballer[data-action="run"] .gg-player-art { rotate: calc(13deg * var(--run-direction, 1)); }
 
@@ -125,9 +125,22 @@
 :is([data-action="climb"], [data-travel="climb"]) .gg-player-arm { animation: gg-climb-arm .68s steps(5) infinite; }
 :is([data-action="climb"], [data-travel="climb"]) .gg-player-arm--left { animation-delay: -.34s; }
 
-.gg-footballer:is([data-action="sky"], [data-action="messi-walk"]) .gg-player-arm--left { rotate: 150deg; }
-.gg-footballer:is([data-action="sky"], [data-action="messi-walk"]) .gg-player-arm--right { rotate: -150deg; }
-.gg-footballer:is([data-action="sky"], [data-action="messi-walk"]) .gg-player-finger { opacity: 1; }
+.gg-footballer[data-action="kiss"] .gg-player-arm--right { opacity: 0; }
+.gg-footballer[data-action="kiss"] .gg-messi-kiss-hand {
+  opacity: 1;
+  animation: gg-messi-kiss 190ms ease-out both;
+}
+.gg-footballer[data-action="sky"] .gg-player-arm--left { animation: gg-messi-point 245ms ease-out both; }
+.gg-footballer[data-action="sky"] .gg-player-arm--right {
+  --messi-arm-side: -1;
+  animation: gg-messi-point 245ms ease-out both;
+}
+.gg-footballer[data-action="sky"] .gg-player-finger { opacity: 1; }
+.gg-footballer[data-action="sky"] .gg-pixel-head { animation: gg-messi-look-up 245ms ease-out both; }
+.gg-footballer[data-action="sky"] .gg-player-pupils { translate: 0 -1px; }
+@keyframes gg-messi-kiss { from { translate: 3px 4px; } to { translate: 0 0; } }
+@keyframes gg-messi-point { from { rotate: calc(61deg * var(--messi-arm-side, 1)); } to { rotate: calc(160deg * var(--messi-arm-side, 1)); } }
+@keyframes gg-messi-look-up { to { translate: 0 -2px; rotate: -4deg; } }
 .gg-footballer[data-action="plant"] .gg-player-art { animation: gg-plant 160ms ease-in both; }
 .gg-footballer[data-action="siuu"] .gg-player-art { animation: gg-siuu-rise 690ms cubic-bezier(.35,.16,.46,.97) both; }
 .gg-footballer[data-action="siuu"] .gg-player-arm { animation: gg-siuu-arms 690ms ease both; }
@@ -222,4 +235,6 @@
 @media (prefers-reduced-motion: reduce) {
   .gg-footballer * { animation: none !important; }
   .gg-footballer[data-action="wave"] .gg-player-arm--right { rotate: -140deg; }
+  .gg-footballer[data-action="sky"] .gg-player-arm--left { rotate: 160deg; }
+  .gg-footballer[data-action="sky"] .gg-player-arm--right { rotate: -160deg; }
 }

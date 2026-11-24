@@ -1,5 +1,5 @@
-import { clamp, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
-import { celebrationFrame, celebrationTiming } from "./companionCelebration";
+import { clamp, jumpDuration, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
+import { celebrationDestination, celebrationFrame, celebrationTiming } from "./companionCelebration";
 import { guideFor } from "./companionGuide";
 import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
 import { createCompanionSpeech } from "./companionSpeech";
@@ -99,7 +99,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       element: surface.element, mode, pose, x: actor.x, y: actor.y,
       direction: Math.sign(target.x - actor.x),
       started: performance.now(),
-      duration: mode === "jump" ? clamp(430 + distance * .3, 430, 790)
+      duration: mode === "jump" ? Math.max(1, jumpDuration(actor.y, target.y, room.top + radius * 2, distance))
         : clamp(distance * (target.edge ? 9 : 10), 350, target.edge ? 2100 : 4100),
       landed,
     };
@@ -124,19 +124,16 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     pingIdle();
     const room = measure();
     const controls = room.tabs;
-    const closest = controls.toSorted((a, b) =>
+    const current = !travel && controls.find(surface => surface.element === actor.surface);
+    const closest = current || controls.toSorted((a, b) =>
       Math.abs(room.vertical ? targetFor(a, room).y - actor.y : targetFor(a, room).x - actor.x) -
       Math.abs(room.vertical ? targetFor(b, room).y - actor.y : targetFor(b, room).x - actor.x))[0] || room.perch;
     if (!closest) return;
     idle = false;
     const timing = celebrationTiming(rig.dataset.celebration);
-    const row = controls.filter(surface => Math.abs(surface.top - closest.top) < 24);
-    const ledge = row.length > 1 ? row : [closest];
-    const left = Math.min(...ledge.map(surface => surface.left));
-    const right = Math.max(...ledge.map(surface => surface.right));
     speech.hide();
     emote = { timing };
-    travelTo(closest, "stand", () => {
+    function begin() {
       emote.start = performance.now();
       emote.x = actor.x;
       emote.y = actor.y;
@@ -145,14 +142,17 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       emote.climb = Boolean(next);
       emote.destinationY = next ? targetFor(next, room).y : actor.y;
       emote.support = next?.element || closest.element;
-      const direction = actor.x < (left + right) / 2 ? 1 : -1;
-      const target = timing.ronaldo ? direction > 0 ? right - 9 : left + 9 : actor.x + direction * 35;
-      emote.destination = motion.matches || edge || closest === room.perch
-        ? actor.x : clamp(target, room.left + radius, room.right - radius);
-      emote.direction = direction;
-      setStyle(rig, "--run-direction", String(direction));
+      const row = room.surfaces.filter(surface => Math.abs(surface.top - closest.top) < 3);
+      const min = room.left + radius;
+      const max = room.right - radius;
+      emote.destination = motion.matches || edge || closest === room.perch ? actor.x
+        : celebrationDestination(actor.x, row, min, max, timing.ronaldo);
+      emote.direction = Math.sign(emote.destination - actor.x) || 1;
+      setStyle(rig, "--run-direction", String(emote.direction));
       schedule();
-    });
+    }
+    if (current) begin();
+    else travelTo(closest, "stand", begin);
   }
 
   function animateEmote(now) {
@@ -161,7 +161,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     const elapsed = now - start;
     const { moveAt, plantAt, impactAt, finishAt } = timing;
     const progress = clamp((elapsed - moveAt) / (plantAt - moveAt), 0, 1);
-    const stride = timing.ronaldo ? progress * progress * (2 - progress) : progress;
+    const stride = timing.ronaldo ? progress * progress * (2 - progress)
+      : progress * (1 + progress * (1 - progress));
     actor.x = x + (destination - x) * stride;
     actor.y = y + (destinationY - y) * progress;
     const celebration = celebrationFrame(timing, elapsed, emote.direction < 0 ? "left" : "right");
@@ -438,7 +439,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     actor.y = clamp(actor.y, room.top + radius * 2, room.bottom - 8);
     setStyle(stage, "--companion-x", actor.x.toFixed(1) + "px");
     setStyle(stage, "--companion-y", actor.y.toFixed(1) + "px");
-    stage.toggleAttribute("data-menu-below", actor.y < radius * 2 + 86);
+    stage.toggleAttribute("data-menu-below", actor.y < radius * 2 + 49);
     const pose = actor.rail && actor.cling > 0 ? "hang" : actor.pose;
     if (token.dataset.pose !== pose) token.dataset.pose = pose;
     if (token.dataset.edge !== (actor.edge || "")) token.dataset.edge = actor.edge || "";
@@ -474,7 +475,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         actor.surface = drag.surface;
         options.showMenu(false);
         schedule();
-      }, 480);
+      }, 1500);
     }
     drag = {
       startX: event.clientX, startY: event.clientY, pointer: event.pointerId, points: [], moved: false,
@@ -551,12 +552,12 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         schedule();
         return;
       }
-      idle = false;
-      if (released && motion.matches) {
+      if (released && (idle || motion.matches)) {
         drag = undefined;
         wake();
         return;
       }
+      idle = false;
     }
     if (!drag.moved) {
       actor.surface = drag.surface;

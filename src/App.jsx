@@ -23,7 +23,6 @@ import Calendar from './features/calendar/Calendar';
 import MatchRecordForm from './features/matches/MatchRecordForm';
 // Heavier destinations stay split, but suspend only inside their own view.
 const Clasico = lazy(() => import('./components/Clasico'));
-const CommunityWorld = lazy(() => import('./features/world/CommunityWorld'));
 const AdminPage = lazy(() => import('./features/admin/AdminPage'));
 const ProfileRequests = lazy(() => import('./ProfileRequests'));
 // Clubs is a primary product surface, so its code must be ready before
@@ -98,7 +97,6 @@ function localDateString(
 
 function App() {
   const dockDrag = useDockDrag();
-  const [worldAccount, setWorldAccount] = useState(null);
   const [experience,setExperience]=useState('startup');
   const [mobileEntry] = useState(() => window.matchMedia("(max-width: 767px), (hover: none) and (pointer: coarse)").matches);
   const [mobileEntryComplete, setMobileEntryComplete] = useState(() => Boolean(document.fullscreenElement));
@@ -751,7 +749,6 @@ function App() {
   async function logout() {
     try {
       await signOut(auth);
-      setWorldAccount(null);
       closeModal();
       closePlayerEditor();
 
@@ -2556,10 +2553,7 @@ function App() {
 
   return <>
     {workspaceContent}
-    <CompanionWorld enabled={Boolean(accountId)} account={backendUser} onWorld={() => setWorldAccount(accountId)} />
-    {accountId && worldAccount === accountId && <Suspense fallback={<p className="gg-world-loading" role="status">Opening Community World…</p>}>
-      <CommunityWorld key={accountId} onClose={() => setWorldAccount(null)} />
-    </Suspense>}
+    <CompanionWorld enabled={Boolean(accountId)} account={backendUser} />
     {modeTransition && <WorkspaceTransition {...modeTransition} onPhaseDone={advanceWorkspaceTransition} />}
   </>;
 }

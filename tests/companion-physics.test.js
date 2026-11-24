@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
+import { jumpDuration, projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
+import { celebrationDestination } from "../src/features/companion/companionCelebration.js";
 
 function flying(overrides) {
   return { x: 46, y: 90, vx: 2000, vy: 1000, pose: "air", ...overrides };
@@ -47,4 +48,24 @@ test("a mobile edge returns the same throw to the play area", () => {
   assert.equal(actor.edge, "right-bounce");
   assert.equal(actor.pose, "air");
   assert.ok(actor.vx < 0 && actor.x < 114);
+});
+
+test("the jump from the avatar rises first even when the dock is far below it", () => {
+  const start = 190;
+  const dock = 780;
+  const duration = jumpDuration(start, dock, 116, 710) / 1000;
+  assert.ok(projectileY(start, dock, .2, duration) < start - 40);
+  assert.ok(Math.abs(projectileY(start, dock, duration, duration) - dock) < .001);
+});
+
+test("celebrations choose different reachable distances from the same starting point", (t) => {
+  let sample = .18;
+  t.mock.method(Math, "random", () => sample);
+  const row = [{ left: 0, right: 150 }, { left: 156, right: 306 }, { left: 312, right: 462 }];
+  const first = celebrationDestination(75, row, 0, 462, true);
+  sample = .88;
+  const second = celebrationDestination(75, row, 0, 462, true);
+  assert.ok(first > 75 && second > first);
+  assert.ok(row.some(({ left, right }) => second >= left + 13 && second <= right - 13));
+  assert.ok(second < 462 - 13);
 });

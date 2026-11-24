@@ -56,9 +56,11 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
     : clubsDock && !vertical ? ".clubs-nav-main button[data-primary-tab]:not(:disabled)"
       : "button:not(:disabled)";
   const clips = new Map();
+  const footing = dock && !vertical ? dock.getBoundingClientRect().top : null;
   const tabs = dock ? [...dock.querySelectorAll(selector)]
     .map(element => visibleTab(element, viewport, clips))
-    .filter(tab => tab && (vertical || tab.top >= viewport.top + bodyHeight))
+    .filter(tab => tab && (vertical || footing >= viewport.top + bodyHeight))
+    .map(tab => vertical ? tab : { ...tab, top: footing })
     .sort((a, b) => vertical ? a.top - b.top : a.left - b.left) : [];
   const seat = workspace.querySelector('[data-companion-surface="companion-seat"]');
   const perch = seat ? visibleTab(seat, viewport, clips) : null;
@@ -69,6 +71,13 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
 export const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
 
 export const companionGravity = 2400;
+
+export function jumpDuration(from, to, ceiling, distance) {
+  const headroom = Math.max(0, Math.min(from, to) - ceiling);
+  const rise = Math.min(headroom, clamp(34 + distance * .045, 40, 65));
+  const time = height => Math.sqrt(2 * height / companionGravity);
+  return (time(from - Math.min(from, to) + rise) + time(to - Math.min(from, to) + rise)) * 1000;
+}
 
 export function projectileY(from, to, elapsed, duration) {
   const launchVelocity = (to - from) / duration - companionGravity * duration / 2;

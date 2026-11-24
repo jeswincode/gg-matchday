@@ -7,9 +7,11 @@ async function openActions(character, project, gesture) {
     const client = await character.page().context().newCDPSession(character.page());
     const finger = { x: Math.round(point.x + point.width / 2), y: Math.round(point.y + point.height / 2) };
     try {
+      const start = Date.now();
       await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [finger] });
       // The menu must appear with the finger still down.
       await expect(character).toHaveAttribute("aria-expanded", "true");
+      expect(Date.now() - start).toBeGreaterThanOrEqual(1450);
       if (gesture) {
         const direction = gesture === "world" ? -1 : 1;
         const target = { x: Math.max(1, finger.x + direction * 30), y: Math.max(1, finger.y - 32) };
@@ -24,7 +26,7 @@ async function openActions(character, project, gesture) {
   } else {
     await character.click({ button: "right" });
     if (gesture) {
-      const action = gesture === "world" ? "Enter Community World" : "Emote";
+      const action = gesture === "world" ? "Community World" : "Emote";
       await character.page().getByRole("button", { name: action, exact: true }).click();
     }
   }
@@ -47,6 +49,16 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
   const seat = await avatar.boundingBox();
   const perched = await character.boundingBox();
   expect(Math.abs(perched.y + perched.height - seat.y)).toBeLessThan(2);
+  const stage = character.locator("..");
+  await stage.evaluate(node => {
+    node.dataset.jumpApex = node.style.getPropertyValue("--companion-y");
+    const watch = new MutationObserver(() => {
+      node.dataset.jumpApex = String(Math.min(parseFloat(node.dataset.jumpApex),
+        parseFloat(node.style.getPropertyValue("--companion-y"))));
+    });
+    watch.observe(node, { attributeFilter: ["style"] });
+    window.setTimeout(() => watch.disconnect(), 2400);
+  });
   if (info.project.name === "chromium-desktop") {
     await page.mouse.move(perched.x + perched.width / 2, perched.y + perched.height / 2);
     await page.mouse.down();
@@ -60,6 +72,10 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
   }
   await expect(speech).toHaveText("10 on 10 landing");
   const tabs = page.getByRole("navigation", { name: "Matchday tabs" });
+  const dock = await tabs.boundingBox();
+  const landing = await character.boundingBox();
+  expect(Math.abs(landing.y + landing.height - dock.y)).toBeLessThan(2);
+  expect(Number(await stage.getAttribute("data-jump-apex"))).toBeLessThan(seat.y - 12);
   await tabs.getByRole("button", { name: "Calendar" }).click();
   await expect(character).toHaveAttribute("data-travel", "walk");
   await expect(footballer).toHaveCSS("--travel-direction", "1");
@@ -99,6 +115,10 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
   await expect(footballer).toHaveAttribute("data-kit", "away");
   await footballer.evaluate(node => {
     const watch = new MutationObserver(() => {
+      if (node.dataset.action === "kiss" &&
+        getComputedStyle(node.querySelector(".gg-messi-kiss-hand")).opacity === "1") {
+        node.dataset.kissObserved = "true";
+      }
       if (node.dataset.action !== "change-back") return;
       node.dataset.returnSwapObserved = "true";
       watch.disconnect();
@@ -106,7 +126,9 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
     watch.observe(node, { attributes: true, attributeFilter: ["data-action"] });
   });
   await openActions(character, info.project.name, "emote");
+  await expect(footballer).toHaveAttribute("data-action", "messi-walk");
   await expect(footballer).toHaveAttribute("data-action", "sky");
+  await expect(footballer).toHaveAttribute("data-kiss-observed", "true");
   await expect(footballer).toHaveAttribute("data-temporary-kit", "barcelona");
   await expect(footballer).toHaveAttribute("data-return-swap-observed", "true");
   await expect(footballer).not.toHaveAttribute("data-temporary-kit", "barcelona");
@@ -208,36 +230,12 @@ test("desktop Companion volleys back onto the dock and does skills after inactiv
   }
 });
 
-test("independent sessions share route movement, emotes, direct waves and departures", async ({ browser, page }, info) => {
-  const second = await browser.newPage();
-  try {
-    await page.goto("/?e2eRole=editor");
-    await second.goto("/?e2eRole=viewer&e2ePlayerId=65a000000000000000000002");
-    await enterSignedInMatchday(page);
-    await enterSignedInMatchday(second);
-    await openActions(page.getByRole("button", { name: "GG Companion", exact: true }), info.project.name, "world");
-    const observer = second.getByRole("button", { name: "GG Companion", exact: true });
-    await observer.click({ button: "right" });
-    await second.getByRole("button", { name: "Enter Community World" }).click();
-
-    await expect(page.getByText("2 on the grounds")).toBeVisible();
-    const peer = second.locator("button.gg-world-avatar").filter({ hasText: "Playwright editor" });
-    await expect(peer).toBeVisible();
-    await page.getByRole("button", { name: "Training ground" }).click();
-    await expect.poll(async () => peer.evaluate(node => node.style.getPropertyValue("--world-x"))).toBe("82%");
-    await page.getByRole("button", { name: "Kick" }).click();
-    await expect(peer.locator(".gg-footballer")).toHaveAttribute("data-action", "kick");
-    await expect(peer.locator(".gg-footballer")).not.toHaveAttribute("data-action", "kick");
-    await page.getByRole("button", { name: "Emote", exact: true }).click();
-    await expect(peer.locator(".gg-footballer")).toHaveAttribute("data-action", /^(siuu|sky)$/);
-    await peer.click();
-    await second.getByRole("button", { name: "Wave to Playwright editor" }).click();
-    await expect(page.getByText("Waving to you!")).toBeVisible();
-    await second.getByRole("button", { name: "Close dialog" }).click();
-    await expect(page.getByText("1 on the grounds")).toBeVisible();
-  } finally {
-    await second.close();
-  }
+test("Community World shows the work-in-progress message on the Companion", async ({ page }, info) => {
+  await page.goto("/?e2eRole=editor");
+  await enterSignedInMatchday(page);
+  await openActions(page.getByRole("button", { name: "GG Companion", exact: true }), info.project.name, "world");
+  await expect(page.locator(".gg-companion-speech > span:nth-child(2)")).toHaveText("Work in Progress");
+  await expect(page.getByRole("dialog", { name: "Community World" })).toHaveCount(0);
 });
 
 test("Ronaldo swaps into the Madrid kit, runs along the dock and lands the SIUUU", async ({ page }, info) => {
@@ -245,9 +243,14 @@ test("Ronaldo swaps into the Madrid kit, runs along the dock and lands the SIUUU
   await enterSignedInMatchday(page);
   const character = page.getByRole("button", { name: "GG Companion", exact: true });
   await expect(character).toBeVisible();
+  await character.click();
+  await expect(character).toHaveAttribute("data-pose", "stand");
+  const before = await character.boundingBox();
   await openActions(character, info.project.name);
   await page.getByRole("button", { name: "Emote" }).click();
   const rig = character.locator(".gg-footballer");
+  await expect(rig).toHaveAttribute("data-action", "change");
+  expect((await character.boundingBox()).x).toBeCloseTo(before.x, 1);
   await expect(rig).toHaveAttribute("data-action", "run");
   await expect(rig).toHaveAttribute("data-temporary-kit", "madrid");
   await expect(rig.locator(".gg-player-leg--right > .gg-player-shin")).toHaveCSS("animation-name", "gg-run-shin");

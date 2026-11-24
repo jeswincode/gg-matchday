@@ -102,6 +102,11 @@ export default function CompanionPlayer({ look, action, kit, temporaryKit, facin
           <path className="gg-pixel-back" fill="#241e2c" d="M20 10h15v8h-2v2H22v-2h-2Z" />
           <path className="gg-pixel-back" fill="#4f3b49" d="M22 11h11v1H22Zm2 5h7v1h-7Z" />
         </g>
+        <g className="gg-messi-kiss-hand">
+          <path className="gg-pixel-outline" d="M37 31h5v-5h-3v-3h-4v-2h-3v-3h-4v3h2v4h4v3h3Z" />
+          <path fill="var(--player-skin)" d="M39 30h2v-3h-3v-3h-4v-2h-3v-3h-2v2h2v3h4v3h4Z" />
+          <path className="gg-pixel-trim" d="M34 24h2v2h-2Z" />
+        </g>
         <g className="gg-pixel-profile gg-pixel-head">
           <path className="gg-pixel-outline" d="M21 5h13v2h3v5h2v5h-2v3h-3v2H23v-2h-3v-2h-2v-6h1V8h2Z" />
           <path fill="var(--player-skin)" d="M22 10h13v3h2v2h-1v3h-3v2H24v-2h-3v-2h-2v-3h3Z" />

@@ -1,9 +1,8 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
-import { companionLook, companionOptions } from "../../shared/companion.js";
+import { companionLook } from "../../shared/companion.js";
 import { routeDuration, stops, walkingRoute } from "../../shared/communityWorld.js";
 import { requireAuth } from "../middleware/auth.js";
-import User from "../models/User.js";
 
 const router = express.Router();
 const room = new Map();
@@ -29,15 +28,6 @@ function broadcast() {
 router.use(requireAuth, (_req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
-});
-
-router.put("/appearance", async (req, res) => {
-  if (Object.entries(companionOptions).some(([field, values]) => !values.includes(req.body?.[field]))) {
-    return res.status(400).json({ message: "Choose a valid Companion appearance." });
-  }
-  const look = companionLook(req.body);
-  await User.updateOne({ _id: req.user._id }, { $set: { companion: look } });
-  res.json({ look });
 });
 
 router.get("/room", (req, res) => {
