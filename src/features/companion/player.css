@@ -58,22 +58,24 @@
 .gg-pixel-head { transform-origin: 27px 22px; scale: .85 .83; }
 .gg-player-arm--left { transform-origin: 17px 31px; }
 .gg-player-arm--right { transform-origin: 37px 31px; }
-.gg-player-leg--left { transform-origin: 22px 46px; }
-.gg-player-leg--right { transform-origin: 33px 46px; }
+.gg-player-leg--left { transform-origin: 22px 43px; }
+.gg-player-leg--right { transform-origin: 33px 43px; }
+.gg-player-shin--left { transform-origin: 22px 49px; }
+.gg-player-shin--right { transform-origin: 33px 49px; }
 .gg-player-pupils { translate: var(--gaze-x, 0px) var(--gaze-y, 0px); }
 .gg-player-kit-flare, .gg-player-finger { opacity: 0; }
-.gg-pixel-profile, .gg-pixel-back, .gg-pixel-side-boot, .gg-player-stripes,
+.gg-pixel-profile, .gg-pixel-back, .gg-player-stripes,
 .gg-player-number-madrid, .gg-player-number-barcelona { display: none; }
 
 .gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-pixel-front,
 .gg-footballer[data-facing="back"] .gg-player-pupils { display: none; }
-.gg-footballer:is([data-facing="left"], [data-facing="right"]) :is(.gg-pixel-profile, .gg-pixel-side-boot),
+.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-pixel-profile,
 .gg-footballer[data-facing="back"] .gg-pixel-back { display: inline; }
 .gg-footballer[data-facing="left"] .gg-player-direction { scale: -1 1; }
-.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-leg--left { translate: 5px 0; }
-.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-leg--right { translate: -4px 0; }
-.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-arm--left { translate: 6px -1px; }
-.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-arm--right { translate: -6px 0; }
+.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-leg--left { translate: 3px 0; }
+.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-leg--right { translate: -2px 0; }
+.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-arm--left { translate: 3px -1px; }
+.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-arm--right { translate: -3px 0; }
 
 .gg-footballer:is([data-kit="barcelona"], [data-temporary-kit="barcelona"]) :is(.gg-player-stripes, .gg-player-number-barcelona),
 .gg-footballer:is([data-kit="madrid"], [data-temporary-kit="madrid"]) .gg-player-number-madrid { display: inline; }
@@ -98,12 +100,17 @@
 [data-landing] .gg-player-art { animation: gg-player-land 245ms ease-out both; }
 
 .gg-footballer:is([data-action="walk"], [data-action="run"], [data-action="messi-walk"]),
-[data-travel="walk"] .gg-footballer { --stride: 620ms; --stride-speed: steps(5, end); }
-.gg-footballer[data-action="run"] { --stride: 340ms; }
+[data-travel="walk"] .gg-footballer { --stride: 540ms; --stride-speed: steps(4, end); }
+.gg-footballer[data-action="run"] {
+  --stride: 380ms;
+  --thigh-cycle: gg-run-leg;
+  --shin-cycle: gg-run-shin;
+}
 .gg-footballer:is([data-action="walk"], [data-action="run"], [data-action="messi-walk"]) .gg-player-leg,
-[data-travel="walk"] .gg-player-leg { animation: gg-walk-leg var(--stride) var(--stride-speed) infinite; }
-.gg-footballer:is([data-action="walk"], [data-action="run"], [data-action="messi-walk"]) .gg-player-leg--left,
-[data-travel="walk"] .gg-player-leg--left { animation-delay: calc(var(--stride) / -2); }
+[data-travel="walk"] .gg-player-leg { animation: var(--thigh-cycle, gg-walk-leg) var(--stride) var(--stride-speed) var(--stride-delay, 0ms) infinite; }
+.gg-footballer:is([data-action="walk"], [data-action="run"], [data-action="messi-walk"]) .gg-player-shin,
+[data-travel="walk"] .gg-player-shin { animation: var(--shin-cycle, gg-walk-shin) var(--stride) var(--stride-speed) var(--stride-delay, 0ms) infinite; }
+.gg-player-leg--left { --stride-delay: calc(var(--stride) / -2); }
 .gg-footballer:is([data-action="walk"], [data-action="run"]) .gg-player-arm, [data-travel="walk"] .gg-player-arm {
   animation: gg-walk-arm var(--stride) var(--stride-speed) infinite;
 }
@@ -138,7 +145,9 @@
   animation: gg-footwork var(--skill-time, 480ms) steps(6) both;
 }
 .gg-footballer[data-action="rainbow"] { --skill-time: 650ms; }
-.gg-footballer[data-action="juggle"] .gg-player-leg--right { animation-iteration-count: 3; }
+.gg-footballer[data-action="juggle"] .gg-player-leg--right {
+  animation: gg-wall-juggle var(--juggle-period, 600ms) ease-in-out 3 both;
+}
 .gg-footballer[data-action="volley"] .gg-player-art { rotate: calc(-17deg * var(--run-direction, 1)); }
 .gg-footballer[data-action^="change"] .gg-player-jersey { animation: gg-kit-change 510ms ease both; }
 .gg-footballer[data-action^="change"] .gg-player-kit-flare {
@@ -147,13 +156,33 @@
 }
 
 @keyframes gg-walk-leg {
-  0%, 100% { rotate: -31deg; translate: var(--leg-offset, 0px) 0; }
-  28% { rotate: 8deg; }
-  55% { rotate: 30deg; translate: var(--leg-offset, 0px) 0; }
-  77% { rotate: 14deg; translate: var(--leg-offset, 0px) -3px; }
+  0%, 100% { rotate: -29deg; }
+  27% { rotate: 2deg; }
+  52% { rotate: 29deg; }
+  68% { rotate: 10deg; }
+  84% { rotate: -22deg; }
 }
-.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-leg--left { --leg-offset: 5px; }
-.gg-footballer:is([data-facing="left"], [data-facing="right"]) .gg-player-leg--right { --leg-offset: -4px; }
+@keyframes gg-walk-shin {
+  0%, 100% { rotate: 0deg; }
+  22% { rotate: 9deg; }
+  48% { rotate: 4deg; }
+  68% { rotate: 48deg; }
+  83% { rotate: 32deg; }
+}
+@keyframes gg-run-leg {
+  0%, 100% { rotate: -37deg; }
+  24% { rotate: -3deg; }
+  47% { rotate: 40deg; }
+  63% { rotate: 22deg; }
+  83% { rotate: -42deg; }
+}
+@keyframes gg-run-shin {
+  0%, 100% { rotate: 7deg; }
+  24% { rotate: 23deg; }
+  43% { rotate: 13deg; }
+  64% { rotate: 80deg; }
+  83% { rotate: 53deg; }
+}
 @keyframes gg-walk-arm { 0%, 100% { rotate: 28deg; } 52% { rotate: -31deg; } }
 @keyframes gg-stride-bob { 50% { translate: 0 -1.6px; } }
 @keyframes gg-climb-leg { 0%, 100% { rotate: -12deg; } 48% { rotate: -53deg; } }
@@ -177,6 +206,12 @@
 }
 @keyframes gg-siuu-impact { from { scale: 1.08 .87; } to { scale: 1; } }
 @keyframes gg-footwork { 0%, 100% { rotate: 0; } 32% { rotate: 33deg; } 49% { rotate: -76deg; } }
+@keyframes gg-wall-juggle {
+  0%, 100% { rotate: -34deg; }
+  12% { rotate: -17deg; }
+  28%, 79% { rotate: 0deg; }
+  91% { rotate: 16deg; }
+}
 @keyframes gg-kit-change { 0%, 100% { opacity: 1; } 49% { opacity: .35; } }
 @keyframes gg-kit-flare {
   0% { opacity: 0; translate: 0 7px; scale: .66; }

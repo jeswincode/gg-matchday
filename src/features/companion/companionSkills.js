@@ -2,6 +2,14 @@ import { clamp } from "./companionWorld";
 
 const interpolate = (from, to, time) => from + (to - from) * time;
 const arc = (time, height) => 4 * time * (1 - time) * height;
+const ballRadius = 8;
+
+export function wallJuggle(x, direction, wallX) {
+  const footX = x + direction * 18;
+  const contactX = wallX - direction * ballRadius;
+  const period = Math.round(clamp(Math.abs(contactX - footX) * 2.2, 520, 1260));
+  return { footX, contactX, period };
+}
 
 export function recoveryTab(room, actor) {
   if (!room.railMode || room.vertical || actor.vy < 0 || actor.y >= room.bottom) return;
@@ -42,14 +50,16 @@ export function skillFrame(skill, now) {
       done: elapsed >= 1520,
     };
   }
-  const duration = 480;
-  const time = (elapsed % duration) / duration;
+  const { footX, contactX, period } = skill.juggle;
+  const time = (elapsed % period) / period;
   const outward = 1 - Math.abs(2 * time - 1);
   return {
-    ballX: interpolate(x + direction * 18, wallX, outward),
+    ballX: interpolate(footX, contactX, outward),
     ballY: y - 14 - arc(time, 37),
-    impact: time > .39 && time < .67,
-    ballVisible: elapsed < duration * 3,
-    done: elapsed >= duration * 3,
+    impact: time >= .5 && (time - .5) * period < 180,
+    sparkX: wallX,
+    sparkY: y - 51,
+    ballVisible: elapsed < period * 3,
+    done: elapsed >= period * 3,
   };
 }

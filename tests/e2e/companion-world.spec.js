@@ -64,6 +64,8 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
   await expect(character).toHaveAttribute("data-travel", "walk");
   await expect(footballer).toHaveCSS("--travel-direction", "1");
   await expect(footballer).toHaveAttribute("data-facing", "right");
+  await expect(footballer.locator(".gg-player-leg--right > .gg-player-shin")).toHaveCSS("animation-name", "gg-walk-shin");
+  await expect(footballer.locator(".gg-player-leg > .gg-player-short-leg")).toHaveCount(2);
   await expect(speech).toContainText("Choose a date to see its matches.");
   await tabs.getByRole("button", { name: "Leaderboard" }).click();
   await expect(character).toHaveAttribute("data-travel", "walk");
@@ -141,6 +143,7 @@ test("desktop Clubs Companion hangs from the active navigation tab and climbs to
 
 test("desktop Companion volleys back onto the dock and does skills after inactivity", async ({ page }, info) => {
   test.skip(info.project.name !== "chromium-desktop", "Desktop dock recovery is distinct from mobile edge rebounds.");
+  test.slow();
   await page.clock.install();
   await page.goto("/?e2eRole=editor");
   await enterSignedInMatchday(page);
@@ -178,12 +181,31 @@ test("desktop Companion volleys back onto the dock and does skills after inactiv
   });
   await page.mouse.move(120, 210, { steps: 24 });
   await expect(companion.locator("..")).toHaveAttribute("data-measured-layout-writes", "0");
-  await tabs.getByRole("button", { name: "Players" }).click();
-  await expect(companion).toHaveAttribute("data-travel", "walk");
-  await expect(companion).not.toHaveAttribute("data-travel", "walk");
-  await page.clock.fastForward(34_050);
-  await expect(companion).toHaveAttribute("data-skill", "juggle");
-  await expect(companion).not.toHaveAttribute("data-skill", "juggle");
+  const stage = companion.locator("..");
+  for (const [name, side, direction] of [["Players", "right", 1], ["Home", "left", -1]]) {
+    await tabs.getByRole("button", { name }).click();
+    await expect(companion).toHaveAttribute("data-travel", "walk");
+    await expect(companion).not.toHaveAttribute("data-travel", "walk");
+    const pole = await page.locator(".gg-companion-rail--" + side).boundingBox();
+    const contact = direction === 1 ? pole.x : pole.x + pole.width;
+    await stage.evaluate((node, edge) => {
+      node.dataset.closestBallToPole = "Infinity";
+      const watch = new MutationObserver(() => {
+        if (!node.hasAttribute("data-ball")) return;
+        const x = parseFloat(node.style.getPropertyValue("--ball-x"));
+        node.dataset.closestBallToPole = String(Math.min(Number(node.dataset.closestBallToPole), Math.abs(edge - x)));
+      });
+      watch.observe(node, { attributeFilter: ["style"] });
+      window.setTimeout(() => watch.disconnect(), 42_000);
+    }, contact);
+    await page.clock.fastForward(34_050);
+    await expect(companion).toHaveAttribute("data-skill", "juggle");
+    const position = (name) => stage.evaluate((node, property) => parseFloat(node.style.getPropertyValue(property)), name);
+    await expect.poll(() => position("--spark-x")).toBe(contact);
+    await expect.poll(async () => Number(await stage.getAttribute("data-closest-ball-to-pole"))).toBeLessThan(28);
+    await expect.poll(async () => direction * (contact - await position("--ball-x"))).toBeGreaterThan(65);
+    await expect(companion).not.toHaveAttribute("data-skill", "juggle");
+  }
 });
 
 test("independent sessions share route movement, emotes, direct waves and departures", async ({ browser, page }, info) => {
@@ -228,5 +250,6 @@ test("Ronaldo swaps into the Madrid kit, runs along the dock and lands the SIUUU
   const rig = character.locator(".gg-footballer");
   await expect(rig).toHaveAttribute("data-action", "run");
   await expect(rig).toHaveAttribute("data-temporary-kit", "madrid");
+  await expect(rig.locator(".gg-player-leg--right > .gg-player-shin")).toHaveCSS("animation-name", "gg-run-shin");
   await expect(page.locator(".gg-companion-speech > span:nth-child(2)")).toHaveText("SIUUU");
 });

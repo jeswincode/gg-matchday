@@ -1,7 +1,7 @@
 import { clamp, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
 import { celebrationFrame, celebrationTiming } from "./companionCelebration";
 import { guideFor } from "./companionGuide";
-import { recoveryTab, skillFrame } from "./companionSkills";
+import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
 import { createCompanionSpeech } from "./companionSpeech";
 
 function activeTab(workspace) {
@@ -100,7 +100,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       direction: Math.sign(target.x - actor.x),
       started: performance.now(),
       duration: mode === "jump" ? clamp(430 + distance * .3, 430, 790)
-        : clamp(distance * (target.edge ? 9 : 4.6), 290, 2100),
+        : clamp(distance * (target.edge ? 9 : 10), 350, target.edge ? 2100 : 4100),
       landed,
     };
     schedule();
@@ -229,6 +229,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     skill = undefined;
     delete token.dataset.skill;
     delete rig.dataset.action;
+    rig.style.removeProperty("--juggle-period");
     stage.removeAttribute("data-ball");
     stage.removeAttribute("data-sparks");
     if (destination && actor.pose === "rescue") actor.pose = "air";
@@ -238,6 +239,10 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     const target = destination ? targetFor(destination, measure()) : actor;
     skill = { name, direction, wallX, destination, x: actor.x, y: actor.y,
       targetX: target.x, targetY: target.y, start: performance.now() };
+    if (name === "juggle") {
+      skill.juggle = wallJuggle(actor.x, direction, wallX);
+      setStyle(rig, "--juggle-period", skill.juggle.period + "ms");
+    }
     token.dataset.skill = name;
     rig.dataset.action = name;
     setStyle(rig, "--run-direction", String(direction));
@@ -262,16 +267,18 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     const dockEnd = index === 0 ? -1 : index === room.tabs.length - 1 ? 1 : 0;
     const direction = dockEnd || skillSide;
     skillSide *= -1;
-    const rail = direction < 0 ? room.left + 5 : room.right - 5;
-    const tab = room.tabs[index];
-    const edge = direction < 0 ? tab.left - 12 : tab.right + 12;
-    const wall = Math.abs(rail - actor.x) < 110 ? rail : clamp(edge, room.left + 6, room.right - 6);
-    startSkill(dockEnd ? "juggle" : "rainbow", direction, wall);
+    const wall = direction < 0 ? room.left : room.right;
+    startSkill(dockEnd && room.railMode ? "juggle" : "rainbow", direction, wall);
     pingIdle(54_000);
   }
 
   function animateSkill(now) {
     if (!skill) return;
+    const rail = skill.direction < 0 ? world.left : world.right;
+    if (skill.juggle && (!world.railMode || rail !== skill.wallX)) {
+      stopSkill();
+      return;
+    }
     const sprite = skillFrame(skill, now);
     if (sprite.x !== undefined) {
       actor.x = sprite.x;
@@ -284,8 +291,8 @@ export default function runCompanion(stage, token, bubble, rails, options) {
       setStyle(stage, "--ball-spin", Math.round((now - skill.start) * .6 * skill.direction) + "deg");
     }
     if (sprite.impact && !stage.hasAttribute("data-sparks")) {
-      setStyle(stage, "--spark-x", sprite.ballX + "px");
-      setStyle(stage, "--spark-y", sprite.ballY + "px");
+      setStyle(stage, "--spark-x", (sprite.sparkX ?? sprite.ballX) + "px");
+      setStyle(stage, "--spark-y", (sprite.sparkY ?? sprite.ballY) + "px");
     }
     stage.toggleAttribute("data-sparks", sprite.impact);
     if (sprite.done) {
