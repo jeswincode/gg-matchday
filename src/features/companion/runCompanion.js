@@ -5,7 +5,7 @@ import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
 import { createCompanionSpeech } from "./companionSpeech";
 import { touchMenuAction, touchMenuLayout } from "./companionTouchLayout";
 import { pitchHeading, readPitch, walkOnPitch } from "./companionPitch";
-import { gripPose } from "./companionGrip";
+import { gripOffset, gripPose } from "./companionGrip";
 
 function activeTab(workspace) {
   return workspace.querySelector('[data-pane="current"][data-tab]')?.dataset.tab || "admin";
@@ -678,8 +678,10 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     drag.angularVelocity += ((target - drag.swing) * 112 - drag.angularVelocity * 12) * dt;
     drag.swing = clamp(drag.swing + drag.angularVelocity * dt, -21, 21);
     drag.lean = motion.matches ? 0 : drag.swing;
-    actor.x = drag.point.x - drag.hand * 8 - drag.lean * .55;
-    actor.y = drag.point.y + 42;
+    const grip = gripOffset(drag.hand, Math.round(drag.lean), drag.bodyScale);
+    const scale = radius * 2 / 64;
+    actor.x = drag.point.x - grip.x * scale;
+    actor.y = drag.point.y - grip.y * scale;
     return !motion.matches && (!resting || Math.abs(drag.angularVelocity) > .8 || Math.abs(drag.swing) > .25);
   }
 

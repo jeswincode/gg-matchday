@@ -4,7 +4,7 @@ import { jumpDuration, projectileY, stepCompanion } from "../src/features/compan
 import { celebrationDestination } from "../src/features/companion/companionCelebration.js";
 import { touchMenuAction, touchMenuLayout } from "../src/features/companion/companionTouchLayout.js";
 import { recoveryTab } from "../src/features/companion/companionSkills.js";
-import { gripPose } from "../src/features/companion/companionGrip.js";
+import { gripOffset, gripPose } from "../src/features/companion/companionGrip.js";
 
 function flying(overrides) {
   return { x: 46, y: 90, vx: 2000, vy: 1000, pose: "air", ...overrides };
@@ -14,16 +14,21 @@ const field = { left: 0, right: 140, top: 0, bottom: 600, surfaces: [] };
 
 test("a grab bends either elbow and keeps its reach within the sprite's proportions", () => {
   for (const side of [-1, 1]) {
-    const relaxed = gripPose(side, side * 11, -43, 0, { x: 1, y: 1 });
-    assert.ok(Math.abs(relaxed.upper - relaxed.lower) > 10);
     for (const scale of [{ x: 1, y: 1 }, { x: 1.12, y: .98 }, { x: .92, y: 1.035 }]) {
-      const { shoulder, elbow, lower } = gripPose(side, side * 110, -50, side * 21, scale);
-      const angle = lower * Math.PI / 180;
-      assert.ok(Math.abs(Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y) - 7) < .001);
-      const wristX = elbow.x + 7 * Math.cos(angle);
-      const wristY = elbow.y + 7 * Math.sin(angle);
-      assert.ok(side * (wristX - shoulder.x) > 0);
-      assert.ok(Math.hypot(wristX - shoulder.x, wristY - shoulder.y) <= 14.001);
+      for (const lean of [-21, 0, 21]) {
+        const grip = gripOffset(side, lean, scale);
+        const neutral = gripPose(side, grip.x, grip.y, lean, scale);
+        assert.ok(Math.abs(Math.sin((neutral.upper - neutral.lower) * Math.PI / 180)) > .5);
+        for (const [x, y] of [[grip.x, grip.y], [side * 110, -50], [-side * 35, -45]]) {
+          const { shoulder, elbow, lower } = gripPose(side, x, y, lean, scale);
+          const angle = lower * Math.PI / 180;
+          assert.ok(Math.abs(Math.hypot(elbow.x - shoulder.x, elbow.y - shoulder.y) - 7) < .001);
+          const wristX = elbow.x + 7 * Math.cos(angle);
+          const wristY = elbow.y + 7 * Math.sin(angle);
+          assert.ok(side * (wristX - shoulder.x) > 3);
+          assert.ok(Math.hypot(wristX - shoulder.x, wristY - shoulder.y) <= 14.001);
+        }
+      }
     }
   }
 });

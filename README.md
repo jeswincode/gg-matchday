@@ -1,8 +1,17 @@
-# GG Matchday V4.1
+# GG Matchday V4.2
 
 GG Matchday is a football-tracking and club-management platform for recording matches, tracking player performance, comparing players, and running a separate community Clubs experience.
 
 The application is built as one project with a React/Vite frontend and an Express API. MongoDB stores application data, Firebase provides user authentication, and Google Gemini can generate football editorial content when configured.
+
+## What's new in V4.2
+
+- **GG Companion** — sign in to meet your pixel footballer in Matchday and Clubs. Open **Account profile settings** to save your character, kit, playing style and complexion. Preview the Original, Captain or Winger from four angles. Iconic Celebrations follow your linked player's approved El Clásico side. Admins can choose either celebration.
+- **Companion actions and movement** — right-click the Companion or press **Shift+F10** to open the action menu. Hover or focus an icon to see its label. On mobile, hold the Companion, drag toward an icon and release to select it. Play an Emote or Iconic Celebration. **Games** shows **Work in Progress**. Drag the Companion by hand, throw it onto a panel, or watch it jump to visible surfaces. On desktop, the wall volley lands on the navigation bar. On mobile, the Companion stays on-screen and can land on the dock.
+- **Reminders and commentary** — the Companion reminds linked players about open Player of the Match votes and confirmed Club fixtures. While idle, it can flag pending Club tasks and talk about rankings, recent form, El Clásico and Club results.
+- **Starting XI pitch tours** — drop the Companion onto the pitch or let it jump in while idle. It visits the lineup from overhead and comments on each player's recorded performances. Opening a profile, changing tabs or opening a dialog ends the tour and drops the Companion back to the navigation bar.
+
+### Community World
 
 ## What the website includes
 
@@ -20,7 +29,7 @@ The application is built as one project with a React/Vite frontend and an Expres
 - **Account and admin workflows** — request editor access, link accounts to player profiles, submit profile changes for review, and manage authorised records.
 - **Responsive themes** — Dark and Gold Matchday experiences, mobile-specific refinements, and reduced-motion support.
 - **Matchday entry and navigation** — stadium video during startup, desktop continue prompt, mobile fullscreen with a browser fallback, and account checks that can finish after the workspace opens. Tabs remember their scroll position. On mobile, swipe between pages or drag across a navigation dock to select a tab.
-- **Starting XI and companion** — switch pitch formations, open player profiles from the lineup, and browse the substitutes bench. The draggable GG companion uses visible surfaces across Matchday and Clubs and can slide down the desktop rails or bounce off mobile edges.
+- **Starting XI** — switch pitch formations, open player profiles from the lineup, and browse the substitutes bench.
 
 ### Ultimate Clubs
 
@@ -46,7 +55,7 @@ Club and Player Wallets hold separate in-game credits. Clubs start with 3,000 cr
 - **Tickets and settlement** use 10–100 credits, with up to five distinct fixed-odds selections per player and fixture. The server locks the decimal price on acceptance. Total return includes the stake. A 6% odds adjustment and a 30× maximum apply. The system opens with 10,000 credits, takes stakes and reserves the full potential returns before accepting tickets. A losing stake stays with the bank. Cancellation refunds all fixed-odds stakes, and a player market refunds a ticket when the selected player did not play. The server applies each ticket once.
 - **Match earnings** are capped at 12 credits per player per Club match. Players earn 2 for appearing, 2 per goal, 1 per assist, 2 for a clean sheet, 3 for a Player of the Match award recorded at settlement, and up to 3 based on their match rating.
 
-The [V3 Clubs specification](docs/v3-clubs-spec.md) records the earlier design. The V4.1 rules above and the server tests define the current workflow.
+The [V3 Clubs specification](docs/v3-clubs-spec.md) records the earlier design. The rules above and the server tests define the current workflow.
 
 #### Deployment data separation
 
