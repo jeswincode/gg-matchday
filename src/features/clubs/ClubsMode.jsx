@@ -1244,7 +1244,7 @@ export default function ClubsMode({
       data-page-swipes={adminOnlyView ? undefined : ""} data-companion-world>
       <header className="clubs-topbar clubs-compact-header">
         <div className="clubs-header-identity">
-          <span data-companion-surface="companion-seat"><ClubCrest club={currentClub} name={currentClub?.name || "GG"} /></span>
+          <span><ClubCrest club={currentClub} name={currentClub?.name || "GG"} /></span>
           <div><span>GG MATCHDAY</span><h1>{adminOnlyView ? "Clubs Admin" : "Club Hub"}</h1></div>
         </div>
         <div className="clubs-header-actions">

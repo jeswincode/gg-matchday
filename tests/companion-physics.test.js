@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { jumpDuration, projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
 import { celebrationDestination } from "../src/features/companion/companionCelebration.js";
+import { touchMenuAction, touchMenuLayout } from "../src/features/companion/companionTouchMenu.js";
 
 function flying(overrides) {
   return { x: 46, y: 90, vx: 2000, vy: 1000, pose: "air", ...overrides };
@@ -48,6 +49,39 @@ test("a mobile edge returns the same throw to the play area", () => {
   assert.equal(actor.edge, "right-bounce");
   assert.equal(actor.pose, "air");
   assert.ok(actor.vx < 0 && actor.x < 114);
+});
+
+test("the touch menu stays anchored with all three choices reachable at either edge and near the top", () => {
+  const viewport = { left: 0, right: 320, top: 0, bottom: 760 };
+  for (const [x, y, side] of [[29, 540, "left"], [160, 540, "center"], [291, 540, "right"], [29, 38, "left"]]) {
+    const layout = touchMenuLayout(x, y, viewport);
+    assert.equal(layout.x, x);
+    assert.equal(layout.y, y);
+    assert.equal(layout.side, side);
+    assert.equal(touchMenuAction(layout, 3, 4), "");
+    for (const option of layout.options) {
+      assert.ok(x + option.x > 12 && x + option.x < viewport.right - 12);
+      assert.ok(y + option.y > 12);
+      assert.equal(touchMenuAction(layout, option.x, option.y), option.action);
+    }
+  }
+});
+
+test("mobile Clubs rebounds off the edge and lands on the dock even between tabs", () => {
+  const dockTop = 500;
+  const tabs = [{ left: 0, right: 52 }, { left: 88, right: 140 }]
+    .map(bounds => ({ ...bounds, top: dockTop, element: {} }));
+  const room = { ...field, clubs: true, railMode: false, dockTop, surfaces: tabs };
+  const throwAtEdge = flying({ x: 113, y: 155, vx: 1000, vy: -100 });
+  stepCompanion(throwAtEdge, room, .032, 26);
+  assert.equal(throwAtEdge.edge, "right-bounce");
+  assert.equal(throwAtEdge.pose, "air");
+  assert.equal(throwAtEdge.rail, undefined);
+  const dropInGap = flying({ x: 71, y: 484, vx: 0, vy: 1000 });
+  stepCompanion(dropInGap, room, .032, 26);
+  assert.equal(dropInGap.pose, "stand");
+  assert.equal(dropInGap.y, dockTop);
+  assert.equal(dropInGap.surface, tabs[1].element);
 });
 
 test("the jump from the avatar rises first even when the dock is far below it", () => {

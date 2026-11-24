@@ -10,6 +10,19 @@ after(async()=>{await syncHistory().catch(()=>{});server?.closeAllConnections();
 const payload=()=>({date:'2026-01-04',name:'Test Sunday',teamA:{label:'Test A',score:99},teamB:{label:'Test B',score:99},participants:[{player:String(p1._id),team:'A',rating:8.9,defensivePerformance:8},{player:String(p2._id),team:'B',rating:7,defensivePerformance:6}],events:[{player:String(p1._id),type:'goal'}]});
 test('API responses include a safe request id and invalid ids remain client errors',async()=>{const health=await request('/health');assert.equal(health.status,503);assert.equal(health.data.status,'degraded');assert.equal(health.data.database,'connected');assert.equal(health.data.clubsDatabase,'disconnected');assert.match(health.requestId,/^[0-9a-f-]{36}$/i);const invalid=await request('/players/not-an-object-id');assert.equal(invalid.status,400);assert.equal(invalid.data.message,'Invalid resource id.');assert.match(invalid.requestId,/^[0-9a-f-]{36}$/i);assert.doesNotMatch(JSON.stringify(invalid.data),/mongodb|secret|password/i);});
 test('API rejects unauthenticated and viewer match writes',async()=>{assert.equal((await request('/matches',{method:'POST',body:payload()})).status,401);assert.equal((await request('/matches',{token:'viewer',method:'POST',body:payload()})).status,403);assert.equal((await request('/auth/me',{token:'invalid'})).status,401);});
+test("Companion appearance saves the character and only accepts an administrator's celebration preference", async () => {
+  const appearance = { character: "captain", style: "striker", complexion: "sand", kit: "signature", celebration: "messi" };
+  const save = (token, body) => request("/world/appearance", { token, method: "PUT", body });
+  await User.updateOne({ _id: viewer._id }, { $set: { companion: null } });
+  assert.equal((await save("viewer", appearance)).status, 200);
+  const member = await User.findById(viewer._id).lean();
+  assert.equal(member.companion.character, "captain");
+  assert.equal(member.companion.celebration, undefined);
+  const admin = await save("admin", { ...appearance, character: "winger" });
+  assert.equal(admin.status, 200);
+  assert.equal(admin.data.look.celebration, "messi");
+  assert.equal((await save("viewer", { ...appearance, character: "unknown" })).status, 400);
+});
 test('profile linking excludes admin identities and allows many unlinked accounts per player', async () => {
   const createAccount = (suffix, fields = {}) => User.create({
     firebaseUid: 'link-' + suffix, name: suffix, email: suffix + '@example.invalid', ...fields,
