@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import CompanionPlayer from "./CompanionPlayer";
+import CompanionDesktopMenu from "./CompanionDesktopMenu.jsx";
 import CompanionTouchMenu from "./CompanionTouchMenu.jsx";
-import { companionActions } from "./companionTouchLayout";
 import runCompanion from "./runCompanion";
 
 export default function CompanionStage({ account, look, celebration, legacy }) {
@@ -10,46 +10,32 @@ export default function CompanionStage({ account, look, celebration, legacy }) {
   const bubble = useRef(null);
   const menu = useRef(null);
   const [menuMode, setMenuMode] = useState(null);
-  const [confirmation, setConfirmation] = useState("");
-  const confirmationTimer = useRef(null);
   const open = menuMode !== null;
+  const desktopMenu = menuMode?.type === "desktop";
   const currentAccount = useEffectEvent(() => account);
   const currentCelebration = useEffectEvent(() => celebration);
 
   function selectAction(action) {
     setMenuMode(null);
     token.current?.focus({ preventScroll: true });
-    const detail = action === "world" ? { type: "say", text: "Work in Progress" }
+    const detail = action === "world" || action === "games" ? { type: "say", text: "Work in Progress" }
       : { type: action === "emote" ? "skill" : "emote" };
     window.dispatchEvent(new CustomEvent("gg:companion", { detail }));
   }
-  const selectFromGesture = useEffectEvent(action => {
-    setConfirmation(companionActions.find(([value]) => value === action)[1]);
-    clearTimeout(confirmationTimer.current);
-    confirmationTimer.current = setTimeout(() => setConfirmation(""), 1400);
-    selectAction(action);
-  });
+  const selectFromGesture = useEffectEvent(selectAction);
 
   useEffect(() => {
-    const release = runCompanion(stage.current, token.current, bubble.current,
+    return runCompanion(stage.current, token.current, bubble.current,
       document.querySelectorAll(".gg-companion-rail"), {
         legacy, account: currentAccount, celebration: currentCelebration,
-        showMenu: layout => {
-          clearTimeout(confirmationTimer.current);
-          setConfirmation("");
-          setMenuMode(layout || "focus");
-        },
+        showMenu: setMenuMode,
         hideMenu: () => setMenuMode(null),
         selectMenu: selectFromGesture,
       });
-    return () => {
-      clearTimeout(confirmationTimer.current);
-      release();
-    };
   }, [legacy]);
 
   useEffect(() => {
-    if (menuMode !== "focus") return;
+    if (!desktopMenu) return;
     menu.current?.querySelector("button")?.focus({ preventScroll: true });
     function dismiss(event) {
       if (event.type === "keydown" && event.key !== "Escape") return;
@@ -63,7 +49,7 @@ export default function CompanionStage({ account, look, celebration, legacy }) {
       window.removeEventListener("pointerdown", dismiss);
       window.removeEventListener("keydown", dismiss);
     };
-  }, [menuMode]);
+  }, [desktopMenu]);
 
   return (
     <div className="gg-companion-stage" data-legacy={legacy || undefined} ref={stage} data-no-tab-swipe>
@@ -83,11 +69,9 @@ export default function CompanionStage({ account, look, celebration, legacy }) {
         <path className="gg-spark-fire" d="M7 8h3v3H7Zm26-4h4v4h-4ZM4 23h5v2H4Zm31-1h3v4h-3Zm-12 16h3v3h-3Z" />
       </svg>
       <p className="gg-companion-speech" ref={bubble} role="status" hidden />
-      <p className="gg-companion-confirmation" role="status">{confirmation}</p>
-      {open && (menuMode === "focus" ? <div className="gg-companion-actions" ref={menu} role="group" aria-label="Companion actions">
-        {companionActions.map(([action, label]) => <button key={action} type="button" data-companion-action={action}
-          onClick={() => selectAction(action)}><span>{label}</span></button>)}
-      </div> : <CompanionTouchMenu layout={menuMode} />)}
+      {open && (desktopMenu
+        ? <CompanionDesktopMenu menuRef={menu} below={menuMode.below} onSelect={selectAction} />
+        : <CompanionTouchMenu layout={menuMode} />)}
     </div>
   );
 }

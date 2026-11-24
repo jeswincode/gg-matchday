@@ -608,7 +608,6 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     actor.y = clamp(actor.y, room.top + radius * 2, lowerLimit);
     setStyle(stage, "--companion-x", actor.x.toFixed(1) + "px");
     setStyle(stage, "--companion-y", actor.y.toFixed(1) + "px");
-    stage.toggleAttribute("data-menu-below", actor.y < radius * 2 + 76);
     const pose = actor.rail && actor.cling > 0 ? "hang" : actor.pose;
     if (token.dataset.pose !== pose) token.dataset.pose = pose;
     if (token.dataset.edge !== (actor.edge || "")) token.dataset.edge = actor.edge || "";
@@ -779,7 +778,7 @@ export default function runCompanion(stage, token, bubble, rails, options) {
     stopSkill();
     stopPeekHide();
     speech.hide();
-    options.showMenu();
+    options.showMenu({ type: "desktop", below: actor.y - measure().top < radius * 2 + 84 });
   }
 
   function menuKey(event) {

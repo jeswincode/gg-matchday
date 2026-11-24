@@ -51,13 +51,14 @@ test("a mobile edge returns the same throw to the play area", () => {
   assert.ok(actor.vx < 0 && actor.x < 114);
 });
 
-test("the touch menu stays anchored with all three choices reachable at either edge and near the top", () => {
+test("the touch menu stays anchored with all four choices reachable at either edge and near the top", () => {
   const viewport = { left: 0, right: 320, top: 0, bottom: 760 };
   for (const [x, y, side] of [[29, 540, "left"], [160, 540, "center"], [291, 540, "right"], [29, 38, "left"]]) {
     const layout = touchMenuLayout(x, y, viewport);
     assert.equal(layout.x, x);
     assert.equal(layout.y, y);
     assert.equal(layout.side, side);
+    assert.deepEqual(layout.options.map(option => option.action), ["games", "world", "emote", "celebration"]);
     assert.equal(touchMenuAction(layout, 3, 4), "");
     for (const option of layout.options) {
       assert.ok(x + option.x > 12 && x + option.x < viewport.right - 12);
