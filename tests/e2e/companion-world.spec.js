@@ -1,13 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { completeMobileEntry, enterSignedInMatchday } from "./entry-helpers.js";
 
-const actionLabels = { world: "Community World", emote: "Emote", celebration: "Iconic Celebration" };
+const actionLabels = { games: "Games", world: "Community World", emote: "Emote", celebration: "Iconic Celebration" };
 
 async function openActions(character, project, gesture) {
   if (project === "chromium-mobile") {
     const stage = character.locator("..");
     const menu = stage.locator(".gg-companion-touch-menu");
-    const confirmation = stage.locator(".gg-companion-confirmation");
     const point = await character.boundingBox();
     const client = await character.page().context().newCDPSession(character.page());
     const finger = { x: Math.round(point.x + point.width / 2), y: Math.round(point.y + point.height / 2) };
@@ -17,7 +16,7 @@ async function openActions(character, project, gesture) {
       // The menu must appear with the finger still down.
       await expect(character).toHaveAttribute("aria-expanded", "true");
       expect(Date.now() - start).toBeGreaterThanOrEqual(750);
-      await expect(menu.locator(".gg-companion-touch-icon")).toHaveCount(3);
+      await expect(menu.locator(".gg-companion-touch-icon")).toHaveCount(4);
       await expect(stage.getByRole("group", { name: "Companion actions" })).toHaveCount(0);
       const side = await menu.getAttribute("data-arc-side");
       const arc = await menu.boundingBox();
@@ -28,19 +27,20 @@ async function openActions(character, project, gesture) {
         const target = { x: Math.round(icon.x + icon.width / 2), y: Math.round(icon.y + icon.height / 2) };
         await client.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [target] });
         await expect(stage).toHaveAttribute("data-menu-direction", gesture);
-        await expect(confirmation).toBeEmpty();
       }
       await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
       await expect(character).toHaveAttribute("aria-expanded", "false");
       await expect(menu).toHaveCount(0);
-      if (gesture) await expect(confirmation).toHaveText(actionLabels[gesture]);
-      else await expect(confirmation).toBeEmpty();
+      await expect(stage.locator(".gg-companion-confirmation")).toHaveCount(0);
       return side;
     } finally {
       await client.detach();
     }
   } else {
     await character.click({ button: "right" });
+    const menu = character.page().getByRole("group", { name: "Companion actions" });
+    await expect(menu.locator("textPath")).toHaveText(Object.values(actionLabels));
+    await expect(menu.locator(".gg-companion-menu-track")).toHaveCSS("stroke-linecap", "round");
     if (gesture) {
       await character.page().getByRole("button", { name: actionLabels[gesture], exact: true }).click();
     }
@@ -272,6 +272,14 @@ test("Community World shows the work-in-progress message on the Companion", asyn
   await openActions(page.getByRole("button", { name: "GG Companion", exact: true }), info.project.name, "world");
   await expect(page.locator(".gg-companion-speech > span:nth-child(2)")).toHaveText("Work in Progress");
   await expect(page.getByRole("dialog", { name: "Community World" })).toHaveCount(0);
+});
+
+test("Games shows the work-in-progress message on the Companion", async ({ page }, info) => {
+  await page.goto("/?e2eRole=editor");
+  await enterSignedInMatchday(page);
+  await openActions(page.getByRole("button", { name: "GG Companion", exact: true }), info.project.name, "games");
+  await expect(page.locator(".gg-companion-speech > span:nth-child(2)")).toHaveText("Work in Progress");
+  await expect(page.getByRole("dialog", { name: "Games" })).toHaveCount(0);
 });
 
 test("Ronaldo swaps into the Madrid kit, runs along the dock and lands the SIUUU", async ({ page }, info) => {
