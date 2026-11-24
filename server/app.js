@@ -20,6 +20,7 @@ import profileSecurityRoutes from "./routes/profileSecurity.js";
 import profileRequestRoutes from "./routes/profileRequests.js";
 import { profileLiveRouter } from "./services/profileLive.js";
 import { streamPrivateUpdates } from "./services/liveData.js";
+import companionAppearance from "./routes/companionAppearance.js";
 import { requireAuth } from "./middleware/auth.js";
 import immersiveNewsRoutes from "./routes/immersiveNews.js";
 import systemRoutes from "./routes/system.js";
@@ -65,6 +66,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/matches", matchDetailRoutes);
 
 app.use("/api/auth", authRoutes);
+app.use("/api/world/appearance", companionAppearance);
 app.use("/api/live", profileLiveRouter);
 app.get("/api/live/account", requireAuth, streamPrivateUpdates);
 app.use("/api/players", playerRoutes);
