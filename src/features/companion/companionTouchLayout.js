@@ -1,4 +1,5 @@
 export const companionActions = [
+  ["games", "Games"],
   ["world", "Community World"],
   ["emote", "Emote"],
   ["celebration", "Iconic Celebration"],
@@ -7,9 +8,9 @@ export const companionActions = [
 const radius = 56;
 const rim = radius + 14;
 const angles = {
-  center: [-150, -90, -30],
-  left: [-88, -43, 2],
-  right: [-182, -137, -92],
+  center: [-156, -112, -68, -24],
+  left: [-90, -59, -28, 3],
+  right: [-183, -152, -121, -90],
 };
 
 function point(angle, below) {
@@ -20,14 +21,16 @@ function point(angle, below) {
 export function touchMenuLayout(x, y, viewport) {
   const side = x - viewport.left < rim ? "left" : viewport.right - x < rim ? "right" : "center";
   const below = y - viewport.top < rim;
-  const [first, , last] = angles[side];
+  const directions = angles[side];
+  const first = directions[0];
+  const last = directions.at(-1);
   const start = point(first - 13, below);
   const end = point(last + 13, below);
   return {
     x, y, side,
     arc: "M " + start.x + " " + start.y + " A " + radius + " " + radius + " 0 0 " +
       (below ? "0 " : "1 ") + end.x + " " + end.y,
-    options: companionActions.map(([action], index) => ({ action, ...point(angles[side][index], below) })),
+    options: companionActions.map(([action], index) => ({ action, ...point(directions[index], below) })),
   };
 }
 

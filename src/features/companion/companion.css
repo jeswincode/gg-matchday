@@ -123,61 +123,61 @@
 .gg-companion-token[data-pose="celebrate"] .gg-player-art { animation: gg-companion-celebrate 420ms ease-out 2 alternate; }
 
 .gg-companion-actions {
-  --menu-width: min(286px, calc(100% - 12px));
+  --menu-width: min(352px, calc(100% - 12px));
   position: absolute;
-  top: calc(var(--companion-y) - var(--companion-size) - 75px);
+  top: calc(var(--companion-y) - var(--companion-size) - 83px);
   left: clamp(calc(var(--menu-width) / 2 + 6px), var(--companion-x),
     calc(100% - var(--menu-width) / 2 - 6px));
   translate: -50%;
-  display: grid;
-  grid-template-columns: 1fr .58fr 1fr;
   width: var(--menu-width);
-  height: 72px;
-  isolation: isolate;
+  aspect-ratio: 352 / 82;
   z-index: 2;
 }
-.gg-companion-actions::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border: 1px solid var(--signature-edge);
-  border-bottom: 0;
-  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-  background: radial-gradient(ellipse 35% 45% at 50% 100%, transparent 98%,
-    var(--signature-edge) 100%, var(--signature-surface) calc(100% + 1px));
-  pointer-events: none;
-}
-.gg-companion-stage[data-menu-below] .gg-companion-actions {
+.gg-companion-actions[data-below] {
   top: calc(var(--companion-y) + 3px);
 }
-.gg-companion-stage[data-menu-below] .gg-companion-actions::before { scale: 1 -1; }
+.gg-companion-actions svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 3px 4px color-mix(in srgb, var(--signature-base) 70%, transparent));
+}
+.gg-companion-menu-rim, .gg-companion-menu-track {
+  fill: none;
+  stroke-linecap: round;
+}
+.gg-companion-menu-rim { stroke: var(--signature-edge); stroke-width: 32px; }
+.gg-companion-menu-track { stroke: var(--signature-surface); stroke-width: 30px; }
+.gg-companion-menu-highlight {
+  fill: none;
+  stroke: var(--menu-highlight-fill, transparent);
+  stroke-width: 30px;
+  stroke-linecap: round;
+}
+.gg-companion-actions text {
+  fill: var(--menu-highlight-ink, var(--signature-ink));
+  text-anchor: middle;
+  font-size: 12px;
+  font-weight: 750;
+}
 .gg-companion-actions button {
-  color: var(--signature-ink);
-  display: grid;
-  place-content: center;
+  position: absolute;
+  translate: -50% -50%;
+  height: 44px;
   padding: 0;
   background: transparent;
   border: 0;
-  font: inherit;
-  font-size: clamp(.66rem, 3.05vw, .75rem);
-  font-weight: 750;
   cursor: pointer;
   pointer-events: auto;
-  align-self: start;
-  min-height: 44px;
 }
-.gg-companion-actions button:first-child { translate: 6px 17px; rotate: -24deg; }
-.gg-companion-actions button:last-child { translate: -6px 17px; rotate: 24deg; }
-.gg-companion-stage[data-menu-below] .gg-companion-actions button { align-self: end; }
-.gg-companion-stage[data-menu-below] .gg-companion-actions button:first-child { translate: 6px -17px; rotate: 24deg; }
-.gg-companion-stage[data-menu-below] .gg-companion-actions button:last-child { translate: -6px -17px; rotate: -24deg; }
-.gg-companion-actions button span { padding: 3px 4px; border-radius: 5px; white-space: nowrap; }
-.gg-companion-actions button:is(:hover,:focus-visible) span {
-  color: var(--signature-accent);
-  background: color-mix(in srgb, var(--signature-accent) 14%, transparent);
+.gg-companion-actions button:focus-visible { outline: none; }
+.gg-companion-actions:has(button[data-companion-action="games"]:is(:hover,:focus-visible)) [data-menu-segment="games"],
+.gg-companion-actions:has(button[data-companion-action="world"]:is(:hover,:focus-visible)) [data-menu-segment="world"],
+.gg-companion-actions:has(button[data-companion-action="emote"]:is(:hover,:focus-visible)) [data-menu-segment="emote"],
+.gg-companion-actions:has(button[data-companion-action="celebration"]:is(:hover,:focus-visible)) [data-menu-segment="celebration"] {
+  --menu-highlight-fill: color-mix(in srgb, var(--signature-accent) 20%, var(--signature-surface));
+  --menu-highlight-ink: var(--signature-accent);
 }
-.gg-companion-actions button:focus-visible { outline: 1px solid var(--signature-accent); border-radius: 17px; }
 
 .gg-companion-touch-menu {
   position: absolute;
@@ -199,29 +199,13 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.gg-companion-stage[data-menu-direction="games"] .gg-companion-touch-menu [data-companion-action="games"],
 .gg-companion-stage[data-menu-direction="world"] .gg-companion-touch-menu [data-companion-action="world"],
 .gg-companion-stage[data-menu-direction="emote"] .gg-companion-touch-menu [data-companion-action="emote"],
 .gg-companion-stage[data-menu-direction="celebration"] .gg-companion-touch-menu [data-companion-action="celebration"] {
   color: var(--signature-accent);
   --touch-menu-highlight: color-mix(in srgb, var(--signature-accent) 18%, var(--signature-surface));
 }
-.gg-companion-confirmation {
-  position: absolute;
-  left: clamp(80px, var(--companion-x), calc(100% - 80px));
-  top: min(calc(var(--companion-y) + 4px), calc(100% - 33px));
-  translate: -50%;
-  z-index: 2;
-  margin: 0;
-  padding: 4px 9px;
-  border: 1px solid var(--signature-edge);
-  border-radius: 6px;
-  background: var(--signature-surface);
-  color: var(--signature-ink);
-  font-size: .75rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.gg-companion-confirmation:empty { opacity: 0; }
 
 .gg-companion-locker {
   display: grid;
