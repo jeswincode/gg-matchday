@@ -46,10 +46,13 @@ export default function CompanionSettings({ look, name, role, clasicoSide, onSav
     setStatus("");
     setError("");
     try {
-      const body = role === "admin" ? draft : Object.fromEntries(Object.entries(draft)
-        .filter(([field]) => field !== "celebration"));
-      const result = await api("/world/appearance", { method: "PUT", body });
-      onSave(result.look);
+      // A previous API version still requires the saved celebration field.
+      const { look: saved } = await api("/world/appearance", { method: "PUT", body: draft });
+      if ((saved.character || "original") !== draft.character) {
+        setError("Couldn’t save your selected character. Try again.");
+        return;
+      }
+      onSave(saved);
       setStatus("Companion saved.");
     } catch {
       setError("Couldn’t save your companion. Try again.");
