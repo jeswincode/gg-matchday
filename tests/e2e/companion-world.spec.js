@@ -3,6 +3,59 @@ import { completeMobileEntry, enterSignedInMatchday } from "./entry-helpers.js";
 
 const actionLabels = { games: "Games", world: "Community World", emote: "Emote", celebration: "Iconic Celebration" };
 
+test("Companion links a participant to their pending Player of the Match vote", async ({ page }) => {
+  const response = page.waitForResponse(res => new URL(res.url()).pathname === "/api/matches/pending-votes" && res.ok());
+  await page.goto("/?e2eRole=viewer");
+  await enterSignedInMatchday(page);
+  const [pending] = await (await response).json();
+  expect(pending?.name).toBeTruthy();
+  const shortCut = page.getByRole("button", { name: "Open vote", exact: true });
+  await expect(shortCut).toBeVisible({ timeout: 19_000 });
+  await expect(shortCut.locator("..")).toContainText(pending.name);
+  await shortCut.click();
+  const match = page.getByRole("dialog", { name: pending.name });
+  await expect(match.getByRole("heading", { name: "Player of the Match" })).toBeVisible();
+});
+
+test("Companion can land on the Calendar panel and tour the Starting XI pitch overhead", async ({ page }) => {
+  test.slow();
+  await page.route("**/api/matches/pending-votes", route => route.fulfill({ json: [] }));
+  await page.route("**/api/clubs/home", route => route.fulfill({ json: {} }));
+  const lineup = ["LW", "ST", "RW", "CM", "CM", "CDM", "LB", "CB", "CB", "RB", "GK"].map((position, index) => ({
+    _id: "65a0000000000000000000" + String(index + 1).padStart(2, "0"), name: "E2E Pitch Player " + (index + 1),
+    position, preferredPositions: [position],
+  }));
+  await page.route("**/api/players", route => route.fulfill({ json: lineup }));
+  await page.goto("/?e2eRole=editor");
+  await enterSignedInMatchday(page);
+  const companion = page.getByRole("button", { name: "GG Companion", exact: true });
+  await companion.click();
+  const tabs = page.getByRole("navigation", { name: "Matchday tabs" });
+  await tabs.getByRole("button", { name: "Calendar" }).click();
+  const calendar = page.locator('[data-companion-surface="calendar-panel"]');
+  await expect(calendar).toBeVisible();
+  await expect.poll(async () => {
+    const body = await companion.boundingBox();
+    const panel = await calendar.boundingBox();
+    return Math.abs(body.y + body.height - panel.y);
+  }, { timeout: 19_000 }).toBeLessThan(3);
+  await tabs.getByRole("button", { name: "Players" }).click();
+  const pitch = page.locator("[data-companion-pitch]:visible");
+  await pitch.scrollIntoViewIfNeeded();
+  const speech = page.locator(".gg-companion-speech > span:nth-child(2)");
+  await expect(companion).toHaveAttribute("data-pose", "pitch", { timeout: 24_000 });
+  await expect(companion.locator(".gg-player-overhead")).toBeVisible();
+  await expect(speech).toHaveText(/E2E.*(lines up|recorded|averages|won|leads).*\.$/, { timeout: 12_000 });
+  const first = await speech.textContent();
+  await expect.poll(async () => {
+    const line = await speech.textContent();
+    return line !== first && /^E2E.*\.$/.test(line);
+  },
+    { timeout: 12_000 }).toBeTruthy();
+  await page.getByRole("button", { name: "List", exact: true }).click();
+  await expect(companion).not.toHaveAttribute("data-pose", "pitch");
+});
+
 async function openActions(character, project, gesture) {
   if (project === "chromium-mobile") {
     const stage = character.locator("..");
@@ -39,8 +92,14 @@ async function openActions(character, project, gesture) {
   } else {
     await character.click({ button: "right" });
     const menu = character.page().getByRole("group", { name: "Companion actions" });
-    await expect(menu.locator("textPath")).toHaveText(Object.values(actionLabels));
-    await expect(menu.locator(".gg-companion-menu-track")).toHaveCSS("stroke-linecap", "round");
+    await expect(menu.locator("button svg")).toHaveCount(4);
+    await expect(menu.locator(".gg-companion-touch-track")).toHaveCSS("stroke-linecap", "round");
+    const anchor = await character.boundingBox();
+    const arc = await menu.boundingBox();
+    expect(Math.abs(arc.x + arc.width / 2 - anchor.x - anchor.width / 2)).toBeLessThan(2);
+    await expect(menu.getByText("Games", { exact: true })).toBeHidden();
+    await menu.getByRole("button", { name: "Games" }).hover();
+    await expect(menu.getByText("Games", { exact: true })).toBeVisible();
     if (gesture) {
       await character.page().getByRole("button", { name: actionLabels[gesture], exact: true }).click();
     }
@@ -110,6 +169,8 @@ test("signed-in Companion perches, guides, saves a kit and performs the chosen c
     await page.mouse.move(standing.x + standing.width / 2, standing.y + standing.height / 2);
     await page.mouse.down();
     await page.mouse.move(perch.x + perch.width / 2, perch.y, { steps: 10 });
+    await expect(character).toHaveAttribute("data-grab-side", /left|right/);
+    await expect(footballer.locator("[data-grab-path]").first()).toHaveAttribute("d", /^M.+Q/);
     await page.mouse.up();
     await expect(character).toHaveAttribute("data-pose", "sit");
     await expect.poll(async () => {

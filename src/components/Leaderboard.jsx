@@ -39,7 +39,7 @@ export default function Leaderboard({ onPlayer, onAwards, refreshKey }) {
     <div className="page-title">
       <p className="eyebrow">GG RANKINGS</p><h2>Leaderboard</h2><p>Performance. Contribution. Results.</p>
     </div>
-    <div className="gg-filters gg-ranking-filters" role="group" aria-label="Leaderboard filters">
+    <div className="gg-filters gg-ranking-filters" role="group" aria-label="Leaderboard filters" data-companion-surface="ranking-filters">
       <label>Period<select value={period} onChange={event => setPeriod(event.target.value)}>
         <option value="all">All Time</option><option value="month">Current Month</option>
         {[...new Set([year, ...(history.data?.years || [])])].map(season => <option key={season} value={season}>

@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { formations, selectSquad } from "../lib/formations";
 import { rating } from "../lib/format";
+import { pitchNote } from "../features/companion/companionGuide";
 import "./starting-xi.css";
 
 const quickFormations = ["4-3-3", "4-4-2", "4-2-3-1"];
@@ -26,13 +27,16 @@ export default function Squad({ players, statistics = [], onPlayer }) {
   const formationId = useId();
   const { starting, bench, slots } = useMemo(() => selectSquad(players, statistics, formation), [players, statistics, formation]);
   const bySlot = new Map(starting.map(({ slot, player }) => [slot, player]));
-  const ratings = new Map(statistics.map(({ playerId, ggRating }) => [String(playerId), ggRating]));
+  const statsById = new Map(statistics.map(row => [String(row.playerId), row]));
+  const topGoals = Math.max(0, ...statistics.map(row => row.goals || 0));
 
   const lineup = slots.map((slot, index) => {
     const player = bySlot.get(index);
     const key = player ? `player-${player._id}` : `open-${index}`;
-    const card = <LineupPlayer player={player} position={slot.position} playerRating={ratings.get(String(player?._id))} onPlayer={onPlayer} />;
+    const stats = statsById.get(String(player?._id));
+    const card = <LineupPlayer player={player} position={slot.position} playerRating={stats?.ggRating} onPlayer={onPlayer} />;
     return view === "pitch" ? <div key={key} className="gg-pitch-spot"
+      data-companion-player={player?._id} data-companion-note={player && pitchNote(player, stats, topGoals, slot.position)}
       style={{ "--spot-x": `${slot.x}%`, "--spot-y": `${7 + slot.y * .86}%` }}>{card}</div> : <li key={key}>{card}</li>;
   });
 
@@ -62,7 +66,7 @@ export default function Squad({ players, statistics = [], onPlayer }) {
       {starting.length} of {slots.length} positions filled. Open spots need players with approved positions.
     </p>}
     <div className="gg-lineup-content">
-      {view === "pitch" ? <div className="gg-pitch" role="group" aria-label={`${formation} football formation`}>
+      {view === "pitch" ? <div className="gg-pitch" data-companion-pitch={formation} role="group" aria-label={`${formation} football formation`}>
         <div className="gg-pitch-lines" aria-hidden="true"><span /><span /><span /></div>
         {lineup}
       </div> : <ul className="gg-lineup-list" aria-label={`${formation} player lineup`}>{lineup}</ul>}
@@ -71,7 +75,7 @@ export default function Squad({ players, statistics = [], onPlayer }) {
         {bench.length ? <ul className="gg-bench" aria-label="Substitute seats" role="list">
           {bench.map(player => <li key={player._id} className="gg-bench-seat">
             <LineupPlayer player={player} position={player.preferredPositions?.[0] || player.position}
-              playerRating={ratings.get(String(player._id))} onPlayer={onPlayer} />
+              playerRating={statsById.get(String(player._id))?.ggRating} onPlayer={onPlayer} />
           </li>)}
         </ul> : <p className="muted gg-bench-empty">No players on the bench.</p>}
       </aside>

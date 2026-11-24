@@ -8,7 +8,12 @@ export function createCompanionSpeech(bubble, motion, schedule) {
   visibleLine.setAttribute("aria-hidden", "true");
   const announcement = document.createElement("span");
   announcement.className = "gg-companion-speech-live";
-  bubble.replaceChildren(lineSize, visibleLine, announcement);
+  announcement.setAttribute("role", "status");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "gg-companion-speech-action";
+  button.hidden = true;
+  bubble.replaceChildren(lineSize, visibleLine, announcement, button);
 
   let speech;
   let expiry;
@@ -26,9 +31,11 @@ export function createCompanionSpeech(bubble, motion, schedule) {
     speech = undefined;
     bubble.hidden = true;
     announcement.textContent = "";
+    button.onclick = null;
+    button.hidden = true;
   }
 
-  function say(text, { duration, priority = 0 } = {}) {
+  function say(text, { duration, priority = 0, action } = {}) {
     const line = text.trim().slice(0, 160);
     if (!line || (speech && priority < speech.priority)) return;
     hide();
@@ -39,9 +46,18 @@ export function createCompanionSpeech(bubble, motion, schedule) {
     visibleLine.textContent = revealTime ? "" : line;
     bubble.hidden = false;
     announcement.textContent = line;
+    if (action) {
+      button.textContent = action.label;
+      button.hidden = false;
+      button.onclick = () => { hide(); action.run(); };
+    }
     width = bubble.offsetWidth;
     height = bubble.offsetHeight;
-    expiry = setTimeout(hide, duration ?? clamp(2050 + characters.length * 47, 2900, 6700));
+    expiry = setTimeout(function expire() {
+      if (!button.hidden && (button === document.activeElement || button.matches(":hover"))) {
+        expiry = setTimeout(expire, 1200);
+      } else hide();
+    }, duration ?? (action ? 12_000 : clamp(2050 + characters.length * 47, 2900, 8500)));
     schedule();
   }
 
@@ -56,7 +72,7 @@ export function createCompanionSpeech(bubble, motion, schedule) {
     }
 
     if (width && height) {
-      const head = actor.y - bodySize * (actor.pose === "sit" ? .77 : .91);
+      const head = actor.y - bodySize * (actor.pose === "pitch" ? .34 : actor.pose === "sit" ? .77 : .91);
       const left = clamp(actor.x - width / 2, room.left + 8, room.right - width - 8);
       const above = head - height - 9;
       const below = above < room.top + 6;
@@ -69,5 +85,5 @@ export function createCompanionSpeech(bubble, motion, schedule) {
     return progress < 1;
   }
 
-  return { say, hide, draw, release: () => { hide(); resize.disconnect(); } };
+  return { say, hide, draw, active: () => Boolean(speech), release: () => { hide(); resize.disconnect(); } };
 }

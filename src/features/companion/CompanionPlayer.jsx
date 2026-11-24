@@ -36,6 +36,25 @@ export default function CompanionPlayer({ look, action, kit, temporaryKit, facin
     data-facing={facing} data-character={profile.character} data-player-style={profile.style}
     style={{ "--player-skin": skin, "--player-skin-shadow": shadow,
       "--player-hair": character?.color, "--player-hair-light": character?.light }}>
+    <g className="gg-player-overhead">
+      <ellipse className="gg-player-shadow" cx="27" cy="35" rx="17" ry="13" />
+      <g className="gg-overhead-turn">
+        <path className="gg-overhead-step gg-overhead-step--left" fill="var(--player-boot)" stroke="#12121d" d="M19 39h7v10h-7Z" />
+        <path className="gg-overhead-step gg-overhead-step--right" fill="var(--player-boot)" stroke="#12121d" d="M29 39h7v10h-7Z" />
+        <path className="gg-pixel-outline" d="M15 28h24v3h5v10h-6v5H16v-5h-6V31h5Z" />
+        <path fill="var(--player-kit)" d="M16 29h22v3h5v5h-6v6H17v-6h-6v-5h5Z" />
+        <path fill="var(--player-panel)" d="M18 40h18v3H18Z" />
+        <path className="gg-pixel-trim" d="M12 34h5v2h-5Zm25 0h5v2h-5Z" />
+        <path fill="var(--player-skin)" d="M11 37h5v6h-5Zm27 0h5v6h-5Z" />
+        <path className="gg-pixel-outline" d="M20 18h14v2h3v3h2v11h-2v4h-4v2H21v-2h-4v-4h-2V23h2v-3h3Z" />
+        <path fill="var(--player-hair, #241e2c)" d="M20 19h14v2h3v4h1v8h-3v4h-4v2h-8v-2h-4v-4h-3v-8h1v-4h3Z" />
+        <path fill="var(--player-hair-light, #584451)" d={profile.character === "winger"
+          ? "M19 24h4v-2h3v2h3v-2h5v3h3v3h-4v-2h-4v2h-4v-2h-6Z"
+          : "M20 24h4v-2h10v2h-6v2h-8Zm12 3h3v2h-3Z"} />
+        <path fill="var(--player-skin-shadow)" d="M16 31h2v4h-2Zm20 0h2v4h-2Z" />
+        {profile.character === "captain" && <path className="gg-pixel-trim" d="M13 34h4v3h-4Z" />}
+      </g>
+    </g>
     <path className="gg-player-shadow" d="M17 61h20v1h-3v1H20v-1h-3Z" />
     <g className="gg-player-art">
       <g className="gg-player-direction">
@@ -138,6 +157,10 @@ export default function CompanionPlayer({ look, action, kit, temporaryKit, facin
           {profile.character === "winger" && <path className="gg-pixel-trim" d="M20 10h15v1H20Z" />}
         </g>
       </g>
+    </g>
+    <g className="gg-player-grab-arm">
+      <path data-grab-path fill="none" stroke="#12121d" strokeWidth="7" strokeLinecap="round" />
+      <path data-grab-path fill="none" stroke="var(--player-skin)" strokeWidth="4" strokeLinecap="round" />
     </g>
     <g className="gg-player-kit-flare">
       <path fill="#f87a4c" d="M10 43h3v-6h3v-5h2v6h3v-3h3v-7h2v6h2v6h4v-4h2v-6h3v5h3v-8h2v9h3v6h-4v4H14v-2h-4Z" />

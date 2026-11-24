@@ -152,6 +152,13 @@ function App() {
 
   function showPlayer(playerId){const player=players.find(p=>String(p._id)===String(playerId));if(player){closeModal();openPlayerProfile(player);navigateMatchdayTab(TABS.PLAYERS);}}
   function showMatch(matchId){navigateMatchdayTab(TABS.CALENDAR);setDetailId(matchId);setModal('match');}
+  function openCompanionVote(matchId) {
+    if (productMode === "matchday") return showMatch(matchId);
+    setActiveTab(TABS.CALENDAR);
+    switchProductMode("matchday", TABS.CALENDAR);
+    setDetailId(matchId);
+    setModal("match");
+  }
 
   // =========================================================
   // NAVIGATION
@@ -2560,7 +2567,10 @@ function App() {
 
   return <>
     {workspaceContent}
-    <CompanionWorld enabled={Boolean(accountId)} account={backendUser} clasicoSide={clasicoSide} />
+    <CompanionWorld enabled={Boolean(accountId)} account={backendUser} clasicoSide={clasicoSide}
+      guide={{ workspace: productMode, tab: activeTab, recordSection, leaderboard, selectedPlayer }}
+      onVote={openCompanionVote}
+      onFixture={productMode === "matchday" ? () => switchProductMode("clubs", "matches") : undefined} />
     {modeTransition && <WorkspaceTransition {...modeTransition} onPhaseDone={advanceWorkspaceTransition} />}
   </>;
 }

@@ -2,6 +2,7 @@ const workspaceSelector = "[data-companion-world]";
 const unavailableSelector = '[inert], [hidden], [aria-hidden="true"], [data-companion-surface="off"]';
 const clippingOverflow = /^(auto|clip|hidden|scroll)$/;
 export const clubsPeekSelector = ".clubs-view-filters, .clubs-admin-mobile-bar";
+export const platformSelector = '[data-companion-surface]:not([data-companion-surface="companion-seat"])';
 
 function visibleTab(element, viewport, clips) {
   if (element.closest(unavailableSelector) || element.checkVisibility?.({ visibilityProperty: true }) === false) return null;
@@ -74,13 +75,22 @@ export function readCompanionWorld(stage, rails, bodyHeight) {
   const seat = workspace.querySelector('[data-companion-surface="companion-seat"]');
   const seatBounds = seat && visibleTab(seat, viewport, clips);
   const perch = seatBounds && seatBounds.top >= viewport.top + bodyHeight ? seatBounds : null;
-  const surfaces = vertical ? [] : tabs.toSorted((a, b) => a.top - b.top);
+  const currentPane = workspace.querySelector('[data-pane="current"]') || workspace;
+  const header = workspace.querySelector('[data-companion-surface="companion-seat"]')?.closest(".account-bar");
+  const playTop = Math.max(viewport.top, header?.getBoundingClientRect().bottom ?? viewport.top);
+  const playBottom = Math.min(viewport.bottom, !vertical && footing != null ? footing : viewport.bottom);
+  const platforms = [...currentPane.querySelectorAll(platformSelector)]
+    .map(element => visibleTab(element, viewport, clips))
+    .filter(surface => surface && surface.top >= playTop + bodyHeight && surface.top < playBottom - 8);
+  const surfaces = [...platforms, ...(vertical ? [] : tabs)].sort((a, b) => a.top - b.top);
   const contentTabs = clubs ? [...workspace.querySelectorAll(".clubs-view-filters > button:not(:disabled)")]
     .map(element => visibleTab(element, viewport, clips))
     .filter(tab => tab && tab.top >= viewport.top + bodyHeight * .65 &&
       (dockTop == null || tab.bottom <= dockTop)) : [];
   const peekTabs = [...contentTabs, ...tabs.filter(tab => tab.top >= viewport.top + bodyHeight * .65)];
-  return { ...viewport, workspace, clubs, tabs, surfaces, contentTabs, peekTabs, dockTop, perch, vertical, blocked };
+  const pitch = currentPane.querySelector("[data-companion-pitch]");
+  return { ...viewport, workspace, clubs, tabs, surfaces, platforms, contentTabs, peekTabs, dockTop, perch, vertical, blocked,
+    pitch: pitch?.closest(unavailableSelector) ? null : pitch, playTop, playBottom };
 }
 
 export const clamp = (value, min, max) => Math.max(min, Math.min(value, max));
@@ -166,9 +176,12 @@ function stepFlight(actor, world, dt, radius) {
       // Gaps between mobile dock buttons are still part of the same platform.
       const x = actor.x;
       const distance = tab => Math.abs(clamp(x, tab.left, tab.right) - x);
-      landing = world.surfaces.reduce((nearest, tab) => distance(tab) < distance(nearest) ? tab : nearest);
-      const inset = Math.min(radius * .36, (landing.right - landing.left) / 4);
-      actor.x = clamp(x, landing.left + inset, landing.right - inset);
+      const dock = world.surfaces.filter(tab => tab.top === dockTop);
+      landing = dock.reduce((nearest, tab) => distance(tab) < distance(nearest) ? tab : nearest, dock[0]);
+      if (landing) {
+        const inset = Math.min(radius * .36, (landing.right - landing.left) / 4);
+        actor.x = clamp(x, landing.left + inset, landing.right - inset);
+      }
     }
     actor.surface = landing ? landing.element : null;
     actor.y = landing ? landing.top : floor;

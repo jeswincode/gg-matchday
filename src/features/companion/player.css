@@ -266,3 +266,19 @@
   .gg-footballer[data-action="sky"] .gg-player-arm--left { rotate: 160deg; }
   .gg-footballer[data-action="sky"] .gg-player-arm--right { rotate: -160deg; }
 }
+
+.gg-player-overhead, .gg-player-grab-arm { display: none; }
+[data-pose="pitch"] .gg-player-overhead { display: inline; }
+[data-pose="pitch"] .gg-footballer > :not(.gg-player-overhead) { display: none; }
+.gg-overhead-turn { transform-origin: 27px 32px; rotate: var(--pitch-facing, 0deg); }
+[data-pitch-walk] .gg-overhead-step { animation: gg-overhead-step 430ms steps(4, end) infinite alternate; }
+[data-pitch-walk] .gg-overhead-step--right { animation-direction: alternate-reverse; }
+@keyframes gg-overhead-step { from { translate: 0 -4px; } to { translate: 0 3px; } }
+[data-grab-side] .gg-player-grab-arm { display: inline; }
+[data-grab-side="right"] .gg-player-arm--right,
+[data-grab-side="left"] .gg-player-arm--left { opacity: 0; }
+[data-grab-side] .gg-player-leg--left { rotate: calc(7deg + var(--player-lean, 0deg) * .48); }
+[data-grab-side] .gg-player-leg--right { rotate: calc(-11deg + var(--player-lean, 0deg) * .72); }
+@media (prefers-reduced-motion: reduce) {
+  [data-pitch-walk] .gg-overhead-step { animation: none; }
+}
