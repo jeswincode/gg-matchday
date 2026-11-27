@@ -95,7 +95,7 @@ function localDateString(
   return `${year}-${month}-${day}`;
 }
 
-function App() {
+function App({ onCommunities, globalPlayerId }) {
   const dockDrag = useDockDrag();
   const [experience,setExperience]=useState('startup');
   const [mobileEntry] = useState(() => window.matchMedia("(max-width: 767px), (hover: none) and (pointer: coarse)").matches);
@@ -2075,7 +2075,7 @@ function App() {
       </section>
     </main>;
   } else if (productMode === "clubs") {
-    workspaceContent = <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin}
+    workspaceContent = <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} onCommunities={onCommunities} authUser={backendUser} isAdmin={isAdmin}
       adminEntry={clubsAdminEntry} onOpenOwnProfile={linkedPlayerId ? openOwnProfile : null}
       openingOwnProfile={openingOwnProfile} ownProfileError={linkedPlayerId ? ownProfileError : ""} />;
   } else if (activeExperience === "entry") {
@@ -2103,7 +2103,7 @@ function App() {
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={() => switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions">{onCommunities && <button type="button" className="secondary-button" onClick={onCommunities}>Communities</button>}<button className="secondary-button" type="button" onClick={() => switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2543,7 +2543,7 @@ function App() {
 
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
       {modal === "account" && authUser && <AccountProfileSettings
-        account={authUser} role={backendUser?.role} linked={Boolean(linkedPlayerId)} clasicoSide={clasicoSide}
+        account={authUser} role={backendUser?.role} linked={Boolean(linkedPlayerId)} clasicoSide={clasicoSide} globalPlayerId={globalPlayerId}
         theme={theme} onTheme={setTheme}
         key={accountId || authUser.uid} companion={backendUser?.companion}
         onCompanionSave={accountId ? companion => setBackendUser(current =>

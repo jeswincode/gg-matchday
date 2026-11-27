@@ -36,6 +36,10 @@ export function refreshLiveTopics(topics) {
 }
 
 export function subscribeToAccountUpdates() {
+  return subscribeToLiveUpdates("/live/account", accountTopics);
+}
+
+export function subscribeToLiveUpdates(path, topics, onProfile) {
   const controller = new AbortController();
   let retry;
   let delay = 1_000;
@@ -43,13 +47,13 @@ export function subscribeToAccountUpdates() {
   let opened = false;
 
   function refresh() {
-    if (!document.hidden) refreshLiveTopics(accountTopics);
+    if (!document.hidden) refreshLiveTopics(topics);
   }
 
   async function connect() {
     if (controller.signal.aborted) return;
     try {
-      const response = await authenticatedFetch(API_URL + "/live/account", { signal: controller.signal });
+      const response = await authenticatedFetch(API_URL + path, { signal: controller.signal });
       if (!response.ok || !response.body) throw new Error("Account updates unavailable.");
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
       try {
@@ -69,8 +73,13 @@ export function subscribeToAccountUpdates() {
               opened = true;
             } else if (event === "event: data-updated" && data?.startsWith("data: ")) {
               try {
-                const topics = JSON.parse(data.slice(6));
-                if (Array.isArray(topics)) refreshLiveTopics(topics.filter(topic => accountTopics.includes(topic)));
+                const changed = JSON.parse(data.slice(6));
+                if (Array.isArray(changed)) refreshLiveTopics(changed.filter(topic => topics.includes(topic)));
+              } catch { /* Ignore malformed frames. */ }
+            } else if (onProfile && event === "event: profile-updated" && data?.startsWith("data: ")) {
+              try {
+                const { playerId } = JSON.parse(data.slice(6));
+                if (/^[a-f0-9]{24}$/i.test(String(playerId))) onProfile(String(playerId));
               } catch { /* Ignore malformed frames. */ }
             }
           }

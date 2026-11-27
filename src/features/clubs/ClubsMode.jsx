@@ -185,7 +185,7 @@ function formationNextStep(application, playerId) {
 }
 
 export default function ClubsMode({
-  onReturnToMatchday, authUser, isAdmin = false, adminEntry, onOpenOwnProfile, openingOwnProfile, ownProfileError,
+  onReturnToMatchday, onCommunities, authUser, isAdmin = false, adminEntry, onOpenOwnProfile, openingOwnProfile, ownProfileError,
 }) {
   const [adminWorkspace, setAdminWorkspace] = useState(Boolean(adminEntry));
   const adminOnlyView = Boolean(isAdmin && (adminWorkspace || !authUser?.playerProfile));
@@ -1248,6 +1248,7 @@ export default function ClubsMode({
           <div><span>GG MATCHDAY</span><h1>{adminOnlyView ? "Clubs Admin" : "Club Hub"}</h1></div>
         </div>
         <div className="clubs-header-actions">
+          {onCommunities && <button type="button" className="clubs-secondary-button" onClick={onCommunities}>Communities</button>}
           {onOpenOwnProfile && <button className="clubs-secondary-button" type="button" disabled={openingOwnProfile}
             onClick={onOpenOwnProfile}>{openingOwnProfile ? "Opening…" : "Player Profile"}</button>}
           <button type="button" className="clubs-return-button" onClick={onReturnToMatchday}>← Matchday</button>

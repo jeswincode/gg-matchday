@@ -12,11 +12,13 @@ import './own-goals-ui.css'
 import './news-scroll.css'
 import './components/notifications.css'
 import App from './App.jsx'
+import { communitiesEnabled } from './lib/api'
+import CommunityPortal from './features/communities/CommunityPortal.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <>
-      <App />
+      {communitiesEnabled ? <CommunityPortal Matchday={App} /> : <App />}
       <footer className="pr-footer">Made by <strong>Jeswin</strong></footer>
     </>
   </StrictMode>,

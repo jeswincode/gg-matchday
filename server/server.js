@@ -10,6 +10,7 @@ import {closeLiveData} from './services/liveData.js';
 import {migrateV4ProfileLinks} from './services/profileLinks.js';
 import ClubMatch from './models/clubs/ClubMatch.js';
 import {ensureCreditBank} from './services/clubCreditBetting.js';
+import {prepareCommunityPlatform} from './services/communityPlatform.js';
 
 async function startServer(){
   try{
@@ -18,6 +19,7 @@ async function startServer(){
     }
     await mongoose.connect(process.env.MONGODB_URI);
     await migrateV4ProfileLinks(mongoose.connection);
+    await prepareCommunityPlatform();
     console.log('MongoDB connected');
 
     try {

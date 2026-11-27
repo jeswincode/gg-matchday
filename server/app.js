@@ -31,6 +31,8 @@ import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
 import ratingExplanationRoutes from "./routes/ratingExplanations.js";
 import ratingDisputeRoutes from "./routes/ratingDisputes.js";
 import { observeRequestMiddleware } from "./services/requestHealth.js";
+import communityRoutes from "./routes/communities.js";
+import { canEnterFounding, communitiesEnabled } from "./services/communityPlatform.js";
 
 dotenv.config();
 
@@ -60,6 +62,20 @@ app.use((req, res, next) => {
 app.use(observeRequestMiddleware);
 app.use(cors(createCorsOptions()));
 app.use(express.json({limit:"64kb"}));
+app.use("/api/communities", communityRoutes);
+app.use("/api", (req, res, next) => {
+  if (!communitiesEnabled() || ["/health", "/auth/me", "/world/appearance"].includes(req.path)) return next();
+  res.set("Cache-Control", "private, no-store");
+  return requireAuth(req, res, async error => {
+    if (error) return next(error);
+    try {
+      if (!await canEnterFounding(req)) return res.status(403).json({ message: "Join GG Matchday to access this workspace." });
+      next();
+    } catch (failure) {
+      next(failure);
+    }
+  });
+});
 app.use("/api/chat", chatRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/notifications", notificationRoutes);
@@ -116,6 +132,7 @@ app.get("/api/health", async (req, res) => {
     revision: process.env.RENDER_GIT_COMMIT || undefined,
     database: coreConnected ? "connected" : "disconnected",
     clubsDatabase: clubsConnected ? "connected" : "disconnected",
+    ...(communitiesEnabled() ? { communities: true } : {}),
   });
 });
 

@@ -2,6 +2,7 @@ import {auth} from '../firebase';
 
 const VITE_ENV = import.meta.env || {};
 export const API_URL = VITE_ENV.VITE_API_URL || 'http://localhost:5000/api';
+export const communitiesEnabled = VITE_ENV.VITE_V42_COMMUNITIES === 'true';
 const cache = new Map();
 const pending = new Map();
 let cacheRevision = 0;
@@ -101,9 +102,9 @@ export async function authenticatedFetch(url, options = {}) {
   return fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
 }
 
-export async function api(path, { method = 'GET', body, signal, publicRead = false, ...options } = {}) {
+export async function api(path, { method = 'GET', body, signal, publicRead = false, headers, ...options } = {}) {
   const normalizedMethod = String(method || 'GET').toUpperCase();
-  const anonymous = publicRead && normalizedMethod === 'GET';
+  const anonymous = !communitiesEnabled && publicRead && normalizedMethod === 'GET';
   const key = `${anonymous ? 'anonymous' : auth?.currentUser?.uid || 'public'}:${path}`;
   const hit = cache.get(key);
   if (normalizedMethod === 'GET' && !signal && hit && hit.until > Date.now()) return hit.data;
@@ -119,6 +120,7 @@ export async function api(path, { method = 'GET', body, signal, publicRead = fal
         method: normalizedMethod,
         signal,
         headers: {
+          ...headers,
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(anonymous ? {} : e2eAuthHeaders()),

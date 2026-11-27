@@ -30,6 +30,13 @@ Profile administration lists unlinked player accounts. The API excludes administ
 
 Take the next user-selected feature through local implementation, focused tests, desktop and mobile validation, V4 preview deployment, and a preview smoke check before moving on. Follow the [repository instructions](../AGENTS.md) for exact validation commands. Record any deployment lag between Vercel and Render. For performance work, measure the affected interaction and API requests before and after the change.
 
+## Community preview
+
+- The V4.2 preview opens the community directory after Google sign-in. The original Matchday and Clubs routes belong to the founding **GG Matchday** community. An existing verified one-to-one account link grants membership automatically. The verified site administrator can open and manage GG Matchday without a linked player. Other private communities require membership, including for the site administrator.
+- Users receive a stable global player ID in the preview registry. They can create a private community, redeem a single-use invitation code, or send a request using a community's request link. Owners approve or decline incoming requests. New community records use scoped collections. Members can record a score, add player performances, and see official results in the calendar and leaderboard. A member's submission requires organizer approval.
+- The isolated preview API uses the existing preview Firebase project and core database. The frontend build uses `VITE_V42_COMMUNITIES=true`. For local testing set `V42_COMMUNITIES=true` on the API and the Vite flag on the client, or run Playwright with `--config playwright.communities.config.js`.
+- Legacy GG data keeps its existing player and match IDs. If a separate Firebase project is used, run [the preview identity importer](../scripts/import-preview-community-links.mjs) only with an approved private manifest from a verified source export. Each row contains `playerId`, `firebaseUid`, `email`, and `emailVerified: true`. The importer rejects competing links, missing preview players and non-preview database targets. A matching verified Google email claims the link on sign-in. Keep the manifest outside Git and resolve ambiguous links before importing.
+
 ## Live data and performance
 
 - The desktop Matchday welcome shows only the bottom-left **PRESS TO CONTINUE** prompt while the entry video is absent. After startup on mobile, **Enter Fullscreen** requests fullscreen for the entire document. Browsers that decline the request offer **Continue in browser**. Set `VITE_MATCHDAY_INTRO_VIDEO` on the frontend to add a muted background video to both entry screens. The mobile prompt dims the video.

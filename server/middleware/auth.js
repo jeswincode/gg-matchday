@@ -17,6 +17,7 @@ export async function requireAuth(
   res,
   next
 ) {
+  if (req.user && req.firebaseUser) return next();
   let verifiedIdentity = false;
   try {
     const testToken = String(req.headers["x-e2e-test-token"] || "");

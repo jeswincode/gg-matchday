@@ -2,13 +2,14 @@ import CompanionSettings from "../companion/CompanionSettings";
 import Modal from "../../components/Modal";
 
 export default function AccountProfileSettings({
-  account, role, linked, theme, onTheme, onOpenPlayer, onEditPlayer,
+  account, role, linked, theme, onTheme, onOpenPlayer, onEditPlayer, globalPlayerId,
   canEdit, opening, error, onClose, companion, clasicoSide, onCompanionSave,
 }) {
   return <Modal title="Account profile settings" onClose={onClose} className="gg-account-settings">
     <dl className="gg-account-details">
       <div><dt>Name</dt><dd>{account.displayName || "GG Matchday User"}</dd></div>
       {account.email && <div><dt>Email</dt><dd>{account.email}</dd></div>}
+      {globalPlayerId && <div><dt>Global player ID</dt><dd>{globalPlayerId}</dd></div>}
       <div><dt>Account role</dt><dd className="gg-account-role">{role || "viewer"}</dd></div>
     </dl>
     <section className="gg-account-setting">
