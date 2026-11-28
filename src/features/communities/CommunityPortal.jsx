@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { getRedirectResult, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { auth, googleProvider } from "../../firebase";
 import { invalidateResources, setMatchdayWorkspace } from "../../lib/api";
 import CommunityForm from "./CommunityForm";
@@ -14,6 +14,8 @@ import "./communities.css";
 
 const testIdentity = import.meta.env.VITE_E2E_TEST_AUTH_SECRET &&
   new URLSearchParams(window.location.search).get("e2eRole") !== "guest";
+const redirectErrors = new Set(["auth/popup-blocked", "auth/popup-timeout",
+  "auth/operation-not-supported-in-this-environment", "auth/cancelled-popup-request"]);
 
 function initialTheme() {
   try { return localStorage.getItem("gg-theme") === "golden" ? "golden" : "dark"; }
@@ -239,7 +241,8 @@ export default function CommunityPortal({ Matchday }) {
 
   useEffect(() => {
     if (!auth || testIdentity) return;
-    return onAuthStateChanged(auth, value => {
+    let active = true;
+    const unsubscribe = onAuthStateChanged(auth, value => {
       invalidateResources();
       setUser(value);
       setLoading(false);
@@ -247,6 +250,15 @@ export default function CommunityPortal({ Matchday }) {
       setError("Sign-in could not load. Refresh and try again.");
       setLoading(false);
     });
+    void getRedirectResult(auth).then(result => {
+      if (active && result?.user) setStage("access");
+    }).catch(() => {
+      if (active) {
+        setError("Sign-in was interrupted. Try again.");
+        setStage("access");
+      }
+    });
+    return () => { active = false; unsubscribe(); };
   }, []);
 
   useEffect(() => {
@@ -263,7 +275,13 @@ export default function CommunityPortal({ Matchday }) {
   async function login() {
     setBusy(true);
     setError("");
-    try { await signInWithPopup(auth, googleProvider); }
+    try {
+      try { await signInWithPopup(auth, googleProvider); }
+      catch (failure) {
+        if (!redirectErrors.has(failure?.code)) throw failure;
+        await signInWithRedirect(auth, googleProvider);
+      }
+    }
     catch { setError("Sign-in was interrupted. Try again."); }
     finally { setBusy(false); }
   }

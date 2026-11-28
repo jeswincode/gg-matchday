@@ -109,6 +109,24 @@ export function projectileY(from, to, elapsed, duration) {
   return from + launchVelocity * elapsed + companionGravity * elapsed * elapsed / 2;
 }
 
+function gripRail(actor, world, edge, radius) {
+  const reach = radius * .54;
+  actor.rail = edge;
+  actor.edge = edge + "-rail";
+  actor.x = edge === "left" ? world.left + reach : world.right - reach;
+  actor.cling = .13;
+  actor.vx = 0;
+  actor.vy = clamp(actor.vy, 85, 235);
+  actor.pose = "slide";
+}
+
+export function gripReleasedCompanion(actor, world, pointerX, radius) {
+  if (!world.railMode || world.clubs || actor.y >= world.bottom - radius) return;
+  const reach = radius * .72;
+  if (pointerX <= world.left + reach) gripRail(actor, world, "left", radius);
+  else if (pointerX >= world.right - reach) gripRail(actor, world, "right", radius);
+}
+
 function stepFlight(actor, world, dt, radius) {
   const left = world.left + radius;
   const right = world.right - radius;
@@ -148,12 +166,7 @@ function stepFlight(actor, world, dt, radius) {
     const grip = world.railMode;
     actor.edge = grip ? edge + "-rail" : edge + "-bounce";
     if (grip && actor.y < floor - 4 && Math.abs(actor.vx) > 145) {
-      actor.rail = edge;
-      actor.x = edge === "left" ? world.left + reach : world.right - reach;
-      actor.cling = .13;
-      actor.vx = 0;
-      actor.vy = clamp(actor.vy, 85, 235);
-      actor.pose = "slide";
+      gripRail(actor, world, edge, radius);
       return;
     }
     actor.vx *= -.64;

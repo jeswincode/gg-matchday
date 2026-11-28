@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { jumpDuration, projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
+import { gripReleasedCompanion, jumpDuration, projectileY, stepCompanion } from "../src/features/companion/companionWorld.js";
 import { celebrationDestination } from "../src/features/companion/companionCelebration.js";
 import { touchMenuAction, touchMenuLayout } from "../src/features/companion/companionTouchLayout.js";
 import { recoveryTab } from "../src/features/companion/companionSkills.js";
@@ -63,11 +63,21 @@ test("a wall volley recovers to navigation while a direct throw can land on a hi
   assert.equal(recoveryTab(room, { ...sliding, y: 330 }), undefined);
   assert.equal(recoveryTab(room, { ...sliding, y: 529 }), dock);
   assert.equal(recoveryTab({ ...room, tabs: [] }, { ...sliding, y: 529 }), undefined);
+  assert.equal(recoveryTab(room, { ...sliding, rail: "", y: 529 }), undefined);
   const direct = flying({ x: 95, y: 270, vx: 0, vy: 420 });
   assert.equal(recoveryTab(room, direct), undefined);
   for (let i = 0; i < 4; i++) stepCompanion(direct, room, .016, 12);
   assert.equal(direct.surface, panel.element);
   assert.equal(direct.y, panel.top);
+});
+
+test("a slow release against a desktop rail grips while a mobile edge stays free", () => {
+  for (const [railMode, expected] of [[true, "left"], [false, undefined]]) {
+    const actor = flying({ x: 26, y: 200, vx: 0, vy: 50 });
+    gripReleasedCompanion(actor, { ...field, railMode }, 12, 26);
+    assert.equal(actor.rail, expected);
+    assert.equal(actor.pose, railMode ? "slide" : "air");
+  }
 });
 
 test("an upward throw has an apex followed by falling", () => {
