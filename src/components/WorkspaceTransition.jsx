@@ -1,3 +1,4 @@
+import { useWorkspaceBrand } from "../features/communities/WorkspaceBrand.jsx";
 import { useEffect, useEffectEvent } from "react";
 
 const timing = { covering: 180, covered: 130, revealing: 230 };
@@ -21,9 +22,13 @@ export default function WorkspaceTransition({ workspace, phase, onPhaseDone }) {
         }} />
       <div className="gg-workspace-shutter gg-workspace-shutter--bottom" />
       <div className="gg-workspace-mark">
-        <span className="gg-workspace-monogram">GG</span>
+        <WorkspaceMonogram />
         <span className="gg-workspace-destination">{workspace === "clubs" ? "Clubs" : "Matchday"}</span>
       </div>
     </div>
   );
+}
+
+function WorkspaceMonogram() {
+  return <span className="gg-workspace-monogram">{useWorkspaceBrand().monogram}</span>;
 }

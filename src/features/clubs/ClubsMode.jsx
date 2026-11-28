@@ -184,9 +184,12 @@ function formationNextStep(application, playerId) {
   return null;
 }
 
+import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
+
 export default function ClubsMode({
-  onReturnToMatchday, authUser, isAdmin = false, adminEntry, onOpenOwnProfile, openingOwnProfile, ownProfileError,
+  onReturnToMatchday, onCommunities, onCommunitySettings, authUser, isAdmin = false, adminEntry, onOpenOwnProfile, openingOwnProfile, ownProfileError,
 }) {
+  const brand = useWorkspaceBrand();
   const [adminWorkspace, setAdminWorkspace] = useState(Boolean(adminEntry));
   const adminOnlyView = Boolean(isAdmin && (adminWorkspace || !authUser?.playerProfile));
   const [clubs, setClubs] = useState([]);
@@ -1244,10 +1247,12 @@ export default function ClubsMode({
       data-page-swipes={adminOnlyView ? undefined : ""} data-companion-world>
       <header className="clubs-topbar clubs-compact-header">
         <div className="clubs-header-identity">
-          <span><ClubCrest club={currentClub} name={currentClub?.name || "GG"} /></span>
-          <div><span>GG MATCHDAY</span><h1>{adminOnlyView ? "Clubs Admin" : "Club Hub"}</h1></div>
+          <span><ClubCrest club={currentClub} name={currentClub?.name || brand.monogram} /></span>
+          <div><span>{brand.name.toUpperCase()}</span><h1>{adminOnlyView ? "Clubs Admin" : "Club Hub"}</h1></div>
         </div>
         <div className="clubs-header-actions">
+          {onCommunities && <button type="button" className="clubs-secondary-button" onClick={onCommunities}>Communities</button>}
+          {onCommunitySettings && <button type="button" className="clubs-secondary-button" onClick={onCommunitySettings}>Community settings</button>}
           {onOpenOwnProfile && <button className="clubs-secondary-button" type="button" disabled={openingOwnProfile}
             onClick={onOpenOwnProfile}>{openingOwnProfile ? "Opening…" : "Player Profile"}</button>}
           <button type="button" className="clubs-return-button" onClick={onReturnToMatchday}>← Matchday</button>
@@ -1598,7 +1603,7 @@ export default function ClubsMode({
             const requested = joinRequests.some(request => String(request.clubId) === String(club._id) && String(request.playerId) === currentPlayerId && request.status === "pending");
             return <article className="club-card clubs-hub-club-card" key={club._id}>
               <ClubCrest club={club} name={club.name} />
-              <div className="clubs-hub-club-card-main"><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><p>{club.description || "A GG Matchday Club with a permanent squad, match history and shared budget."}</p><span>{club.memberIds?.length || 0}/6 players · {full ? "Squad full" : "Open roster"}</span></div>
+              <div className="clubs-hub-club-card-main"><p className="clubs-eyebrow">OFFICIAL CLUB</p><h3>{club.name}</h3><p>{club.description || `A ${brand.name} club with a permanent squad, match history and shared budget.`}</p><span>{club.memberIds?.length || 0}/6 players · {full ? "Squad full" : "Open roster"}</span></div>
               <div className="clubs-hub-club-card-action">{isMember ? <span className="clubs-hub-membership-state">Your Club</span> :
                 !full && currentPlayerId && !currentClub && (requested ? <span className="clubs-hub-membership-state">Request pending</span> :
                   <button type="button" className="clubs-primary-button" disabled={busyId === club._id} onClick={() => sendJoinRequest(club._id)}>{busyId === club._id ? "Sending…" : "Request to Join"}</button>)}</div>
@@ -2149,14 +2154,14 @@ export default function ClubsMode({
                       aria-controls={"admin-club-roster-" + clubId}
                       onClick={() => setExpandedAdminClubId(expanded ? null : clubId)}
                     >
-                      <span className="clubs-admin-directory-mark" aria-hidden="true">GG</span>
+                      <span className="clubs-admin-directory-mark" aria-hidden="true">{brand.monogram}</span>
                       <span className="clubs-admin-directory-copy">
                         <span className="clubs-admin-directory-meta">
                           <span className="clubs-admin-directory-status" data-status={String(club.status || "unknown")}>{String(club.status || "unknown").replace(/([A-Z])/g, " $1")}</span>
                           <span>{club.memberCount || club.memberIds?.length || 0}/6 players</span>
                         </span>
                         <strong>{club.name || "Unnamed Club"}</strong>
-                        <small>{club.description || "A registered GG Matchday Club and its current squad."}</small>
+                        <small>{club.description || `A registered ${brand.name} club and its current squad.`}</small>
                         <span className="clubs-admin-directory-captains">{club.captainCount || club.captainIds?.length || 0} captain(s) · Squad OVR {club.squadOvr ?? "—"}</span>
                       </span>
                       <span className="clubs-admin-directory-wallet">
@@ -2317,7 +2322,7 @@ export default function ClubsMode({
                 <div className="clubs-command-title">
                   <p className="clubs-eyebrow">MY CLUB / DASHBOARD</p>
                   <div className="clubs-title-row">
-                    <div className="clubs-club-crest" aria-hidden="true">GG</div>
+                    <div className="clubs-club-crest" aria-hidden="true">{brand.monogram}</div>
                     <div>
                       <h2>{currentClub.name}</h2>
                       <span>{currentClub.memberIds?.length || 0}/6 players · {currentClub.captainIds?.length || 0} captain(s)</span>

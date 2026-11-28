@@ -19,6 +19,8 @@ const { connectClubsDatabase, disconnectClubsDatabase } = await import("../../se
 await connectClubsDatabase();
 
 const { default: app } = await import("../../server/app.js");
+const { prepareCommunityPlatform } = await import("../../server/services/communityPlatform.js");
+await prepareCommunityPlatform();
 const { closeLiveData } = await import("../../server/services/liveData.js");
 const { default: Player } = await import("../../server/models/Player.js");
 const { default: Match } = await import("../../server/models/Match.js");

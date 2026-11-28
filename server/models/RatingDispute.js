@@ -1,3 +1,4 @@
+import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 
 const historyEntrySchema = new mongoose.Schema({
@@ -45,4 +46,4 @@ ratingDisputeSchema.index(
 ratingDisputeSchema.index({ status: 1, createdAt: -1 });
 ratingDisputeSchema.index({ match: 1, player: 1, createdAt: -1 });
 
-export default mongoose.models.RatingDispute || mongoose.model("RatingDispute", ratingDisputeSchema);
+export default workspaceModel(mongoose.models.RatingDispute || mongoose.model("RatingDispute", ratingDisputeSchema));

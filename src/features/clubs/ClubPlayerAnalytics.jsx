@@ -1,3 +1,4 @@
+import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
 import { useMemo, useState } from "react";
 import Modal from "../../components/Modal";
 import useResource from "../../components/useResource";
@@ -147,6 +148,7 @@ function ResultBadge({ result }) {
 }
 
 export default function ClubPlayerAnalytics({ playerId, isCaptain = false, onClose }) {
+  const brand = useWorkspaceBrand();
   const performance = useResource("/stats/player/" + playerId + "/performance");
   const attributesResource = useResource("/players/" + playerId + "/attributes");
   const clubResource = useResource("/clubs/player/" + playerId + "/analytics");
@@ -174,7 +176,7 @@ export default function ClubPlayerAnalytics({ playerId, isCaptain = false, onClo
     <Modal title={identityName + " · Player Card & Analytics"} onClose={onClose} className="clubs-player-analytics-modal">
       <div className="club-player-analytics" data-player-analytics>
         {loading ? (
-          <div className="club-analytics-state" role="status"><span className="club-analytics-loading-mark">GG</span><strong>Building player view…</strong><p>Loading Matchday performance, player attributes and Clubs career.</p></div>
+          <div className="club-analytics-state" role="status"><span className="club-analytics-loading-mark">{brand.monogram}</span><strong>Building player view…</strong><p>Loading Matchday performance, player attributes and Clubs career.</p></div>
         ) : (
           <>
             {anyError && (
@@ -185,7 +187,7 @@ export default function ClubPlayerAnalytics({ playerId, isCaptain = false, onClo
             <section className="club-analytics-hero">
               <div className="club-analytics-player-card">
                 <div className="club-analytics-card-top">
-                  <span className="club-analytics-mark">GG</span>
+                  <span className="club-analytics-mark">{brand.monogram}</span>
                   <span className="club-analytics-card-position">{attributeData.position || player?.position || "PLAYER"}</span>
                 </div>
                 <div className="club-analytics-player-identity">
@@ -207,9 +209,9 @@ export default function ClubPlayerAnalytics({ playerId, isCaptain = false, onClo
               <div className="club-analytics-hero-detail">
                 <p className="clubs-eyebrow">PLAYER PERFORMANCE PROFILE</p>
                 <h3>{player?.name ? "A view grounded in recorded matches" : "Verified player data"}</h3>
-                <p className="club-analytics-muted">Current OVR describes the six-attribute player card. GG Rating and Defensive Rating stay separate and follow their existing Matchday rules.</p>
+                <p className="club-analytics-muted">Current OVR describes the six-attribute player card. {brand.rating} and Defensive Rating stay separate and follow their existing Matchday rules.</p>
                 <div className="club-analytics-metrics-grid">
-                  <Metric label="GG Rating" value={displayNumber(stats.ggRating, 2)} detail="Matchday rating" />
+                  <Metric label={brand.rating} value={displayNumber(stats.ggRating, 2)} detail="Matchday rating" />
                   <Metric label="Avg Match Rating" value={displayNumber(analytics?.totals?.performanceRating, 2)} detail="Rated appearances only" />
                   <Metric label="Current Form" value={analytics?.totals?.form == null ? "—" : Math.round(analytics.totals.form) + "%"} detail="Recent five-match window" />
                   <Metric label="Win Rate" value={analytics ? percentage(analytics.totals.winRate) : "—"} detail={(analytics?.totals?.wins ?? 0) + " wins · " + (analytics?.totals?.draws ?? 0) + " draws · " + (analytics?.totals?.losses ?? 0) + " losses"} />
@@ -240,7 +242,7 @@ export default function ClubPlayerAnalytics({ playerId, isCaptain = false, onClo
                     <Metric label="Clean Sheets" value={analytics?.totals?.cleanSheets ?? "—"} />
                     <Metric label="Wins" value={analytics?.totals?.wins ?? "—"} />
                     <Metric label="Match Rating" value={displayNumber(analytics?.totals?.performanceRating, 2)} detail="Average of recorded ratings" />
-                    <Metric label="Defensive Rating" value={displayNumber(stats.defensiveRating, 2)} detail="Kept separate from GG Rating" />
+                    <Metric label="Defensive Rating" value={displayNumber(stats.defensiveRating, 2)} detail={`Separate from ${brand.rating}`} />
                   </div>
                   <div className="club-analytics-form-strip">
                     <div><span>RECENT FORM</span><strong>{timeline.length ? timeline.slice(-5).map(item => item.result || "—").join(" · ") : "Not enough recorded matches"}</strong></div>
@@ -268,7 +270,7 @@ export default function ClubPlayerAnalytics({ playerId, isCaptain = false, onClo
                       <div className="club-analytics-tenures">
                         {clubResource.data.clubs.map(club => (
                           <article className="club-analytics-tenure" key={club.clubId}>
-                            <div className="club-analytics-tenure-mark">{club.logoUrl ? <img src={club.logoUrl} alt="" /> : <span>GG</span>}</div>
+                            <div className="club-analytics-tenure-mark">{club.logoUrl ? <img src={club.logoUrl} alt="" /> : <span>{brand.monogram}</span>}</div>
                             <div className="club-analytics-tenure-copy"><strong>{club.clubName}</strong><span>{club.clubStatus === "archived" ? "Past Club" : "Club career"} · {club.matches} matches · {club.wins} wins</span></div>
                             <strong className="club-analytics-tenure-rating">{displayNumber(club.averageRating, 2)}<small>AVG</small></strong>
                           </article>

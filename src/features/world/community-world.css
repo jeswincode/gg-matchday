@@ -1,0 +1,125 @@
+.gg-modal.gg-world-dialog {
+  width: min(1100px, calc(100vw - 2rem));
+  max-width: none;
+  overflow: auto;
+  max-height: calc(100dvh - 2rem);
+}
+.gg-world-dialog .gg-modal-head { position: relative; }
+.gg-world-shell {
+  padding: .85rem 1rem 1rem;
+  color: var(--signature-ink);
+}
+.gg-campus-heading, .gg-campus-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.gg-campus-heading { margin-bottom: .75rem; }
+.gg-campus-heading h3 { margin: .125rem 0 0; font-size: clamp(1.4rem, 3vw, 2.2rem); line-height: 1.06; }
+.gg-campus-label {
+  margin: 0;
+  color: var(--signature-accent);
+  font-weight: 750;
+  letter-spacing: .14em;
+  font-size: .64rem;
+}
+.gg-world-live {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  border: 1px solid var(--signature-edge);
+  padding: .4rem .65rem;
+  border-radius: 6px;
+  font-size: .75rem;
+}
+.gg-world-live::before { content: ""; width: .45rem; height: .45rem; border-radius: 50%; background: currentColor; }
+.gg-world-live[data-online="true"]::before { background: #8ceda5; }
+.gg-campus-map {
+  position: relative;
+  isolation: isolate;
+  min-height: 360px;
+  height: min(53vh, 550px);
+  border: 1px solid var(--signature-edge);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #263e36;
+  cursor: crosshair;
+}
+.gg-campus-art { display: block; width: 100%; height: 100%; pointer-events: none; }
+.gg-campus-stop {
+  position: absolute;
+  left: var(--stop-x);
+  top: var(--stop-y);
+  translate: -50% 4px;
+  z-index: 1;
+  max-width: 26%;
+  min-height: 28px;
+  padding: .15rem .4rem;
+  border-radius: 4px;
+  border: 1px solid #f0daac77;
+  background: #172522;
+  color: #f6efda;
+  font: inherit;
+  font-size: clamp(.62rem, 1vw, .78rem);
+  font-weight: 700;
+  line-height: 1.15;
+  cursor: pointer;
+}
+.gg-campus-stop[aria-current] { background: #f3e2b7; color: #27261e; }
+.gg-campus-stop:focus-visible, .gg-world-avatar:focus-visible { outline: 2px solid #fff3a6; outline-offset: 3px; }
+.gg-world-avatar {
+  position: absolute;
+  left: var(--world-x, 50%);
+  top: var(--world-y, 91%);
+  z-index: var(--world-depth, 2);
+  translate: calc(-50% + var(--player-lane, 0) * clamp(9px, 1.3vw, 19px)) calc(-95% - var(--player-row, 0) * 13px);
+  display: block;
+  width: clamp(31px, 5vw, 52px);
+  aspect-ratio: 80 / 92;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: visible;
+}
+button.gg-world-avatar { cursor: pointer; }
+.gg-world-avatar[data-selected] .gg-footballer { filter: drop-shadow(0 0 4px #ffec95); }
+.gg-world-name, .gg-world-speech {
+  position: absolute;
+  left: 50%;
+  translate: -50%;
+  width: max-content;
+  max-width: 124px;
+  padding: .13rem .35rem;
+  border-radius: 4px;
+  background: #111c19ed;
+  color: #fff1ce;
+  font: 700 .68rem/1.2 system-ui, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.gg-world-name { bottom: 94%; }
+.gg-world-speech { bottom: calc(94% + 18px); color: #22251e; background: #fbebbc; }
+.gg-world-avatar[data-self] .gg-world-name { background: #464027; }
+.gg-world-name small { opacity: .82; }
+.gg-world-ball { position: absolute; bottom: 0; left: 70%; font-size: .78rem; animation: gg-ball 650ms ease-out both; }
+@keyframes gg-ball { to { translate: 25px -12px; opacity: .2; } }
+.gg-campus-controls { margin: .75rem 0 0; align-items: flex-start; }
+.gg-world-instructions p, .gg-world-note { margin: .35rem 0 0; font-size: .82rem; }
+.gg-world-buttons { display: flex; flex-wrap: wrap; gap: .35rem; }
+.gg-world-buttons button { min-height: 40px; }
+.gg-world-note + button { margin-top: .6rem; }
+@media (max-width: 600px) {
+  .gg-modal.gg-world-dialog { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); }
+  .gg-world-shell { padding: .6rem; }
+  .gg-campus-map { min-height: 310px; height: 47dvh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gg-world-ball { animation: none; }
+}
+
+.gg-world-roster { margin-top: .65rem; display: flex; flex-wrap: wrap; gap: .35rem; }
+.gg-world-roster button[aria-pressed="true"] { color: var(--signature-on-accent); background: var(--signature-accent); }

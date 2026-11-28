@@ -1,3 +1,4 @@
+import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { CLUB_MIN_MEMBERS, CLUB_MAX_MEMBERS, CLUB_STARTING_BALANCE, normalizeClubName } from "../../config/clubsRules.js";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
@@ -60,4 +61,4 @@ clubSchema.pre("validate", function normalizeNameAndValidateMembership() {
 clubSchema.index({ nameNormalized: 1 }, { unique: true });
 clubSchema.index({ status: 1, createdAt: -1 });
 
-export default getClubsConnection().model("Club", clubSchema);
+export default workspaceModel(getClubsConnection().model("Club", clubSchema));

@@ -31,6 +31,9 @@ import playerClubHistoryRoutes from "./routes/playerClubHistory.js";
 import ratingExplanationRoutes from "./routes/ratingExplanations.js";
 import ratingDisputeRoutes from "./routes/ratingDisputes.js";
 import { observeRequestMiddleware } from "./services/requestHealth.js";
+import communityRoutes from "./routes/communities.js";
+import { canEnterFounding, communitiesEnabled } from "./services/communityPlatform.js";
+import { withCommunityWorkspace } from "./services/workspaceAccounts.js";
 
 dotenv.config();
 
@@ -60,29 +63,60 @@ app.use((req, res, next) => {
 app.use(observeRequestMiddleware);
 app.use(cors(createCorsOptions()));
 app.use(express.json({limit:"64kb"}));
-app.use("/api/chat", chatRoutes);
-app.use("/api/weather", weatherRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/matches", matchDetailRoutes);
+app.get("/api/platform", (_req, res) => res.set("Cache-Control", "no-store").json({
+  communities: communitiesEnabled(),
+}));
+app.use("/api/communities", communityRoutes);
+app.use("/api/workspaces/:workspaceId", (req, res, next) => {
+  if (!communitiesEnabled()) return res.sendStatus(404);
+  res.set("Cache-Control", "private, no-store");
+  next();
+}, requireAuth, withCommunityWorkspace, (req, res, next) => {
+  // Reuse the existing route tree only after selecting and authorizing storage.
+  if (/^\/(?:system|communities|workspaces|health)(?:\/|\?|$)/i.test(req.url)) return res.sendStatus(404);
+  req.url = "/api" + req.url;
+  // Express restores a removed mount prefix before exiting a mounted handler.
+  // Route within the same tree without allowing the original prefix to re-enter.
+  return matchday.handle(req, res, error => error ? next(error) : res.sendStatus(404));
+});
+app.use("/api", (req, res, next) => {
+  if (!communitiesEnabled() || ["/health", "/auth/me", "/world/appearance"].includes(req.path)) return next();
+  res.set("Cache-Control", "private, no-store");
+  return requireAuth(req, res, async error => {
+    if (error) return next(error);
+    try {
+      if (!await canEnterFounding(req)) return res.status(403).json({ message: "Join GG Matchday to access this workspace." });
+      next();
+    } catch (failure) {
+      next(failure);
+    }
+  });
+});
+const matchday = express.Router();
+matchday.use("/api/chat", chatRoutes);
+matchday.use("/api/weather", weatherRoutes);
+matchday.use("/api/notifications", notificationRoutes);
+matchday.use("/api/matches", matchDetailRoutes);
 
-app.use("/api/auth", authRoutes);
-app.use("/api/world/appearance", companionAppearance);
-app.use("/api/live", profileLiveRouter);
-app.get("/api/live/account", requireAuth, streamPrivateUpdates);
-app.use("/api/players", playerRoutes);
-app.use("/api/matches", matchRoutes);
-app.use("/api/stats", statsRoutes);
-app.use("/api/news", editorialRoutes);
-app.use("/api/news", newsRoutes);
-app.use("/api/immersive-news", immersiveNewsRoutes);
-app.use("/api/system", systemRoutes);
-app.use("/api/admin/gg", ggAdminRoutes);
-app.use("/api/profile-requests", profileSecurityRoutes);
-app.use("/api/profile-requests", profileRequestRoutes);
-app.use("/api/clubs", clubsRoutes);
-app.use("/api/clubs", playerClubHistoryRoutes);
-app.use("/api/rating-explanations", ratingExplanationRoutes);
-app.use("/api/rating-disputes", ratingDisputeRoutes);
+matchday.use("/api/auth", authRoutes);
+matchday.use("/api/world/appearance", companionAppearance);
+matchday.use("/api/live", profileLiveRouter);
+matchday.get("/api/live/account", requireAuth, streamPrivateUpdates);
+matchday.use("/api/players", playerRoutes);
+matchday.use("/api/matches", matchRoutes);
+matchday.use("/api/stats", statsRoutes);
+matchday.use("/api/news", editorialRoutes);
+matchday.use("/api/news", newsRoutes);
+matchday.use("/api/immersive-news", immersiveNewsRoutes);
+matchday.use("/api/system", systemRoutes);
+matchday.use("/api/admin/gg", ggAdminRoutes);
+matchday.use("/api/profile-requests", profileSecurityRoutes);
+matchday.use("/api/profile-requests", profileRequestRoutes);
+matchday.use("/api/clubs", clubsRoutes);
+matchday.use("/api/clubs", playerClubHistoryRoutes);
+matchday.use("/api/rating-explanations", ratingExplanationRoutes);
+matchday.use("/api/rating-disputes", ratingDisputeRoutes);
+app.use(matchday);
 
 app.get("/api/health", async (req, res) => {
   let coreConnected = false;
@@ -116,6 +150,7 @@ app.get("/api/health", async (req, res) => {
     revision: process.env.RENDER_GIT_COMMIT || undefined,
     database: coreConnected ? "connected" : "disconnected",
     clubsDatabase: clubsConnected ? "connected" : "disconnected",
+    ...(communitiesEnabled() ? { communities: true } : {}),
   });
 });
 

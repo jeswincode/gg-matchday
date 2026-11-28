@@ -1,5 +1,5 @@
-import { API_URL, invalidateResources } from "./api";
-import { matchdayTopics, refreshLiveTopics } from "./liveData";
+import { API_URL, communitiesEnabled, invalidateResources } from "./api";
+import { matchdayTopics, refreshLiveTopics, subscribeToLiveUpdates } from "./liveData";
 
 // One connection per browser page. Events contain only identifiers; canonical
 // player information is fetched from the API after an update notification.
@@ -15,6 +15,13 @@ export function subscribeToProfileUpdates({ onProfile }) {
     if (id) { invalidateResources(["/players"]); void onProfile(id); }
   };
   window.addEventListener("gg-player-updated", changed);
+  if (communitiesEnabled) {
+    const stop = subscribeToLiveUpdates("/live/profile-updates", matchdayTopics, playerId => {
+      invalidateResources(["/players"]);
+      void onProfile(playerId);
+    });
+    return () => { stop(); window.removeEventListener("gg-player-updated", changed); };
+  }
 
   const refreshOnReturn = () => {
     if (!document.hidden) {

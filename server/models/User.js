@@ -1,3 +1,4 @@
+import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { companionOptions } from "../../shared/companion.js";
 
@@ -70,7 +71,7 @@ const userSchema =
 
 userSchema.index({ playerProfile: 1 });
 
-export default mongoose.model(
+export default workspaceModel(mongoose.model(
   "User",
   userSchema
-);
+));

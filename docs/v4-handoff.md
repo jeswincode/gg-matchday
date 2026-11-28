@@ -30,6 +30,19 @@ Profile administration lists unlinked player accounts. The API excludes administ
 
 Take the next user-selected feature through local implementation, focused tests, desktop and mobile validation, V4 preview deployment, and a preview smoke check before moving on. Follow the [repository instructions](../AGENTS.md) for exact validation commands. Record any deployment lag between Vercel and Render. For performance work, measure the affected interaction and API requests before and after the change.
 
+## Community preview
+
+- The V4.2 preview uses the temporary platform name **ballers.** Press to Continue opens sign-in, player setup or the community picker according to the user's session. Account settings let the player edit their display name and globally unique Player ID while preserving the permanent registry key and existing match references.
+- Every community opens the same Matchday and Clubs app. The founding **GG Matchday** community retains its existing records. An existing verified one-to-one account link grants membership and seeds the display name from the linked player. The verified site administrator can open and manage GG Matchday without a link. Access to other communities requires membership for everyone.
+- Owners can invite members or approve join requests through Community settings. The API checks membership before opening the community's Matchday and Clubs collections. Match recording uses the normal editor access workflow. Official records from the previous preview are imported once and prior pending submissions remain reviewable in Community settings. Prior rating scales stay in the original preview records.
+- The isolated preview API uses the existing preview Firebase project and core database. The frontend build uses `VITE_V42_COMMUNITIES=true`. For local testing set `V42_COMMUNITIES=true` on the API and the Vite flag on the client, or run Playwright with `--config playwright.communities.config.js`.
+- Legacy GG data keeps its existing player and match IDs. If a separate Firebase project is used, run [the preview identity importer](../scripts/import-preview-community-links.mjs) only with an approved private manifest from a verified source export. Each row contains `playerId`, `firebaseUid`, `email`, and `emailVerified: true`. The importer rejects competing links, missing preview players and non-preview database targets. A matching verified Google email claims the link on sign-in. Keep the manifest outside Git and resolve ambiguous links before importing.
+
+### Public release
+
+- The official Render service enables communities after it initializes the registry in its existing core database. It retains the official Firebase issuer, roster, match IDs and Clubs database. Verified links provision founding membership on sign-in. Multiple verified accounts linked to one roster player keep their existing access and get separate global identities. A global name edit updates the founding roster name only when one account owns the link.
+- The official Vercel app checks `GET /api/platform` before choosing the entry screen. The old entry remains available while the API rollout is pending or the registry cannot initialize. For a rollback, set `BALLERS_COMMUNITIES_DISABLED=true` on the official Render service and redeploy the current build. This returns the official site to the original entry while retaining all community collections.
+
 ## Live data and performance
 
 - The desktop Matchday welcome shows only the bottom-left **PRESS TO CONTINUE** prompt while the entry video is absent. After startup on mobile, **Enter Fullscreen** requests fullscreen for the entire document. Browsers that decline the request offer **Continue in browser**. Set `VITE_MATCHDAY_INTRO_VIDEO` on the frontend to add a muted background video to both entry screens. The mobile prompt dims the video.
@@ -76,6 +89,14 @@ Take the next user-selected feature through local implementation, focused tests,
 - All three footballers use purple neon trim in Dark and green neon trim on gold in Gold. The locker shows front, left, right, and back views. Iconic Celebrations start from the current tab when supported and vary travel distance. An awake Companion can perform ball juggles, rainbow flicks, stepovers, and wall juggles beside the desktop rails. A desktop wall volley returns the Companion to the bottom navigation. Resting and hidden tabs stop the frame loop.
 - **Games** and **Community World** currently show “Work in Progress.” The multiplayer prototype stays on the V4 branch. The published app mounts the authenticated Companion appearance API.
 - Use `tests/e2e/companion-world.spec.js` with the isolated browser fixture to check the account locker, dock movements, gestures and placeholder.
+
+### Isolated V4.2 preview setup
+
+- Deploy `v4/fresh-start` explicitly to the Preview environment of the `gg-matchday-v42-preview` Vercel project. Point the [stable preview alias](https://gg-matchday-v42-demo.vercel.app/) at that deployment. The branch disables automatic Vercel Git deployments so a push cannot build it under the existing Matchday project.
+- Set `VITE_API_URL` in Vercel Preview to `https://gg-matchday-v42-preview-api.onrender.com/api`. Set `CORS_ORIGINS` on the [preview Render service](https://dashboard.render.com/web/srv-dc2642dg1s2s73935v0g) and authorize `gg-matchday-v42-demo.vercel.app` in the preview Firebase project. Use the same Firebase project for Render's `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` and Vercel's `VITE_FIREBASE_*` settings in [the environment example](../.env.example).
+- In the [preview Atlas project](https://cloud.mongodb.com/v2/6b045f16a5d1925f146876b6), allow the Render service's outbound ranges. Supply `MONGODB_URI` for `gg_matchday_v42_demo` and `CLUBS_MONGODB_URI` for `gg_matchday_v42_demo_clubs`. Render runs `scripts/seed-v42-preview.mjs` before starting the API. The seed checks `V42_PREVIEW_ATLAS_HOST` and both database names before it connects. Repeating it preserves edits to existing records.
+- The Atlas preview contains eight fictional players, two fictional clubs, their contracts, a linked result and an upcoming fixture. It also contains a point-in-time import of 16 public player profiles, 31 Matchday results, two clubs and one completed Club match from the original site's public API. Preview Firebase accounts are created through preview sign-in.
+- Check [preview API health](https://gg-matchday-v42-preview-api.onrender.com/api/health) for both database connections. Sign in and confirm a Companion appearance can be saved and loaded.
 
 ## GG Companion foundation
 

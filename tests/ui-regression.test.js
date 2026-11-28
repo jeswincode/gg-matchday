@@ -16,7 +16,7 @@ test('Player Comparisons keeps its player dependency stable and supports the com
   assert.match(source,/Assists/);
   assert.match(source,/Attacking/);
   assert.match(source,/Defending/);
-  assert.match(source,/GG Rating/);
+  assert.match(source,/brand\.rating/);
   assert.match(source,/Performance trend/);
   assert.match(source,/Recorded match ratings from oldest to newest/);
 });

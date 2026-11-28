@@ -1,3 +1,4 @@
+import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -17,4 +18,4 @@ const clubMatchBetSchema = new mongoose.Schema(
 
 clubMatchBetSchema.index({ clubMatchId: 1, playerId: 1 }, { unique: true });
 
-export default getClubsConnection().model("ClubMatchBet", clubMatchBetSchema);
+export default workspaceModel(getClubsConnection().model("ClubMatchBet", clubMatchBetSchema));

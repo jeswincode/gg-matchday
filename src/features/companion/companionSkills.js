@@ -12,10 +12,7 @@ export function wallJuggle(x, direction, wallX) {
 }
 
 export function recoveryTab(room, actor) {
-  if (room.clubs || !room.railMode || room.vertical || actor.vy < 0 || actor.y >= room.bottom) return;
-  if (actor.rail && actor.cling > 0) return;
-  const landing = room.surfaces.find(tab => actor.x >= tab.left + 3 && actor.x <= tab.right - 3);
-  if (landing && !actor.rail && actor.y <= landing.top + 1) return;
+  if (room.clubs || !room.railMode || room.vertical || !actor.rail || actor.cling > 0 || actor.vy < 0 || actor.y >= room.bottom) return;
   if (!room.tabs.length) return;
   const edge = room.tabs.reduce((nearest, tab) => {
     const distance = tab => Math.abs(clamp(actor.x, tab.left, tab.right) - actor.x);

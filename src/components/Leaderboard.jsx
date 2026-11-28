@@ -1,10 +1,11 @@
 import { useState } from "react";
 import useResource from "./useResource";
 import { PlayerButton, Status } from "./common";
+import { useWorkspaceBrand } from "../features/communities/WorkspaceBrand.jsx";
 import { rating } from "../lib/format";
 
 const positions = ["Attackers", "Midfielders", "Defenders", "Goalkeepers"];
-const columns = ["Rank", "Player", "Position", "MP", "W", "D", "L", "G", "A", "CS", "GG Rating"];
+const columns = ["Rank", "Player", "Position", "MP", "W", "D", "L", "G", "A", "CS"];
 const statKeys = ["matches", "wins", "draws", "losses", "goals", "assists", "cleanSheets"];
 
 function ratingStatus(player) {
@@ -14,6 +15,7 @@ function ratingStatus(player) {
 }
 
 export default function Leaderboard({ onPlayer, onAwards, refreshKey }) {
+  const brand = useWorkspaceBrand();
   const [period, setPeriod] = useState("all");
   const [position, setPosition] = useState("");
   const [clasico, setClasico] = useState(false);
@@ -37,7 +39,7 @@ export default function Leaderboard({ onPlayer, onAwards, refreshKey }) {
 
   return <section className="tab-content gg-leaderboard-view">
     <div className="page-title">
-      <p className="eyebrow">GG RANKINGS</p><h2>Leaderboard</h2><p>Performance. Contribution. Results.</p>
+      <p className="eyebrow">{brand.monogram} RANKINGS</p><h2>Leaderboard</h2><p>Performance. Contribution. Results.</p>
     </div>
     <div className="gg-filters gg-ranking-filters" role="group" aria-label="Leaderboard filters" data-companion-surface="ranking-filters">
       <label>Period<select value={period} onChange={event => setPeriod(event.target.value)}>
@@ -61,11 +63,11 @@ export default function Leaderboard({ onPlayer, onAwards, refreshKey }) {
           <PlayerButton player={player} onPlayer={onPlayer} />
           <strong className="gg-rating">{rating(player.ggRating)} <small>★</small></strong>
         </article>)}
-      </div> : <Status empty={`No eligible rated players yet. ${clasico ? 3 : 5} matches, ratings, and 3 defensive records are needed for the full GG Rating.`} />}
+      </div> : <Status empty={`No eligible rated players yet. ${clasico ? 3 : 5} matches, ratings, and 3 defensive records are needed for the full ${brand.rating}.`} />}
       <div className="gg-table-scroll gg-leaderboard-table-scroll">
         <table className="gg-table gg-leaderboard-table">
           <caption className="sr-only">Player rankings</caption>
-          <thead><tr>{columns.map(label => <th key={label}>{label}</th>)}</tr></thead>
+          <thead><tr>{[...columns, brand.rating].map(label => <th key={label}>{label}</th>)}</tr></thead>
           <tbody>{rows.map(player => <tr key={player.playerId}>
             <td>{player.rank || "—"}</td><td><PlayerButton player={player} onPlayer={onPlayer} /></td>
             <td>{player.position || player.preferredPositions?.join(" / ") || "—"}</td>
@@ -101,7 +103,7 @@ export default function Leaderboard({ onPlayer, onAwards, refreshKey }) {
       <div><p className="eyebrow">AWARDS</p><h3>The GG honours</h3><p className="muted">Monthly recognition and historic seasons.</p></div>
       <button className="secondary-button" onClick={onAwards}>View Awards →</button>
     </section>
-    <details className="card"><summary>How GG Rating works</summary>
+    <details className="card"><summary>How {brand.rating} works</summary>
       <p>40% average recorded match rating + 20% offensive rating + 20% defensive rating + 20% result score. Position does not add points. Votes never affect this rating.</p>
       <p>Defensive rating: 70% individual defensive performance + 25% clean-sheet score + 5% own-goal discipline. Win rate is not part of defensive rating. Three defensive-performance records are required before the defensive component becomes active.</p>
     </details>

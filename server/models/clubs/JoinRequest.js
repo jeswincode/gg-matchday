@@ -1,3 +1,4 @@
+import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -19,4 +20,4 @@ joinRequestSchema.index(
   { unique: true, partialFilterExpression: { status: "pending" } },
 );
 
-export default getClubsConnection().model("JoinRequest", joinRequestSchema);
+export default workspaceModel(getClubsConnection().model("JoinRequest", joinRequestSchema));

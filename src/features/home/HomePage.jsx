@@ -2,6 +2,7 @@ import PlayerComparisons from '../../components/PlayerComparisons';
 import HomeAnalyticsHub from '../../components/HomeAnalyticsHub';
 import SectionHeading from '../../components/ui/SectionHeading';
 import {formatDate} from '../../lib/date';
+import {useWorkspaceBrand} from '../communities/WorkspaceBrand.jsx';
 
 export default function HomePage({
   latestMatch,
@@ -25,11 +26,12 @@ export default function HomePage({
   onRecord,
   onOpenPlayer,
 }) {
+  const brand = useWorkspaceBrand();
   return (
     <section className="tab-content home-page">
       <section className="home-hero">
         <p className="eyebrow">YOUR FOOTBALL JOURNAL</p>
-        <h2 className="home-hero-title">Welcome to<br />GG Matchday</h2>
+        <h2 className="home-hero-title">Welcome to<br />{brand.name}</h2>
         <p className="home-intro">
           Matches, players, rankings and
           every part of your football story in one
@@ -50,7 +52,7 @@ export default function HomePage({
                 ? `${latestTopScorer.name} lights up the match with a hat-trick.`
                 : latestTopScorer && latestTopScorer.goals === 2
                   ? `${latestTopScorer.name} delivers a two-goal performance.`
-                  : `${latestMatch.name} adds another chapter to the GG story.`
+                  : `${latestMatch.name} adds another chapter to the ${brand.monogram} story.`
             : loadingMatches ? "Loading the latest Matchday…"
               : archiveError ? "Matchday archive unavailable" : "Your football story starts here."}
         </h2>
@@ -91,7 +93,7 @@ export default function HomePage({
       />
 
       <section className="home-section">
-        <SectionHeading eyebrow="THE GG DESK" title="Latest News" />
+        <SectionHeading eyebrow={`THE ${brand.monogram} DESK`} title="Latest News" />
 
         {newsLoading ? (
           <div className="loading-panel">

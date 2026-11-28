@@ -185,11 +185,13 @@ export async function loadPlayerStatistics(players, { year = null } = {}) {
   ));
 }
 
-export function startStatisticsMaintenanceWorker(intervalMs = 24 * 60 * 60 * 1000) {
+export function startStatisticsMaintenanceWorker(intervalMs = 24 * 60 * 60 * 1000, workspaces = task => task()) {
   const run = async () => {
     try {
-      const result = await rebuildAllPlayerStatistics();
-      console.info("Player/season statistics snapshots refreshed:", result.rebuilt);
+      await workspaces(async () => {
+        const result = await rebuildAllPlayerStatistics();
+        console.info("Player/season statistics snapshots refreshed:", result.rebuilt);
+      });
     } catch (error) {
       console.error("Player/season statistics refresh failed:", error);
     }

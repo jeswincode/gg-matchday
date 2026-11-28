@@ -2,6 +2,33 @@ import {auth} from '../firebase';
 
 const VITE_ENV = import.meta.env || {};
 export const API_URL = VITE_ENV.VITE_API_URL || 'http://localhost:5000/api';
+export let communitiesEnabled = VITE_ENV.VITE_V42_COMMUNITIES === 'true';
+const officialApi = 'https://gg-matchday-6u6v.onrender.com/api';
+
+export async function resolveCommunitiesMode() {
+  if (communitiesEnabled || !VITE_ENV.PROD || API_URL.replace(/\/$/, '') !== officialApi) return communitiesEnabled;
+  const request = new AbortController();
+  const deadline = setTimeout(() => request.abort(), 4500);
+  try {
+    const response = await fetch(officialApi + '/platform', { cache: 'no-store', signal: request.signal });
+    if (response.ok) communitiesEnabled = (await response.json()).communities === true;
+  } catch { /* Keep the existing entry available while the API is reconnecting. */ }
+  finally { clearTimeout(deadline); }
+  return communitiesEnabled;
+}
+let activeWorkspace = null;
+
+export function setMatchdayWorkspace(id) {
+  activeWorkspace = id;
+}
+
+export function matchdayApiBase() {
+  return activeWorkspace ? API_URL + '/workspaces/' + activeWorkspace : API_URL;
+}
+
+function apiUrl(path) {
+  return (/^\/(?:communities|health)(?:\/|\?|$)/.test(path) ? API_URL : matchdayApiBase()) + path;
+}
 const cache = new Map();
 const pending = new Map();
 let cacheRevision = 0;
@@ -93,18 +120,20 @@ export function invalidate(path) {
 }
 
 export async function authenticatedFetch(url, options = {}) {
+  const destination = url.startsWith(API_URL + '/') ? apiUrl(url.slice(API_URL.length)) : url;
   if (VITE_ENV.VITE_E2E_TEST_AUTH_SECRET) {
-    return fetch(url, { ...options, headers: { ...(options.headers || {}), ...e2eAuthHeaders() } });
+    return fetch(destination, { ...options, headers: { ...(options.headers || {}), ...e2eAuthHeaders() } });
   }
   if (!auth?.currentUser) throw new Error('Authentication required.');
   const token = await auth.currentUser.getIdToken();
-  return fetch(url, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
+  return fetch(destination, { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } });
 }
 
-export async function api(path, { method = 'GET', body, signal, publicRead = false, ...options } = {}) {
+export async function api(path, { method = 'GET', body, signal, publicRead = false, headers, ...options } = {}) {
   const normalizedMethod = String(method || 'GET').toUpperCase();
-  const anonymous = publicRead && normalizedMethod === 'GET';
-  const key = `${anonymous ? 'anonymous' : auth?.currentUser?.uid || 'public'}:${path}`;
+  const anonymous = !communitiesEnabled && publicRead && normalizedMethod === 'GET';
+  const destination = apiUrl(path);
+  const key = `${anonymous ? 'anonymous' : auth?.currentUser?.uid || 'public'}:${destination}`;
   const hit = cache.get(key);
   if (normalizedMethod === 'GET' && !signal && hit && hit.until > Date.now()) return hit.data;
   if (normalizedMethod === 'GET' && !signal && pending.has(key)) return pending.get(key).task;
@@ -114,11 +143,12 @@ export async function api(path, { method = 'GET', body, signal, publicRead = fal
     const token = anonymous ? null : await auth?.currentUser?.getIdToken();
     let response;
     try {
-      response = await fetch(`${API_URL}${path}`, {
+      response = await fetch(destination, {
         ...options,
         method: normalizedMethod,
         signal,
         headers: {
+          ...headers,
           ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(anonymous ? {} : e2eAuthHeaders()),

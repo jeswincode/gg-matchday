@@ -29,7 +29,7 @@ import {
   clubDateStartUtc,
   resolveCaptainVote,
 } from "../config/clubsRules.js";
-import { pingClubsDatabase, getClubsConnection } from "../config/clubsDatabase.js";
+import { pingClubsDatabase, getClubsWorkspaceConnection } from "../config/clubsDatabase.js";
 import { calculatePlayerAttributes } from "../services/playerAttributes.js";
 import { effectiveMatchRating } from "../services/ratings/index.js";
 import ClubWalletTransaction from "../models/clubs/ClubWalletTransaction.js";
@@ -74,7 +74,7 @@ const FORMATION_ACTIVE_STATUSES = [
 ];
 
 function ensureClubsDatabase(res) {
-  const connection = getClubsConnection();
+  const connection = getClubsWorkspaceConnection();
   if (connection.readyState !== 1) {
     res.status(503).json({
       message: "Clubs database is not connected. Configure CLUBS_MONGODB_URI first.",
@@ -1008,7 +1008,7 @@ router.post("/auction/offers", requireAuth, async (req, res) => {
   const clubId = req.body?.clubId;
   const playerId = req.body?.playerId;
   if (!mongoose.isValidObjectId(clubId) || !mongoose.isValidObjectId(playerId)) return res.status(400).json({ message: "Valid club and player ids are required." });
-  const session = await getClubsConnection().startSession();
+  const session = await getClubsWorkspaceConnection().startSession();
   try {
     let offer;
     await session.withTransaction(async () => {
@@ -1037,7 +1037,7 @@ router.post("/auction/offers/:offerId/choose", requireAuth, async (req, res) => 
   if (!mongoose.isValidObjectId(req.params.offerId)) return res.status(400).json({ message: "Invalid offer id." });
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
-  const session = await getClubsConnection().startSession();
+  const session = await getClubsWorkspaceConnection().startSession();
   try {
     let result;
     await session.withTransaction(async () => {
@@ -1088,7 +1088,7 @@ router.post("/auction/offers/:offerId/approve", requireAuth, async (req, res) =>
   if (!mongoose.isValidObjectId(req.params.offerId)) return res.status(400).json({ message: "Invalid offer id." });
   const playerId = requireLinkedPlayer(req, res);
   if (!playerId) return;
-  const connection = getClubsConnection();
+  const connection = getClubsWorkspaceConnection();
   const session = await connection.startSession();
   try {
     let result;
@@ -1196,7 +1196,7 @@ router.post("/join-requests/:requestId/respond", requireAuth, async (req, res) =
   const captainId = requireLinkedPlayer(req, res);
   if (!captainId) return;
   if (!mongoose.isValidObjectId(req.params.requestId)) return res.status(400).json({ message: "Invalid join request id." });
-  const session = await getClubsConnection().startSession();
+  const session = await getClubsWorkspaceConnection().startSession();
   try {
     let response;
     await session.withTransaction(async () => {
@@ -1333,7 +1333,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
       return res.json({ status: decision.status, decision });
     }
 
-    const connection = getClubsConnection();
+    const connection = getClubsWorkspaceConnection();
     const session = await connection.startSession();
     try {
       let updated;
@@ -1424,7 +1424,7 @@ router.post("/:clubId/renewal", requireAuth, async (req, res) => {
 router.post("/matches/:matchId/settle", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
-  const session = await getClubsConnection().startSession();
+  const session = await getClubsWorkspaceConnection().startSession();
   let previousStatus = "unknown";
   try {
     let result;
@@ -1691,7 +1691,7 @@ router.post("/fixed-odds/:matchId", requireAuth, async (req, res) => {
       typeof odds !== "number" || !Number.isFinite(odds) || typeof stake !== "number") {
     return res.status(400).json({ message: "Choose a valid selection and stake." });
   }
-  const session = await getClubsConnection().startSession();
+  const session = await getClubsWorkspaceConnection().startSession();
   try {
     const quote = await quoteCreditBet({ clubMatchId: matchId, selectionKey, odds, stake });
     await ensureCreditBank();
@@ -1755,7 +1755,7 @@ router.post("/matches/:matchId/bets", requireAuth, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.matchId) || !mongoose.isValidObjectId(req.body?.clubId)) {
     return res.status(400).json({ message: "Invalid betting details." });
   }
-  const session = await getClubsConnection().startSession();
+  const session = await getClubsWorkspaceConnection().startSession();
   try {
     let bet;
     await session.withTransaction(async () => {
@@ -1778,7 +1778,7 @@ router.post("/matches/:matchId/bets", requireAuth, async (req, res) => {
 router.post("/matches/:matchId/bets/settle", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.matchId)) return res.status(400).json({ message: "Invalid club match id." });
-  const session = await getClubsConnection().startSession();
+  const session = await getClubsWorkspaceConnection().startSession();
   try {
     let result;
     await session.withTransaction(async () => {
@@ -2023,7 +2023,7 @@ router.post("/matches/:matchId/cancel", requireAuth, async (req, res) => {
       return res.status(403).json({ message: "Only a captain of the requesting club can cancel this match." });
     }
     if (!["requested", "accepted"].includes(match.status)) return res.status(409).json({ message: "This club match cannot be cancelled now." });
-    const session = await getClubsConnection().startSession();
+    const session = await getClubsWorkspaceConnection().startSession();
     try {
       let cancelled;
       await session.withTransaction(async () => {
@@ -2598,7 +2598,7 @@ router.post("/admin/applications/:id/reject", requireAuth, requireAdmin, async (
 router.post("/admin/applications/:id/approve", requireAuth, requireAdmin, async (req, res) => {
   if (!ensureClubsDatabase(res)) return;
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "Invalid formation application id." });
-  const session = await getClubsConnection().startSession();
+  const session = await getClubsWorkspaceConnection().startSession();
   try {
     let createdClub;
     await session.withTransaction(async () => {

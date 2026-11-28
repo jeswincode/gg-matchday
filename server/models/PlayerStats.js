@@ -1,3 +1,4 @@
+import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 
 const playerStatsSchema = new mongoose.Schema({
@@ -9,4 +10,4 @@ const playerStatsSchema = new mongoose.Schema({
 
 playerStatsSchema.index({ "stats.ggRating": -1, playerId: 1 });
 
-export default mongoose.model("PlayerStats", playerStatsSchema);
+export default workspaceModel(mongoose.model("PlayerStats", playerStatsSchema));

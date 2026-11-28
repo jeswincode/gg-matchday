@@ -1,3 +1,4 @@
+import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 const participantSchema=new mongoose.Schema({player:{type:mongoose.Schema.Types.ObjectId,ref:"Player",required:true},rating:{type:Number,min:0,max:10,default:null},defensivePerformance:{type:Number,min:0,max:10,default:null},ratingSystem:{type:String,enum:["legacy","gg-v3"],default:"legacy"},performanceCodes:{type:[String],default:undefined},ownGoals:{type:Number,min:0,max:20,default:0},team:{type:String,enum:["A","B"],required:true}},{_id:false});
 const matchEventSchema=new mongoose.Schema({player:{type:mongoose.Schema.Types.ObjectId,ref:"Player",required:true},type:{type:String,enum:["goal","assist"],required:true},minute:{type:Number,min:0,max:150,default:null}},{_id:false});
@@ -5,4 +6,4 @@ const matchSchema=new mongoose.Schema({clubFixtureId:{type:mongoose.Schema.Types
 matchSchema.index({clubFixtureId:1},{unique:true,sparse:true});
 matchSchema.index({date:-1});matchSchema.index({"participants.player":1,date:-1});
 matchSchema.pre("validate",function recalculateScores(){const participants=this.participants||[],events=this.events||[];const hasGoalEvents=events.some(event=>event?.type==="goal");const hasOwnGoals=participants.some(participant=>Number(participant.ownGoals||0)>0);if(!this.isNew&&!hasGoalEvents&&!hasOwnGoals)return;const playerId=value=>String(value?._id??value);const side=new Map(participants.map(participant=>[playerId(participant.player),participant.team]));const normalGoals=team=>events.filter(event=>event.type==="goal"&&side.get(playerId(event.player))===team).length;const ownGoalsAgainst=team=>participants.filter(participant=>participant.team!==team).reduce((sum,participant)=>sum+Number(participant.ownGoals||0),0);if(this.teamA)this.teamA.score=normalGoals("A")+ownGoalsAgainst("A");if(this.teamB)this.teamB.score=normalGoals("B")+ownGoalsAgainst("B");});
-export default mongoose.model("Match",matchSchema);
+export default workspaceModel(mongoose.model("Match",matchSchema));

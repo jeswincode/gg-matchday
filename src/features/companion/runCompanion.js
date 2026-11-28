@@ -1,4 +1,4 @@
-import { clamp, clubsPeekSelector, companionGravity, jumpDuration, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
+import { clamp, clubsPeekSelector, companionGravity, gripReleasedCompanion, jumpDuration, projectileY, readCompanionWorld, stepCompanion } from "./companionWorld";
 import { celebrationDestination, celebrationFrame, celebrationTiming } from "./companionCelebration";
 import { guideFor } from "./companionGuide";
 import { recoveryTab, skillFrame, wallJuggle } from "./companionSkills";
@@ -1062,7 +1062,10 @@ export default function runCompanion(stage, token, bubble, rails, options) {
         && Math.abs(actor.y - surface.top) < 20);
       actor.surface = support?.element;
       actor.pose = "stand";
-    } else actor.pose = "air";
+    } else {
+      actor.pose = "air";
+      if (released && !options.legacy) gripReleasedCompanion(actor, room, event.clientX, radius);
+    }
     drag = undefined;
     schedule();
   }

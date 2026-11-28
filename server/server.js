@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import app from './app.js';
-import {scheduleHistory} from './services/history.js';
+import {syncHistory} from './services/history.js';
 import {connectClubsDatabase,disconnectClubsDatabase} from './config/clubsDatabase.js';
 import {startClubSyncWorker} from './services/clubsSync.js';
 import {startClubsMaintenanceWorker} from './services/clubsMaintenance.js';
@@ -10,6 +10,8 @@ import {closeLiveData} from './services/liveData.js';
 import {migrateV4ProfileLinks} from './services/profileLinks.js';
 import ClubMatch from './models/clubs/ClubMatch.js';
 import {ensureCreditBank} from './services/clubCreditBetting.js';
+import {communitiesEnabled, prepareCommunityPlatform} from './services/communityPlatform.js';
+import {forMatchdayWorkspaces} from './services/workspaceAccounts.js';
 
 async function startServer(){
   try{
@@ -18,6 +20,7 @@ async function startServer(){
     }
     await mongoose.connect(process.env.MONGODB_URI);
     await migrateV4ProfileLinks(mongoose.connection);
+    await prepareCommunityPlatform();
     console.log('MongoDB connected');
 
     try {
@@ -31,12 +34,14 @@ async function startServer(){
       console.warn('Clubs MongoDB unavailable; core Matchday will continue without Clubs:', clubsError.message);
     }
 
-    scheduleHistory();
+    const workspaces = communitiesEnabled() ? forMatchdayWorkspaces : task => task();
+    const scheduleHistory = () => workspaces(syncHistory).catch(() => console.error('Historical recognition could not be refreshed.'));
+    void scheduleHistory();
     setInterval(scheduleHistory,86400000).unref();
 
-    startClubSyncWorker();
-    startClubsMaintenanceWorker();
-    startStatisticsMaintenanceWorker();
+    startClubSyncWorker(undefined, workspaces);
+    startClubsMaintenanceWorker(undefined, workspaces);
+    startStatisticsMaintenanceWorker(undefined, workspaces);
 
     const port=Number(process.env.PORT)||5000;
     const server=app.listen(port,'0.0.0.0',()=>console.log(`GG Matchday API is ready on port ${port}`));
