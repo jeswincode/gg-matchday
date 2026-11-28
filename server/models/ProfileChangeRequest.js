@@ -1,4 +1,3 @@
-import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 
 const profileChangeRequestSchema =
@@ -63,7 +62,7 @@ const profileChangeRequestSchema =
 
 profileChangeRequestSchema.index({ requestedBy: 1 }, { name: "profile_request_pending_unique", unique: true, partialFilterExpression: { status: "pending" } });
 
-export default workspaceModel(mongoose.model(
+export default mongoose.model(
   "ProfileChangeRequest",
   profileChangeRequestSchema
-));
+);

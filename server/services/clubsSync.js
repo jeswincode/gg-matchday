@@ -1,6 +1,6 @@
 import Match from "../models/Match.js";
 import ClubSyncJob from "../models/ClubSyncJob.js";
-import { getClubsWorkspaceConnection } from "../config/clubsDatabase.js";
+import { getClubsConnection } from "../config/clubsDatabase.js";
 import { syncClubStatsForMatch } from "./clubsMatchSync.js";
 import { settleClubMatchRewards } from "./clubsMatchSettlement.js";
 import { settleClubMatchBets } from "./clubsBetting.js";
@@ -22,7 +22,7 @@ export function clubSyncBackoffMs(attempts) {
 
 async function settleLinkedClubMatches(syncResult) {
   for (const clubMatchId of syncResult?.clubMatchIds || []) {
-    const session = await getClubsWorkspaceConnection().startSession();
+    const session = await getClubsConnection().startSession();
     try {
       await session.withTransaction(async () => {
         await settleClubMatchRewards({ clubMatchId, session });
@@ -155,16 +155,9 @@ export async function retryPendingClubSyncJobs({ limit = 10 } = {}) {
   return { attempted: jobs.length, completed };
 }
 
-export function startClubSyncWorker(intervalMs = CLUB_SYNC_RETRY_BASE_MS, workspaces = task => task()) {
+export function startClubSyncWorker(intervalMs = CLUB_SYNC_RETRY_BASE_MS) {
   if (!clubsIntegrationConfigured()) return () => {};
-  let running = false;
-  const run = async () => {
-    if (running) return;
-    running = true;
-    try { await workspaces(() => retryPendingClubSyncJobs()); }
-    catch (error) { console.error("Clubs sync worker failed.", { errorName: error?.name || "Error" }); }
-    finally { running = false; }
-  };
+  const run = () => retryPendingClubSyncJobs().catch(error => console.error("Clubs sync worker failed.", { errorName: error?.name || "Error" }));
   run();
   const timer = setInterval(run, intervalMs);
   timer.unref?.();

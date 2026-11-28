@@ -1,4 +1,3 @@
-import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -16,4 +15,4 @@ const clubRenewalDecisionSchema = new mongoose.Schema(
 
 clubRenewalDecisionSchema.index({ clubId: 1, boundaryAt: 1 }, { unique: true });
 
-export default workspaceModel(getClubsConnection().model("ClubRenewalDecision", clubRenewalDecisionSchema));
+export default getClubsConnection().model("ClubRenewalDecision", clubRenewalDecisionSchema);

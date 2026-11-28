@@ -28,7 +28,7 @@ export function guideFor(tab, account) {
   return tips[tab] || "Check Home for the latest Matchday activity.";
 }
 
-export function rankingNotes(trends, rows = [], ratingLabel = "GG Rating") {
+export function rankingNotes(trends, rows = []) {
   const { rise, improvement, standout } = trends || {};
   const leader = rows.find(row => row.rank === 1 && Number.isFinite(row.ggRating));
   const scorer = rows.filter(row => row.goals > 0).sort((a, b) => b.goals - a.goals)[0];
@@ -36,7 +36,7 @@ export function rankingNotes(trends, rows = [], ratingLabel = "GG Rating") {
     rise && `${rise.name} climbed from #${rise.from} to #${rise.to} overall after the latest matchday.`,
     improvement && `${improvement.name} is finding form again. Their last three rated games averaged ${improvement.after.toFixed(2)}, up from ${improvement.before.toFixed(2)}.`,
     standout && `${standout.name} stood out on the latest matchday with a ${standout.rating.toFixed(2)} match rating.`,
-    leader && `${leader.name} leads the overall leaderboard with a ${leader.ggRating.toFixed(2)} ${ratingLabel}.`,
+    leader && `${leader.name} leads the overall leaderboard with a ${leader.ggRating.toFixed(2)} GG Rating.`,
     scorer && `${scorer.name} has ${scorer.goals} recorded goals, the most in the all-time rankings.`,
   ].filter(Boolean);
 }

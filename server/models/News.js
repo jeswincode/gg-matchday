@@ -1,4 +1,3 @@
-import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 
 const newsSchema = new mongoose.Schema(
@@ -73,7 +72,7 @@ newsSchema.index({
   match: 1,
 });
 
-export default workspaceModel(mongoose.model(
+export default mongoose.model(
   "News",
   newsSchema
-));
+);

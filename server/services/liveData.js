@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { getClubsConnection } from "../config/clubsDatabase.js";
-import { workspaceId } from "../config/workspaceModels.js";
 
 // Only a topic is sent to the browser. Documents and identifiers stay behind
 // the normal API authorization checks.
@@ -40,31 +39,26 @@ const readers = [
   { connection: getClubsConnection, models: clubsModels },
 ];
 const clients = new Map();
-const queued = new Map();
+const queued = new Set();
 let flushTimer;
 
-function queueTopics(topics, scope = null) {
+function queueTopics(topics) {
   if (!clients.size) return;
-  if (!queued.has(scope)) queued.set(scope, new Set());
-  for (const topic of topics) queued.get(scope).add(topic);
+  for (const topic of topics) queued.add(topic);
   if (flushTimer) return;
   flushTimer = setTimeout(() => {
     flushTimer = undefined;
-    for (const [response, client] of clients) {
-      const topics = queued.get(client.scope) || [];
-      const allowed = [...topics].filter(topic => client.userId ? !publicTopics.has(topic) : publicTopics.has(topic));
+    const topics = [...queued];
+    queued.clear();
+    for (const [response, userId] of clients) {
+      const allowed = topics.filter(topic => userId ? !publicTopics.has(topic) : publicTopics.has(topic));
       if (allowed.length && !response.destroyed && !response.writableEnded &&
           !response.write(`event: data-updated\ndata: ${JSON.stringify(allowed)}\n\n`)) {
         response.end();
       }
     }
-    queued.clear();
   }, 250);
   flushTimer.unref();
-}
-
-function reconcile(topics) {
-  for (const scope of new Set(Array.from(clients.values(), client => client.scope))) queueTopics(topics, scope);
 }
 
 async function consume(reader) {
@@ -79,7 +73,7 @@ async function consume(reader) {
     ));
     reader.stream = connection.db.watch([
       { $match: {
-        "ns.coll": { $in: [...Object.keys(topicsByCollection), /^community_[a-f0-9]{64}_/] },
+        "ns.coll": { $in: Object.keys(topicsByCollection) },
         operationType: { $in: ["insert", "update", "replace", "delete"] },
       } },
       { $project: { _id: 1, "ns.coll": 1 } },
@@ -88,12 +82,10 @@ async function consume(reader) {
     let firstBatch = true;
     while (clients.size && reader.stream === stream && !stream.closed) {
       const change = await stream.tryNext();
-      const collection = change?.ns?.coll || "";
-      const [, scope, localCollection] = /^community_([a-f0-9]{64})_(.+)$/.exec(collection) || [];
-      const topic = topicsByCollection[localCollection || collection];
-      if (topic && (!scope || [...clients.values()].some(client => client.scope === scope))) queueTopics([topic], scope || null);
+      const topic = topicsByCollection[change?.ns?.coll];
+      if (topic) queueTopics([topic]);
       // Reconcile writes that happened while the watcher was unavailable.
-      if (firstBatch && reader.recovering) reconcile(topics);
+      if (firstBatch && reader.recovering) queueTopics(topics);
       firstBatch = false;
       reader.recovering = false;
     }
@@ -110,7 +102,7 @@ async function consume(reader) {
       // A standalone MongoDB or a temporary watcher failure can still
       // revalidate active screens at a bounded interval.
       reader.retry = setTimeout(() => {
-        reconcile(topics);
+        queueTopics(topics);
         void consume(reader);
       }, 20_000);
       reader.retry.unref();
@@ -120,7 +112,7 @@ async function consume(reader) {
 
 export function attachLiveData(response, userId = null) {
   const wasIdle = clients.size === 0;
-  clients.set(response, { userId, scope: workspaceId() });
+  clients.set(response, userId);
   if (wasIdle) {
     for (const reader of readers) {
       void consume(reader);
@@ -145,7 +137,7 @@ export function closeLiveData() {
 
 export function streamPrivateUpdates(req, res) {
   const userId = String(req.user._id);
-  if (clients.size >= 500 || [...clients.values()].filter(client => client.userId === userId).length >= 5) {
+  if (clients.size >= 500 || [...clients.values()].filter(id => id === userId).length >= 5) {
     return res.status(429).json({ message: "Too many live connections." });
   }
   res.set({

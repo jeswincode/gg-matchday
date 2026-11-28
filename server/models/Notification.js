@@ -1,4 +1,3 @@
-import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 
 const notificationSchema = new mongoose.Schema(
@@ -48,4 +47,4 @@ notificationSchema.index(
 );
 notificationSchema.index({ createdAt: -1 });
 
-export default workspaceModel(mongoose.model("Notification", notificationSchema));
+export default mongoose.model("Notification", notificationSchema);

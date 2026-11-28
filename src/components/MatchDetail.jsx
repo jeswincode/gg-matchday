@@ -1,4 +1,3 @@
-import { useWorkspaceBrand } from "../features/communities/WorkspaceBrand.jsx";
 import { useState } from "react";
 import Modal from "./Modal";
 import useResource from "./useResource";
@@ -17,7 +16,6 @@ export default function MatchDetail({
   currentPlayerId,
   onUpdated,
 }) {
-  const brand = useWorkspaceBrand();
   const [revision, setRevision] = useState(0);
   const matchRevision = useLiveRevision("matchday");
   const [chosen, setChosen] = useState("");
@@ -153,7 +151,7 @@ export default function MatchDetail({
           <section className="card">
             <p className="eyebrow">MATCH RECOGNITION</p>
             <h3>Player of the Match</h3>
-            <p className="muted">One account, one final vote. Voting does not affect {brand.rating}.</p>
+            <p className="muted">One account, one final vote. Voting does not affect GG Rating.</p>
             {!isSignedIn && <p>Sign in to vote.</p>}
             <div className="gg-vote-options">
               {voting.counts.map(player => (

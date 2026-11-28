@@ -1,4 +1,3 @@
-import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
 
 const ADMIN_GROUPS = [
   { heading:"WORKSPACE", items:[["overview","Overview","grid"]] },
@@ -62,10 +61,6 @@ export default function AdminPage({
   onUpdatePlayerBackgroundVideo,
   onUpdatePlayerOvrAttributes,
 }) {
-  const brand = useWorkspaceBrand();
-  const groups = brand.founding ? ADMIN_GROUPS : ADMIN_GROUPS.map(group => ({ ...group,
-    items: group.items.filter(([id]) => id !== "health"),
-  }));
   const [videoDrafts, setVideoDrafts] = useState(() =>
     Object.fromEntries(players.map(player => [String(player._id), player.backgroundVideoUrl || ""]))
   );
@@ -110,23 +105,23 @@ export default function AdminPage({
   if (!isAdmin) return (
     <section className="tab-content admin-access-blocked">
       <button type="button" className="admin-back-link" onClick={onBackToMatchday}><AdminIcon name="back"/> Back to Matchday</button>
-      <AccessDenied title="Admin access required" description="Only verified community administrators can access these controls." signIn={!isSignedIn ? signIn : null}/>
+      <AccessDenied title="Admin access required" description="Only verified GG Matchday administrators can access this workspace." signIn={!isSignedIn ? signIn : null}/>
     </section>
   );
   return (
-    <section className="admin-workspace tab-content" aria-label={brand.name + " admin control center"} data-signature-page-enter>
+    <section className="admin-workspace tab-content" aria-label="GG Matchday admin control center" data-signature-page-enter>
       <div className="admin-mobile-bar">
         <button type="button" className="admin-mobile-toggle" aria-label="Open admin sections" aria-controls="admin-sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><AdminIcon name="menu"/> Sections</button>
-        <strong>{brand.monogram} / ADMIN</strong>
+        <strong>GG / ADMIN</strong>
         <button type="button" className="admin-mobile-return" onClick={onBackToMatchday}><AdminIcon name="back"/> Matchday</button>
       </div>
       {menuOpen && <button type="button" className="admin-menu-scrim" aria-label="Close admin sections" onClick={() => setMenuOpen(false)}/>}
       <div className="admin-layout">
         <aside className={"admin-sidebar" + (menuOpen ? " admin-sidebar--open" : "")} id="admin-sidebar" aria-label="Admin sidebar">
-          <div className="admin-sidebar-brand"><span className="admin-brand-icon"><AdminIcon name="shield"/></span><span><strong>{brand.name.toUpperCase()}</strong><small>ADMIN CONTROL CENTER</small></span><button className="admin-mobile-close" type="button" aria-label="Close admin sections" onClick={() => setMenuOpen(false)}><AdminIcon name="close"/></button></div>
+          <div className="admin-sidebar-brand"><span className="admin-brand-icon"><AdminIcon name="shield"/></span><span><strong>GG MATCHDAY</strong><small>ADMIN CONTROL CENTER</small></span><button className="admin-mobile-close" type="button" aria-label="Close admin sections" onClick={() => setMenuOpen(false)}><AdminIcon name="close"/></button></div>
           <button type="button" className="admin-sidebar-back" onClick={onBackToMatchday}><AdminIcon name="back"/> Back to Matchday</button>
           <nav aria-label="Administration sections" className="admin-sidebar-nav">
-            {groups.map(group => <div className="admin-nav-group" key={group.heading}>
+            {ADMIN_GROUPS.map(group => <div className="admin-nav-group" key={group.heading}>
               <span className="admin-nav-heading">{group.heading}</span>
               {group.items.map(([id,label,icon]) => <button key={id} type="button" className={"admin-nav-item" + (section === id ? " admin-nav-item--active" : "")} aria-current={section === id ? "page" : undefined} onClick={() => choose(id)}><AdminIcon name={icon}/><span>{label}</span>{id === "requests" && !adminLoading && editorRequests.length > 0 && <small className="admin-queue-count">{editorRequests.length}</small>}{id === "clubs" && <span className="admin-external-mark">↗</span>}</button>)}
             </div>)}
@@ -149,7 +144,7 @@ export default function AdminPage({
                 </div>
                 <div className="admin-task-heading"><div><span className="admin-eyebrow">QUICK ACTIONS</span><h3>Choose a workspace</h3></div><p>Each area contains only the actions relevant to that task.</p></div>
                 <div className="admin-task-grid">
-                  {[["requests","inbox","ACCESS","Editor requests","Approve and reject editing access."],["attributes","sliders","PLAYERS","OVR attributes","Review player Pace and Physical."],["audit","clipboard","MATCH RECORDS","Historical match audit","Investigate GG-v3 rating integrity."],["disputes","flag","REVIEW","Rating disputes","Resolve player-reported issues."],["health","pulse","PLATFORM","System health","Check database and API operations."],["clubs","building","CLUBS","Clubs operations","Open the dedicated Clubs admin console."]].filter(([id]) => id !== "health" || brand.founding).map(([id,icon,eyebrow,title,description]) =>
+                  {[["requests","inbox","ACCESS","Editor requests","Approve and reject editing access."],["attributes","sliders","PLAYERS","OVR attributes","Review player Pace and Physical."],["audit","clipboard","MATCH RECORDS","Historical match audit","Investigate GG-v3 rating integrity."],["disputes","flag","REVIEW","Rating disputes","Resolve player-reported issues."],["health","pulse","PLATFORM","System health","Check database and API operations."],["clubs","building","CLUBS","Clubs operations","Open the dedicated Clubs admin console."]].map(([id,icon,eyebrow,title,description]) =>
                     <button className="admin-task" type="button" key={id} onClick={() => choose(id)}><span className="admin-task-icon"><AdminIcon name={icon}/></span><span><small>{eyebrow}</small><strong>{title}</strong><span>{description}</span></span><AdminIcon name="next"/></button>
                   )}
                 </div>
@@ -439,7 +434,7 @@ export default function AdminPage({
             {section === "permissions" && (<>
 <section className="formula-card">
             <p className="eyebrow">PERMISSIONS</p>
-            <h3>{brand.name} access</h3>
+            <h3>GG Matchday access</h3>
 
             <div className="permission-model">
               <div>
@@ -463,7 +458,7 @@ export default function AdminPage({
           </section>
 </>)}
           </div>
-          <div className="admin-workspace-foot"><span>{brand.name} · Administration · Made by Jeswin</span><button type="button" onClick={onBackToMatchday}><AdminIcon name="back"/> Return to Matchday</button></div>
+          <div className="admin-workspace-foot"><span>GG Matchday • Administration · Made by Jeswin</span><button type="button" onClick={onBackToMatchday}><AdminIcon name="back"/> Return to Matchday</button></div>
         </div>
       </div>
     </section>

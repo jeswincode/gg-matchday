@@ -1,4 +1,3 @@
-import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -31,5 +30,5 @@ betSchema.index({ playerId: 1, clubMatchId: 1, selectionKey: 1 }, { unique: true
 betSchema.index({ clubMatchId: 1, status: 1 });
 betSchema.index({ playerId: 1, status: 1, createdAt: -1, _id: -1 });
 
-export const ClubCreditBank = workspaceModel(connection.model("ClubCreditBank", bankSchema));
-export const ClubCreditBet = workspaceModel(connection.model("ClubCreditBet", betSchema));
+export const ClubCreditBank = connection.model("ClubCreditBank", bankSchema);
+export const ClubCreditBet = connection.model("ClubCreditBet", betSchema);

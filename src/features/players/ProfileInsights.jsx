@@ -1,4 +1,3 @@
-import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
 import { useState } from "react";
 import PlayerPerformanceDashboard from "../../components/PlayerPerformanceDashboard";
 import { Status, StatGrid } from "../../components/common";
@@ -6,7 +5,6 @@ import { rating, date } from "../../lib/format";
 import { awardName } from "../../lib/awards";
 
 function PlayerStats({ playerId, stats, matches, onMatch }) {
-  const brand = useWorkspaceBrand();
   const [performanceOpen, setPerformanceOpen] = useState(false);
   const lastFive = matches.slice(0, 5).map(match => {
     const participant = (match.participants || []).find(entry =>
@@ -26,7 +24,7 @@ function PlayerStats({ playerId, stats, matches, onMatch }) {
     </div>
     {performanceOpen && <PlayerPerformanceDashboard playerId={playerId} onClose={() => setPerformanceOpen(false)} />}
     <section className="card gg-profile-rating">
-      <p className="eyebrow">{brand.rating.toUpperCase()} · CAREER</p>
+      <p className="eyebrow">GG RATING · CAREER</p>
       <strong className="gg-rating">{rating(stats.ggRating)} <small>★</small></strong>
       <p className="muted">{stats.ratedMatches} rated / {stats.matches} appearances{stats.matches < 5 ? " · 5 appearances needed for eligibility" : ""}</p>
       <StatGrid stats={{ Performance: rating(stats.performanceRating), Offensive: rating(stats.offensiveRating), Defensive: rating(stats.defensiveRating), Results: rating(stats.resultScore) }} />

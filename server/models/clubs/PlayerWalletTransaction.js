@@ -1,4 +1,3 @@
-import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -34,4 +33,4 @@ const playerWalletTransactionSchema = new mongoose.Schema(
 playerWalletTransactionSchema.index({ playerId: 1, createdAt: -1 });
 playerWalletTransactionSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 
-export default workspaceModel(getClubsConnection().model("PlayerWalletTransaction", playerWalletTransactionSchema));
+export default getClubsConnection().model("PlayerWalletTransaction", playerWalletTransactionSchema);

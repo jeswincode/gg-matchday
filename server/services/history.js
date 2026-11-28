@@ -3,12 +3,10 @@ import Match from '../models/Match.js';
 import Award from '../models/Award.js';
 import Achievement from '../models/Achievement.js';
 import {buildStatistics,milestoneRules,selectAwards} from './statistics.js';
-import {workspaceId} from '../config/workspaceModels.js';
-const tasks = new Map();
+let pending;
 export function syncHistory(){
- const scope=workspaceId();
- if(tasks.has(scope))return tasks.get(scope);
- const pending=(async()=>{
+ if(pending)return pending;
+ pending=(async()=>{
  const [players,matches]=await Promise.all([Player.find().lean(),Match.find().lean()]);
  const ops=[];
  for(const s of buildStatistics(players,matches)) for(const [key,levels] of Object.entries(milestoneRules)) for(const threshold of levels) if(s[key]>=threshold)ops.push({updateOne:{filter:{player:s.playerId,key:`${key}:${threshold}`},update:{$setOnInsert:{player:s.playerId,key:`${key}:${threshold}`,label:`${threshold} ${key==='cleanSheets'?'clean sheets':key}`}},upsert:true}});
@@ -18,8 +16,6 @@ export function syncHistory(){
  await Award.deleteMany({year:currentYear,month:currentMonth,type:{$in:['player','offensive','defensive']}});
  for(const m of matches){const d=new Date(m.date),y=d.getUTCFullYear(),mo=d.getUTCMonth()+1;if(y<currentYear)periods.set(`${y}`,{year:y});if(y<currentYear||(y===currentYear&&mo<currentMonth))periods.set(`${y}-${mo}`,{year:y,month:mo});}
  for(const period of periods.values())for(const a of selectAwards(players,matches,period))await Award.updateOne({key:`${a.type}:${a.year}:${a.month||0}`},{$setOnInsert:{...a,key:`${a.type}:${a.year}:${a.month||0}`}},{upsert:true});
- })().finally(()=>{tasks.delete(scope);});
- tasks.set(scope,pending);
- return pending;
+ })().finally(()=>{pending=null;});return pending;
 }
 export function scheduleHistory(){syncHistory().catch(()=>console.error('Historical recognition could not be refreshed.'));}

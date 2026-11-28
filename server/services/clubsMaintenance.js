@@ -1,11 +1,11 @@
 import Club from "../models/clubs/Club.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import AuctionOffer from "../models/clubs/AuctionOffer.js";
-import { getClubsWorkspaceConnection } from "../config/clubsDatabase.js";
+import { getClubsConnection } from "../config/clubsDatabase.js";
 import { CLUB_MATCH_REQUEST_TTL_HOURS } from "../config/clubsRules.js";
 
 export async function runClubsMaintenance(now = new Date()) {
-  const connection = getClubsWorkspaceConnection();
+  const connection = getClubsConnection();
   if (connection.readyState !== 1) return { skipped: true };
 
   const requestCutoff = new Date(now.getTime() - CLUB_MATCH_REQUEST_TTL_HOURS * 60 * 60 * 1000);
@@ -99,14 +99,10 @@ export async function runClubsMaintenance(now = new Date()) {
   return { expiredClubMatches: expiredMatches.modifiedCount || 0, expiredAuctionOffers: (expiredOffers.modifiedCount || 0) + (legacyChosenOffers.modifiedCount || 0) + (legacyActiveOffers.modifiedCount || 0), clubsReconciled };
 }
 
-export function startClubsMaintenanceWorker(intervalMs = 60_000, workspaces = task => task()) {
-  let running = false;
+export function startClubsMaintenanceWorker(intervalMs = 60_000) {
   const run = async () => {
-    if (running) return;
-    running = true;
-    try { await workspaces(() => runClubsMaintenance()); }
+    try { await runClubsMaintenance(); }
     catch (error) { console.error("Clubs maintenance failed:", error); }
-    finally { running = false; }
   };
   void run();
   const timer = setInterval(run, intervalMs);

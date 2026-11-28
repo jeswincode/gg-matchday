@@ -1,6 +1,5 @@
 import {lazy, Suspense, useCallback, useRef} from 'react';
-import {API_URL, api, authenticatedFetch, invalidate, matchdayApiBase} from './lib/api';
-import { useWorkspaceBrand } from './features/communities/WorkspaceBrand.jsx';
+import {API_URL, api, authenticatedFetch, invalidate} from './lib/api';
 import { createAccountSync, fetchMatchdayAccount } from "./lib/accountSync";
 import { subscribeToProfileUpdates } from './lib/profileLive';
 import { refreshLiveTopics, subscribeToAccountUpdates, useLiveRevision } from './lib/liveData';
@@ -96,12 +95,11 @@ function localDateString(
   return `${year}-${month}-${day}`;
 }
 
-function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfileSaved }) {
-  const brand = useWorkspaceBrand();
+function App() {
   const dockDrag = useDockDrag();
   const [experience,setExperience]=useState('startup');
   const [mobileEntry] = useState(() => window.matchMedia("(max-width: 767px), (hover: none) and (pointer: coarse)").matches);
-  const [mobileEntryComplete, setMobileEntryComplete] = useState(() => Boolean(identity || document.fullscreenElement));
+  const [mobileEntryComplete, setMobileEntryComplete] = useState(() => Boolean(document.fullscreenElement));
   const [productMode,setProductMode]=useState(readWorkspace);
   const [clubsAdminEntry, setClubsAdminEntry] = useState(false);
   const [profileRequestMode, setProfileRequestMode] = useState(null);
@@ -141,9 +139,9 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     const icon = document.getElementById("gg-favicon");
-    if (icon) icon.href = brand.founding ? (theme === "golden" ? icon.dataset.gold : icon.dataset.dark) : "/ballers.svg";
+    if (icon) icon.href = theme === "golden" ? icon.dataset.gold : icon.dataset.dark;
     try { localStorage.setItem("gg-theme", theme); } catch { /* Storage can be disabled. */ }
-  }, [theme, brand.founding]);
+  }, [theme]);
   useEffect(() => {
     document.documentElement.dataset.productMode = productMode;
   }, [productMode]);
@@ -484,11 +482,11 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
         setAuthLoading(true);
       },
       async load(firebaseUser, signal) {
-        if (testHeaders) return fetchMatchdayAccount(matchdayApiBase(), testHeaders, signal);
+        if (testHeaders) return fetchMatchdayAccount(API_URL, testHeaders, signal);
         async function loadWithToken(forceRefresh) {
           const token = await firebaseUser.getIdToken(forceRefresh);
           signal.throwIfAborted();
-          return fetchMatchdayAccount(matchdayApiBase(), { Authorization: `Bearer ${token}` }, signal);
+          return fetchMatchdayAccount(API_URL, { Authorization: `Bearer ${token}` }, signal);
         }
         try {
           return await loadWithToken(false);
@@ -576,7 +574,7 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
   }
 
   const signedInEntry = experience === "entry" && Boolean(authUser);
-  const activeExperience = identity ? "app" : signedInEntry || experience === "welcome"
+  const activeExperience = signedInEntry || experience === "welcome"
     ? (mobileEntry ? "app" : "welcome")
     : experience;
   const fullscreenPromptOpen = mobileEntry && !mobileEntryComplete;
@@ -762,7 +760,6 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
   }
 
   async function logout() {
-    if (onSignOut) return onSignOut();
     try {
       await signOut(auth);
       closeModal();
@@ -2078,8 +2075,7 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
       </section>
     </main>;
   } else if (productMode === "clubs") {
-    workspaceContent = <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} onCommunities={onCommunities}
-      onCommunitySettings={onCommunitySettings} authUser={backendUser} isAdmin={isAdmin}
+    workspaceContent = <ClubsMode onReturnToMatchday={() => switchProductMode("matchday")} authUser={backendUser} isAdmin={isAdmin}
       adminEntry={clubsAdminEntry} onOpenOwnProfile={linkedPlayerId ? openOwnProfile : null}
       openingOwnProfile={openingOwnProfile} ownProfileError={linkedPlayerId ? ownProfileError : ""} />;
   } else if (activeExperience === "entry") {
@@ -2095,7 +2091,7 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
       <header className="topbar" data-companion-surface="matchday-header">
         <div>
           <p className="eyebrow">
-            {brand.name.toUpperCase()}
+            GG MATCHDAY
           </p>
 
           <h1>
@@ -2107,7 +2103,7 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
           <span />
           LIVE
         </div>
-        <div className="gg-header-actions">{onCommunities && <button type="button" className="secondary-button" onClick={onCommunities}>Communities</button>}<button className="secondary-button" type="button" onClick={() => switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
+        <div className="gg-header-actions"><button className="secondary-button" type="button" onClick={() => switchProductMode("clubs")}>Clubs</button><div className="gg-theme" aria-label="Theme">{[['dark','Dark'],['golden','Gold']].map(([value,label])=><button key={value} aria-pressed={theme===value} onClick={()=>setTheme(value)}>{label}</button>)}</div>{isSignedIn&&<button className="secondary-button" onClick={()=>setModal('chat')}>Chat</button>}</div>
       </header>
 
       {/* ACCOUNT */}
@@ -2149,7 +2145,7 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
               <div>
                 <strong>
                   {
-                    identity?.profile.displayName || backendUser?.name || authUser.displayName || "Player"
+                    backendUser?.name || authUser.displayName || "GG Matchday User"
                   }
                 </strong>
 
@@ -2200,7 +2196,6 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
               {linkedPlayerId && <button type="button" className="secondary-button" onClick={() => openOwnProfile()} disabled={openingOwnProfile}>
                 {openingOwnProfile ? "Opening profile…" : "Player Profile"}
               </button>}
-              {onCommunitySettings && <button type="button" className="secondary-button" onClick={onCommunitySettings}>Community settings</button>}
               <button
                 type="button"
                 className="secondary-button"
@@ -2299,7 +2294,7 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
       {pane === TABS.RECORD && <section className="tab-content">
         <div className="gg-secondary-tabs" role="tablist" aria-label="Record sections"><button role="tab" aria-selected={recordSection==='record'} onClick={()=>setRecordSection('record')}>Match Record</button><button role="tab" aria-selected={recordSection==='clasico'} onClick={()=>setRecordSection('clasico')}>El Clásico</button></div>
         {recordSection==='clasico'?<Suspense fallback={<div className="loading-panel" role="status">Preparing El Clásico…</div>}><Clasico onPlayer={showPlayer} onMatch={showMatch} refreshKey={refreshKey} isSignedIn={isSignedIn}/></Suspense>:<>
-        <div className="page-title"><p className="eyebrow">MATCH DAY</p><h2>{isEditor?(editingMatchId?'Edit Match':'Record a Match'):'Match Record'}</h2><p>{isEditor?'Assign sides, record performances, and let the match tell the story.':`Explore the ${brand.name} archive.`}</p></div>
+        <div className="page-title"><p className="eyebrow">MATCH DAY</p><h2>{isEditor?(editingMatchId?'Edit Match':'Record a Match'):'Match Record'}</h2><p>{isEditor?'Assign sides, record performances, and let the match tell the story.':'Explore the GG Matchday archive.'}</p></div>
         {isEditor && (
           <MatchRecordForm
             onSubmit={saveMatch}
@@ -2549,10 +2544,6 @@ function App({ onCommunities, onSignOut, onCommunitySettings, identity, onProfil
       <Suspense fallback={<div className="loading-panel">Opening…</div>}>
       {modal === "account" && authUser && <AccountProfileSettings
         account={authUser} role={backendUser?.role} linked={Boolean(linkedPlayerId)} clasicoSide={clasicoSide}
-        identity={identity} onProfileSaved={profile => {
-          onProfileSaved(profile);
-          invalidate("/players");
-        }}
         theme={theme} onTheme={setTheme}
         key={accountId || authUser.uid} companion={backendUser?.companion}
         onCompanionSave={accountId ? companion => setBackendUser(current =>

@@ -1,4 +1,3 @@
-import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -23,4 +22,4 @@ const clubPlayerStatsSchema = new mongoose.Schema(
 
 clubPlayerStatsSchema.index({ clubId: 1, playerId: 1 }, { unique: true });
 
-export default workspaceModel(getClubsConnection().model("ClubPlayerStats", clubPlayerStatsSchema));
+export default getClubsConnection().model("ClubPlayerStats", clubPlayerStatsSchema);

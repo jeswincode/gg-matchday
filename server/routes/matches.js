@@ -12,7 +12,7 @@ import { buildFallbackMatchNews } from "../services/matchNews.js";
 import { calculateGGParticipantRatings } from "../services/ratings/match.js";
 import { refreshPlayerAttributes } from "../services/playerAttributes.js";
 import { rebuildPlayerStatistics } from "../services/persistedStatistics.js";
-import { getClubsWorkspaceConnection } from "../config/clubsDatabase.js";
+import { getClubsConnection } from "../config/clubsDatabase.js";
 import { clubsIntegrationConfigured, enqueueClubSyncJob, syncMainMatchToClubs } from "../services/clubsSync.js";
 import ClubMatch from "../models/clubs/ClubMatch.js";
 import mongoose from "mongoose";
@@ -31,14 +31,14 @@ import {
 const router = express.Router();
 
 async function hasLinkedClubMatch(mainMatchId, { settledOnly = false } = {}) {
-  const connection = getClubsWorkspaceConnection();
+  const connection = getClubsConnection();
   if (connection.readyState !== 1) return null;
   return Boolean(await ClubMatch.exists({ mainMatchId, ...(settledOnly ? { settlementStatus: "settled" } : {}) }));
 }
 
 function ensureClubsMutationSafety(res) {
   if (!clubsIntegrationConfigured()) return true;
-  if (getClubsWorkspaceConnection().readyState !== 1) {
+  if (getClubsConnection().readyState !== 1) {
     res.status(503).json({ message: "Clubs data is temporarily unavailable. Match edits/deletions are blocked until Clubs synchronization is healthy." });
     return false;
   }
@@ -441,7 +441,7 @@ router.post(
         if (!mongoose.isValidObjectId(clubFixtureId) || !isClubsMatchName(name)) {
           return res.status(400).json({ message: "Use a valid booking and include Clubs in the match name." });
         }
-        if (!clubsIntegrationConfigured() || getClubsWorkspaceConnection().readyState !== 1) {
+        if (!clubsIntegrationConfigured() || getClubsConnection().readyState !== 1) {
           return res.status(503).json({ message: "Clubs is temporarily unavailable. Try recording this fixture again later." });
         }
         const problem = await validateBookedFixtureResult({ date: matchDate, teamA, teamB, participants }, clubFixtureId);

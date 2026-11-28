@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { workspaceConnection } from "./workspaceModels.js";
 
 let clubsConnection = null;
 
@@ -10,8 +9,6 @@ export function getClubsConnection() {
 
   return clubsConnection;
 }
-
-export const getClubsWorkspaceConnection = () => workspaceConnection(getClubsConnection());
 
 export async function connectClubsDatabase() {
   const uri = String(process.env.CLUBS_MONGODB_URI || "").trim();

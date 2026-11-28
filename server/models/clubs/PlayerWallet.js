@@ -1,4 +1,3 @@
-import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -16,4 +15,4 @@ const playerWalletSchema = new mongoose.Schema(
   { timestamps: true, collection: "playerWallets" },
 );
 
-export default workspaceModel(getClubsConnection().model("PlayerWallet", playerWalletSchema));
+export default getClubsConnection().model("PlayerWallet", playerWalletSchema);

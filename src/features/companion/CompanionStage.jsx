@@ -3,11 +3,9 @@ import CompanionPlayer from "./CompanionPlayer";
 import CompanionDesktopMenu from "./CompanionDesktopMenu.jsx";
 import CompanionTouchMenu from "./CompanionTouchMenu.jsx";
 import runCompanion from "./runCompanion";
-import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
 import { useCompanionGuide } from "./useCompanionGuide";
 
 export default function CompanionStage({ account, look, celebration, legacy, guide, onVote, onFixture }) {
-  const brand = useWorkspaceBrand();
   const stage = useRef(null);
   const token = useRef(null);
   const bubble = useRef(null);
@@ -59,7 +57,7 @@ export default function CompanionStage({ account, look, celebration, legacy, gui
   return (
     <div className="gg-companion-stage" data-legacy={legacy || undefined} ref={stage} data-no-tab-swipe>
       <button type="button" className="gg-companion-token" ref={token}
-        aria-label={legacy ? brand.companion + " preview" : brand.companion}
+        aria-label={legacy ? "GG Companion preview" : "GG Companion"}
         aria-expanded={legacy ? undefined : open} aria-keyshortcuts={legacy ? undefined : "Shift+F10 ArrowDown"}
         title={legacy ? undefined : "Tap for a tip. Right-click, or hold for 0.8 seconds and drag to choose an action."} hidden>
         <CompanionPlayer look={look} />

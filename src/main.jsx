@@ -12,17 +12,15 @@ import './own-goals-ui.css'
 import './news-scroll.css'
 import './components/notifications.css'
 import App from './App.jsx'
-import { resolveCommunitiesMode } from './lib/api'
-import CommunityPortal from './features/communities/CommunityPortal.jsx'
 
-void resolveCommunitiesMode().then(enabled => {
-  createRoot(document.getElementById('root')).render(
-    <StrictMode>
-      {enabled ? <CommunityPortal Matchday={App} /> : <App />}
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <>
+      <App />
       <footer className="pr-footer">Made by <strong>Jeswin</strong></footer>
-    </StrictMode>,
-  )
-})
+    </>
+  </StrictMode>,
+)
 import './mobile-ux.css'
 import './components/database-health.css';
 import './features/admin/gg-admin.css';

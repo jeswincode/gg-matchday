@@ -1,4 +1,3 @@
-import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
 import {useLayoutEffect, useRef, useState} from "react";
 import {formatDate} from "../../lib/date";
 import {invalidateResources} from "../../lib/api";
@@ -10,12 +9,11 @@ import AdminPreferredPositions from "../../components/AdminPreferredPositions";
 import "./player-workspace.css";
 
 function PlayerCard({ player, attributes, onShare }) {
-  const brand = useWorkspaceBrand();
   const labels = [["pace","PACE"],["shooting","SHOOTING"],["passing","PASSING"],["dribbling","DRIBBLING"],["defending","DEFENDING"],["physical","PHYSICAL"]];
   return (
     <section className="card gg-player-card">
       <div className="gg-player-card-top">
-        <div><p className="eyebrow">{brand.monogram} PLAYER CARD</p><h3>{player.name}</h3><span>{attributes?.position || player.position || "PLAYER"} · {attributes?.sampleStage || "unrated"}</span></div>
+        <div><p className="eyebrow">GG PLAYER CARD</p><h3>{player.name}</h3><span>{attributes?.position || player.position || "PLAYER"} · {attributes?.sampleStage || "unrated"}</span></div>
         <div className="gg-player-card-ovr"><strong>{attributes?.ovr ?? "—"}</strong><span>OVR</span></div>
       </div>
       <div className="gg-player-card-attrs">{labels.map(([key,label]) => <div key={key}><span>{label}</span><strong>{attributes?.attributes?.[key] ?? "—"}</strong></div>)}</div>
@@ -72,14 +70,13 @@ export default function PlayerProfile({
   const {data: attributes, loading: attributesLoading, error: attributesError} =
     useResource(attributesPath, refreshKey + attributesRevision);
   const attributesReady = Boolean(attributes?.evidence);
-  const profileBrand = useWorkspaceBrand();
   function loadAttributes() {
     invalidateResources([attributesPath]);
     setAttributesRevision(current => current + 1);
   }
   const shareCard=async()=>{
-    const text=`${player.name} · ${attributes?.ovr ?? "Unrated"} OVR · ${profileBrand.name} Player Card`;
-    if(navigator.share) await navigator.share({title:profileBrand.monogram + " Player Card",text});
+    const text=`${player.name} · ${attributes?.ovr ?? "Unrated"} OVR · GG Matchday Player Card`;
+    if(navigator.share) await navigator.share({title:"GG Player Card",text});
     else if(navigator.clipboard) await navigator.clipboard.writeText(text);
   };
   const editProfile = isEditor ? onOpenEditor : onRequestEdit;

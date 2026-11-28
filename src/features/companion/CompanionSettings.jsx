@@ -13,10 +13,7 @@ const labels = {
 const angles = ["front", "left", "right", "back"];
 const celebrations = { ronaldo: "Ronaldo · SIUUU", messi: "Messi · Point to the sky" };
 
-import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
-
 export default function CompanionSettings({ look, name, role, clasicoSide, onSave }) {
-  const { companion } = useWorkspaceBrand();
   const id = useId();
   const [draft, setDraft] = useState(() => companionLook(look));
   const [status, setStatus] = useState("");
@@ -65,7 +62,7 @@ export default function CompanionSettings({ look, name, role, clasicoSide, onSav
   }
 
   return <section className="gg-account-setting gg-companion-settings">
-    <h3>{companion}</h3>
+    <h3>GG Companion</h3>
     <form onSubmit={save}>
       <div className="gg-companion-locker">
         <div className="gg-locker-portrait">

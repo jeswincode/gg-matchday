@@ -1,4 +1,3 @@
-import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -26,4 +25,4 @@ playerReviewSchema.pre("validate", function preventSelfReview() {
   }
 });
 
-export default workspaceModel(getClubsConnection().model("PlayerReview", playerReviewSchema));
+export default getClubsConnection().model("PlayerReview", playerReviewSchema);

@@ -4,7 +4,7 @@ import Player from "../models/Player.js";
 import Match from "../models/Match.js";
 import User from "../models/User.js";
 import ProfileChangeRequest from "../models/ProfileChangeRequest.js";
-import { getClubsWorkspaceConnection } from "../config/clubsDatabase.js";
+import { getClubsConnection } from "../config/clubsDatabase.js";
 import { requireAuth, requireEditor, requireAdmin } from "../middleware/auth.js";
 import { positions as approvedPositions, primaryPositionCode, validatePlayerProfileUpdate } from "../services/validation.js";
 import { resolvePlayerAttributesReadOnly, refreshPlayerAttributes } from "../services/playerAttributes.js";
@@ -196,7 +196,7 @@ router.delete("/:id", requireAuth, requireEditor, async (req, res) => {
     // still points at the profile, and fail closed if Clubs is configured but
     // unavailable so that a temporary DB outage cannot bypass this protection.
     if (String(process.env.CLUBS_MONGODB_URI || "").trim()) {
-      const clubsConnection = getClubsWorkspaceConnection();
+      const clubsConnection = getClubsConnection();
       if (clubsConnection.readyState !== 1 || !clubsConnection.db) {
         return res.status(503).json({
           message: "Clubs data is temporarily unavailable. Player deletion is blocked until Clubs data is healthy.",

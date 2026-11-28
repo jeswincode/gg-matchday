@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
 import useDockDrag from "../../components/useDockDrag";
 
 const icons = {
@@ -29,7 +28,6 @@ function NavigationIcon({ name }) {
 }
 
 export function ClubsAdminNavigation({ items, active, onNavigate }) {
-  const brand = useWorkspaceBrand();
   const [open, setOpen] = useState(false);
   const trigger = useRef(null);
   const panel = useRef(null);
@@ -58,7 +56,7 @@ export function ClubsAdminNavigation({ items, active, onNavigate }) {
       }}>
         <div className="clubs-admin-rail-heading">
           <span className="clubs-admin-rail-icon"><NavigationIcon name="myClub" /></span>
-          <div><strong>Clubs Admin</strong><small>{brand.name}</small></div>
+          <div><strong>Clubs Admin</strong><small>GG Matchday</small></div>
           <button ref={panel} type="button" className="clubs-admin-menu-close" aria-label="Close sections" onClick={dismiss}>×</button>
         </div>
         <nav aria-label="Clubs admin navigation">

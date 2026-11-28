@@ -1,4 +1,3 @@
-import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -23,4 +22,4 @@ auctionOfferSchema.index(
   { unique: true, partialFilterExpression: { status: { $in: ["chosenByPlayer", "approved"] } } },
 );
 
-export default workspaceModel(getClubsConnection().model("AuctionOffer", auctionOfferSchema));
+export default getClubsConnection().model("AuctionOffer", auctionOfferSchema);

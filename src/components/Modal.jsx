@@ -1,12 +1,10 @@
 import { createPortal } from "react-dom";
 import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
-import { useWorkspaceBrand } from "../features/communities/WorkspaceBrand.jsx";
 
 const tabbable = "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href],[tabindex='0']";
 const exitDuration = 145;
 
-export default function Modal({ title, onClose, children, className = "", closeLabel = "Close dialog" }) {
-  const { name } = useWorkspaceBrand();
+export default function Modal({ title, onClose, children, className = "" }) {
   const dialogRef = useRef(null);
   const heading = useId();
   const [closing, setClosing] = useState(false);
@@ -63,8 +61,8 @@ export default function Modal({ title, onClose, children, className = "", closeL
           if (closing && event.target === event.currentTarget && event.animationName === "signature-dialog-out") onClose();
         }}>
         <header className="gg-modal-head">
-          <div><p className="eyebrow">{name.toUpperCase()}</p><h2 id={heading}>{title}</h2></div>
-          <button type="button" className="secondary-button" aria-label={closeLabel} onClick={dismiss}>{closeLabel === "Close dialog" ? "×" : closeLabel}</button>
+          <div><p className="eyebrow">GG MATCHDAY</p><h2 id={heading}>{title}</h2></div>
+          <button type="button" className="secondary-button" aria-label="Close dialog" onClick={dismiss}>×</button>
         </header>
         {children}
       </section>

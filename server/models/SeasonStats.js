@@ -1,4 +1,3 @@
-import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 
 const seasonStatsSchema = new mongoose.Schema({
@@ -12,4 +11,4 @@ const seasonStatsSchema = new mongoose.Schema({
 seasonStatsSchema.index({ playerId: 1, year: 1 }, { unique: true });
 seasonStatsSchema.index({ year: 1, "stats.ggRating": -1 });
 
-export default workspaceModel(mongoose.model("SeasonStats", seasonStatsSchema));
+export default mongoose.model("SeasonStats", seasonStatsSchema);

@@ -138,7 +138,7 @@ textarea:focus-visible {
 }
 
 .home-hero::after {
-  content: var(--workspace-monogram, "GG") / "";
+  content: "GG";
   position: absolute;
   right: clamp(18px, 5vw, 70px);
   bottom: -48px;
