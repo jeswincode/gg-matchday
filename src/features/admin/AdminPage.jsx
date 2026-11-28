@@ -463,7 +463,7 @@ export default function AdminPage({
           </section>
 </>)}
           </div>
-          <div className="admin-workspace-foot"><span>{brand.name} · Administration</span><button type="button" onClick={onBackToMatchday}><AdminIcon name="back"/> Return to Matchday</button></div>
+          <div className="admin-workspace-foot"><span>{brand.name} · Administration · Made by Jeswin</span><button type="button" onClick={onBackToMatchday}><AdminIcon name="back"/> Return to Matchday</button></div>
         </div>
       </div>
     </section>
