@@ -2,11 +2,13 @@ import useResource from "../../components/useResource";
 import { useLiveRevision } from "../../lib/liveData";
 import { clubDateKey, fixtureDateLabel } from "../clubs/clubPresentation";
 import { clubNotes, clasicoNotes, rankingNotes } from "./companionGuide";
+import { useWorkspaceBrand } from "../communities/WorkspaceBrand.jsx";
 
 const clubTasks = new Set(["formation-accept", "formation-name", "captain-setup", "captain-vote",
   "match-respond", "auction-choose", "auction-approve", "join-request", "renewal"]);
 
 export function useCompanionGuide(account, guide, onVote, onFixture) {
+  const { rating } = useWorkspaceBrand();
   const matchRevision = useLiveRevision("matchday");
   const clubRevision = useLiveRevision("clubs", "club-account");
   const linked = Boolean(account?.playerProfile);
@@ -52,6 +54,6 @@ export function useCompanionGuide(account, guide, onVote, onFixture) {
   const context = atClubs ? "clubs" : atClasico ? "clasico" : guide?.tab;
   const notes = atClubs ? clubNotes(clubHome, publicClubs, publicResult, clubStats)
     : atClasico ? clasicoNotes(rivalry)
-      : atRankings ? rankingNotes(trends, guide.leaderboard) : [];
+      : atRankings ? rankingNotes(trends, guide.leaderboard, rating) : [];
   return { reminders, context, notes, pitch: !atClubs && guide?.tab === "players" && !guide.selectedPlayer };
 }

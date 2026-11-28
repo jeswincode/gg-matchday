@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import User from '../models/User.js';
 import ChatMessage from '../models/ChatMessage.js';
 import { chatMonth, messageText } from '../services/validation.js';
+import { workspaceId } from '../config/workspaceModels.js';
 
 const router = express.Router();
 const clients = new Map();
@@ -25,6 +26,7 @@ function usageFor(user, month) {
 function broadcast(message) {
   const payload = `data: ${JSON.stringify(message)}\n\n`;
   for (const [clientId, client] of clients) {
+    if (client.workspace !== workspaceId()) continue;
     try {
       client.res.write(payload);
     } catch (error) {
@@ -84,7 +86,7 @@ router.get('/stream', async (req, res) => {
   res.flushHeaders();
 
   const clientId = randomUUID();
-  clients.set(clientId, { user: key, res });
+  clients.set(clientId, { user: key, res, workspace: workspaceId() });
 
   try {
     const history = await ChatMessage.find({ expiresAt: { $gt: new Date() } })

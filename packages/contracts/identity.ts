@@ -30,7 +30,7 @@ export function parseProfilePatch(value: unknown): ProfilePatch {
       case 'displayName': patch.displayName = textField(raw, 1, 80); break;
       case 'username': {
         const name = textField(raw, 3, 30).toLowerCase();
-        if (!/^[a-z0-9_]+$/.test(name)) throw new InputError('Use letters, numbers or underscores for the username.');
+        if (!/^[a-z0-9_]+$/.test(name)) throw new InputError('Use letters, numbers or underscores for the Player ID.');
         patch.username = name;
         break;
       }

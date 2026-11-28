@@ -1,5 +1,4 @@
 import { test, expect } from "@playwright/test";
-import { enterSignedInMatchday } from "../e2e/entry-helpers.js";
 
 const apiUrl = "http://127.0.0.1:5000/api";
 const playerOne = "65a000000000000000000001";
@@ -14,62 +13,96 @@ const linked = identity("viewer", playerTwo);
 const unlinked = identity("viewer", "unlinked");
 const admin = identity("admin", "unlinked");
 
-function signIn(page, headers, extra = {}) {
-  return page.goto("/?" + new URLSearchParams({
+async function signIn(page, headers, extra = {}) {
+  await page.goto("/?" + new URLSearchParams({
     e2eRole: headers["X-E2E-Test-Role"],
     e2ePlayerId: headers["X-E2E-Test-Player-Id"],
     ...extra,
   }));
+  await page.getByRole("button", { name: "PRESS TO CONTINUE" }).click();
 }
 
-test("the founding workspace requires a verified membership and keeps its Matchday screens", async ({ page, request }) => {
+async function setupPlayer(page, expectedName, id) {
+  const setup = page.getByRole("dialog", { name: "Set up your player profile" });
+  await expect(setup.getByLabel("Player name")).toHaveValue(expectedName);
+  await setup.getByLabel("Player ID").fill(id);
+  await setup.getByRole("button", { name: "Continue to communities" }).click();
+  await expect(setup).toHaveCount(0);
+}
+
+
+test("the entry and founding workspace preserve correct linked profiles", async ({ page, request }) => {
   await expect.poll(async () => (await request.get(apiUrl + "/matches")).status()).toBe(401);
+  await page.goto("/?e2eRole=guest");
+  await page.getByRole("button", { name: "PRESS TO CONTINUE" }).click();
+  await expect(page.getByRole("dialog", { name: "Your football starts here." })).toBeVisible();
+  await expect(page.locator(".ballers-entry-backdrop")).toBeVisible();
+
   await signIn(page, unlinked);
-  await expect(page.getByRole("heading", { name: "Your football communities" })).toBeVisible();
+  await setupPlayer(page, "Playwright viewer", "friendly_viewer");
+  await expect(page.getByRole("heading", { name: "Start with your community" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open GG Matchday" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Request to join GG Matchday" })).toBeVisible();
   expect((await request.get(apiUrl + "/matches", { headers: unlinked })).status()).toBe(403);
 
   await signIn(page, linked);
-  const profileId = page.getByLabel("Global player ID");
-  await expect(profileId).toHaveValue(/^[\da-f-]{36}$/);
-  const id = await profileId.inputValue();
-  await page.reload();
-  await expect(profileId).toHaveValue(id);
+  const before = await (await request.get(apiUrl + "/communities/me", { headers: linked })).json();
+  await setupPlayer(page, "E2E Player Two", "player_two");
   await page.getByRole("button", { name: "Open GG Matchday" }).click();
-  await enterSignedInMatchday(page);
-  await expect(page.getByRole("heading", { name: "Welcome to GG Matchday", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Communities", exact: true }).click();
-  await expect(profileId).toHaveValue(id);
+  await expect(page.getByRole("heading", { name: "Welcome to GG Matchday" })).toBeVisible();
+  await page.getByRole("button", { name: "Account profile settings" }).click();
+  const profile = page.getByRole("dialog", { name: "Account profile settings" });
+  const id = before.profile._id;
+  expect(id).toMatch(/^[\da-f-]{36}$/);
+  await expect(profile.getByLabel("Player name")).toHaveValue("E2E Player Two");
+  await profile.getByLabel("Player name").fill("Updated Player Two");
+  await profile.getByLabel("Player ID").fill("updated_player_two");
+  await profile.getByRole("button", { name: "Save profile" }).click();
+  await expect(profile.getByText("Profile saved.")).toBeVisible();
 
+  const player = await (await request.get(apiUrl + "/players", { headers: linked })).json();
+  expect(player.find(entry => entry._id === playerTwo).name).toBe("Updated Player Two");
+  const account = await (await request.get(apiUrl + "/communities/me", { headers: linked })).json();
+  expect(account.profile).toMatchObject({ _id: id, username: "updated_player_two", displayName: "Updated Player Two" });
   const adminAccount = await (await request.get(apiUrl + "/communities/me", { headers: admin })).json();
   expect(adminAccount.foundingAccess).toBe(true);
   expect(adminAccount.profile._id).not.toBe(id);
 });
 
-test("private communities accept one-time codes and approved requests, with isolated match stats", async ({ browser, page, request }) => {
+test("private communities use shared football workflows and isolate access and data", async ({ browser, page, request }) => {
   test.slow();
-  const name = "Aster Football";
+  const name = "Rivals United";
+  for (const [headers, username] of [[linked, "reserved_player_id"], [unlinked, "friendly_viewer"]]) {
+    expect((await request.patch(apiUrl + "/communities/me", { headers, data: { username } })).status()).toBe(200);
+  }
   await signIn(page, editor);
+  const setup = page.getByRole("dialog", { name: "Set up your player profile" });
+  await setup.getByLabel("Player ID").fill("reserved_player_id");
+  await setup.getByRole("button", { name: "Continue to communities" }).click();
+  await expect(setup.getByText("That Player ID is already taken. Choose another one.")).toBeVisible();
+  await setupPlayer(page, "E2E Player One", "rivals_owner");
   await page.getByLabel("Community name", { exact: true }).fill(name);
   await page.getByRole("button", { name: "Create community", exact: true }).click();
-  const tabs = page.getByRole("navigation", { name: "Community tabs" });
+  await expect(page.getByRole("heading", { name: "Welcome to Rivals United" })).toBeVisible();
+  expect(await page.locator(".home-hero").evaluate(node => getComputedStyle(node, "::after").content)).toContain("RU");
+  const tabs = page.getByRole("navigation", { name: "Matchday tabs" });
   await expect(tabs).toBeVisible();
-  await tabs.getByRole("button", { name: "Players", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Companion", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Community settings" }).click();
   await page.getByRole("button", { name: "Generate invitation code" }).click();
   const codeField = page.getByLabel("Invitation code", { exact: true });
   await expect(codeField).toHaveValue(/^[a-f0-9]{64}\.[\w-]{43}$/);
   const code = await codeField.inputValue();
   const [communityId, token] = code.split(".");
   const path = apiUrl + "/communities/" + communityId;
-  expect((await request.get(path + "/players", { headers: unlinked })).status()).toBe(404);
+  const workspace = apiUrl + "/workspaces/" + communityId;
+  expect((await request.get(workspace + "/matches", { headers: unlinked })).status()).toBe(404);
+  expect((await request.get(workspace + "/clubs", { headers: admin })).status()).toBe(404);
 
   const member = await browser.newPage();
   await signIn(member, unlinked);
   await member.getByLabel("Invitation code").fill(code);
   await member.getByRole("button", { name: "Join with code" }).click();
-  const memberTabs = member.getByRole("navigation", { name: "Community tabs" });
-  await expect(memberTabs).toBeVisible();
+  await expect(member.getByRole("heading", { name: "Welcome to Rivals United" })).toBeVisible();
   expect((await request.post(path + "/redeem", { headers: linked, data: { token } })).status()).toBe(404);
   expect((await request.get(path + "/join-requests", { headers: unlinked })).status()).toBe(404);
 
@@ -77,37 +110,54 @@ test("private communities accept one-time codes and approved requests, with isol
   const applicant = await browser.newPage();
   await signIn(applicant, linked, { joinCommunity: new URL(requestLink).searchParams.get("joinCommunity") });
   await applicant.getByRole("button", { name: "Send join request", exact: true }).click();
-  await expect(applicant.getByText("Request sent to Aster Football.")).toBeVisible();
+  await expect(applicant.getByText("Request sent to Rivals United.")).toBeVisible();
   await page.bringToFront();
-  await tabs.getByRole("button", { name: "Home", exact: true }).click();
-  await tabs.getByRole("button", { name: "Players", exact: true }).click();
-  const joinDecision = page.getByRole("combobox", { name: "Decision", exact: true });
-  await expect(joinDecision).toBeVisible({ timeout: 26_000 });
-  await joinDecision.selectOption("approve");
+  const decision = page.getByRole("combobox", { name: "Decision", exact: true });
+  await expect(decision).toBeVisible({ timeout: 26_000 });
+  await decision.selectOption("approve");
   await page.getByRole("button", { name: "Save decision" }).click();
   await applicant.bringToFront();
-  await expect(applicant.getByRole("button", { name: "Open Aster Football" })).toBeVisible({ timeout: 26_000 });
+  await expect(applicant.getByRole("button", { name: "Open Rivals United" })).toBeVisible({ timeout: 26_000 });
 
-  const roster = await (await request.get(path + "/players", { headers: editor })).json();
-  const owner = roster.items.find(player => player.role === "owner");
-  const away = roster.items.find(player => player.role === "member");
+  const [ownerAccount, memberAccount] = await Promise.all([editor, unlinked].map(async headers =>
+    (await (await request.get(workspace + "/auth/me", { headers })).json()).user));
+  expect(ownerAccount.role).toBe("admin");
+  expect(memberAccount.role).toBe("viewer");
+  expect(ownerAccount.playerProfile).not.toBe(playerOne);
   const date = new Date().toISOString().slice(0, 10);
-  const recorded = await request.post(path + "/matches", {
-    headers: { ...unlinked, "Idempotency-Key": "community-test-match-0001" },
-    data: { date, home: "Harbour", away: "Lakeside", homeScore: 1, awayScore: 0,
-      performances: [{ playerId: owner.id, side: "home", goals: 1, assists: 0, ownGoals: 0 },
-        { playerId: away.id, side: "away", goals: 0, assists: null, ownGoals: 0 }] },
-  });
-  expect(recorded.status()).toBe(201);
-  expect((await recorded.json()).status).toBe("submitted");
+  const matchData = { date, name: "Rivals friendly", teamA: { label: "Harbour", score: 1 },
+    teamB: { label: "Lakeside", score: 0 },
+    participants: [{ player: ownerAccount.playerProfile, team: "A", performanceCodes: ["finisher"] }, { player: memberAccount.playerProfile, team: "B", performanceCodes: [] }],
+    events: [{ player: ownerAccount.playerProfile, type: "goal" }] };
+  expect((await request.post(workspace + "/matches", { headers: unlinked, data: matchData })).status()).toBe(403);
+  const match = await request.post(workspace + "/matches", { headers: editor, data: matchData });
+  expect(match.status(), await match.text()).toBe(201);
+  const matches = await (await request.get(workspace + "/matches", { headers: linked })).json();
+  expect(matches).toHaveLength(1);
+  expect(matches[0].participants[0].player.name).toBe(ownerAccount.name);
+
+  const vote = await request.post(workspace + "/matches/" + matches[0]._id + "/votes", { headers: unlinked,
+    data: { playerId: ownerAccount.playerProfile } });
+  expect(vote.status(), await vote.text()).toBe(201);
+  expect((await request.post(workspace + "/matches/" + matches[0]._id + "/finalize-vote", { headers: editor })).status()).toBe(200);
+  expect((await request.get(workspace + "/stats/hall-of-fame", { headers: linked })).status()).toBe(200);
+  expect((await request.post(workspace + "/chat", { headers: unlinked, data: { message: "Private Rivals discussion" } })).status()).toBe(201);
+  const ownChat = await (await request.get(workspace + "/chat", { headers: editor })).json();
+  const foundingChat = await (await request.get(apiUrl + "/chat", { headers: editor })).json();
+  expect(ownChat.messages.some(message => message.text === "Private Rivals discussion")).toBe(true);
+  expect(foundingChat.messages.some(message => message.text === "Private Rivals discussion")).toBe(false);
+  const foundingMatches = await (await request.get(apiUrl + "/matches", { headers: editor })).json();
+  expect(foundingMatches.some(entry => entry.name === "Rivals friendly")).toBe(false);
+  expect((await request.get(workspace + "/SYSTEM/database-health", { headers: editor })).status()).toBe(404);
+
   await page.bringToFront();
-  await tabs.getByRole("button", { name: "Home", exact: true }).click();
-  await page.getByRole("combobox", { name: "Decision", exact: true }).selectOption("approve");
-  await page.getByRole("button", { name: "Save match decision" }).click();
-  await tabs.getByRole("button", { name: "Leaderboard", exact: true }).click();
-  await expect(page.getByRole("row", { name: new RegExp(owner.name) }).filter({ hasText: /1/ })).toHaveCount(1);
-  expect((await request.get(path + "/matches", { headers: admin })).status()).toBe(404);
-  expect((await request.get(apiUrl + "/matches", { headers: unlinked })).status()).toBe(403);
+  await page.getByRole("button", { name: "Close dialog" }).click();
+  await tabs.getByRole("button", { name: "Calendar" }).click();
+  await expect(page.getByRole("heading", { name: "Calendar", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Clubs", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Club Hub" })).toBeVisible();
+  await expect(page.getByText("RIVALS UNITED", { exact: true })).toBeVisible();
+  expect(await (await request.get(workspace + "/clubs", { headers: linked })).json()).toEqual([]);
   await member.close();
   await applicant.close();
 });

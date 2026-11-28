@@ -9,6 +9,8 @@ import { InputError, parseProfilePatch, record, textField } from "../../packages
 import { defaultBrand } from "../../packages/branding/identity.ts";
 import { parseMatch } from "../../packages/contracts/match.ts";
 import { MatchService } from "../../packages/data/matches.ts";
+import { updateWorkspaceProfile } from "../services/workspaceAccounts.js";
+import { invalidateWorkspaceRecords } from "../services/workspaceRecords.js";
 
 const router = express.Router();
 const writes = new Map();
@@ -41,6 +43,12 @@ function footballCommunity(req) {
   const id = blueprint(req);
   if (id === foundingCommunityId) throw new AccessError();
   return id;
+}
+
+async function requirePlayerId(req, res, next) {
+  const profile = await communityStore().profile(req.communityAccount);
+  if (!profile?.username) return res.status(409).json({ message: "Choose a player name and Player ID first." });
+  next();
 }
 
 router.use((_req, res, next) => {
@@ -80,7 +88,7 @@ router.get("/me", async (req, res) => {
 });
 
 router.patch("/me", async (req, res) => {
-  res.json(await communityStore().updateProfile(req.communityAccount, parseProfilePatch(req.body)));
+  res.json(await updateWorkspaceProfile(req.communityAccount, parseProfilePatch(req.body), req));
 });
 
 router.get("/directory", async (req, res) => {
@@ -91,14 +99,14 @@ router.get("/directory", async (req, res) => {
   res.json(page);
 });
 
-router.post("/", async (req, res) => {
+router.post("/", requirePlayerId, async (req, res) => {
   const { name } = record(req.body);
   const brand = defaultBrand(name);
   if (brand.name.toLowerCase().replace(/\s+/g, " ") === "gg matchday") throw new InputError("Choose a different community name.");
   res.status(201).json(await communityStore().createCommunity(req.communityAccount, brand, requestKey(req)));
 });
 
-router.post("/:id/join", async (req, res) => {
+router.post("/:id/join", requirePlayerId, async (req, res) => {
   res.json(await communityStore().askToJoin(req.communityAccount, blueprint(req)));
 });
 
@@ -109,17 +117,23 @@ router.get("/:id/join-requests", async (req, res) => {
 router.patch("/:id/join-requests/:request", async (req, res) => {
   const { decision } = record(req.body);
   if (!["approve", "decline"].includes(decision)) throw new InputError("Choose approve or decline.");
-  res.json(await communityStore().decideJoinRequest(req.communityAccount, blueprint(req), req.params.request, decision === "approve"));
+  const id = blueprint(req);
+  const result = await communityStore().decideJoinRequest(req.communityAccount, id, req.params.request, decision === "approve");
+  invalidateWorkspaceRecords(id);
+  res.json(result);
 });
 
 router.post("/:id/invitation", async (req, res) => {
   res.status(201).json(await communityStore().invite(req.communityAccount, blueprint(req)));
 });
 
-router.post("/:id/redeem", async (req, res) => {
+router.post("/:id/redeem", requirePlayerId, async (req, res) => {
   const token = textField(record(req.body).token, 43, 43);
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new InputError("Enter the full invitation code.");
-  res.json(await communityStore().redeem(req.communityAccount, blueprint(req), token));
+  const id = blueprint(req);
+  const result = await communityStore().redeem(req.communityAccount, id, token);
+  invalidateWorkspaceRecords(id);
+  res.json(result);
 });
 
 router.get("/:id", async (req, res) => {
@@ -144,14 +158,20 @@ router.get("/:id/matches", async (req, res) => {
 
 router.post("/:id/matches", async (req, res) => {
   const matches = new MatchService(communityStore());
-  res.status(201).json(await matches.submit(req.communityAccount, footballCommunity(req), parseMatch(req.body), requestKey(req)));
+  const id = footballCommunity(req);
+  const result = await matches.submit(req.communityAccount, id, parseMatch(req.body), requestKey(req));
+  invalidateWorkspaceRecords(id);
+  res.status(201).json(result);
 });
 
 router.patch("/:id/matches/:match", async (req, res) => {
   const { decision } = record(req.body);
   if (!["approve", "decline"].includes(decision)) throw new InputError("Choose approve or decline.");
   const matches = new MatchService(communityStore());
-  res.json(await matches.review(req.communityAccount, footballCommunity(req), req.params.match, decision === "approve"));
+  const id = footballCommunity(req);
+  const result = await matches.review(req.communityAccount, id, req.params.match, decision === "approve");
+  invalidateWorkspaceRecords(id);
+  res.json(result);
 });
 
 router.get("/:id/calendar", async (req, res) => {
@@ -185,6 +205,12 @@ router.use((error, _req, res, next) => {
   if (res.headersSent) return next(error);
   if (error instanceof InputError) return res.status(400).json({ message: error.message });
   if (error instanceof AccessError) return res.status(404).json({ message: "This community, invitation or record is unavailable." });
+  if (isDuplicateKey(error) && error.keyPattern?.username) {
+    return res.status(409).json({ message: "That Player ID is already taken. Choose another one." });
+  }
+  if (isDuplicateKey(error) && error.keyPattern?.name) {
+    return res.status(409).json({ message: "That player name is already in your GG Matchday roster." });
+  }
   if (error instanceof RequestConflict || isDuplicateKey(error)) {
     return res.status(409).json({ message: "The request conflicts with an existing record. Refresh and check the details." });
   }

@@ -1,13 +1,13 @@
 import {useEffect,useState} from "react";
 
-function GGMark(){
+function GGMark({ monogram = "GG" }){
   return <div className="gg-refined-mark" aria-hidden="true">
     <span className="gg-refined-mark-ring"/>
-    <span className="gg-refined-mark-core">GG</span>
+    <span className="gg-refined-mark-core">{monogram}</span>
   </div>;
 }
 
-export function StartupScreen({authLoading,onComplete}){
+export function StartupScreen({authLoading,onComplete,brand}){
   const [minimumReady,setMinimumReady]=useState(false);
   const [sessionWaitElapsed,setSessionWaitElapsed]=useState(false);
 
@@ -32,8 +32,8 @@ export function StartupScreen({authLoading,onComplete}){
     </div>
 
     <div className="gg-startup-content">
-      <GGMark/>
-      <p className="gg-refined-eyebrow">GG MATCHDAY</p>
+      <GGMark monogram={brand?.monogram}/>
+      <p className="gg-refined-eyebrow">{brand?.name || "GG MATCHDAY"}</p>
       <h1>Football. Numbers. Rivalry.</h1>
       <p className="gg-startup-status">{label}<span className="gg-loading-dots" aria-hidden="true"><i/> <i/> <i/></span></p>
       <div className="gg-startup-meter" aria-hidden="true"><span className={ready?"ready":""}/></div>
@@ -78,15 +78,16 @@ export function LoginDashboard({onSignIn,onGuest,busy,signingIn,message}){
 
 const introVideo = import.meta.env.VITE_MATCHDAY_INTRO_VIDEO;
 
-function IntroBackground() {
+function IntroBackground({ fallback }) {
   const [videoFailed, setVideoFailed] = useState(false);
   const [reduceMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 
-  if (!introVideo || videoFailed || reduceMotion) return null;
+  const source = introVideo || fallback;
+  if (!source || videoFailed || reduceMotion) return null;
   return (
     <video
       className="gg-intro-video"
-      src={introVideo}
+      src={source}
       autoPlay
       muted
       loop
@@ -97,8 +98,9 @@ function IntroBackground() {
   );
 }
 
-export function WelcomeScreen({ onEnter }) {
+export function WelcomeScreen({ onEnter, background = false, brand }) {
   useEffect(() => {
+    if (background) return;
     function handleGlobalEnter(event) {
       if (event.key !== "Enter" || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
       if (event.target !== document.body && event.target !== document.documentElement) return;
@@ -109,11 +111,12 @@ export function WelcomeScreen({ onEnter }) {
 
     window.addEventListener("keydown", handleGlobalEnter);
     return () => window.removeEventListener("keydown", handleGlobalEnter);
-  }, [onEnter]);
+  }, [onEnter, background]);
 
   return (
-    <main className="gg-matchday-intro">
-      <IntroBackground />
+    <main className="gg-matchday-intro" aria-hidden={background || undefined} inert={background}>
+      <IntroBackground fallback={brand && "/ggmatchdaybg.mp4"} />
+      {brand && <span className="ballers-intro-wordmark">{brand.name}</span>}
       <button type="button" className="gg-intro-desktop-button" onClick={onEnter}>
         <span>PRESS TO CONTINUE</span>
       </button>

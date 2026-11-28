@@ -5,7 +5,7 @@ import type { CommunityBrand } from '../branding/identity.ts';
 import { foundingBrand } from '../branding/identity.ts';
 
 export type Account = { _id: string; firebaseUid: string; globalPlayerId: string };
-type Profile = { _id: string } & ProfilePatch;
+type Profile = { _id: string; customizedName?: true; seededPlayerId?: string } & ProfilePatch;
 type Community = { _id: string; storageLocation: string; brand: CommunityBrand; visibility: 'private' };
 type Member = {
   communityId: string;
@@ -140,9 +140,16 @@ export class CommunityStore {
     }));
   }
 
-  async updateProfile(account: Account, patch: ProfilePatch) {
+  async seedLinkedName(account: Account, playerId: string, displayName: string) {
+    await this.control.db.collection<Profile>('globalPlayers').updateOne({
+      _id: account.globalPlayerId, customizedName: { $ne: true }, seededPlayerId: { $exists: false },
+    }, { $set: { displayName, seededPlayerId: playerId } });
+  }
+
+  async updateProfile(account: Account, patch: ProfilePatch, session?: ClientSession) {
     return this.control.db.collection<Profile>('globalPlayers').findOneAndUpdate(
-      { _id: account.globalPlayerId }, { $set: patch }, { returnDocument: 'after' },
+      { _id: account.globalPlayerId }, { $set: { ...patch, ...(patch.displayName ? { customizedName: true } : {}) } },
+      { returnDocument: 'after', session },
     );
   }
 

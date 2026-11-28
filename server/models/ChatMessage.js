@@ -1,3 +1,4 @@
+import { workspaceModel } from "../config/workspaceModels.js";
 import mongoose from "mongoose";
 
 const chatMessageSchema = new mongoose.Schema(
@@ -41,4 +42,4 @@ chatMessageSchema.index(
 );
 chatMessageSchema.index({ createdAt: -1 });
 
-export default mongoose.model("ChatMessage", chatMessageSchema);
+export default workspaceModel(mongoose.model("ChatMessage", chatMessageSchema));

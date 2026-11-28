@@ -1,13 +1,17 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 import { auth, googleProvider } from "../../firebase";
-import { invalidateResources } from "../../lib/api";
+import { invalidateResources, setMatchdayWorkspace } from "../../lib/api";
 import CommunityForm from "./CommunityForm";
 import CommunityAccess from "./CommunityAccess";
+import FootballIdentity from "./FootballIdentity";
+import PreviousSubmissions from "./PreviousSubmissions";
+import Modal from "../../components/Modal";
+import { StartupScreen, WelcomeScreen } from "../../components/StartupExperience";
+import { WorkspaceBrand, foundingBrand, platformBrand } from "./WorkspaceBrand.jsx";
 import { communityPages, communityRequest, submitCommunity, validCommunityCode } from "./communityApi";
 import "./communities.css";
 
-const CommunityWorkspace = lazy(() => import("./CommunityWorkspace"));
 const testIdentity = import.meta.env.VITE_E2E_TEST_AUTH_SECRET &&
   new URLSearchParams(window.location.search).get("e2eRole") !== "guest";
 
@@ -21,9 +25,25 @@ function visibleRequest() {
   return validCommunityCode(id) ? id : "";
 }
 
+function requestedWorkspace() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get("community");
+  return validCommunityCode(id) ? id : (params.has("tab") || params.has("view") ? "founding" : null);
+}
+
+function ActiveWorkspace({ brand, community, children }) {
+  useLayoutEffect(() => {
+    setMatchdayWorkspace(brand.founding ? null : community.id);
+    return () => { setMatchdayWorkspace(null); };
+  }, [brand.founding, community.id]);
+  return <WorkspaceBrand.Provider value={brand}>
+    <div className="community-app-brand" style={{ "--workspace-monogram": JSON.stringify(brand.monogram) }}>{children}</div>
+  </WorkspaceBrand.Provider>;
+}
+
 function CommunityHeader({ title, theme, setTheme, actions }) {
   return <header className="topbar community-topbar">
-    <div><span className="eyebrow">Football communities</span><h1>{title}</h1></div>
+    <div><span className="ballers-wordmark">ballers.</span><h1>{title}</h1></div>
     <div className="community-actions">
       <div className="gg-theme" role="group" aria-label="Theme">
         <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}>Dark</button>
@@ -32,41 +52,6 @@ function CommunityHeader({ title, theme, setTheme, actions }) {
       {actions}
     </div>
   </header>;
-}
-
-function FootballIdentity({ identity, onSaved }) {
-  const profile = identity.profile;
-  return <section className="card community-panel">
-    <h2>Your football profile</h2>
-    <div className="community-identity"><span>{identity.email}</span><label>Global player ID<input readOnly value={profile._id}
-      onFocus={event => event.target.select()} /></label></div>
-    {identity.linkNeedsReview && <p role="status">Your existing GG Matchday link needs an administrator to confirm it.</p>}
-    <CommunityForm label="Save profile" save={async data => {
-      const number = data.get("number");
-      const username = String(data.get("username")).trim();
-      const foot = data.get("foot");
-      const result = await submitCommunity("/me", {
-        displayName: data.get("name"),
-        ...(username && { username }),
-        ...(foot && { preferredFoot: foot }),
-        bio: data.get("bio"),
-        shirtNumber: number ? Number(number) : null,
-        preferredPositions: String(data.get("positions")).split(",").map(item => item.trim()).filter(Boolean),
-      }, null, "PATCH");
-      onSaved(result);
-    }}>
-      <div className="community-fields">
-        <label>Display name<input required name="name" maxLength={80} defaultValue={profile.displayName} /></label>
-        <label>Username<input name="username" autoComplete="off" minLength={3} maxLength={30} defaultValue={profile.username} /></label>
-        <label>Preferred positions<input name="positions" placeholder="ST, CM" defaultValue={profile.preferredPositions?.join(", ")} /></label>
-        <label>Preferred foot<select name="foot" defaultValue={profile.preferredFoot || ""}>
-          <option value="">Unspecified</option><option value="left">Left</option><option value="right">Right</option>
-          <option value="both">Both</option></select></label>
-        <label>Shirt number<input name="number" type="number" min={1} max={99} defaultValue={profile.shirtNumber ?? ""} /></label>
-        <label>Bio<textarea name="bio" maxLength={400} defaultValue={profile.bio} /></label>
-      </div>
-    </CommunityForm>
-  </section>;
 }
 
 function MembershipForms({ identity, requestId, refresh, enter }) {
@@ -123,11 +108,9 @@ function CommunityHub({ theme, setTheme, logout, Matchday }) {
   const [selected, setSelected] = useState(null);
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
+  const [panel, setPanel] = useState(null);
   const [requestId] = useState(visibleRequest);
-  const [initialId, setInitialId] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("community") || (params.has("tab") || params.has("view") ? "founding" : null);
-  });
+  const [initialId, setInitialId] = useState(requestedWorkspace);
   const refresh = () => setRevision(value => value + 1);
 
   useEffect(() => {
@@ -156,6 +139,24 @@ function CommunityHub({ theme, setTheme, logout, Matchday }) {
     return () => { controller.abort(); window.clearInterval(timer); window.removeEventListener("focus", check); };
   }, [revision, initialId]);
 
+  useEffect(() => {
+    function restore() {
+      const requested = requestedWorkspace();
+      const id = requested === "founding" ? identity?.foundingCommunityId : requested;
+      setSelected(communities.find(community => community.id === id) || null);
+      setPanel(null);
+      setInitialId(requested);
+    }
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [communities, identity?.foundingCommunityId]);
+
+  useEffect(() => {
+    if (selected) return;
+    const icon = document.getElementById("gg-favicon");
+    if (icon) icon.href = "/ballers.svg";
+  }, [selected]);
+
   function select(community) {
     invalidateResources();
     const url = new URL(window.location.href);
@@ -166,33 +167,53 @@ function CommunityHub({ theme, setTheme, logout, Matchday }) {
     else url.searchParams.delete("community");
     window.history.replaceState(null, "", url);
     setInitialId(null);
+    setPanel(null);
     setSelected(community);
     setTheme(initialTheme());
   }
 
-  const founding = selected?.id === identity?.foundingCommunityId && identity?.foundingAccess;
-  if (founding) return <Matchday onCommunities={() => select(null)} globalPlayerId={identity.profile._id} />;
+  const saveProfile = profile => setIdentity(current => ({ ...current, profile }));
+  if (identity && !identity.profile.username) return <WorkspaceBrand.Provider value={platformBrand}>
+    <div className="ballers-entry-backdrop"><WelcomeScreen brand={platformBrand} background /></div>
+    <Modal title="Set up your player profile" onClose={logout} className="ballers-entry-panel" closeLabel="Sign out">
+      <FootballIdentity identity={identity} onSaved={saveProfile} setup />
+    </Modal>
+  </WorkspaceBrand.Provider>;
+
+  if (selected && identity) {
+    const brand = selected.id === identity.foundingCommunityId ? foundingBrand : {
+      ...selected.brand, rating: "Matchday Rating", companion: "Companion", founding: false,
+    };
+    const canManage = ["admin", "owner"].includes(selected.role);
+    return <ActiveWorkspace brand={brand} community={selected}>
+        <Matchday key={selected.id} onCommunities={() => select(null)} onSignOut={logout}
+          onCommunitySettings={canManage ? () => setPanel("membership") : null}
+          identity={identity} onProfileSaved={saveProfile} />
+      {panel === "membership" && <Modal title="Community settings" onClose={() => setPanel(null)}>
+        <CommunityAccess community={selected} />
+        {!brand.founding && <PreviousSubmissions communityId={selected.id} />}
+      </Modal>}
+    </ActiveWorkspace>;
+  }
 
   const actions = <>
-    {selected && <button className="secondary-button" type="button" onClick={() => select(null)}>Communities</button>}
+    {identity && <button className="secondary-button" type="button" onClick={() => setPanel("profile")}>Account profile settings</button>}
     <button className="secondary-button" type="button" onClick={logout}>Sign out</button>
   </>;
-  return <main className="app community-shell">
-    <CommunityHeader title={selected?.brand.name || "Communities"} theme={theme} setTheme={setTheme} actions={actions} />
+  return <WorkspaceBrand.Provider value={platformBrand}><main className="app community-shell">
+    <CommunityHeader title="Communities" theme={theme} setTheme={setTheme} actions={actions} />
     {error && <p className="card community-panel" role="alert">{error} <button type="button" onClick={refresh}>Retry</button></p>}
     {!identity && !error && <p role="status">Loading your communities…</p>}
-    {selected && <Suspense fallback={<p role="status">Opening community…</p>}>
-      <CommunityWorkspace key={selected.id} community={selected} />
-    </Suspense>}
-    {identity && !selected && <>
-      <section className="home-hero community-hero">
-        <h2>Your football communities</h2>
+    {identity && <>
+      <section className="home-hero community-hero ballers-community-hero">
+        <h2>{communities.length ? "Choose your community" : "Start with your community"}</h2>
         <p className="home-intro">Play with your group, record matches, and build your football profile.</p>
       </section>
       <section className="community-grid" aria-label="Your communities">
         {!communities.length && <p className="muted">Your communities will appear here after you create or join one.</p>}
         {communities.map(community => <section key={community.id} className="card community-panel community-card">
-          <div>
+          <span className="community-crest" aria-hidden="true">{community.brand.monogram}</span>
+          <div className="community-card-name">
             <span className="eyebrow">{community.role}</span>
             <h2>{community.brand.name}</h2>
           </div>
@@ -200,16 +221,17 @@ function CommunityHub({ theme, setTheme, logout, Matchday }) {
         </section>)}
       </section>
       <MembershipForms identity={identity} requestId={requestId} refresh={refresh} enter={select} />
-      {communities.filter(community => community.id === identity.foundingCommunityId && community.role === "admin").map(community =>
-        <CommunityAccess key={community.id} community={community} />)}
-      <FootballIdentity key={identity.profile._id} identity={identity}
-        onSaved={profile => setIdentity(current => ({ ...current, profile }))} />
+      {panel === "profile" && <Modal title="Account profile settings" onClose={() => setPanel(null)} className="gg-account-settings">
+        <FootballIdentity identity={identity} onSaved={saveProfile} />
+      </Modal>}
     </>}
-  </main>;
+  </main></WorkspaceBrand.Provider>;
 }
 
 export default function CommunityPortal({ Matchday }) {
   const [theme, setTheme] = useState(initialTheme);
+  const [stage, setStage] = useState("loading");
+  const loaded = useCallback(() => setStage("intro"), []);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(Boolean(auth));
   const [busy, setBusy] = useState(false);
@@ -232,6 +254,12 @@ export default function CommunityPortal({ Matchday }) {
     try { localStorage.setItem("gg-theme", theme); } catch { /* Session-only preference. */ }
   }, [theme]);
 
+  useEffect(() => {
+    document.title = "ballers. · Football communities";
+    const icon = document.getElementById("gg-favicon");
+    if (icon) icon.href = "/ballers.svg";
+  }, []);
+
   async function login() {
     setBusy(true);
     setError("");
@@ -246,21 +274,29 @@ export default function CommunityPortal({ Matchday }) {
         const url = new URL(window.location.href);
         url.searchParams.set("e2eRole", "guest");
         window.location.assign(url);
-      } else await signOut(auth);
+      } else {
+        await signOut(auth);
+        setStage("intro");
+      }
     } catch { setError("Sign-out was interrupted. Try again."); }
   }
 
-  if (user || testIdentity) return <><CommunityHub key={user?.uid || "test-account"}
-    theme={theme} setTheme={setTheme} logout={logout} Matchday={Matchday} />{error && <p role="alert">{error}</p>}</>;
-  return <main className="app community-shell">
-    <CommunityHeader title="Football Stats" theme={theme} setTheme={setTheme} />
-    <section className="home-hero community-hero">
-      <h2>Your football starts here.</h2>
-      <p className="home-intro">Create a community for your group or join one and start recording matches.</p>
-      {auth ? <button type="button" className="secondary-button" onClick={login} disabled={loading || busy}>
-        {loading || busy ? "Connecting…" : "Continue with Google"}</button> :
-        <p role="status">Sign-in is unavailable in this environment.</p>}
+  if (stage === "loading") return <StartupScreen authLoading={loading && !testIdentity} onComplete={loaded} brand={platformBrand} />;
+  if (stage === "intro") return <WelcomeScreen brand={platformBrand} onEnter={() => setStage("access")} />;
+  if (user || testIdentity) return <>
+    <CommunityHub key={user?.uid || "test-account"} theme={theme} setTheme={setTheme} logout={logout} Matchday={Matchday} />
+    {error && <p role="alert">{error}</p>}
+  </>;
+
+  return <WorkspaceBrand.Provider value={platformBrand}>
+    <div className="ballers-entry-backdrop"><WelcomeScreen brand={platformBrand} background /></div>
+    <Modal title="Your football starts here." onClose={() => setStage("intro")} className="ballers-entry-panel">
+      <p>Sign in or create an account to join your group and track the football you play.</p>
+      {auth ? <button type="button" className="gg-entry-google" onClick={login} disabled={loading || busy}>
+        <span className="gg-google-g" aria-hidden="true">G</span>
+        {busy ? "Opening Google…" : loading ? "Checking your session…" : "Continue with Google"}
+      </button> : <p role="status">Sign-in is unavailable in this environment.</p>}
       {error && <p role="alert">{error}</p>}
-    </section>
-  </main>;
+    </Modal>
+  </WorkspaceBrand.Provider>;
 }

@@ -1,3 +1,4 @@
+import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -57,4 +58,4 @@ clubMatchSchema.index({ fixtureDate: 1 }, {
 });
 clubMatchSchema.index({ mainMatchId: 1 }, { unique: true, sparse: true });
 
-export default getClubsConnection().model("ClubMatch", clubMatchSchema);
+export default workspaceModel(getClubsConnection().model("ClubMatch", clubMatchSchema));

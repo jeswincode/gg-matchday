@@ -1,3 +1,4 @@
+import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -23,4 +24,4 @@ contractSchema.index(
   { clubId: 1, playerId: 1, status: 1 },
 );
 
-export default getClubsConnection().model("ClubContract", contractSchema);
+export default workspaceModel(getClubsConnection().model("ClubContract", contractSchema));

@@ -1,3 +1,4 @@
+import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
 
@@ -28,4 +29,4 @@ const clubAdminAuditEventSchema = new mongoose.Schema(
 clubAdminAuditEventSchema.index({ createdAt: -1, _id: -1 });
 clubAdminAuditEventSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
 
-export default getClubsConnection().model("ClubAdminAuditEvent", clubAdminAuditEventSchema);
+export default workspaceModel(getClubsConnection().model("ClubAdminAuditEvent", clubAdminAuditEventSchema));

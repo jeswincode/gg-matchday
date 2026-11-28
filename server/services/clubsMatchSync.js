@@ -5,7 +5,7 @@ import ClubPlayerStats from "../models/clubs/ClubPlayerStats.js";
 import ClubHistory from "../models/clubs/ClubHistory.js";
 import Match from "../models/Match.js";
 import Club from "../models/clubs/Club.js";
-import { getClubsConnection } from "../config/clubsDatabase.js";
+import { getClubsWorkspaceConnection } from "../config/clubsDatabase.js";
 import { CLUB_MAX_MEMBERS, normalizeClubName, clubDateKey, clubDateStartUtc } from "../config/clubsRules.js";
 import { effectiveMatchRating } from "./ratings/index.js";
 
@@ -337,7 +337,7 @@ export async function rebuildClubPlayerStats(clubId) {
 }
 
 export async function syncClubStatsForMatch(mainMatch) {
-  if (getClubsConnection().readyState !== 1) {
+  if (getClubsWorkspaceConnection().readyState !== 1) {
     throw new Error("Clubs database is not connected.");
   }
   return attachMainMatchToClubMatch(mainMatch);

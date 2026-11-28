@@ -1,3 +1,4 @@
+import { workspaceModel } from "../../config/workspaceModels.js";
 import mongoose from "mongoose";
 import { CLUB_MIN_MEMBERS, CLUB_MAX_MEMBERS } from "../../config/clubsRules.js";
 import { getClubsConnection } from "../../config/clubsDatabase.js";
@@ -84,4 +85,4 @@ applicationSchema.pre("validate", function validateCaptainMembership() {
 applicationSchema.index({ founderPlayerId: 1, status: 1 });
 applicationSchema.index({ proposedNameNormalized: 1 });
 
-export default getClubsConnection().model("ClubFormationApplication", applicationSchema);
+export default workspaceModel(getClubsConnection().model("ClubFormationApplication", applicationSchema));

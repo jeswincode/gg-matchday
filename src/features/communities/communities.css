@@ -7,6 +7,41 @@
 .community-topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .community-topbar h1, .community-panel h2 { margin: 0; }
 .community-topbar h1 { overflow-wrap: anywhere; }
+.community-app-brand { display: contents; }
+.ballers-wordmark, .ballers-intro-wordmark {
+  color: var(--text, #eef2ff);
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 900;
+  letter-spacing: -.06em;
+  line-height: 1;
+}
+.ballers-intro-wordmark {
+  position: absolute;
+  top: max(2rem, env(safe-area-inset-top));
+  left: max(2.5rem, env(safe-area-inset-left));
+  z-index: 1;
+  font-size: clamp(2.25rem, 5vw, 5rem);
+}
+.ballers-entry-backdrop { position: fixed; inset: 0; z-index: 10; }
+.ballers-entry-backdrop .gg-matchday-intro { filter: blur(9px) brightness(.7); transform: scale(1.035); }
+.ballers-entry-panel { width: min(30rem, 100%); }
+.ballers-entry-panel .gg-entry-google { width: 100%; margin-block: .8rem .25rem; }
+.community-copy-id { margin-top: .85rem; }
+.ballers-entry-panel .gg-account-setting { border-top: 0; padding-top: 0; }
+.ballers-community-hero::after { content: "b." / ""; }
+.community-crest {
+  display: grid;
+  place-items: center;
+  inline-size: 3.25rem;
+  min-block-size: 3.25rem;
+  border: 1px solid var(--signature-border, #404458);
+  border-radius: .75rem;
+  background: var(--signature-chip, #262439);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+.community-card-name { min-width: 0; flex: 1; }
+.community-card-name h2 { overflow-wrap: anywhere; }
 .community-actions, .community-card, .community-copy, .community-request {
   display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
 }
@@ -55,6 +90,12 @@
 }
 .community-month { display: inline-flex; align-items: center; gap: .6rem; }
 .community-dock { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 520px) {
+  .ballers-intro-wordmark { inset-inline-start: 1.35rem; }
+  .gg-matchday-intro:has(.ballers-intro-wordmark) .gg-intro-desktop-button {
+    padding-inline-start: 1.35rem;
+  }
+}
 @media (max-width: 700px) {
   .community-shell { gap: .85rem; }
   .community-topbar { flex-wrap: wrap; }

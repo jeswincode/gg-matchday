@@ -178,7 +178,7 @@
 #root :is(.bottom-nav, .clubs-destination-nav) button[aria-current="page"]::before,
 #root [data-drag-dock][data-dragging]::before {
   box-sizing: border-box;
-  content: "GG" / "";
+  content: var(--workspace-monogram, "GG") / "";
   color: transparent;
   -webkit-text-stroke: 1px color-mix(in srgb, var(--signature-selection-ink) 26%, transparent);
   font: 900 clamp(28px, 6vw, 48px)/.95 system-ui, sans-serif;
