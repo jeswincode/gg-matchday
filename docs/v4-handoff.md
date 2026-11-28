@@ -41,7 +41,7 @@ Take the next user-selected feature through local implementation, focused tests,
 ### Public release
 
 - The official Render service enables communities after it initializes the registry in its existing core database. It retains the official Firebase issuer, roster, match IDs and Clubs database. Verified links provision founding membership on sign-in. Multiple verified accounts linked to one roster player keep their existing access and get separate global identities. A global name edit updates the founding roster name only when one account owns the link.
-- The official Vercel app checks `GET /api/platform` before choosing the entry screen. The old entry remains available while the API rollout is pending or the registry cannot initialize. For a rollback, set `BALLERS_COMMUNITIES_DISABLED=true` on the official Render service and redeploy the current build. This returns the official site to the original entry while retaining all community collections.
+- The official Vercel app checks `GET /api/platform` before choosing the entry screen. A temporary network error or cold start keeps the public entry visible. An explicit disabled response or the missing endpoint from an older build shows the original entry. For a rollback, set `BALLERS_COMMUNITIES_DISABLED=true` on the official Render service and redeploy the current build. This returns the official site to the original entry while retaining all community collections.
 
 ## Live data and performance
 

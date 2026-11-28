@@ -7,12 +7,14 @@ const officialApi = 'https://gg-matchday-6u6v.onrender.com/api';
 
 export async function resolveCommunitiesMode() {
   if (communitiesEnabled || !VITE_ENV.PROD || API_URL.replace(/\/$/, '') !== officialApi) return communitiesEnabled;
+  // A sleeping or temporarily unavailable API is not a rollback signal.
+  communitiesEnabled = true;
   const request = new AbortController();
-  const deadline = setTimeout(() => request.abort(), 4500);
+  const deadline = setTimeout(() => request.abort(), 1800);
   try {
     const response = await fetch(officialApi + '/platform', { cache: 'no-store', signal: request.signal });
-    if (response.ok) communitiesEnabled = (await response.json()).communities === true;
-  } catch { /* Keep the existing entry available while the API is reconnecting. */ }
+    if (response.status === 404 || (response.ok && (await response.json()).communities === false)) communitiesEnabled = false;
+  } catch { /* Keep the public entry available while the API wakes up. */ }
   finally { clearTimeout(deadline); }
   return communitiesEnabled;
 }
